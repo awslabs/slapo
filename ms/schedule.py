@@ -24,17 +24,20 @@ class Schedule():
         self.tensors = {}
 
         gm: fx.GraphModule = fx.symbolic_trace(self.mod)
-        for module in gm.named_modules():
-            self.tensors[module] = Tensor(module)
+        for named_module in gm.named_modules():
+            name, module = named_module
+            self.tensors[name] = Tensor(name, world_size, rank)
 
     def __getitem__(self, name: str):
         return self.tensors[name]
 
 
 class Tensor():
-    def __init__(self, name: str):
+    def __init__(self, name: str, world_size: int, rank: int):
         self.name = name
         self.spec = None
+        self.world_size = world_size
+        self.rank = rank
 
     def partition(self, axis):
         placements = [f"rank:{idx}/cuda:{idx}" for idx in range(self.world_size)]
@@ -44,8 +47,8 @@ class Tensor():
         )
 
 
-def create_schedule(mod: nn.Module):
-    return Schedule(mod)
+def create_schedule(mod: nn.Module, world_size: int, rank: int):
+    return Schedule(mod, world_size, rank)
 
 
 def build(sch: Schedule, rank: int):
@@ -54,8 +57,10 @@ def build(sch: Schedule, rank: int):
         dim=0,
         placements=[f"rank:{idx}/cuda:{idx}" for idx in range(sch.world_size)],
     )
-    sharding_plan = {t+".weight": sch[t].spec for t in sch.tensors}
-    print(sharding_plan)
+    sharding_plan = {}
+    for t in sch.tensors:
+        if t != "" and "activation" not in t:
+            sharding_plan[t+".weight"] = sch[t].spec
     module_sharding_plan = ShardingPlan(
         # Specify the sharding plan for the component of each module.
         plan=sharding_plan,
@@ -69,11 +74,12 @@ def build(sch: Schedule, rank: int):
         return_local_tensor=["dense_2"],
     )
     # Shard the module based on created plan.
+    sch.mod = sch.mod.cuda(rank)
     shard_module(sch.mod, module_sharding_plan)
     # Create a optimizer for the sharded module.
     opt = ShardedOptimizer(
         dict(named_params_with_sharded_tensor(sch.mod)),
         torch.optim.SGD, # SGD is only demo purpose, one can use other optims.
-        # lr=lr,
+        lr=0.002,
     )
-    return sch.mod.cuda(rank), opt
+    return sch.mod, opt

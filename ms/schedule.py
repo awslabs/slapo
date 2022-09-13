@@ -1,8 +1,4 @@
-import argparse
-import os
 import torch
-import torch.distributed as dist
-import torch.multiprocessing as mp
 import torch.nn as nn
 import torch.fx as fx
 
@@ -23,27 +19,33 @@ class Schedule():
         self.mod = mod
         self.world_size = world_size
         self.rank = rank
-        self.tensors = {}
+        self.ops = {}
 
         gm: fx.GraphModule = fx.symbolic_trace(self.mod)
-        for named_module in gm.named_modules():
-            name, _ = named_module
-            self.tensors[name] = Tensor(name, world_size, rank)
+        for name, _ in gm.named_modules():
+            if name != "":
+                self.ops[name] = Operation(name, world_size, rank)
 
     def __getitem__(self, name: str):
-        return self.tensors[name]
+        # map from name to op
+        return self.ops[name]
+
+    @property
+    def forward_ops(self):
+        return list(self.ops.keys())
 
 
-class Tensor():
+class Operation():
+
     def __init__(self, name: str, world_size: int, rank: int):
         self.name = name
-        self.spec = None
+        self.spec = {}
         self.world_size = world_size
         self.rank = rank
 
-    def partition(self, axis):
+    def partition(self, axis: int, param: str = "output"):
         placements = [f"rank:{idx}/cuda:{idx}" for idx in range(self.world_size)]
-        self.spec = ChunkShardingSpec(
+        self.spec[param] = ChunkShardingSpec(
             dim=axis,
             placements=placements,
         )
@@ -58,27 +60,24 @@ def build(sch: Schedule):
     rank = sch.rank
     world_size = sch.world_size
     setup(rank, world_size)
-    # The result from the second nn.linear layer needs aggregation by dim 0.
-    output_spec = ChunkShardingSpec(
-        dim=0,
-        placements=[f"rank:{idx}/cuda:{idx}" for idx in range(world_size)],
-    )
     # Create sharding plan
     param_sharding_plan = {}
-    for t in sch.tensors:
-        if t != "" and "activation" not in t:
-            param_sharding_plan[t + ".weight"] = sch[t].spec
+    output_sharding_plan = {}
+    for name, op in sch.ops.items():
+        for param in op.spec:
+            if param == "output":
+                output_sharding_plan[name] = op.spec[param]
+            else:
+                param_sharding_plan["{}.{}".format(name, param)] = op.spec[param]
     module_sharding_plan = ShardingPlan(
         # Specify the sharding plan for the component of each module.
         plan=param_sharding_plan,
         # Specify the sharding plan for the output of one particular module.
         # e.g., the output of the second nn layer in the example of Megatron-LM.
-        output_plan={
-            "dense_2": output_spec,
-        },
+        output_plan=output_sharding_plan,
         # Specify to get the tensor stored on the local shard if the output
         # is a sharded tensor.
-        return_local_tensor=["dense_2"],
+        return_local_tensor=[sch.forward_ops[-1]],
     )
     # Shard the module based on created plan.
     sch.mod = sch.mod.cuda(rank)

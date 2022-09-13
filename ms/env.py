@@ -21,4 +21,5 @@ def execute(fn, args):
              args=(args,),
              nprocs=args.world_size,
              join=True)
-    cleanup()
+    if args.world_size > 1:
+        cleanup()

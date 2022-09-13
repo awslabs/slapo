@@ -5,6 +5,7 @@ import ms
 
 
 class MLP(nn.Module):
+
     def __init__(self, dim: int = 32):
         super().__init__()
         intermediate_dim = dim * 2
@@ -21,12 +22,29 @@ class MLP(nn.Module):
 
 def train(rank, args):
     print(f"Running basic MLP example on rank {rank}.")
-    m = MLP()
-    sch = ms.create_schedule(m, args.world_size, rank)
+
+    # === Model execution schedule ===
+    mlp = MLP()
+
+    # Create a default schedule
+    sch = ms.create_schedule(mlp, args.world_size, rank)
+
+    # Access a specific op.
+    # Each "forward" function is a "basic block" that includes a sequence of
+    # operators to be executed. It could be in torch.fx IR and should be in ANF.
+    ops = sch.forward_ops
+    print(ops)
+    # >>> [dense_1, activation, dense_2]
 
     # Partition parameters
-    sch["dense_1"].partition(axis=0)
-    sch["dense_2"].partition(axis=1)
+    # column sharding for dense_1
+    sch[ops[0]].partition(axis=0, param="weight")
+    # row sharding for dense_2
+    sch[ops[2]].partition(axis=1, param="weight")
+
+    # Partition outputs
+    # The result from dense_2 needs aggregation by dim 0
+    sch[ops[2]].partition(axis=0)
 
     # Apply schedule and regenerate module
     model, optimizer = ms.build(sch)
@@ -49,7 +67,4 @@ if __name__ == "__main__":
     parser.add_argument("--iter_nums", type=int, default=5)
     args = parser.parse_args()
     # The main entry point is called directly without using subprocess
-    if n_gpus < 2:
-        print("Requires at least 2 GPUs to run.")
-    else:
-        ms.execute(train, args)
+    ms.execute(train, args)

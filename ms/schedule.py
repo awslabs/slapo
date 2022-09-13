@@ -21,10 +21,13 @@ class Schedule():
         self.rank = rank
         self.ops = {}
 
-        gm: fx.GraphModule = fx.symbolic_trace(self.mod)
-        for name, _ in gm.named_modules():
-            if name != "":
-                self.ops[name] = Operation(name, world_size, rank)
+        self.gm: fx.GraphModule = fx.symbolic_trace(self.mod)
+        # for name, _ in gm.named_modules():
+        for node in self.gm.graph.nodes:
+            if node.op == "call_module":
+                name = node.target
+                if name != "":
+                    self.ops[name] = Operation(name, world_size, rank, node, self.gm)
 
     def __getitem__(self, name: str):
         # map from name to op
@@ -37,11 +40,16 @@ class Schedule():
 
 class Operation():
 
-    def __init__(self, name: str, world_size: int, rank: int):
+    def __init__(self, name: str,
+                       world_size: int, rank: int,
+                       node: fx.Node, gm: fx.GraphModule):
         self.name = name
         self.spec = {}
         self.world_size = world_size
         self.rank = rank
+        # preserve parent graph module used for transformation
+        self.node = node
+        self.gm = gm
 
     def partition(self, axis: int, param: str = "output"):
         placements = [f"rank:{idx}/cuda:{idx}" for idx in range(self.world_size)]
@@ -50,13 +58,28 @@ class Operation():
             placements=placements,
         )
 
+    def replace(self, nn_mod: nn.Module):
+        instance = nn_mod()
+        name = instance._get_name().split(".")[-1]
+        self.gm.add_submodule(name, instance)
+        with self.gm.graph.inserting_after(self.node):
+            new_node = self.gm.graph.call_module(name, self.node.args, self.node.kwargs)
+            self.node.replace_all_uses_with(new_node)
+        # Remove the old node from the graph
+        self.gm.graph.erase_node(self.node)
+        self.node = new_node
+
 
 def create_schedule(mod: nn.Module, world_size: int, rank: int):
     return Schedule(mod, world_size, rank)
 
 
 def build(sch: Schedule):
-    # Initialization
+    # Recompile fx module
+    sch.gm.graph.lint() # Does some checks to make sure the Graph is well-formed.
+    sch.gm.recompile()
+    print(sch.gm)
+    # Initialize distributed environment
     rank = sch.rank
     world_size = sch.world_size
     setup(rank, world_size)
@@ -80,12 +103,12 @@ def build(sch: Schedule):
         return_local_tensor=[sch.forward_ops[-1]],
     )
     # Shard the module based on created plan.
-    sch.mod = sch.mod.cuda(rank)
-    shard_module(sch.mod, module_sharding_plan)
+    sch.gm = sch.gm.cuda(rank)
+    shard_module(sch.gm, module_sharding_plan)
     # Create a optimizer for the sharded module.
     opt = ShardedOptimizer(
-        dict(named_params_with_sharded_tensor(sch.mod)),
+        dict(named_params_with_sharded_tensor(sch.gm)),
         torch.optim.SGD, # SGD is only demo purpose, one can use other optims.
         lr=0.002,
     )
-    return sch.mod, opt
+    return sch.gm, opt

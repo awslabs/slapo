@@ -10,7 +10,7 @@ class MLP(nn.Module):
         super().__init__()
         intermediate_dim = dim * 2
         self.dense_1 = nn.Linear(dim, intermediate_dim)
-        self.activation = nn.ReLU()
+        self.activation = nn.Sigmoid()
         self.dense_2 = nn.Linear(intermediate_dim, dim)
 
     def forward(self, x):
@@ -45,6 +45,9 @@ def train(rank, args):
     # Partition outputs
     # The result from dense_2 needs aggregation by dim 0
     sch[ops[2]].partition(axis=0)
+
+    # Replace an op.
+    sch[ops[1]].replace(nn.ReLU)
 
     # Apply schedule and regenerate module
     model, optimizer = ms.build(sch)

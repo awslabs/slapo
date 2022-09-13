@@ -1,3 +1,5 @@
+from typing import List
+
 import torch
 import torch.nn as nn
 import torch.fx as fx
@@ -29,12 +31,17 @@ class Schedule():
                 if name != "":
                     self.ops[name] = Operation(name, world_size, rank, node, self.gm)
 
-    def __getitem__(self, name: str):
-        # map from name to op
-        return self.ops[name]
+    def __getitem__(self, name):
+        if isinstance(name, List):
+            lst = [self.ops[op] for op in name]
+            return OperationList(lst, self.gm)
+        else:
+            # map from name to op
+            return self.ops[name]
 
     @property
     def forward_ops(self):
+        # TODO: update ops after transformation
         return list(self.ops.keys())
 
 
@@ -68,6 +75,37 @@ class Operation():
         # Remove the old node from the graph
         self.gm.graph.erase_node(self.node)
         self.node = new_node
+
+
+class OperationList():
+
+    def __init__(self, op_lst: List[Operation], gm: fx.GraphModule):
+        self.op_lst = op_lst
+        self.gm = gm
+
+    def replace(self, nn_mod: nn.Module):
+        instance = nn_mod()
+        name = instance._get_name().split(".")[-1]
+        self.gm.add_submodule(name, instance)
+        first_node, last_node = None, None
+        for node in self.gm.graph.nodes:
+            if node.target == self.op_lst[0].name:
+                first_node = node
+            elif node.target == self.op_lst[-1].name:
+                last_node = node
+        assert first_node != None
+        assert last_node != None
+        with self.gm.graph.inserting_after(first_node):
+            new_node = self.gm.graph.call_module(name, first_node.args, first_node.kwargs)
+            last_node.replace_all_uses_with(new_node)
+        # Remove the old node from the graph
+        node_to_remove = []
+        for node in self.gm.graph.nodes:
+            for op in self.op_lst:
+                if node.target == op.name:
+                    node_to_remove.append(node)
+        for node in reversed(node_to_remove):
+            self.gm.graph.erase_node(node)
 
 
 def create_schedule(mod: nn.Module, world_size: int, rank: int):

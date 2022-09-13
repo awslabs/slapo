@@ -20,6 +20,20 @@ class MLP(nn.Module):
         return x
 
 
+class Block(nn.Module):
+
+    def __init__(self, dim: int = 32):
+        super().__init__()
+        intermediate_dim = dim * 2
+        self.fc = nn.Linear(dim, intermediate_dim)
+        self.relu = nn.ReLU()
+
+    def forward(self, x):
+        x = self.fc(x)
+        x = self.relu(x)
+        return x
+
+
 def train(rank, args):
     print(f"Running basic MLP example on rank {rank}.")
 
@@ -47,7 +61,10 @@ def train(rank, args):
     sch[ops[2]].partition(axis=0)
 
     # Replace an op.
-    sch[ops[1]].replace(nn.ReLU)
+    # sch[ops[1]].replace(nn.ReLU)
+
+    # Operator fusion.
+    sch[ops[0:2]].replace(Block)
 
     # Apply schedule and regenerate module
     model, optimizer = ms.build(sch)

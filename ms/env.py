@@ -16,8 +16,9 @@ def setup(rank, world_size):
 def cleanup():
     dist.destroy_process_group()
 
-def run_demo(demo_fn, args):
-    mp.spawn(demo_fn,
+def execute(fn, args):
+    mp.spawn(fn,
              args=(args,),
              nprocs=args.world_size,
              join=True)
+    cleanup()

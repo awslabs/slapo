@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import ms
 
+
 class MLP(nn.Module):
     def __init__(self, dim: int = 32):
         super().__init__()
@@ -17,18 +18,18 @@ class MLP(nn.Module):
         x = self.dense_2(x)
         return x
 
+
 def train(rank, args):
     print(f"Running basic MLP example on rank {rank}.")
     m = MLP()
     sch = ms.create_schedule(m, args.world_size, rank)
-    ms.setup(rank, args.world_size)
 
-    # Partition parameters of fc2. This implies an all_gather right before its consumers.
+    # Partition parameters
     sch["dense_1"].partition(axis=0)
     sch["dense_2"].partition(axis=1)
 
     # Apply schedule and regenerate module
-    model, optimizer = ms.build(sch, rank)
+    model, optimizer = ms.build(sch)
 
     # Perform a num of iterations of forward/backward
     # and optimizations for the sharded module.
@@ -38,8 +39,6 @@ def train(rank, args):
         output.sum().backward()
         optimizer.step()
         print("Finish step {}".format(i))
-
-    ms.cleanup()
 
 
 if __name__ == "__main__":
@@ -53,4 +52,4 @@ if __name__ == "__main__":
     if n_gpus < 2:
         print("Requires at least 2 GPUs to run.")
     else:
-        ms.run_demo(train, args)
+        ms.execute(train, args)

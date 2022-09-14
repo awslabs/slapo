@@ -107,8 +107,8 @@ class Operation():
             placements=placements,
         )
 
-    def replace(self, nn_mod: nn.Module):
-        instance = nn_mod()
+    def replace(self, nn_mod: nn.Module, *args):
+        instance = nn_mod(*args)
         name = instance._get_name().split(".")[-1]
         self.gm.add_submodule(name, instance)
         with self.gm.graph.inserting_after(self.node):

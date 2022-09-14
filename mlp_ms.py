@@ -43,6 +43,10 @@ def train(rank, args):
     # Create a default schedule
     sch = ms.create_schedule(mlp, args.world_size, rank)
 
+    # Get sub-modules
+    mod = sch.modules
+    print(mod)
+
     # Access a specific op.
     # Each "forward" function is a "basic block" that includes a sequence of
     # operators to be executed. It could be in torch.fx IR and should be in ANF.

@@ -1,5 +1,4 @@
-from typing import List
-
+import os
 import torch
 import torch.nn as nn
 import torch.fx as fx
@@ -15,21 +14,43 @@ from torch.distributed._shard.sharding_spec import ChunkShardingSpec
 from .env import setup
 
 
+class HierarchicalTracer(fx.Tracer):
+
+    def is_leaf_module(self, m: nn.Module, module_qualified_name: str) -> bool:
+        return (
+            (m.__module__.startswith("torch.nn") or m.__module__.startswith("torch.ao.nn"))
+            and not isinstance(m, nn.Sequential)
+        )
+
+
 class Schedule():
 
     def __init__(self, mod: nn.Module, world_size: int, rank: int) -> None:
         self.mod = mod
         self.world_size = world_size
         self.rank = rank
+        # List of [List of Operation names]
+        self._modules = []
         self.ops = {}
 
-        self.gm: fx.GraphModule = fx.symbolic_trace(self.mod)
+        traced_graph = HierarchicalTracer().trace(self.mod)
+        self.gm: fx.GraphModule = fx.GraphModule(self.mod, traced_graph)
+        # self.gm: fx.GraphModule = fx.symbolic_trace(self.mod)
         # for name, _ in gm.named_modules():
+        prev_path = ""
         for node in self.gm.graph.nodes:
             if node.op == "call_module":
-                name = node.target
-                if name != "":
-                    self.ops[name] = Operation(name, world_size, rank, node, self.gm)
+                name = "" + node.target
+                curr_path = name.rsplit(".", 1)[0]
+                prefix = os.path.commonprefix([prev_path, curr_path])
+                tmp_mod = self._modules
+                for i in range(name.count(".")):
+                    if len(tmp_mod) == 0:
+                        tmp_mod.append([])
+                    tmp_mod = tmp_mod[-1]
+                tmp_mod.append(name)
+                prev_path = curr_path
+                self.ops[name] = Operation(name, world_size, rank, node, self.gm)
 
     def __getitem__(self, name):
         if isinstance(name, List):
@@ -38,6 +59,10 @@ class Schedule():
         else:
             # map from name to op
             return self.ops[name]
+
+    @property
+    def modules(self):
+        return self._modules
 
     @property
     def forward_ops(self):

@@ -42,7 +42,7 @@ Using ``torchvision``, it’s extremely easy to load CIFAR10.
 import torch
 import torchvision
 import torchvision.transforms as transforms
-import numpy as np
+import time
 
 ########################################################################
 # The output of torchvision datasets are PILImage images of range [0, 1].
@@ -112,6 +112,24 @@ class Net(nn.Module):
 
 
 net = Net().to(device)
+# net = Net()
+
+########################################################################
+# Create schedule and transform program
+import ms
+sch = ms.create_schedule(net, 1, 0)
+sch.trace_module()
+print(sch.gm.graph)
+
+ops = sch.forward_ops
+print(ops)
+
+from apex.normalization.fused_layer_norm import FusedLayerNorm
+sch[ops[1]].replace(FusedLayerNorm, [6, 28, 28])
+sch[ops[4]].replace(FusedLayerNorm, [16, 10, 10])
+
+net, optimizer = ms.build(sch)
+print(sch.gm.graph)
 
 ########################################################################
 # 3. Define a Loss function and optimizer
@@ -134,6 +152,7 @@ optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
 for epoch in range(2):  # loop over the dataset multiple times
 
     running_loss = 0.0
+    start_time = time.time()
     for i, data in enumerate(trainloader, 0):
         # get the inputs; data is a list of [inputs, labels]
         inputs, labels = data
@@ -151,8 +170,10 @@ for epoch in range(2):  # loop over the dataset multiple times
         # print statistics
         running_loss += loss.item()
         if i % 2000 == 1999:    # print every 2000 mini-batches
-            print(f'[{epoch + 1}, {i + 1:5d}] loss: {running_loss / 2000:.3f}')
+            elapsed_time = time.time() - start_time
+            print(f'[{epoch + 1}, {i + 1:5d}] loss: {running_loss / 2000:.3f} time: {elapsed_time:.4f}s')
             running_loss = 0.0
+            start_time = time.time()
 
 print('Finished Training')
 

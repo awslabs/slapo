@@ -1,4 +1,6 @@
+from typing import List
 import os
+import re
 import torch
 import torch.nn as nn
 import torch.fx as fx
@@ -40,14 +42,16 @@ class Schedule():
         prev_path = ""
         for node in self.gm.graph.nodes:
             if node.op == "call_module":
-                name = "" + node.target
+                name = node.target
+                name = re.sub(r".([0-9]+).", r"_\1.", name) # for nn.Sequential
                 curr_path = name.rsplit(".", 1)[0]
-                prefix = os.path.commonprefix([prev_path, curr_path])
+                prefix = os.path.commonprefix([prev_path+".", curr_path+"."])
                 tmp_mod = self._modules
                 for i in range(name.count(".")):
-                    if len(tmp_mod) == 0:
+                    if len(tmp_mod) == 0 or i >= prefix.count("."):
                         tmp_mod.append([])
                     tmp_mod = tmp_mod[-1]
+                name = node.target
                 tmp_mod.append(name)
                 prev_path = curr_path
                 self.ops[name] = Operation(name, world_size, rank, node, self.gm)

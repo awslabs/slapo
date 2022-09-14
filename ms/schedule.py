@@ -28,17 +28,31 @@ class HierarchicalTracer(fx.Tracer):
 class Schedule():
 
     def __init__(self, mod: nn.Module, world_size: int, rank: int) -> None:
-        self.mod = mod
+        self.gm = mod
         self.world_size = world_size
         self.rank = rank
+        self._modules = None
+        self._ops = None
+
+    def __getitem__(self, name):
+        # should make sure the op list is up-to-date
+        if isinstance(name, List):
+            lst = [self._ops[op] for op in name]
+            return OperationList(lst, self.gm)
+        else:
+            # map from name to op
+            return self._ops[name]
+
+    def trace_module(self):
         # List of [List of Operation names]
         self._modules = []
-        self.ops = {}
-
-        traced_graph = HierarchicalTracer().trace(self.mod)
-        self.gm: fx.GraphModule = fx.GraphModule(self.mod, traced_graph)
-        # self.gm: fx.GraphModule = fx.symbolic_trace(self.mod)
-        # for name, _ in gm.named_modules():
+        self._ops = {}
+        if isinstance(self.gm, fx.GraphModule):
+            # Recompile fx module
+            self.gm.graph.lint() # Does some checks to make sure the Graph is well-formed.
+            self.gm.recompile()
+        traced_graph = HierarchicalTracer().trace(self.gm)
+        self.gm: fx.GraphModule = fx.GraphModule(self.gm, traced_graph)
         prev_path = ""
         for node in self.gm.graph.nodes:
             if node.op == "call_module":
@@ -54,24 +68,23 @@ class Schedule():
                 name = node.target
                 tmp_mod.append(name)
                 prev_path = curr_path
-                self.ops[name] = Operation(name, world_size, rank, node, self.gm)
+                self._ops[name] = Operation(name, self.world_size, self.rank, node, self.gm)
 
-    def __getitem__(self, name):
-        if isinstance(name, List):
-            lst = [self.ops[op] for op in name]
-            return OperationList(lst, self.gm)
-        else:
-            # map from name to op
-            return self.ops[name]
+    @property
+    def ops(self):
+        self.trace_module()
+        return self._ops
 
     @property
     def modules(self):
+        # require re-tracing every time
+        # to make sure the ops are up-to-date
+        self.trace_module()
         return self._modules
 
     @property
     def forward_ops(self):
-        # TODO: update ops after transformation
-        return list(self.ops.keys())
+        return list(self._ops.keys())
 
 
 class Operation():
@@ -142,9 +155,6 @@ def create_schedule(mod: nn.Module, world_size: int, rank: int):
 
 
 def build(sch: Schedule):
-    # Recompile fx module
-    sch.gm.graph.lint() # Does some checks to make sure the Graph is well-formed.
-    sch.gm.recompile()
     print(sch.gm)
     # Initialize distributed environment
     rank = sch.rank

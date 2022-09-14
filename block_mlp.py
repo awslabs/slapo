@@ -17,6 +17,17 @@ class Block(nn.Module):
         return x
 
 
+class Block2(nn.Module):
+
+    def __init__(self, dim: int = 32):
+        super().__init__()
+        intermediate_dim = dim
+        self.net = nn.Linear(dim, intermediate_dim)
+
+    def forward(self, x):
+        return self.net(x)
+
+
 class MLP(nn.Module):
 
     def __init__(self, dim: int = 32):
@@ -52,6 +63,12 @@ def train(rank, args):
     print(ops)
     # >>> ['blocks.0.fc', 'blocks.0.relu', 'blocks.1.fc', 'blocks.1.relu']
 
+    # Replace a block
+    sch[mods[0]].replace(Block2)
+    # Update submodules
+    mods = sch.modules
+    print(mods)
+
     # Partition parameters
     # column sharding for dense_1
     sch[mods[0][0]].partition(axis=0, param="weight")
@@ -61,9 +78,6 @@ def train(rank, args):
     # Partition outputs
     # The result from dense_2 needs aggregation by dim 0
     sch[mods[1][0]].partition(axis=0)
-
-    # Operator fusion.
-    # sch[mods[0]].replace(Block)
 
     # Apply schedule and regenerate module
     model, optimizer = ms.build(sch)

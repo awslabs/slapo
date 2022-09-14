@@ -1,4 +1,5 @@
 import argparse
+import time
 import torch
 import torch.nn as nn
 import ms
@@ -38,10 +39,10 @@ def train(rank, args):
     print(f"Running basic MLP example on rank {rank}.")
 
     # === Model execution schedule ===
-    mlp = MLP()
+    model = MLP()
 
     # Create a default schedule
-    sch = ms.create_schedule(mlp, args.world_size, rank)
+    sch = ms.create_schedule(model, args.world_size, rank)
 
     # Get sub-modules
     mod = sch.modules
@@ -73,14 +74,20 @@ def train(rank, args):
     # Apply schedule and regenerate module
     model, optimizer = ms.build(sch)
 
+    # without applying schedule
+    # model = model.cuda()
+    # optimizer = torch.optim.SGD(model.parameters(), lr=0.002)
+
     # Perform a num of iterations of forward/backward
     # and optimizations for the sharded module.
     for i in range(args.iter_nums):
+        start_time = time.time()
         inp = torch.rand(16, 32).cuda(rank)
         output = model(inp)
         output.sum().backward()
         optimizer.step()
-        print("Finish step {}".format(i))
+        elapsed_time = time.time() - start_time
+        print(f"Finish step {i}, time: {elapsed_time:.10f}s")
 
 
 if __name__ == "__main__":

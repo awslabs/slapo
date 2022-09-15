@@ -113,12 +113,19 @@ class Net(nn.Module):
 
 
 net = Net().to(device)
-# net = Net()
+
+########################################################################
+# 3. Define a Loss function and optimizer
+# ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+# Let's use a Classification Cross-Entropy loss and SGD with momentum.
+
+criterion = nn.CrossEntropyLoss()
+optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
 
 ########################################################################
 # Create schedule and transform program
 import ms
-sch = ms.create_schedule(net, 1, 0)
+sch = ms.create_schedule(net, 1, 0, optimizer=optimizer)
 sch.trace_module()
 print(sch.gm.graph)
 
@@ -129,16 +136,8 @@ from apex.normalization.fused_layer_norm import FusedLayerNorm
 sch[ops[1]].replace(FusedLayerNorm, [6, 28, 28])
 sch[ops[4]].replace(FusedLayerNorm, [16, 10, 10])
 
-net, optimizer = ms.build(sch, torch.optim.SGD, lr=0.001, momentum=0.9)
+net, optimizer = ms.build(sch)
 print(sch.gm.graph)
-
-########################################################################
-# 3. Define a Loss function and optimizer
-# ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-# Let's use a Classification Cross-Entropy loss and SGD with momentum.
-
-criterion = nn.CrossEntropyLoss()
-# optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
 
 ########################################################################
 # 4. Train the network

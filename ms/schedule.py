@@ -27,13 +27,18 @@ class HierarchicalTracer(fx.Tracer):
 
 class Schedule():
 
-    def __init__(self, mod: nn.Module, world_size: int, rank: int) -> None:
+    def __init__(self, mod: nn.Module, world_size: int, rank: int,
+                 optimizer: torch.optim.Optimizer = None):
         traced_graph = HierarchicalTracer().trace(mod)
         self.gm: fx.GraphModule = fx.GraphModule(mod, traced_graph)
         self.world_size = world_size
         self.rank = rank
         self._modules = None
         self._ops = None
+        if optimizer == None:
+            self.optimizer = torch.optim.SGD(mod.parameters(), lr=0.001)
+        else:
+            self.optimizer = optimizer
 
     def __getitem__(self, name):
         # should make sure the op list is up-to-date
@@ -154,14 +159,12 @@ class OperationList():
             self.gm.graph.erase_node(node)
 
 
-def create_schedule(mod: nn.Module, world_size: int, rank: int):
-    return Schedule(mod, world_size, rank)
+def create_schedule(model: nn.Module, world_size: int, rank: int,
+                    optimizer: torch.optim.Optimizer):
+    return Schedule(model, world_size, rank, optimizer=optimizer)
 
 
-def build(sch: Schedule, 
-          optimizer: torch.optim.Optimizer = torch.optim.SGD,
-          *optimizer_args,
-          **optimizer_kwargs):
+def build(sch: Schedule):
     sch.gm.graph.lint() # Does some checks to make sure the Graph is well-formed.
     sch.gm.recompile()
     print(sch.gm)
@@ -194,8 +197,8 @@ def build(sch: Schedule,
     # Create a optimizer for the sharded module.
     opt = ShardedOptimizer(
         dict(named_params_with_sharded_tensor(sch.gm)),
-        optimizer, # SGD is only demo purpose, one can use other optims.
-        *optimizer_args,
-        **optimizer_kwargs
+        type(sch.optimizer),
+        lr=sch.optimizer.param_groups[0]["lr"],
+        momentum=sch.optimizer.param_groups[0]["momentum"]
     )
     return sch.gm, opt

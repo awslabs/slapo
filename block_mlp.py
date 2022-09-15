@@ -65,22 +65,10 @@ def train(rank, args):
 
     # Replace a block
     sch[mods[0]].replace(Block2)
-    # Update submodules
-    mods = sch.modules
-    print(mods)
-
-    # Partition parameters
-    # column sharding for dense_1
-    sch[mods[0][0]].partition(axis=0, param="weight")
-    # row sharding for dense_2
-    sch[mods[1][0]].partition(axis=1, param="weight")
-
-    # Partition outputs
-    # The result from dense_2 needs aggregation by dim 0
-    sch[mods[1][0]].partition(axis=0)
+    print(sch.gm.graph)
 
     # Apply schedule and regenerate module
-    model, optimizer = ms.build(sch)
+    model, optimizer = ms.build(sch, torch.optim.SGD, lr=0.002)
 
     # Perform a num of iterations of forward/backward
     # and optimizations for the sharded module.

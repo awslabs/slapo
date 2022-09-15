@@ -157,6 +157,8 @@ def build(sch: Schedule,
           optimizer: torch.optim.Optimizer = torch.optim.SGD,
           *optimizer_args,
           **optimizer_kwargs):
+    sch.gm.graph.lint() # Does some checks to make sure the Graph is well-formed.
+    sch.gm.recompile()
     print(sch.gm)
     # Initialize distributed environment
     rank = sch.rank

@@ -28,7 +28,8 @@ class HierarchicalTracer(fx.Tracer):
 class Schedule():
 
     def __init__(self, mod: nn.Module, world_size: int, rank: int) -> None:
-        self.gm = mod
+        traced_graph = HierarchicalTracer().trace(mod)
+        self.gm: fx.GraphModule = fx.GraphModule(mod, traced_graph)
         self.world_size = world_size
         self.rank = rank
         self._modules = None
@@ -51,8 +52,6 @@ class Schedule():
             # Recompile fx module
             self.gm.graph.lint() # Does some checks to make sure the Graph is well-formed.
             self.gm.recompile()
-        traced_graph = HierarchicalTracer().trace(self.gm)
-        self.gm: fx.GraphModule = fx.GraphModule(self.gm, traced_graph)
         prev_path = ""
         for node in self.gm.graph.nodes:
             if node.op == "call_module":
@@ -154,7 +153,10 @@ def create_schedule(mod: nn.Module, world_size: int, rank: int):
     return Schedule(mod, world_size, rank)
 
 
-def build(sch: Schedule):
+def build(sch: Schedule, 
+          optimizer: torch.optim.Optimizer = torch.optim.SGD,
+          *optimizer_args,
+          **optimizer_kwargs):
     print(sch.gm)
     # Initialize distributed environment
     rank = sch.rank
@@ -185,7 +187,8 @@ def build(sch: Schedule):
     # Create a optimizer for the sharded module.
     opt = ShardedOptimizer(
         dict(named_params_with_sharded_tensor(sch.gm)),
-        torch.optim.SGD, # SGD is only demo purpose, one can use other optims.
-        lr=0.002,
+        optimizer, # SGD is only demo purpose, one can use other optims.
+        *optimizer_args,
+        **optimizer_kwargs
     )
     return sch.gm, opt

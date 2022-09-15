@@ -72,7 +72,7 @@ def train(rank, args):
     sch[ops[0:2]].replace(Block)
 
     # Apply schedule and regenerate module
-    model, optimizer = ms.build(sch)
+    model, optimizer = ms.build(sch, torch.optim.SGD, lr=0.002)
 
     # without applying schedule
     # model = model.cuda()

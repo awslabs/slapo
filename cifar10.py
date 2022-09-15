@@ -83,6 +83,7 @@ print(device)
 
 import torch.nn as nn
 import torch.nn.functional as F
+import torch.optim as optim
 
 
 class Net(nn.Module):
@@ -128,7 +129,7 @@ from apex.normalization.fused_layer_norm import FusedLayerNorm
 sch[ops[1]].replace(FusedLayerNorm, [6, 28, 28])
 sch[ops[4]].replace(FusedLayerNorm, [16, 10, 10])
 
-net, optimizer = ms.build(sch)
+net, optimizer = ms.build(sch, torch.optim.SGD, lr=0.001, momentum=0.9)
 print(sch.gm.graph)
 
 ########################################################################
@@ -136,10 +137,8 @@ print(sch.gm.graph)
 # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 # Let's use a Classification Cross-Entropy loss and SGD with momentum.
 
-import torch.optim as optim
-
 criterion = nn.CrossEntropyLoss()
-optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
+# optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
 
 ########################################################################
 # 4. Train the network

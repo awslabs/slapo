@@ -109,6 +109,11 @@ class Operation():
     def replace(self, nn_mod: nn.Module, *args):
         instance = nn_mod(*args)
         name = instance._get_name().split(".")[-1]
+        for existing_name, _ in self.gm.named_modules():
+            # avoid name collision
+            if name == existing_name:
+                name = name + "_1"
+                break
         self.gm.add_submodule(name, instance)
         with self.gm.graph.inserting_after(self.node):
             new_node = self.gm.graph.call_module(name, self.node.args, self.node.kwargs)

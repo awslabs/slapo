@@ -88,7 +88,7 @@ class Schedule():
 
     @property
     def forward_ops(self):
-        return list(self._ops.keys())
+        return list(self.ops.keys())
 
 
 class Operation():
@@ -159,8 +159,8 @@ class OperationList():
             self.gm.graph.erase_node(node)
 
 
-def create_schedule(model: nn.Module, world_size: int, rank: int,
-                    optimizer: torch.optim.Optimizer):
+def create_schedule(model: nn.Module, optimizer: torch.optim.Optimizer,
+                    world_size: int = 1, rank: int = 0):
     return Schedule(model, world_size, rank, optimizer=optimizer)
 
 
@@ -168,6 +168,9 @@ def build(sch: Schedule):
     sch.gm.graph.lint() # Does some checks to make sure the Graph is well-formed.
     sch.gm.recompile()
     print(sch.gm)
+    # single device
+    if sch.world_size == 1:
+        return sch.gm.cuda(sch.rank), sch.optimizer
     # Initialize distributed environment
     rank = sch.rank
     world_size = sch.world_size

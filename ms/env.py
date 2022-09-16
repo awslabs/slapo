@@ -17,9 +17,15 @@ def cleanup():
     dist.destroy_process_group()
 
 def execute(fn, args):
-    mp.spawn(fn,
-             args=(args,),
-             nprocs=args.world_size,
-             join=True)
-    if args.world_size > 1:
-        cleanup()
+    if isinstance(args, int):
+        mp.spawn(fn,
+                 args=(args,),
+                 nprocs=args,
+                 join=True)
+    else:
+        mp.spawn(fn,
+                 args=(args,),
+                 nprocs=args.world_size,
+                 join=True)
+        if args.world_size > 1:
+            cleanup()

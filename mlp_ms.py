@@ -67,10 +67,10 @@ def train(rank, args):
     sch[ops[2]].partition(axis=0)
 
     # Replace an op.
-    # sch[ops[1]].replace(nn.ReLU)
+    sch[ops[1]].replace(nn.ReLU)
 
     # Operator fusion.
-    sch[ops[0:2]].replace(Block)
+    # sch[ops[0:2]].replace(Block)
 
     # Apply schedule and regenerate module
     model, optimizer = ms.build(sch)

@@ -34,7 +34,7 @@ class Schedule():
         self.world_size = world_size
         self.rank = rank
         self._modules = None
-        self._ops = None
+        self._ops = {}
         if optimizer == None:
             self.optimizer = torch.optim.SGD(mod.parameters(), lr=0.001)
         else:
@@ -52,7 +52,7 @@ class Schedule():
     def trace_module(self):
         # List of [List of Operation names]
         self._modules = []
-        self._ops = {}
+        new_ops = {}
         if isinstance(self.gm, fx.GraphModule):
             # Recompile fx module
             self.gm.graph.lint() # Does some checks to make sure the Graph is well-formed.
@@ -72,7 +72,11 @@ class Schedule():
                 name = node.target
                 tmp_mod.append(name)
                 prev_path = curr_path
-                self._ops[name] = Operation(name, self.world_size, self.rank, node, self.gm)
+                if name not in self._ops:
+                    new_ops[name] = Operation(name, self.world_size, self.rank, node, self.gm)
+                else:
+                    new_ops[name] = self._ops[name]
+        self._ops = new_ops
 
     @property
     def ops(self):
@@ -169,8 +173,8 @@ def build(sch: Schedule):
     sch.gm.recompile()
     print(sch.gm)
     # single device
-    if sch.world_size == 1:
-        return sch.gm.cuda(sch.rank), sch.optimizer
+    # if sch.world_size == 1:
+    #     return sch.gm.cuda(sch.rank), sch.optimizer
     # Initialize distributed environment
     rank = sch.rank
     world_size = sch.world_size

@@ -1,5 +1,6 @@
 import argparse
 import time
+import copy
 import torch
 import torch.nn as nn
 import ms
@@ -11,7 +12,7 @@ class MLP(nn.Module):
         super().__init__()
         intermediate_dim = dim * 2
         self.dense_1 = nn.Linear(dim, intermediate_dim)
-        self.activation = nn.Sigmoid()
+        self.activation = nn.ReLU()
         self.dense_2 = nn.Linear(intermediate_dim, dim)
 
     def forward(self, x):
@@ -43,7 +44,7 @@ def train(rank, args):
     optimizer = torch.optim.SGD(model.parameters(), lr=0.002)
 
     # Create a default schedule
-    sch = ms.create_schedule(model, optimizer, args.world_size, rank)
+    sch = ms.create_schedule(copy.deepcopy(model), copy.deepcopy(optimizer), args.world_size, rank)
 
     # Get sub-modules
     mod = sch.modules
@@ -58,29 +59,35 @@ def train(rank, args):
 
     # Partition parameters
     # column sharding for dense_1
-    sch[ops[0]].partition(axis=0, param="weight")
+    sch[ops[0]].partition(axis=1, param="weight")
     # row sharding for dense_2
-    sch[ops[2]].partition(axis=1, param="weight")
+    sch[ops[2]].partition(axis=0, param="weight")
 
     # Partition outputs
     # The result from dense_2 needs aggregation by dim 0
-    sch[ops[2]].partition(axis=0)
+    sch[ops[2]].partition(axis=1)
 
     # Replace an op.
-    sch[ops[1]].replace(nn.ReLU)
+    # sch[ops[1]].replace(nn.ReLU)
 
     # Operator fusion.
     # sch[ops[0:2]].replace(Block)
 
     # Apply schedule and regenerate module
-    model, optimizer = ms.build(sch)
+    opt_model, optimizer = ms.build(sch)
+
+    # test correctness
+    inp = torch.rand(16, 32).cuda(rank)
+    output = model(inp)
+    opt_output = opt_model(inp)
+    assert torch.allclose(output, opt_output)
 
     # Perform a num of iterations of forward/backward
     # and optimizations for the sharded module.
     for i in range(args.iter_nums):
         start_time = time.time()
         inp = torch.rand(16, 32).cuda(rank)
-        output = model(inp)
+        output = opt_model(inp)
         output.sum().backward()
         optimizer.step()
         elapsed_time = time.time() - start_time

@@ -109,6 +109,8 @@ class Operation():
         self.gm = gm
 
     def partition(self, axis: int, param: str = "output"):
+        # axis after transpose
+        axis = 1 - axis
         placements = [f"rank:{idx}/cuda:{idx}" for idx in range(self.world_size)]
         self.spec[param] = ChunkShardingSpec(
             dim=axis,
@@ -198,6 +200,7 @@ def build(sch: Schedule):
         # is a sharded tensor.
         return_local_tensor=[sch.forward_ops[-1]],
     )
+    print(module_sharding_plan)
     # Shard the module based on created plan.
     sch.gm = sch.gm.cuda(rank)
     shard_module(sch.gm, module_sharding_plan)

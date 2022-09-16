@@ -134,8 +134,8 @@ class OperationList():
         self.op_lst = op_lst
         self.gm = gm
 
-    def replace(self, nn_mod: nn.Module):
-        instance = nn_mod()
+    def replace(self, nn_mod: nn.Module, *args):
+        instance = nn_mod(*args)
         name = instance._get_name().split(".")[-1]
         self.gm.add_submodule(name, instance)
         first_node, last_node = None, None
@@ -159,7 +159,7 @@ class OperationList():
             self.gm.graph.erase_node(node)
 
 
-def create_schedule(model: nn.Module, optimizer: torch.optim.Optimizer,
+def create_schedule(model: nn.Module, optimizer: torch.optim.Optimizer = None,
                     world_size: int = 1, rank: int = 0):
     return Schedule(model, world_size, rank, optimizer=optimizer)
 

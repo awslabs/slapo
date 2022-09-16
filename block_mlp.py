@@ -50,8 +50,7 @@ def train(rank, args):
     optimizer = torch.optim.SGD(model.parameters(), lr=0.002)
 
     # Create a default schedule
-    sch = ms.create_schedule(model, args.world_size, rank,
-                             optimizer=optimizer)
+    sch = ms.create_schedule(model, optimizer, args.world_size, rank)
 
     # Get sub-modules
     mods = sch.modules

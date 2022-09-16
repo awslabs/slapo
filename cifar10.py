@@ -125,7 +125,7 @@ optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
 ########################################################################
 # Create schedule and transform program
 import ms
-sch = ms.create_schedule(net, 1, 0, optimizer=optimizer)
+sch = ms.create_schedule(net, optimizer, 1, 0)
 sch.trace_module()
 print(sch.gm.graph)
 

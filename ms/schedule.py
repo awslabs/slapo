@@ -29,8 +29,11 @@ class Schedule():
 
     def __init__(self, mod: nn.Module, world_size: int, rank: int,
                  optimizer: torch.optim.Optimizer = None):
-        traced_graph = HierarchicalTracer().trace(mod)
-        self.gm: fx.GraphModule = fx.GraphModule(mod, traced_graph)
+        if isinstance(mod, fx.GraphModule):
+            self.gm = mod
+        else:
+            traced_graph = HierarchicalTracer().trace(mod)
+            self.gm: fx.GraphModule = fx.GraphModule(mod, traced_graph)
         self.world_size = world_size
         self.rank = rank
         self._modules = None

@@ -35,15 +35,15 @@ def train(rank, args):
 
     # Partition parameters
     # column sharding for dense_1
-    sch[ops[0]].partition(axis=0, param="weight")
-    sch[ops[1]].partition(axis=0, param="weight")
+    sch[ops[0]].partition(axis=1, param="weight")
+    sch[ops[1]].partition(axis=1, param="weight")
     # row sharding for dense_2
-    sch[ops[3]].partition(axis=1, param="weight")
+    sch[ops[3]].partition(axis=0, param="weight")
 
     # Partition outputs
     # The result from dense_2 needs aggregation by dim 0
-    sch[ops[1]].partition(axis=0)
-    sch[ops[3]].partition(axis=0)
+    sch[ops[1]].partition(axis=1)
+    sch[ops[3]].partition(axis=1)
 
     # Apply schedule and regenerate module
     model, optimizer = ms.build(sch)

@@ -120,8 +120,15 @@ class Operation():
             placements=placements,
         )
 
-    def replace(self, nn_mod: nn.Module, *args):
-        instance = nn_mod(*args)
+    def replace(self, nn_mod: nn.Module, *args, arg_names=[]):
+        if len(arg_names) == 0:
+            instance = nn_mod(*args)
+        else:
+            for name, mod in self.gm.named_modules():
+                if name == self.name:
+                    new_args = [getattr(mod, arg) for arg in arg_names]
+                    break
+            instance = nn_mod(*new_args)
         name = instance._get_name().split(".")[-1]
         for existing_name, _ in self.gm.named_modules():
             # avoid name collision
@@ -176,7 +183,7 @@ def create_schedule(model: nn.Module, optimizer: torch.optim.Optimizer = None,
 def build(sch: Schedule):
     sch.gm.graph.lint() # Does some checks to make sure the Graph is well-formed.
     sch.gm.recompile()
-    print(sch.gm)
+    # print(sch.gm)
     # single device
     # if sch.world_size == 1:
     #     return sch.gm.cuda(sch.rank), sch.optimizer
@@ -203,7 +210,7 @@ def build(sch: Schedule):
         # is a sharded tensor.
         return_local_tensor=[sch.forward_ops[-1]],
     )
-    print(module_sharding_plan)
+    # print(module_sharding_plan)
     # Shard the module based on created plan.
     sch.gm = sch.gm.cuda(rank)
     shard_module(sch.gm, module_sharding_plan)

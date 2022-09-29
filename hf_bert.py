@@ -27,14 +27,13 @@ def replace_layernorm():
 def replace_gelu():
     print("Replace GeLU with FusedBiasGeLU")
     print(sch.func_ops)
-    sch["gelu"].replace(ms.op.bias_gelu_impl)
-    print(sch.gm.graph)
+    sch["gelu"].replace(ms.op.gelu)
+    # print(sch.gm.graph)
 
 # replace_layernorm()
 replace_gelu()
 
 model, optimizer = ms.build(sch)
-print(model.graph)
 
 bs = 16
 seq_length = 512

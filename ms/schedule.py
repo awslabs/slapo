@@ -202,13 +202,11 @@ class FunctionOpList():
     def replace(self, func: torch.autograd.Function):
         for op in self.func_lst:
             node = op.node
-            print(op.name, node)
             with self.gm.graph.inserting_after(node):
                 new_node = self.gm.graph.call_function(func, node.args, node.kwargs)
                 node.replace_all_uses_with(new_node)
             # remove the old node from the graph
             self.gm.graph.erase_node(node)
-            break
 
 
 def create_schedule(model: nn.Module, optimizer: torch.optim.Optimizer = None,

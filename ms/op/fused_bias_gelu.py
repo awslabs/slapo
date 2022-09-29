@@ -56,3 +56,6 @@ class GeLUFunction(torch.autograd.Function):
         return tmp, tmp
 
 bias_gelu_impl = GeLUFunction.apply
+
+def gelu(input):
+    return bias_gelu_impl(input, torch.zeros(input.shape).to("cuda:0"))

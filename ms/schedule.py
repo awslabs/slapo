@@ -38,6 +38,7 @@ class Schedule():
         self.rank = rank
         self._modules = None
         self._ops = {}
+        self._func_ops = {}
         if optimizer == None:
             self.optimizer = torch.optim.SGD(mod.parameters(), lr=0.001)
         else:
@@ -49,13 +50,17 @@ class Schedule():
             lst = [self._ops[op] for op in name]
             return OperationList(lst, self.gm)
         else:
-            # map from name to op
-            return self._ops[name]
+            if name in self._ops:
+                # map from name to op
+                return self._ops[name]
+            else:
+                return FunctionOpList(self._func_ops[name], self.gm)
 
     def trace_module(self):
         # List of [List of Operation names]
         self._modules = []
         new_ops = {}
+        new_funcs = {}
         if isinstance(self.gm, fx.GraphModule):
             # Recompile fx module
             self.gm.graph.lint() # Does some checks to make sure the Graph is well-formed.
@@ -79,12 +84,25 @@ class Schedule():
                     new_ops[name] = Operation(name, self.world_size, self.rank, node, self.gm)
                 else:
                     new_ops[name] = self._ops[name]
+            elif node.op == "call_function":
+                name = node.target.__name__
+                op_inst = Operation(name, self.world_size, self.rank, node, self.gm)
+                if name in new_funcs:
+                    new_funcs[name].append(op_inst)
+                else:
+                    new_funcs[name] = [op_inst]
         self._ops = new_ops
+        self._func_ops = new_funcs
 
     @property
     def ops(self):
         self.trace_module()
         return self._ops
+
+    @property
+    def func_ops(self):
+        self.trace_module()
+        return list(self._func_ops.keys())
 
     @property
     def modules(self):
@@ -173,6 +191,24 @@ class OperationList():
                     node_to_remove.append(node)
         for node in reversed(node_to_remove):
             self.gm.graph.erase_node(node)
+
+
+class FunctionOpList():
+
+    def __init__(self, func_lst: List[Operation], gm: fx.GraphModule):
+        self.func_lst = func_lst
+        self.gm = gm
+
+    def replace(self, func: torch.autograd.Function):
+        for op in self.func_lst:
+            node = op.node
+            print(op.name, node)
+            with self.gm.graph.inserting_after(node):
+                new_node = self.gm.graph.call_function(func, node.args, node.kwargs)
+                node.replace_all_uses_with(new_node)
+            # remove the old node from the graph
+            self.gm.graph.erase_node(node)
+            break
 
 
 def create_schedule(model: nn.Module, optimizer: torch.optim.Optimizer = None,

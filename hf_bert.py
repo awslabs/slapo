@@ -17,14 +17,24 @@ sch = ms.create_schedule(gm, optimizer)
 # print(sch.modules)
 # print(bert.config.vocab_size)
 
-from apex.normalization.fused_layer_norm import FusedLayerNorm
+def replace_layernorm():
+    print("Replace LayerNorm with FusedLayerNorm")
+    from apex.normalization.fused_layer_norm import FusedLayerNorm
+    for op in sch.forward_ops:
+        if "LayerNorm" in op:
+            sch[op].replace(FusedLayerNorm, arg_names=["normalized_shape"])
 
-print("Replace LayerNorm with FusedLayerNorm")
-for op in sch.forward_ops:
-    if "LayerNorm" in op:
-        sch[op].replace(FusedLayerNorm, arg_names=["normalized_shape"])
+def replace_gelu():
+    print("Replace GeLU with FusedBiasGeLU")
+    print(sch.func_ops)
+    sch["gelu"].replace(ms.op.bias_gelu_impl)
+    print(sch.gm.graph)
+
+# replace_layernorm()
+replace_gelu()
 
 model, optimizer = ms.build(sch)
+print(model.graph)
 
 bs = 16
 seq_length = 512

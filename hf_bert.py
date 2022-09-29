@@ -35,13 +35,12 @@ bert_input_dict = {
 
 for i in range(5):
     start_time = time.time()
-    # output = bert(**bert_input_dict)
-    # output.logits.mean().backward()
     output = model(bert_input_dict["input_ids"])
+    mid_time = time.time()
     output["logits"].mean().backward()
     optimizer.step()
     elapsed_time = time.time() - start_time
-    print(f"Finish step {i}, time: {elapsed_time:.10f}s")
+    print(f"Finish step {i}, fw time: {mid_time - start_time:.10f}s, bw time: {elapsed_time:.10f}s")
 
 from torch.profiler import profile, record_function, ProfilerActivity
 with profile(activities=[

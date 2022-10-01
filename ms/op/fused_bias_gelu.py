@@ -57,5 +57,22 @@ class GeLUFunction(torch.autograd.Function):
 
 bias_gelu_impl = GeLUFunction.apply
 
-def gelu(input):
-    return bias_gelu_impl(input, torch.zeros(input.shape).to("cuda:0"))
+
+class BiasGeLU(torch.nn.Module):
+
+    __constants__ = ["size"]
+    size: int
+
+    def __init__(self, size: int):
+        super(BiasGeLU, self).__init__()
+        self.size = size
+        self.bias = torch.nn.Parameter(torch.empty(size))
+
+    def forward(self, input: torch.Tensor) -> torch.Tensor:
+        return bias_gelu_impl(input, self.bias)
+
+    def reset_parameter(self) -> None:
+        pass
+
+    def extra_repr(self) -> str:
+        return "size={}".format(self.size)

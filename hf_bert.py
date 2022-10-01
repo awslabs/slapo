@@ -27,13 +27,15 @@ def replace_layernorm():
 def replace_gelu():
     print("Replace GeLU with FusedBiasGeLU")
     print(sch.func_ops)
-    sch["gelu"].replace(ms.op.gelu)
-    # print(sch.gm.graph)
+    # sch["gelu"].replace(ms.op.gelu)
+    sch["gelu"].replace_module(ms.op.BiasGeLU)
 
 # replace_layernorm()
 replace_gelu()
 
 model, optimizer = ms.build(sch)
+# print(sch.gm)
+# print(sch.gm.graph)
 
 bs = 16
 seq_length = 512
@@ -47,15 +49,15 @@ for i in range(5):
     output = model(bert_input_dict["input_ids"])
     mid_time = time.time()
     output["logits"].mean().backward()
+    final_time = time.time()
     optimizer.step()
-    elapsed_time = time.time() - start_time
-    print(f"Finish step {i}, fw time: {mid_time - start_time:.10f}s, bw time: {elapsed_time:.10f}s")
+    print(f"Finish step {i}, fw: {mid_time - start_time:.10f}s, bw: {final_time - mid_time:.10f}s, total: {final_time - start_time:.10f}s")
 
-from torch.profiler import profile, record_function, ProfilerActivity
-with profile(activities=[
-        ProfilerActivity.CPU, ProfilerActivity.CUDA], with_stack=True, record_shapes=True) as prof:
-    with record_function("model_inference"):
-        model(bert_input_dict["input_ids"])
+# from torch.profiler import profile, record_function, ProfilerActivity
+# with profile(activities=[
+#         ProfilerActivity.CPU, ProfilerActivity.CUDA], with_stack=True, record_shapes=True) as prof:
+#     with record_function("model_inference"):
+#         model(bert_input_dict["input_ids"])
 
-print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=100))
+# print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=100))
 # print(prof.key_averages(group_by_stack_n=5).table(sort_by="self_cuda_time_total", row_limit=10))

@@ -54,7 +54,7 @@ class Schedule():
                 # map from name to op
                 return self._ops[name]
             else:
-                return FunctionOpList(self._func_ops[name], self.gm)
+                return FunctionOpList(name, self._func_ops[name], self.gm)
 
     def trace_module(self):
         # List of [List of Operation names]
@@ -195,15 +195,34 @@ class OperationList():
 
 class FunctionOpList():
 
-    def __init__(self, func_lst: List[Operation], gm: fx.GraphModule):
+    def __init__(self, name: str, func_lst: List[Operation], gm: fx.GraphModule):
+        self.name = name
         self.func_lst = func_lst
         self.gm = gm
+        self.named_modules = {}
+        for name, mod in self.gm.named_modules():
+            self.named_modules[name] = mod
 
     def replace(self, func: torch.autograd.Function):
         for op in self.func_lst:
             node = op.node
             with self.gm.graph.inserting_after(node):
                 new_node = self.gm.graph.call_function(func, node.args, node.kwargs)
+                node.replace_all_uses_with(new_node)
+            # remove the old node from the graph
+            self.gm.graph.erase_node(node)
+
+    def replace_module(self, mod: nn.Module, *args):
+        num = 0
+        for op in self.func_lst:
+            node = op.node
+            with self.gm.graph.inserting_after(node):
+                instance = mod(self.named_modules[node.args[0].target].out_features)
+                self.named_modules[node.args[0].target].bias = None
+                new_name = self.name + "_{}".format(num)
+                num += 1
+                self.gm.add_submodule(new_name, instance)
+                new_node = self.gm.graph.call_module(new_name, node.args, node.kwargs)
                 node.replace_all_uses_with(new_node)
             # remove the old node from the graph
             self.gm.graph.erase_node(node)

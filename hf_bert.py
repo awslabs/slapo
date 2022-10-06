@@ -105,17 +105,23 @@ def replace_qkv():
 
     class FusedQKV(nn.Module):
         
-        def __init__(self, hidden_size = 768) -> None:
+        def __init__(self, hidden_size = 768, num_heads = 12) -> None:
             super(FusedQKV, self).__init__()
             self.hidden_size = hidden_size
-            self.all_head_size = hidden_size # need to fix later
-            self.fused_linear = nn.Linear(3 * hidden_size, 3 * self.all_head_size)
+            self.num_heads = num_heads
+            self.head_size = hidden_size // num_heads
+            self.fused_linear = nn.Linear(hidden_size * 3, num_heads * self.head_size * 3)
+
+        def transpose_for_scores(self, x):
+            new_x_shape = x.size()[:-1] + (self.num_heads, self.head_size, 3)
+            x = x.view(*new_x_shape)
+            return x.permute(0, 2, 1, 3, 4)
 
         def forward(self, hidden_states): # [8, 512, 768]
             expanded_states = torch.concatenate((hidden_states, hidden_states, hidden_states), axis=2)
-            result = self.fused_linear(expanded_states)
-            query, key, value = torch.split(result, self.hidden_size, dim=2)
-            return query, key, value
+            qkv = self.fused_linear(expanded_states)
+            transposed_qkv = self.transpose_for_scores(qkv)
+            return [torch.squeeze(t) for t in torch.split(transposed_qkv, 1, dim=-1)]
 
     class QKV_Pattern(ms.Pattern):
         
@@ -123,7 +129,13 @@ def replace_qkv():
             super(QKV_Pattern, self).__init__()
             self.layer_num = layer_num
 
-        def find(self, op):
+        @staticmethod
+        def func(x: torch.Tensor) -> torch.Tensor:
+            new_x_shape = x.size()[:-1] + (12, 768)
+            x = x.view(new_x_shape)
+            return x.permute(0, 2, 1, 3)
+
+        def starting_point(self, op):
             if "layer.{}.".format(self.layer_num) in op and "self" in op:
                 if "query" in op or "key" in op or "value" in op:
                     return True
@@ -140,7 +152,7 @@ replace_qkv()
 # print(gm.graph)
 
 model, optimizer = ms.build(sch)
-# print(sch.gm)
+print(sch.gm)
 # print(sch.gm.graph)
 
 bs = 8

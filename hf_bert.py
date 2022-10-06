@@ -101,18 +101,20 @@ def replace_attention():
             sch[op].replace(SelfAttention, 12)
 
 def replace_qkv():
+    print("Replace HF QKV Dense with FusedQKV")
 
     class FusedQKV(nn.Module):
         
         def __init__(self, hidden_size = 768) -> None:
             super(FusedQKV, self).__init__()
+            self.hidden_size = hidden_size
             self.all_head_size = hidden_size # need to fix later
-            self.fused_linear = nn.Linear(hidden_size, self.all_head_size)
+            self.fused_linear = nn.Linear(3 * hidden_size, 3 * self.all_head_size)
 
-        def forward(self, hidden_states):
-            query = self.fused_linear(hidden_states)
-            key = self.fused_linear(hidden_states)
-            value = self.fused_linear(hidden_states)
+        def forward(self, hidden_states): # [8, 512, 768]
+            expanded_states = torch.concatenate((hidden_states, hidden_states, hidden_states), axis=2)
+            result = self.fused_linear(expanded_states)
+            query, key, value = torch.split(result, self.hidden_size, dim=2)
             return query, key, value
 
     class QKV_Pattern(ms.Pattern):

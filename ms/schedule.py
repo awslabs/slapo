@@ -1,10 +1,11 @@
-from typing import List
+from typing import Dict, List
 import os
 import re
 import torch
 import torch.nn as nn
 import torch.fx as fx
 
+import torch.distributed as dist
 from torch.distributed._shard import shard_module
 from torch.distributed._shard.sharded_optim import (
     ShardedOptimizer,
@@ -28,11 +29,11 @@ class HierarchicalTracer(fx.Tracer):
 class Schedule():
 
     def __init__(self, mod: nn.Module, world_size: int, rank: int,
-                 optimizer: torch.optim.Optimizer = None):
+                 optimizer: torch.optim.Optimizer = None, concrete_args: Dict = {}):
         if isinstance(mod, fx.GraphModule):
             self.gm = mod
         else:
-            traced_graph = HierarchicalTracer().trace(mod)
+            traced_graph = HierarchicalTracer().trace(mod, concrete_args=concrete_args)
             self.gm: fx.GraphModule = fx.GraphModule(mod, traced_graph)
         self.world_size = world_size
         self.rank = rank
@@ -155,7 +156,7 @@ class Operation():
                 break
         self.gm.add_submodule(name, instance)
         with self.gm.graph.inserting_after(self.node):
-            new_node = self.gm.graph.call_module(name, self.node.args, self.node.kwargs)
+            new_node = self.gm.graph.call_module(name, self.node.args[:2])
             self.node.replace_all_uses_with(new_node)
         # Remove the old node from the graph
         self.gm.graph.erase_node(self.node)
@@ -229,8 +230,8 @@ class FunctionOpList():
 
 
 def create_schedule(model: nn.Module, optimizer: torch.optim.Optimizer = None,
-                    world_size: int = 1, rank: int = 0):
-    return Schedule(model, world_size, rank, optimizer=optimizer)
+                    world_size: int = 1, rank: int = 0, concrete_args: Dict = {}):
+    return Schedule(model, world_size, rank, optimizer=optimizer, concrete_args=concrete_args)
 
 
 def build(sch: Schedule):
@@ -243,7 +244,8 @@ def build(sch: Schedule):
     # Initialize distributed environment
     rank = sch.rank
     world_size = sch.world_size
-    setup(rank, world_size)
+    if dist.GroupMember.WORLD is None:
+        setup(rank, world_size)
     # Create sharding plan
     param_sharding_plan = {}
     output_sharding_plan = {}

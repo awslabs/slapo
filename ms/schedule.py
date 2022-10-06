@@ -32,7 +32,7 @@ class Pattern():
     def __init__(self):
         pass
 
-    def find(self, op):
+    def starting_point(self, op):
         raise RuntimeError("Not implemented")
 
 
@@ -58,8 +58,11 @@ class Schedule():
     def __getitem__(self, name):
         # should make sure the op list is up-to-date
         if isinstance(name, List):
-            lst = [self._ops[op] for op in name]
-            return OperationList(lst, self.gm)
+            if isinstance(name[0], List):
+                return OperationList(name, self.gm)
+            else:
+                lst = [self._ops[op] for op in name]
+                return OperationList(lst, self.gm)
         else:
             if name in self._ops:
                 # map from name to op
@@ -71,8 +74,29 @@ class Schedule():
         self.trace_module()
         res = []
         for op in self._ops:
-            if pattern.find(op):
-                res.append(op)
+            if pattern.starting_point(op):
+                subgraph = [self._ops[op].node]
+                def DFS(curr, target):
+                    for cusr, tusr in zip(curr.users, target.users):
+                        if cusr.target != tusr.target:
+                            return False
+                        if cusr not in subgraph:
+                            subgraph.append(cusr)
+                        DFS(cusr, tusr)
+                    return True
+
+                class Test(nn.Module):
+                    def __init__(self):
+                        super(Test, self).__init__()
+
+                    def forward(self, x):
+                        return pattern.func(x)
+
+                mod = fx.symbolic_trace(Test())
+                target_node = list(mod.graph.nodes)[0]
+                curr_node = self._ops[op].node
+                DFS(curr_node, target_node)
+                res.append(subgraph)
         return res
 
     def trace_module(self):
@@ -227,18 +251,29 @@ class OperationList():
             for node in reversed(node_to_remove):
                 self.gm.graph.erase_node(node)
         else:
-            node_lst = []
-            op_name = [op.name for op in self.op_lst]
-            for node in self.gm.graph.nodes:
-                if node.target in op_name:
-                    node_lst.append(node)
-            with self.gm.graph.inserting_before(node_lst[0]):
-                new_node = self.gm.graph.call_module(name, node_lst[0].args, node_lst[0].kwargs)
-            with self.gm.graph.inserting_after(new_node):
-                for i, node in enumerate(node_lst):
-                    getitem = self.gm.graph.call_function(operator.getitem, (new_node, i))
-                    node.replace_all_uses_with(getitem)
-                    self.gm.graph.erase_node(node)
+            if not isinstance(self.op_lst[0], List):
+                node_lst = []
+                op_name = [op.name for op in self.op_lst]
+                for node in self.gm.graph.nodes:
+                    if node.target in op_name:
+                        node_lst.append(node)
+                with self.gm.graph.inserting_before(node_lst[0]):
+                    new_node = self.gm.graph.call_module(name, node_lst[0].args, node_lst[0].kwargs)
+                with self.gm.graph.inserting_after(new_node):
+                    for i, node in enumerate(node_lst):
+                        getitem = self.gm.graph.call_function(operator.getitem, (new_node, i))
+                        node.replace_all_uses_with(getitem)
+                        self.gm.graph.erase_node(node)
+            else:
+                node_lst = self.op_lst
+                with self.gm.graph.inserting_before(node_lst[0][0]):
+                    new_node = self.gm.graph.call_module(name, node_lst[0][0].args, node_lst[0][0].kwargs)
+                with self.gm.graph.inserting_after(new_node):
+                    for i, sublst in enumerate(node_lst):
+                        getitem = self.gm.graph.call_function(operator.getitem, (new_node, i))
+                        sublst[-1].replace_all_uses_with(getitem)
+                        for node in reversed(sublst):
+                            self.gm.graph.erase_node(node)
 
 
 class FunctionOpList():

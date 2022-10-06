@@ -3,6 +3,7 @@ import inspect
 import transformers.utils.fx as fx
 from transformers import BertLMHeadModel, BertConfig
 import torch
+import torch.nn as nn
 import ms
 
 device = "cuda:0"
@@ -34,7 +35,7 @@ class NewTracer(fx.HFTracer):
     def __init__(self) -> None:
         super(NewTracer, self).__init__()
 
-    def is_leaf_module(self, m: torch.nn.Module, module_qualified_name: str) -> bool:
+    def is_leaf_module(self, m: nn.Module, module_qualified_name: str) -> bool:
         if "self" in module_qualified_name:
             return True
         else:
@@ -46,11 +47,11 @@ class NewTracer(fx.HFTracer):
         graph = super().trace(*args, **kwargs)
         return graph
 
-# gm = fx.symbolic_trace(bert)
-traced_graph = NewTracer().trace(bert, concrete_args=concrete_args)
-gm = fx.GraphModule(bert, traced_graph)
-print(gm.graph)
-sys.exit()
+gm = fx.symbolic_trace(bert)
+# traced_graph = NewTracer().trace(bert, concrete_args=concrete_args)
+# gm = fx.GraphModule(bert, traced_graph)
+# print(gm.graph)
+# sys.exit()
 
 optimizer = torch.optim.SGD(bert.parameters(), lr=0.001)
 
@@ -83,7 +84,7 @@ def replace_attention():
     from megatron.initialize import initialize_megatron
     initialize_megatron()
 
-    class SelfAttention(torch.nn.Module):
+    class SelfAttention(nn.Module):
 
         def __init__(self, layer_number):
             init_method = init_method_normal(0.006)
@@ -99,9 +100,42 @@ def replace_attention():
             print(op)
             sch[op].replace(SelfAttention, 12)
 
+def replace_qkv():
+
+    class FusedQKV(nn.Module):
+        
+        def __init__(self, hidden_size = 768) -> None:
+            super(FusedQKV, self).__init__()
+            self.all_head_size = hidden_size # need to fix later
+            self.fused_linear = nn.Linear(hidden_size, self.all_head_size)
+
+        def forward(self, hidden_states):
+            query = self.fused_linear(hidden_states)
+            key = self.fused_linear(hidden_states)
+            value = self.fused_linear(hidden_states)
+            return query, key, value
+
+    class QKV_Pattern(ms.Pattern):
+        
+        def __init__(self, layer_num):
+            super(QKV_Pattern, self).__init__()
+            self.layer_num = layer_num
+
+        def find(self, op):
+            if "layer.{}.".format(self.layer_num) in op and "self" in op:
+                if "query" in op or "key" in op or "value" in op:
+                    return True
+            return False
+
+    for i in range(12):
+        op_lst = sch.find(QKV_Pattern(i))
+        sch[op_lst].replace(FusedQKV, seq=False)
+
 # replace_layernorm()
 # replace_gelu()
 # replace_attention()
+replace_qkv()
+# print(gm.graph)
 
 model, optimizer = ms.build(sch)
 # print(sch.gm)

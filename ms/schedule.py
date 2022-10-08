@@ -267,12 +267,20 @@ class OperationList():
             else:
                 node_lst = self.op_lst
                 with self.gm.graph.inserting_before(node_lst[0][0]):
-                    new_node = self.gm.graph.call_module(name, node_lst[0][0].args, node_lst[0][0].kwargs)
+                    new_node = self.gm.graph.call_module(name, node_lst[0][0].args[:2])
                 with self.gm.graph.inserting_after(new_node):
                     for i, sublst in enumerate(node_lst):
                         getitem = self.gm.graph.call_function(operator.getitem, (new_node, i))
-                        sublst[-1].replace_all_uses_with(getitem)
                         for node in reversed(sublst):
+                            # hardcoded
+                            if node.op == "call_module" and "dense" in node.target:
+                                with self.gm.graph.inserting_after(getitem):
+                                    new_getitem = self.gm.graph.call_function(operator.getitem, (getitem, i))
+                                if node.users not in sublst:
+                                    node.replace_all_uses_with(new_getitem)
+                            else:
+                                if node.users not in sublst:
+                                    node.replace_all_uses_with(getitem)
                             self.gm.graph.erase_node(node)
 
 

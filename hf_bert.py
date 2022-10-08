@@ -47,9 +47,9 @@ class NewTracer(fx.HFTracer):
         graph = super().trace(*args, **kwargs)
         return graph
 
-gm = fx.symbolic_trace(bert)
-# traced_graph = NewTracer().trace(bert, concrete_args=concrete_args)
-# gm = fx.GraphModule(bert, traced_graph)
+# gm = fx.symbolic_trace(bert)
+traced_graph = NewTracer().trace(bert, concrete_args=concrete_args)
+gm = fx.GraphModule(bert, traced_graph)
 # print(gm.graph)
 # sys.exit()
 
@@ -77,7 +77,7 @@ def replace_gelu():
 def replace_attention():
     # https://github.com/huggingface/transformers/blob/main/src/transformers/models/bert/modeling_bert.py#L384
     # https://github.com/NVIDIA/Megatron-LM/blob/0bb597b42c53355a567aba2a1357cc34b9d99ddd/megatron/model/transformer.py#L306
-    # MASTER_ADDR=localhost MASTER_PORT=6000 python3 hf_bert.py --micro-batch-size 4 --num-layers 12 --hidden-size 512 --num-attention-heads 2 --max-position-embeddings 512 --encoder-seq-length 512
+    #  MASTER_ADDR=localhost MASTER_PORT=6000 python3 hf_bert.py --micro-batch-size 8 --num-layers 12 --hidden-size 768 --num-attention-heads 12 --max-position-embeddings 512 --encoder-seq-length 512
     print("Replace HF BertAttention with Megatron CoreAttention")
     from megatron.model.transformer import ParallelAttention
     from megatron.model.utils import init_method_normal, scaled_init_method_normal
@@ -86,19 +86,48 @@ def replace_attention():
 
     class SelfAttention(nn.Module):
 
-        def __init__(self, layer_number):
+        def __init__(self, layer_number = 12):
+            super(SelfAttention, self).__init__()
             init_method = init_method_normal(0.006)
             output_layer_init_method = scaled_init_method_normal(0.006, layer_number)
             self.parallel_attention = ParallelAttention(init_method, output_layer_init_method, layer_number)
 
         def forward(self, hidden_states, attention_mask):
+            hidden_states = hidden_states.permute(1, 0, 2)
             output, bias = self.parallel_attention(hidden_states, attention_mask)
-            return output + bias
+            output = output.permute(1, 0, 2)
+            return [(output + bias,)]
 
-    for op in sch.forward_ops:
-        if "self" in op:
-            print(op)
-            sch[op].replace(SelfAttention, 12)
+    class SelfAttention_Pattern(ms.Pattern):
+        """
+        %bert_encoder_layer_0_attention_self : [#users=2] = call_module[target=bert.encoder.layer.0.attention.self](args = (%bert_embeddings_dropout, %mul_1, None, None, None, None, False), kwargs = {})
+        %getitem_401 : [#users=1] = call_function[target=operator.getitem](args = (%bert_encoder_layer_0_attention_self, 0), kwargs = {})
+        %bert_encoder_layer_0_attention_output_dense : [#users=1] = call_module[target=bert.encoder.layer.0.attention.output.dense](args = (%getitem_401,), kwargs = {})
+        %getitem_402 : [#users=1] = call_function[target=operator.getitem](args = (%bert_encoder_layer_0_attention_self, slice(1, None, None)), kwargs = {})
+        """
+
+        def __init__(self, layer_num):
+            super(SelfAttention_Pattern, self).__init__()
+            self.layer_num = layer_num
+
+        @staticmethod
+        def func(x: torch.Tensor) -> torch.Tensor:
+            return x[0]
+
+        def starting_point(self, op):
+            if "layer.{}.attention.self".format(self.layer_num) in op:
+                return True
+            else:
+                return False
+
+    for i in range(12):
+        op_lst = sch.find(SelfAttention_Pattern(i))
+        for op in sch._ops:
+            node = sch._ops[op].node
+            if "layer.{}.attention.output.dense".format(i) in node.target:
+                op_lst[0].insert(2, node)
+                break
+        sch[op_lst].replace(SelfAttention, seq=False)
 
 def replace_qkv():
     print("Replace HF QKV Dense with FusedQKV")
@@ -147,12 +176,12 @@ def replace_qkv():
 
 # replace_layernorm()
 # replace_gelu()
-# replace_attention()
-replace_qkv()
+replace_attention()
+# replace_qkv()
 # print(gm.graph)
 
 model, optimizer = ms.build(sch)
-print(sch.gm)
+# print(sch.gm)
 # print(sch.gm.graph)
 
 bs = 8

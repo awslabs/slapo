@@ -8,8 +8,9 @@ import ms
 
 device = "cuda:0"
 
-bert = BertLMHeadModel(BertConfig(is_decoder=True)).to(device)
+bert = BertLMHeadModel(BertConfig(num_attention_heads=16, hidden_size=1024, is_decoder=True)).to(device)
 # bert.eval()
+bert.half()
 
 input_names = bert.dummy_inputs.keys()
 sig = inspect.signature(bert.forward)
@@ -77,7 +78,7 @@ def replace_gelu():
 def replace_attention():
     # https://github.com/huggingface/transformers/blob/main/src/transformers/models/bert/modeling_bert.py#L384
     # https://github.com/NVIDIA/Megatron-LM/blob/0bb597b42c53355a567aba2a1357cc34b9d99ddd/megatron/model/transformer.py#L306
-    #  MASTER_ADDR=localhost MASTER_PORT=6000 python3 hf_bert.py --micro-batch-size 8 --num-layers 12 --hidden-size 768 --num-attention-heads 12 --max-position-embeddings 512 --encoder-seq-length 512
+    #  MASTER_ADDR=localhost MASTER_PORT=6000 python3 hf_bert.py --micro-batch-size 8 --num-layers 12 --hidden-size 1024 --num-attention-heads 16 --max-position-embeddings 512 --encoder-seq-length 512 --fp16
     print("Replace HF BertAttention with Megatron CoreAttention")
     from megatron.model.transformer import ParallelAttention
     from megatron.model.utils import init_method_normal, scaled_init_method_normal
@@ -184,7 +185,7 @@ model, optimizer = ms.build(sch)
 # print(sch.gm)
 # print(sch.gm.graph)
 
-bs = 8
+bs = 16
 seq_length = 512
 bert_input_dict = {
     'input_ids': torch.zeros(bs, seq_length, dtype=torch.long, device=device).random_(bert.config.vocab_size),

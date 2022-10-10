@@ -8,8 +8,7 @@ import ms
 
 device = "cuda:0"
 
-bert = BertLMHeadModel(BertConfig(num_attention_heads=16, hidden_size=1024, is_decoder=True)).to(device)
-# bert.eval()
+bert = BertLMHeadModel(BertConfig(num_attention_heads=16, hidden_size=1024, num_hidden_layers=24, is_decoder=True)).to(device)
 bert.half()
 
 input_names = bert.dummy_inputs.keys()
@@ -177,7 +176,7 @@ def replace_qkv():
 
 # replace_layernorm()
 replace_gelu()
-# replace_attention()
+replace_attention()
 # replace_qkv()
 # print(gm.graph)
 
@@ -185,7 +184,7 @@ model, optimizer = ms.build(sch)
 # print(sch.gm)
 # print(sch.gm.graph)
 
-bs = 16
+bs = 8
 seq_length = 512
 bert_input_dict = {
     'input_ids': torch.zeros(bs, seq_length, dtype=torch.long, device=device).random_(bert.config.vocab_size),

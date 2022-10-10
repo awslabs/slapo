@@ -2,6 +2,7 @@ import time
 import inspect
 import transformers.utils.fx as fx
 from transformers import BertLMHeadModel, BertConfig
+import numpy as np
 import torch
 import torch.nn as nn
 import ms
@@ -176,7 +177,7 @@ def replace_qkv():
         sch[op_lst].replace(FusedQKV, seq=False)
 
 # replace_layernorm()
-replace_gelu()
+# replace_gelu()
 replace_attention()
 # replace_qkv()
 # print(gm.graph)
@@ -192,14 +193,24 @@ bert_input_dict = {
     'labels': torch.zeros(bs, seq_length, dtype=torch.long, device=device).random_(bert.config.vocab_size),
     'attention_mask': torch.ones(bs, seq_length, device=device)}
 
-for i in range(5):
+fw_time = []
+bw_time = []
+total_time = []
+for i in range(10):
     start_time = time.time()
     output = model(bert_input_dict["input_ids"])
     mid_time = time.time()
     output["logits"].mean().backward()
     final_time = time.time()
     optimizer.step()
-    print(f"Finish step {i}, fw: {mid_time - start_time:.10f}s, bw: {final_time - mid_time:.10f}s, total: {final_time - start_time:.10f}s")
+    fw_time.append(mid_time - start_time)
+    bw_time.append(final_time - mid_time)
+    total_time.append(final_time - start_time)
+    print(f"Finish step {i}, fw: {fw_time[-1]:.10f}s, bw: {bw_time[-1]:.10f}s, total: {total_time[-1]:.10f}s")
+fw_avg =np.array(fw_time[1:-1]).mean()
+bw_avg =np.array(bw_time[1:-1]).mean()
+total_avg =np.array(total_time[1:-1]).mean()
+print(f"Average fw: {fw_avg*1000:.10f}ms, bw: {bw_avg*1000:.10f}ms, total: {total_avg*1000:.10f}ms")
 
 # from torch.profiler import profile, record_function, ProfilerActivity
 # with profile(activities=[

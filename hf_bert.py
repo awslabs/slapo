@@ -8,6 +8,7 @@ import ms
 
 device = "cuda:0"
 
+# https://huggingface.co/bert-large-uncased/blob/main/config.json
 bert = BertLMHeadModel(BertConfig(num_attention_heads=16, hidden_size=1024, num_hidden_layers=24, is_decoder=True)).to(device)
 bert.half()
 
@@ -147,7 +148,7 @@ def replace_qkv():
             return x.permute(0, 2, 1, 3, 4)
 
         def forward(self, hidden_states): # [8, 512, 768]
-            expanded_states = torch.concatenate((hidden_states, hidden_states, hidden_states), axis=2)
+            expanded_states = torch.concat((hidden_states, hidden_states, hidden_states), axis=2)
             qkv = self.fused_linear(expanded_states)
             transposed_qkv = self.transpose_for_scores(qkv)
             return [torch.squeeze(t) for t in torch.split(transposed_qkv, 1, dim=-1)]

@@ -73,7 +73,7 @@ def replace_gelu():
     print("Replace GeLU with FusedBiasGeLU")
     print(sch.func_ops)
     # sch["gelu"].replace(ms.op.gelu)
-    sch["gelu"].replace_module(ms.op.BiasGeLU)
+    sch["gelu"].replace_module(ms.op.BiasGeLU, half=True)
 
 def replace_attention():
     # https://github.com/huggingface/transformers/blob/main/src/transformers/models/bert/modeling_bert.py#L384
@@ -176,8 +176,8 @@ def replace_qkv():
         sch[op_lst].replace(FusedQKV, seq=False)
 
 # replace_layernorm()
-# replace_gelu()
-replace_attention()
+replace_gelu()
+# replace_attention()
 # replace_qkv()
 # print(gm.graph)
 

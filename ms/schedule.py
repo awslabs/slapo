@@ -303,12 +303,14 @@ class FunctionOpList():
             # remove the old node from the graph
             self.gm.graph.erase_node(node)
 
-    def replace_module(self, mod: nn.Module, *args):
+    def replace_module(self, mod: nn.Module, *args, **kwargs):
         num = 0
         for op in self.func_lst:
             node = op.node
             with self.gm.graph.inserting_after(node):
                 instance = mod(self.named_modules[node.args[0].target].out_features)
+                if kwargs["half"]:
+                    instance = instance.half()
                 self.named_modules[node.args[0].target].bias = None
                 new_name = self.name + "_{}".format(num)
                 num += 1

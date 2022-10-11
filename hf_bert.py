@@ -14,7 +14,7 @@ bert = BertLMHeadModel(BertConfig(num_attention_heads=16, hidden_size=1024, num_
 bert.half()
 
 input_names = list(bert.dummy_inputs.keys())
-input_names += ["attention_mask"]
+input_names += ["attention_mask", "labels"]
 sig = inspect.signature(bert.forward)
 concrete_args = {p.name: p.default for p in sig.parameters.values() if p.name not in input_names}
 
@@ -199,7 +199,7 @@ bw_time = []
 total_time = []
 for i in range(10):
     start_time = time.time()
-    output = model(bert_input_dict["input_ids"], bert_input_dict["attention_mask"])
+    output = model(bert_input_dict["input_ids"], bert_input_dict["attention_mask"], bert_input_dict["labels"])
     mid_time = time.time()
     output["logits"].mean().backward()
     final_time = time.time()

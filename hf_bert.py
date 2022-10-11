@@ -39,7 +39,7 @@ class NewTracer(fx.HFTracer):
         super(NewTracer, self).__init__()
 
     def is_leaf_module(self, m: nn.Module, module_qualified_name: str) -> bool:
-        if "self" in module_qualified_name:
+        if 1 == 0: #"self" in module_qualified_name:
             return True
         else:
             return (not self._stateless_mod_instanciation_depends_on_proxies(m)) and super().is_leaf_module(
@@ -117,8 +117,11 @@ def replace_attention():
         def func(x: torch.Tensor) -> torch.Tensor:
             return x[0]
 
-        def starting_point(self, op):
-            if "layer.{}.attention.self".format(self.layer_num) in op:
+        def starting_point(self, node):
+            if node.op != "call_module":
+                return False
+            name = node.target
+            if "layer.{}.attention.self".format(self.layer_num) in name:
                 return True
             else:
                 return False
@@ -131,6 +134,48 @@ def replace_attention():
                 op_lst[0].insert(2, node)
                 break
         sch[op_lst].replace(SelfAttention, seq=False)
+
+def replace_softmax():
+    print("Replace HF Softmax with Megatron FusedScaleMaskSoftmax")
+    from megatron.model.fused_softmax import FusedScaleMaskSoftmax
+    from megatron.model.enums import AttnMaskType
+    from megatron.model.utils import attention_mask_func
+    import operator
+
+    class Softmax_Pattern(ms.Pattern):
+        """
+        %truediv: attention_scores
+        %mul_1: attention_masks
+
+        %add_7 : [#users=1] = call_function[target=operator.add](args = (%truediv, %mul_1), kwargs = {})
+        %softmax : [#users=1] = call_function[target=torch.nn.functional.softmax](args = (%add_7,), kwargs = {dim: -1, _stacklevel: 3, dtype: None})
+        """
+
+        def __init__(self):
+            super(Softmax_Pattern, self).__init__()
+
+        @staticmethod
+        def func(x: torch.Tensor) -> torch.Tensor:
+            return nn.functional.softmax(x)
+
+        def starting_point(self, node):
+            if node.op != "call_function":
+                return False
+            if node.target == operator.add:
+                return True
+            else:
+                return False
+
+    config = {"input_in_fp16": True,
+              "input_in_bf16": False,
+              "attn_mask_type": AttnMaskType.padding,
+              "scaled_masked_softmax_fusion": True,
+              "mask_func": attention_mask_func,
+              "softmax_in_fp32": True,
+              "scale": None}
+    op_lst = sch.find(Softmax_Pattern())
+    for ops in op_lst:
+        sch[ops].replace(FusedScaleMaskSoftmax, kwargs=config, seq=True)
 
 def replace_qkv():
     print("Replace HF QKV Dense with FusedQKV")
@@ -167,9 +212,12 @@ def replace_qkv():
             x = x.view(new_x_shape)
             return x.permute(0, 2, 1, 3)
 
-        def starting_point(self, op):
-            if "layer.{}.".format(self.layer_num) in op and "self" in op:
-                if "query" in op or "key" in op or "value" in op:
+        def starting_point(self, node):
+            if node.op != "call_module":
+                return False
+            name = node.target
+            if "layer.{}.".format(self.layer_num) in name and "self" in name:
+                if "query" in name or "key" in name or "value" in name:
                     return True
             return False
 
@@ -180,6 +228,7 @@ def replace_qkv():
 # replace_layernorm()
 # replace_gelu()
 # replace_attention()
+replace_softmax()
 # replace_qkv()
 # print(gm.graph)
 

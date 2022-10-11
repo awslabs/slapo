@@ -32,7 +32,7 @@ class Pattern():
     def __init__(self):
         pass
 
-    def starting_point(self, op):
+    def starting_point(self, name, node):
         raise RuntimeError("Not implemented")
 
 
@@ -61,8 +61,11 @@ class Schedule():
             if isinstance(name[0], List):
                 return OperationList(name, self.gm)
             else:
-                lst = [self._ops[op] for op in name]
-                return OperationList(lst, self.gm)
+                if isinstance(name[0], str):
+                    lst = [self._ops[op] for op in name]
+                    return OperationList(lst, self.gm)
+                else:
+                    return OperationList(name, self.gm)
         else:
             if name in self._ops:
                 # map from name to op
@@ -73,12 +76,17 @@ class Schedule():
     def find(self, pattern: Pattern):
         self.trace_module()
         res = []
-        for op in self._ops:
-            if pattern.starting_point(op):
-                subgraph = [self._ops[op].node]
+        for node in self.gm.graph.nodes:
+            if pattern.starting_point(node):
+                subgraph = [node]
+                matched = True
                 def DFS(curr, target):
+                    nonlocal matched
                     for cusr, tusr in zip(curr.users, target.users):
+                        if tusr.target == "output":
+                            return True
                         if cusr.target != tusr.target:
+                            matched = False
                             return False
                         if cusr not in subgraph:
                             subgraph.append(cusr)
@@ -94,9 +102,10 @@ class Schedule():
 
                 mod = fx.symbolic_trace(Test())
                 target_node = list(mod.graph.nodes)[0]
-                curr_node = self._ops[op].node
+                curr_node = node
                 DFS(curr_node, target_node)
-                res.append(subgraph)
+                if matched:
+                    res.append(subgraph)
         return res
 
     def trace_module(self):
@@ -216,8 +225,8 @@ class OperationList():
         self.op_lst = op_lst
         self.gm = gm
 
-    def replace(self, nn_mod: nn.Module, *args, seq=True):
-        instance = nn_mod(*args)
+    def replace(self, nn_mod: nn.Module, *args, kwargs={}, seq=True):
+        instance = nn_mod(*args, **kwargs)
         name = instance._get_name().split(".")[-1]
         # avoid name collision
         existing_names = []
@@ -232,22 +241,29 @@ class OperationList():
         self.gm.add_submodule(name, instance)
         if seq:
             first_node, last_node = None, None
-            for node in self.gm.graph.nodes:
-                if node.target == self.op_lst[0].name:
-                    first_node = node
-                elif node.target == self.op_lst[-1].name:
-                    last_node = node
+            if isinstance(self.op_lst[0], str):
+                for node in self.gm.graph.nodes:
+                    if node.target == self.op_lst[0].name:
+                        first_node = node
+                    elif node.target == self.op_lst[-1].name:
+                        last_node = node
+            else:
+                first_node = self.op_lst[0]
+                last_node = self.op_lst[-1]
             assert first_node != None
             assert last_node != None
             with self.gm.graph.inserting_after(first_node):
                 new_node = self.gm.graph.call_module(name, first_node.args, first_node.kwargs)
                 last_node.replace_all_uses_with(new_node)
             # Remove the old node from the graph
-            node_to_remove = []
-            for node in self.gm.graph.nodes:
-                for op in self.op_lst:
-                    if node.target == op.name:
-                        node_to_remove.append(node)
+            if isinstance(self.op_lst[0], str):
+                node_to_remove = []
+                for node in self.gm.graph.nodes:
+                    for op in self.op_lst:
+                        if node.target == op.name:
+                            node_to_remove.append(node)
+            else:
+                node_to_remove = self.op_lst
             for node in reversed(node_to_remove):
                 self.gm.graph.erase_node(node)
         else:

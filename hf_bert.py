@@ -13,7 +13,8 @@ device = "cuda:0"
 bert = BertLMHeadModel(BertConfig(num_attention_heads=16, hidden_size=1024, num_hidden_layers=24, is_decoder=True)).to(device)
 bert.half()
 
-input_names = bert.dummy_inputs.keys()
+input_names = list(bert.dummy_inputs.keys())
+input_names += ["attention_mask"]
 sig = inspect.signature(bert.forward)
 concrete_args = {p.name: p.default for p in sig.parameters.values() if p.name not in input_names}
 
@@ -79,7 +80,7 @@ def replace_gelu():
 def replace_attention():
     # https://github.com/huggingface/transformers/blob/main/src/transformers/models/bert/modeling_bert.py#L384
     # https://github.com/NVIDIA/Megatron-LM/blob/0bb597b42c53355a567aba2a1357cc34b9d99ddd/megatron/model/transformer.py#L306
-    #  MASTER_ADDR=localhost MASTER_PORT=6000 python3 hf_bert.py --micro-batch-size 8 --num-layers 12 --hidden-size 1024 --num-attention-heads 16 --max-position-embeddings 512 --encoder-seq-length 512 --fp16
+    #  MASTER_ADDR=localhost MASTER_PORT=6000 python3 hf_bert.py --micro-batch-size 8 --num-layers 24 --hidden-size 1024 --num-attention-heads 16 --max-position-embeddings 512 --encoder-seq-length 512 --fp16
     print("Replace HF BertAttention with Megatron CoreAttention")
     from megatron.model.transformer import ParallelAttention
     from megatron.model.utils import init_method_normal, scaled_init_method_normal
@@ -178,7 +179,7 @@ def replace_qkv():
 
 # replace_layernorm()
 # replace_gelu()
-replace_attention()
+# replace_attention()
 # replace_qkv()
 # print(gm.graph)
 
@@ -198,7 +199,7 @@ bw_time = []
 total_time = []
 for i in range(10):
     start_time = time.time()
-    output = model(bert_input_dict["input_ids"])
+    output = model(bert_input_dict["input_ids"], bert_input_dict["attention_mask"])
     mid_time = time.time()
     output["logits"].mean().backward()
     final_time = time.time()

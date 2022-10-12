@@ -266,7 +266,11 @@ print(f"Average fw: {fw_avg*1000:.10f}ms, bw: {bw_avg*1000:.10f}ms, total: {tota
 # with profile(activities=[
 #         ProfilerActivity.CPU, ProfilerActivity.CUDA], with_stack=True, record_shapes=True) as prof:
 #     with record_function("model_inference"):
-#         model(bert_input_dict["input_ids"])
+#         output = model(bert_input_dict["input_ids"], bert_input_dict["attention_mask"], bert_input_dict["labels"])
+    # # backward
+    # output = model(bert_input_dict["input_ids"], bert_input_dict["attention_mask"], bert_input_dict["labels"])
+    # with record_function("model_inference"):
+    #     output["logits"].mean().backward()
 
 # print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=100))
 # print(prof.key_averages(group_by_stack_n=5).table(sort_by="self_cuda_time_total", row_limit=10))

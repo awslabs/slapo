@@ -5,6 +5,7 @@ import operator
 import torch
 import torch.nn as nn
 import torch.fx as fx
+import copy
 
 import torch.distributed as dist
 from torch.distributed._shard import shard_module
@@ -14,6 +15,11 @@ from torch.distributed._shard.sharded_optim import (
 )
 from torch.distributed._shard.sharding_plan import ShardingPlan
 from torch.distributed._shard.sharding_spec import ChunkShardingSpec
+from torch.distributed._shard.api import (
+    shard_parameter,
+    _reshard_output,
+    _collect_local_shard
+)
 
 from .env import setup
 
@@ -363,20 +369,16 @@ def build(sch: Schedule):
                 output_sharding_plan[name] = op.spec[param]
             else:
                 param_sharding_plan["{}.{}".format(name, param)] = op.spec[param]
-    module_sharding_plan = ShardingPlan(
-        # Specify the sharding plan for the component of each module.
-        plan=param_sharding_plan,
-        # Specify the sharding plan for the output of one particular module.
-        # e.g., the output of the second nn layer in the example of Megatron-LM.
-        output_plan=output_sharding_plan,
-        # Specify to get the tensor stored on the local shard if the output
-        # is a sharded tensor.
-        return_local_tensor=[sch.forward_ops[-1]],
+                shard_parameter(getattr(sch.gm, name), param, op.spec[param])
+    print("Sharded parameters")
+
+    reshard_spec = copy.deepcopy(list(param_sharding_plan.items())[0][1])
+    reshard_spec.placements.sort(key=lambda placement: placement.rank())
+    reshard_spec.dim = 0
+
+    sch.gm = _collect_local_shard(
+        _reshard_output(sch.gm, reshard_spec)
     )
-    # print(module_sharding_plan)
-    # Shard the module based on created plan.
-    sch.gm = sch.gm.cuda(rank)
-    shard_module(sch.gm, module_sharding_plan)
     # Create a optimizer for the sharded module.
     opt = ShardedOptimizer(
         dict(named_params_with_sharded_tensor(sch.gm)),

@@ -135,7 +135,7 @@ class Schedule():
                     if len(tmp_mod) == 0 or i >= prefix.count("."):
                         tmp_mod.append([])
                     tmp_mod = tmp_mod[-1]
-                name = node.target.replace(".", "_")
+                name = node.target
                 tmp_mod.append(name)
                 prev_path = curr_path
                 if name not in self._ops:
@@ -369,16 +369,18 @@ def build(sch: Schedule):
                 output_sharding_plan[name] = op.spec[param]
             else:
                 param_sharding_plan["{}.{}".format(name, param)] = op.spec[param]
-                shard_parameter(getattr(sch.gm, name), param, op.spec[param])
+                shard_parameter(sch.gm.get_submodule(name), param, op.spec[param])
     print("Sharded parameters")
 
-    reshard_spec = copy.deepcopy(list(param_sharding_plan.items())[0][1])
-    reshard_spec.placements.sort(key=lambda placement: placement.rank())
-    reshard_spec.dim = 0
+    if sch.world_size != 1:
+        reshard_spec = copy.deepcopy(list(param_sharding_plan.items())[0][1])
+        reshard_spec.placements.sort(key=lambda placement: placement.rank())
+        reshard_spec.dim = 0
 
-    sch.gm = _collect_local_shard(
-        _reshard_output(sch.gm, reshard_spec)
-    )
+        sch.gm = _collect_local_shard(
+            _reshard_output(sch.gm, reshard_spec)
+        )
+
     # Create a optimizer for the sharded module.
     opt = ShardedOptimizer(
         dict(named_params_with_sharded_tensor(sch.gm)),

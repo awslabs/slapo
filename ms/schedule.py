@@ -129,7 +129,7 @@ class Schedule():
                     if len(tmp_mod) == 0 or i >= prefix.count("."):
                         tmp_mod.append([])
                     tmp_mod = tmp_mod[-1]
-                name = node.target
+                name = node.target.replace(".", "_")
                 tmp_mod.append(name)
                 prev_path = curr_path
                 if name not in self._ops:

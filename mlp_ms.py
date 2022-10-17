@@ -3,17 +3,20 @@ import time
 import copy
 import torch
 import torch.nn as nn
-import ms
-
+import ms, sys
+from torch.testing._internal.distributed._shard.sharded_tensor._test_ops_common import clone_module_parameter
 
 class MLP(nn.Module):
 
-    def __init__(self, dim: int = 32):
+    def __init__(self, dim: int = 32, rank = None):
         super().__init__()
         intermediate_dim = dim * 2
         self.dense_1 = nn.Linear(dim, intermediate_dim)
         self.activation = nn.ReLU()
         self.dense_2 = nn.Linear(intermediate_dim, dim)
+        if rank != None:
+            self.dense_1.cuda(rank)
+            self.dense_2.cuda(rank)
 
     def forward(self, x):
         x = self.dense_1(x)
@@ -35,12 +38,19 @@ class Block(nn.Module):
         x = self.relu(x)
         return x
 
+def _weight_override(module_dst, module_src):
+    module_dst.dense_1.weight = clone_module_parameter(module_src.dense_1, "weight")
+    module_dst.dense_1.bias = clone_module_parameter(module_src.dense_1, "bias")
+    module_dst.dense_2.weight = clone_module_parameter(module_src.dense_2, "weight")
+    module_dst.dense_2.bias = clone_module_parameter(module_src.dense_2, "bias")
 
 def train(rank, args):
     print(f"Running basic MLP example on rank {rank}.")
 
     # === Model execution schedule ===
-    model = MLP().cuda(rank)
+    model = MLP()
+    local_model = MLP(rank=rank)
+    _weight_override(model, local_model)
     optimizer = torch.optim.SGD(model.parameters(), lr=0.002)
 
     # Create a default schedule
@@ -57,15 +67,13 @@ def train(rank, args):
     print(ops)
     # >>> [dense_1, activation, dense_2]
 
+    # https://github.com/pytorch/examples/blob/main/distributed/sharded_tensor/tensor_parallel.py
+    # https://github.com/pytorch/pytorch/blob/master/test/distributed/_shard/sharded_tensor/test_megatron_prototype.py
     # Partition parameters
     # column sharding for dense_1
     sch[ops[0]].partition(axis=1, param="weight")
     # row sharding for dense_2
     sch[ops[2]].partition(axis=0, param="weight")
-
-    # Partition outputs
-    # The result from dense_2 needs aggregation by dim 0
-    sch[ops[2]].partition(axis=1)
 
     # Replace an op.
     # sch[ops[1]].replace(nn.ReLU)
@@ -76,11 +84,14 @@ def train(rank, args):
     # Apply schedule and regenerate module
     opt_model, optimizer = ms.build(sch)
 
-    # # test correctness
-    # inp = torch.rand(16, 32).cuda(rank)
-    # output = model(inp)
-    # opt_output = opt_model(inp)
-    # assert torch.allclose(output, opt_output)
+    # test correctness
+    torch.manual_seed(rank)
+    inp = torch.rand(16, 32).cuda(rank)
+    output = model(inp)
+    opt_output = opt_model(inp)
+    assert torch.allclose(output, opt_output, atol=1e-3, rtol=1e-6)
+    print("Pass!")
+    sys.exit()
 
     # Perform a num of iterations of forward/backward
     # and optimizations for the sharded module.

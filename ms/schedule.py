@@ -187,7 +187,7 @@ class Operation():
         self.node = node
         self.gm = gm
 
-    def partition(self, axis: int, param: str = "output"):
+    def shard(self, axis: int, param: str = "output"):
         # axis after transpose
         axis = 1 - axis
         placements = [f"rank:{idx}/cuda:{idx}" for idx in range(self.world_size)]

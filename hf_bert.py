@@ -39,7 +39,7 @@ class NewTracer(fx.HFTracer):
         super(NewTracer, self).__init__()
 
     def is_leaf_module(self, m: nn.Module, module_qualified_name: str) -> bool:
-        if 1 == 0: #"self" in module_qualified_name:
+        if "self" in module_qualified_name:
             return True
         else:
             return (not self._stateless_mod_instanciation_depends_on_proxies(m)) and super().is_leaf_module(
@@ -77,11 +77,47 @@ def replace_gelu():
     # sch["gelu"].replace(ms.op.gelu)
     sch["gelu"].replace_module(ms.op.BiasGeLU, half=True)
 
+def replace_xformer_attention():
+    # https://github.com/huggingface/transformers/blob/344e2664d450eaa9167ce31f7d1fc0f0fe3b10af/src/transformers/models/bert/modeling_bert.py#L243
+    # https://github.com/comaniac/epoi/blob/main/epoi/ops/xformers_attn.py#L45
+    print("Replace HF BertSelfAttention with xformer Attention")
+    from ms.op.xformers_attn import BertSelfAttentionXFormer
+
+    class SelfAttention_Pattern(ms.Pattern):
+
+        def __init__(self, layer_num):
+            super(SelfAttention_Pattern, self).__init__()
+            self.layer_num = layer_num
+
+        @staticmethod
+        def func(x: torch.Tensor) -> torch.Tensor:
+            return x
+
+        def starting_point(self, node):
+            if node.op != "call_module":
+                return False
+            name = node.target
+            if "layer.{}.attention.self".format(self.layer_num) in name:
+                return True
+            else:
+                return False
+
+    from transformers import AutoConfig
+    config = AutoConfig.from_pretrained("bert-large-uncased")
+    config.hidden_size = 1024
+    config.num_attention_heads = 16
+    config.intermediate_size = 4096
+    config.vocab_size = 30522
+    sch.trace_module()
+    for i in range(12):
+        op_lst = sch.find(SelfAttention_Pattern(i))
+        sch[op_lst[0][0].name].replace(BertSelfAttentionXFormer, config)
+
 def replace_attention():
-    # https://github.com/huggingface/transformers/blob/main/src/transformers/models/bert/modeling_bert.py#L384
+    # https://github.com/huggingface/transformers/blob/344e2664d450eaa9167ce31f7d1fc0f0fe3b10af/src/transformers/models/bert/modeling_bert.py#L243
     # https://github.com/NVIDIA/Megatron-LM/blob/0bb597b42c53355a567aba2a1357cc34b9d99ddd/megatron/model/transformer.py#L306
     #  MASTER_ADDR=localhost MASTER_PORT=6000 python3 hf_bert.py --micro-batch-size 8 --num-layers 24 --hidden-size 1024 --num-attention-heads 16 --max-position-embeddings 512 --encoder-seq-length 512 --fp16
-    print("Replace HF BertAttention with Megatron CoreAttention")
+    print("Replace HF BertSelfAttention with Megatron CoreAttention")
     from megatron.model.transformer import ParallelAttention
     from megatron.model.utils import init_method_normal, scaled_init_method_normal
     from megatron.initialize import initialize_megatron
@@ -228,7 +264,8 @@ def replace_qkv():
 # replace_layernorm()
 # replace_gelu()
 # replace_attention()
-replace_softmax()
+replace_xformer_attention()
+# replace_softmax()
 # replace_qkv()
 # print(gm.graph)
 

@@ -45,7 +45,7 @@ def pt_attention(q, k, v, attn_bias, p=0.0):
 class BertSelfAttentionXFormer(nn.Module):
     """Modified from HuggingFace's BertSelfAttention to use the xformers attention op"""
 
-    def __init__(self, config, position_embedding_type=None, attn_op_name=None):
+    def __init__(self, config, position_embedding_type=None, attn_op_name="cutlass"):
         super().__init__()
         if config.hidden_size % config.num_attention_heads != 0 and not hasattr(
             config, "embedding_size"
@@ -101,12 +101,15 @@ class BertSelfAttentionXFormer(nn.Module):
 
     @staticmethod
     def layout_attention_mask(mask, num_attention_heads):
-        # (B, 1, 1, S) -> (B, S)
-        mask = mask.squeeze()
-        # (B, S) -> (B, 1, S)
-        mask = mask.reshape((mask.shape[0], 1, mask.shape[1]))
-        # (B, 1, S) -> (B x H, S, S)
-        mask = mask.repeat(num_attention_heads, mask.shape[2], 1)
+        # mask = mask[:,:,0,:]
+        # # (B, 1, 1, S) -> (B, S)
+        # mask = mask.squeeze()
+        # # (B, S) -> (B, 1, S)
+        # mask = mask.reshape((mask.shape[0], 1, mask.shape[1]))
+        # # (B, 1, S) -> (B x H, S, S)
+        # mask = mask.repeat(num_attention_heads, mask.shape[2], 1)
+        # (B, 1, S, S) -> (B x H, S, S)
+        mask = mask.repeat(num_attention_heads, 1, 1, 1).squeeze()
         return mask
 
     def forward(
@@ -119,7 +122,6 @@ class BertSelfAttentionXFormer(nn.Module):
         past_key_value: Optional[Tuple[Tuple[torch.FloatTensor]]] = None,
         output_attentions: Optional[bool] = False,
     ) -> Tuple[torch.Tensor]:
-        hidden_states = hidden_states.permute(1, 0, 2)
         assert head_mask is None, "head_mask is not supported for now"
         assert not output_attentions, "output_attentions is not supported for now"
         assert past_key_value is None, "past_key_value is not supported for now"

@@ -205,6 +205,7 @@ class Operation():
                     new_args = [getattr(mod, arg) for arg in arg_names]
                     break
             instance = nn_mod(*new_args)
+        instance.cuda().half()
         name = instance._get_name().split(".")[-1]
         # avoid name collision
         existing_names = []
@@ -353,8 +354,8 @@ def build(sch: Schedule):
     sch.gm.recompile()
     # print(sch.gm)
     # single device
-    # if sch.world_size == 1:
-    #     return sch.gm.cuda(sch.rank), sch.optimizer
+    if sch.world_size == 1:
+        return sch.gm, sch.optimizer
     # Initialize distributed environment
     rank = sch.rank
     world_size = sch.world_size
@@ -373,6 +374,7 @@ def build(sch: Schedule):
     print("Sharded parameters")
 
     if sch.world_size != 1:
+        print(param_sharding_plan)
         reshard_spec = copy.deepcopy(list(param_sharding_plan.items())[0][1])
         reshard_spec.placements.sort(key=lambda placement: placement.rank())
         reshard_spec.dim = 0

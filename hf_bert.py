@@ -111,7 +111,7 @@ def replace_xformer_attention():
     sch.trace_module()
     for i in range(12):
         op_lst = sch.find(SelfAttention_Pattern(i))
-        sch[op_lst[0][0].name].replace(BertSelfAttentionXFormer, config)
+        sch[op_lst[0][0].name.replace("_", ".")].replace(BertSelfAttentionXFormer, config)
 
 def replace_attention():
     # https://github.com/huggingface/transformers/blob/344e2664d450eaa9167ce31f7d1fc0f0fe3b10af/src/transformers/models/bert/modeling_bert.py#L243
@@ -299,15 +299,15 @@ bw_avg =np.array(bw_time[1:-1]).mean()
 total_avg =np.array(total_time[1:-1]).mean()
 print(f"Average fw: {fw_avg*1000:.10f}ms, bw: {bw_avg*1000:.10f}ms, total: {total_avg*1000:.10f}ms")
 
-# from torch.profiler import profile, record_function, ProfilerActivity
-# with profile(activities=[
-#         ProfilerActivity.CPU, ProfilerActivity.CUDA], with_stack=True, record_shapes=True) as prof:
-#     with record_function("model_inference"):
-#         output = model(bert_input_dict["input_ids"], bert_input_dict["attention_mask"], bert_input_dict["labels"])
+from torch.profiler import profile, record_function, ProfilerActivity
+with profile(activities=[
+        ProfilerActivity.CPU, ProfilerActivity.CUDA], with_stack=True, record_shapes=True) as prof:
+    with record_function("model_inference"):
+        output = model(bert_input_dict["input_ids"], bert_input_dict["attention_mask"], bert_input_dict["labels"])
     # # backward
     # output = model(bert_input_dict["input_ids"], bert_input_dict["attention_mask"], bert_input_dict["labels"])
     # with record_function("model_inference"):
     #     output["logits"].mean().backward()
 
-# print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=100))
+print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=100))
 # print(prof.key_averages(group_by_stack_n=5).table(sort_by="self_cuda_time_total", row_limit=10))

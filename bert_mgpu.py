@@ -57,8 +57,9 @@ def train(rank, args):
     # print(bert.config.vocab_size)
 
     sch.trace_module()
-    sch["bert.encoder.layer.0.intermediate.dense"].partition(axis=1, param="weight")
-    sch["bert.encoder.layer.0.output.dense"].partition(axis=0, param="weight")
+    for i in range(24):
+        sch["bert.encoder.layer.{}.intermediate.dense".format(i)].shard(axis=1, param="weight")
+        sch["bert.encoder.layer.{}.output.dense".format(i)].shard(axis=0, param="weight")
 
     model, optimizer = ms.build(sch)
     # print(sch.gm)

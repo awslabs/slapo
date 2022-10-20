@@ -24,6 +24,14 @@ class MLP(nn.Module):
         x = self.dense_2(x)
         return x
 
+class Top(nn.Module):
+
+    def __init__(self, rank = None):
+        super().__init__()
+        self.mlp = MLP(rank=rank)
+
+    def forward(self, x):
+        return self.mlp(x)
 
 class Block(nn.Module):
 
@@ -39,17 +47,17 @@ class Block(nn.Module):
         return x
 
 def _weight_override(module_dst, module_src):
-    module_dst.dense_1.weight = clone_module_parameter(module_src.dense_1, "weight")
-    module_dst.dense_1.bias = clone_module_parameter(module_src.dense_1, "bias")
-    module_dst.dense_2.weight = clone_module_parameter(module_src.dense_2, "weight")
-    module_dst.dense_2.bias = clone_module_parameter(module_src.dense_2, "bias")
+    module_dst.mlp.dense_1.weight = clone_module_parameter(module_src.mlp.dense_1, "weight")
+    module_dst.mlp.dense_1.bias = clone_module_parameter(module_src.mlp.dense_1, "bias")
+    module_dst.mlp.dense_2.weight = clone_module_parameter(module_src.mlp.dense_2, "weight")
+    module_dst.mlp.dense_2.bias = clone_module_parameter(module_src.mlp.dense_2, "bias")
 
 def train(rank, args):
     print(f"Running basic MLP example on rank {rank}.")
 
     # === Model execution schedule ===
-    model = MLP()
-    local_model = MLP(rank=rank)
+    model = Top()
+    local_model = Top(rank=rank)
     _weight_override(model, local_model)
     optimizer = torch.optim.SGD(model.parameters(), lr=0.002)
 
@@ -71,9 +79,9 @@ def train(rank, args):
     # https://github.com/pytorch/pytorch/blob/master/test/distributed/_shard/sharded_tensor/test_megatron_prototype.py
     # Partition parameters
     # column sharding for dense_1
-    sch[ops[0]].partition(axis=1, param="weight")
+    sch[ops[0]].shard(axis=1, param="weight")
     # row sharding for dense_2
-    sch[ops[2]].partition(axis=0, param="weight")
+    sch[ops[2]].shard(axis=0, param="weight")
 
     # Replace an op.
     # sch[ops[1]].replace(nn.ReLU)

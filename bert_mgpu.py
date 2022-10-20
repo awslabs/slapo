@@ -8,11 +8,9 @@ import torch
 import torch.nn as nn
 import ms
 
-device = "cuda:0"
-
 # https://huggingface.co/bert-large-uncased/blob/main/config.json
-bert = BertLMHeadModel(BertConfig(num_attention_heads=16, hidden_size=1024, num_hidden_layers=24, is_decoder=True)).to(device)
-bert.half()
+bert = BertLMHeadModel(BertConfig(num_attention_heads=16, hidden_size=1024, num_hidden_layers=24, is_decoder=True))
+# bert.half()
 
 input_names = list(bert.dummy_inputs.keys())
 input_names += ["attention_mask", "labels"]
@@ -45,9 +43,10 @@ class NewTracer(fx.HFTracer):
 
 
 def train(rank, args):
+    device = "cuda:{}".format(rank)
     # gm = fx.symbolic_trace(bert)
     traced_graph = NewTracer().trace(bert, concrete_args=concrete_args)
-    gm = fx.GraphModule(bert, traced_graph)
+    gm = fx.GraphModule(bert.to(device), traced_graph)
 
     optimizer = torch.optim.SGD(bert.parameters(), lr=0.001)
 
@@ -64,8 +63,9 @@ def train(rank, args):
     model, optimizer = ms.build(sch)
     # print(sch.gm)
     # print(sch.gm.graph)
+    # print(sch.gm.print_readable())
 
-    bs = 8
+    bs = 2
     seq_length = 512
     bert_input_dict = {
         'input_ids': torch.zeros(bs, seq_length, dtype=torch.long, device=device).random_(bert.config.vocab_size),
@@ -77,11 +77,11 @@ def train(rank, args):
     total_time = []
     for i in range(10):
         start_time = time.time()
-        output = model(bert_input_dict["input_ids"], bert_input_dict["attention_mask"], bert_input_dict["labels"])
+        output = model(bert_input_dict["input_ids"].cuda(rank), bert_input_dict["attention_mask"].cuda(rank), bert_input_dict["labels"].cuda(rank))
         mid_time = time.time()
-        output["logits"].mean().backward()
+        # output["logits"].mean().backward()
         final_time = time.time()
-        optimizer.step()
+        # optimizer.step()
         fw_time.append(mid_time - start_time)
         bw_time.append(final_time - mid_time)
         total_time.append(final_time - start_time)

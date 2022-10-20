@@ -82,6 +82,9 @@ def train(rank, args):
     sch[ops[0]].shard(axis=1, param="weight")
     # row sharding for dense_2
     sch[ops[2]].shard(axis=0, param="weight")
+    
+    # aggreate results
+    sch[ops[2]].gather()
 
     # Replace an op.
     # sch[ops[1]].replace(nn.ReLU)

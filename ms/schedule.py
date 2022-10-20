@@ -187,11 +187,20 @@ class Operation():
         self.node = node
         self.gm = gm
 
-    def shard(self, axis: int, param: str = "output"):
+    def shard(self, axis: int, param: str):
         # axis after transpose
         axis = 1 - axis
         placements = [f"rank:{idx}/cuda:{idx}" for idx in range(self.world_size)]
         self.spec[param] = ChunkShardingSpec(
+            dim=axis,
+            placements=placements,
+        )
+
+    def gather(self, axis: int = 1):
+        # axis after transpose
+        axis = 1 - axis
+        placements = [f"rank:{idx}/cuda:{idx}" for idx in range(self.world_size)]
+        self.spec["output"] = ChunkShardingSpec(
             dim=axis,
             placements=placements,
         )
@@ -367,28 +376,14 @@ def build(sch: Schedule):
     for name, op in sch.ops.items():
         for param in op.spec:
             if param == "output":
-                output_sharding_plan[name] = op.spec[param]
+                _collect_local_shard(
+                    _reshard_output(sch.gm.get_submodule(name), op.spec[param])
+                )
             else:
                 param_sharding_plan["{}.{}".format(name, param)] = op.spec[param]
                 shard_parameter(sch.gm.get_submodule(name), param, op.spec[param])
     print("Sharded parameters")
 
-    if sch.world_size != 1:
-        print(param_sharding_plan)
-        if len(param_sharding_plan) != 0:
-            reshard_spec = copy.deepcopy(list(param_sharding_plan.items())[0][1])
-            reshard_spec.placements.sort(key=lambda placement: placement.rank())
-            reshard_spec.dim = 0
-        else:
-            reshard_spec = {}
-
-        # for i in range(24):
-        #     _collect_local_shard(
-        #         _reshard_output(getattr(sch.gm.bert.encoder.layer, "{}".format(i)).output.dense, reshard_spec)
-        #     )
-        _collect_local_shard(
-            _reshard_output(sch.gm.mlp.dense_2, reshard_spec)
-        )
     sch.gm.graph.lint() # Does some checks to make sure the Graph is well-formed.
     sch.gm.recompile()
 

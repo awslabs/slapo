@@ -375,13 +375,22 @@ def build(sch: Schedule):
 
     if sch.world_size != 1:
         print(param_sharding_plan)
-        reshard_spec = copy.deepcopy(list(param_sharding_plan.items())[0][1])
-        reshard_spec.placements.sort(key=lambda placement: placement.rank())
-        reshard_spec.dim = 0
+        if len(param_sharding_plan) != 0:
+            reshard_spec = copy.deepcopy(list(param_sharding_plan.items())[0][1])
+            reshard_spec.placements.sort(key=lambda placement: placement.rank())
+            reshard_spec.dim = 0
+        else:
+            reshard_spec = {}
 
-        sch.gm = _collect_local_shard(
-            _reshard_output(sch.gm, reshard_spec)
+        # for i in range(24):
+        #     _collect_local_shard(
+        #         _reshard_output(getattr(sch.gm.bert.encoder.layer, "{}".format(i)).output.dense, reshard_spec)
+        #     )
+        _collect_local_shard(
+            _reshard_output(sch.gm.mlp.dense_2, reshard_spec)
         )
+    sch.gm.graph.lint() # Does some checks to make sure the Graph is well-formed.
+    sch.gm.recompile()
 
     # Create a optimizer for the sharded module.
     opt = ShardedOptimizer(

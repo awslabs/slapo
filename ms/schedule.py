@@ -372,7 +372,7 @@ def build(sch: Schedule):
         setup(rank, world_size)
     # Create sharding plan
     param_sharding_plan = {}
-    output_sharding_plan = {}
+    print("Start sharding parameters...")
     for name, op in sch.ops.items():
         for param in op.spec:
             if param == "output":
@@ -382,7 +382,6 @@ def build(sch: Schedule):
             else:
                 param_sharding_plan["{}.{}".format(name, param)] = op.spec[param]
                 shard_parameter(sch.gm.get_submodule(name), param, op.spec[param])
-    print("Sharded parameters")
 
     sch.gm.graph.lint() # Does some checks to make sure the Graph is well-formed.
     sch.gm.recompile()

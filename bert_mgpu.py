@@ -7,66 +7,76 @@ import numpy as np
 import torch
 import torch.nn as nn
 import ms
-
-# https://huggingface.co/bert-large-uncased/blob/main/config.json
-bert = BertLMHeadModel(BertConfig(num_attention_heads=16, hidden_size=1024, num_hidden_layers=24, is_decoder=True))
-# bert.half()
-
-input_names = list(bert.dummy_inputs.keys())
-input_names += ["attention_mask", "labels"]
-sig = inspect.signature(bert.forward)
-concrete_args = {p.name: p.default for p in sig.parameters.values() if p.name not in input_names}
-
-class NewTracer(fx.HFTracer):
-
-    def __init__(self) -> None:
-        super(NewTracer, self).__init__()
-
-    # def is_leaf_module(self, m: nn.Module, module_qualified_name: str) -> bool:
-    #     # if "dense" in module_qualified_name:
-    #     #     return False
-    #     # else:
-    #     #     return (
-    #     #         (m.__module__.startswith("torch.nn") or m.__module__.startswith("torch.ao.nn"))
-    #     #         and not isinstance(m, nn.Sequential)
-    #     #     )
-    #     if "self" in module_qualified_name:
-    #         return True
-    #     else:
-    #         return (not self._stateless_mod_instanciation_depends_on_proxies(m)) and super().is_leaf_module(
-    #             m, module_qualified_name
-    #         )
-
-    def trace(self, *args, **kwargs):
-        graph = super().trace(*args, **kwargs)
-        return graph
-
+import copy
+from ms.utils import report_memory
 
 def train(rank, args):
+    # https://huggingface.co/bert-large-uncased/blob/main/config.json
+    bert = BertLMHeadModel(BertConfig(num_attention_heads=16, hidden_size=1024, num_hidden_layers=24, is_decoder=True))
+    bert.half()
+
+    input_names = list(bert.dummy_inputs.keys())
+    input_names += ["attention_mask", "labels"]
+    sig = inspect.signature(bert.forward)
+    concrete_args = {p.name: p.default for p in sig.parameters.values() if p.name not in input_names}
+
+    class NewTracer(fx.HFTracer):
+
+        def __init__(self) -> None:
+            super(NewTracer, self).__init__()
+
+        # def is_leaf_module(self, m: nn.Module, module_qualified_name: str) -> bool:
+        #     # if "dense" in module_qualified_name:
+        #     #     return False
+        #     # else:
+        #     #     return (
+        #     #         (m.__module__.startswith("torch.nn") or m.__module__.startswith("torch.ao.nn"))
+        #     #         and not isinstance(m, nn.Sequential)
+        #     #     )
+        #     if "self" in module_qualified_name:
+        #         return True
+        #     else:
+        #         return (not self._stateless_mod_instanciation_depends_on_proxies(m)) and super().is_leaf_module(
+        #             m, module_qualified_name
+        #         )
+
+        def trace(self, *args, **kwargs):
+            graph = super().trace(*args, **kwargs)
+            return graph
+
+
     device = "cuda:{}".format(rank)
     # gm = fx.symbolic_trace(bert)
     traced_graph = NewTracer().trace(bert, concrete_args=concrete_args)
-    gm = fx.GraphModule(bert.to(device), traced_graph)
+    gm = fx.GraphModule(bert, traced_graph).to(device)
 
     optimizer = torch.optim.SGD(bert.parameters(), lr=0.001)
 
-    sch = ms.create_schedule(gm, optimizer, args.world_size, rank)
+    sch = ms.create_schedule(copy.deepcopy(gm), optimizer, args.world_size, rank)
     # print(sch.forward_ops)
     # print(sch.modules)
     # print(bert.config.vocab_size)
 
     sch.trace_module()
     for i in range(24):
+        # MLP
         sch["bert.encoder.layer.{}.intermediate.dense".format(i)].shard(axis=1, param="weight")
         sch["bert.encoder.layer.{}.output.dense".format(i)].shard(axis=0, param="weight")
         sch["bert.encoder.layer.{}.output.dense".format(i)].gather()
 
-    model, optimizer = ms.build(sch)
-    # print(sch.gm)
-    # print(sch.gm.graph)
-    # print(sch.gm.print_readable())
+        # # Attention
+        # sch["bert.encoder.layer.{}.attention.self.query".format(i)].shard(axis=1, param="weight")
+        # sch["bert.encoder.layer.{}.attention.self.key".format(i)].shard(axis=1, param="weight")
+        # sch["bert.encoder.layer.{}.attention.self.value".format(i)].shard(axis=1, param="weight")
+        # sch["bert.encoder.layer.{}.attention.output.dense".format(i)].shard(axis=0, param="weight")
+        # sch["bert.encoder.layer.{}.attention.output.dense".format(i)].gather()
 
-    bs = 2
+    report_memory(rank)
+    model, optimizer = ms.build(sch)
+    bert.cpu()
+    report_memory(rank)
+
+    bs = 6
     seq_length = 512
     bert_input_dict = {
         'input_ids': torch.zeros(bs, seq_length, dtype=torch.long, device=device).random_(bert.config.vocab_size),

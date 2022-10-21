@@ -5,18 +5,20 @@ import torch
 import torch.nn as nn
 import ms, sys
 from torch.testing._internal.distributed._shard.sharded_tensor._test_ops_common import clone_module_parameter
+from ms.utils import report_memory
 
 class MLP(nn.Module):
 
-    def __init__(self, dim: int = 32, rank = None):
+    def __init__(self, dim: int = 1024, rank = None):
         super().__init__()
         intermediate_dim = dim * 2
         self.dense_1 = nn.Linear(dim, intermediate_dim)
         self.activation = nn.ReLU()
         self.dense_2 = nn.Linear(intermediate_dim, dim)
-        if rank != None:
-            self.dense_1.cuda(rank)
-            self.dense_2.cuda(rank)
+        self.dense_3 = nn.Linear(dim, dim)
+        # if rank != None:
+        #     self.dense_1.cuda(rank)
+        #     self.dense_2.cuda(rank)
 
     def forward(self, x):
         x = self.dense_1(x)
@@ -56,9 +58,9 @@ def train(rank, args):
     print(f"Running basic MLP example on rank {rank}.")
 
     # === Model execution schedule ===
-    model = Top()
-    local_model = Top(rank=rank)
-    _weight_override(model, local_model)
+    model = Top().cuda(rank)
+    # local_model = Top(rank=rank)
+    # _weight_override(model, local_model)
     optimizer = torch.optim.SGD(model.parameters(), lr=0.002)
 
     # Create a default schedule
@@ -92,13 +94,15 @@ def train(rank, args):
     # Operator fusion.
     # sch[ops[0:2]].replace(Block)
 
+    report_memory(rank)
     # Apply schedule and regenerate module
     opt_model, optimizer = ms.build(sch)
+    report_memory(rank)
 
     # test correctness
     torch.manual_seed(rank)
-    inp = torch.rand(16, 32).cuda(rank)
-    output = model(inp)
+    inp = torch.rand((2048, 1024)).cuda(rank)
+    # output = model(inp)
     opt_output = opt_model(inp)
     assert torch.allclose(output, opt_output, atol=1e-3, rtol=1e-6)
     print("Pass!")

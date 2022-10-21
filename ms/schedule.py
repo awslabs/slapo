@@ -376,10 +376,12 @@ def build(sch: Schedule):
     for name, op in sch.ops.items():
         for param in op.spec:
             if param == "output":
+                print("Collect local shard on {}".format(name))
                 _collect_local_shard(
                     _reshard_output(sch.gm.get_submodule(name), op.spec[param])
                 )
             else:
+                print("Shard {}.{}".format(name, param))
                 param_sharding_plan["{}.{}".format(name, param)] = op.spec[param]
                 shard_parameter(sch.gm.get_submodule(name), param, op.spec[param])
 

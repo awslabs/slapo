@@ -1,4 +1,4 @@
-import time
+import time, sys
 import inspect
 import argparse
 import transformers.utils.fx as fx
@@ -48,11 +48,11 @@ def train(rank, args):
     device = "cuda:{}".format(rank)
     # gm = fx.symbolic_trace(bert)
     traced_graph = NewTracer().trace(bert, concrete_args=concrete_args)
-    gm = fx.GraphModule(bert, traced_graph).to(device)
+    gm = fx.GraphModule(bert, traced_graph)
 
     optimizer = torch.optim.SGD(bert.parameters(), lr=0.001)
 
-    sch = ms.create_schedule(copy.deepcopy(gm), optimizer, args.world_size, rank)
+    sch = ms.create_schedule(gm, optimizer, args.world_size, rank)
     # print(sch.forward_ops)
     # print(sch.modules)
     # print(bert.config.vocab_size)
@@ -64,25 +64,39 @@ def train(rank, args):
         sch["bert.encoder.layer.{}.output.dense".format(i)].shard(axis=0, param="weight")
         sch["bert.encoder.layer.{}.output.dense".format(i)].gather()
 
-        # # Attention
-        # sch["bert.encoder.layer.{}.attention.self.query".format(i)].shard(axis=1, param="weight")
-        # sch["bert.encoder.layer.{}.attention.self.key".format(i)].shard(axis=1, param="weight")
-        # sch["bert.encoder.layer.{}.attention.self.value".format(i)].shard(axis=1, param="weight")
-        # sch["bert.encoder.layer.{}.attention.output.dense".format(i)].shard(axis=0, param="weight")
-        # sch["bert.encoder.layer.{}.attention.output.dense".format(i)].gather()
+        # Attention
+        sch["bert.encoder.layer.{}.attention.self.query".format(i)].shard(axis=1, param="weight")
+        sch["bert.encoder.layer.{}.attention.self.key".format(i)].shard(axis=1, param="weight")
+        sch["bert.encoder.layer.{}.attention.self.value".format(i)].shard(axis=1, param="weight")
+        sch["bert.encoder.layer.{}.attention.output.dense".format(i)].shard(axis=0, param="weight")
+        sch["bert.encoder.layer.{}.attention.output.dense".format(i)].gather()
+
+    # fix number of heads
+    import operator
+    mod = dict(sch.gm.named_modules())
+    for node in sch.gm.graph.nodes:
+        if node.op == "call_function" and node.target == operator.add:
+            if isinstance(node.args[1], tuple):
+                lst = list(node.args[1])
+                lst[0] = lst[0] // sch.world_size # num of heads
+                node.args = (node.args[0], tuple(lst))
 
     report_memory(rank)
     model, optimizer = ms.build(sch)
-    bert.cpu()
+    model.cuda()
     report_memory(rank)
 
-    bs = 6
+    bs = 8
     seq_length = 512
     bert_input_dict = {
         'input_ids': torch.zeros(bs, seq_length, dtype=torch.long, device=device).random_(bert.config.vocab_size),
         'labels': torch.zeros(bs, seq_length, dtype=torch.long, device=device).random_(bert.config.vocab_size),
         'attention_mask': torch.ones(bs, seq_length, device=device)}
 
+    # from pytorch_memlab import MemReporter
+    # reporter = MemReporter(model)
+    # reporter.report()
+    # sys.exit()
     fw_time = []
     bw_time = []
     total_time = []

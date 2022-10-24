@@ -5,21 +5,7 @@ import operator
 import torch
 import torch.nn as nn
 import torch.fx as fx
-import copy
-
 import torch.distributed as dist
-from torch.distributed._shard import shard_module
-from torch.distributed._shard.sharded_optim import (
-    ShardedOptimizer,
-    named_params_with_sharded_tensor,
-)
-from torch.distributed._shard.sharding_plan import ShardingPlan
-from torch.distributed._shard.sharding_spec import ChunkShardingSpec
-from torch.distributed._shard.api import (
-    shard_parameter,
-    _reshard_output,
-    _collect_local_shard
-)
 
 from .env import setup
 
@@ -53,6 +39,8 @@ class Schedule():
             self.gm: fx.GraphModule = fx.GraphModule(mod, traced_graph)
         self.world_size = world_size
         self.rank = rank
+        if world_size != 1 and dist.GroupMember.WORLD is None:
+            setup(rank, world_size)
         self._modules = None
         self._ops = {}
         self._func_ops = {}
@@ -186,24 +174,32 @@ class Operation():
         # preserve parent graph module used for transformation
         self.node = node
         self.gm = gm
+        self.named_modules = dict(self.gm.named_modules())
 
     def shard(self, axis: int, param: str):
         # axis after transpose
-        axis = 1 - axis
-        placements = [f"rank:{idx}/cuda:{idx}" for idx in range(self.world_size)]
-        self.spec[param] = ChunkShardingSpec(
-            dim=axis,
-            placements=placements,
-        )
+        linear = self.named_modules[self.node.target]
+        assert isinstance(linear, nn.Linear)
+        out_features, in_features = linear.out_features, linear.in_features
+        if axis == 1:
+            out_features = out_features // self.world_size
+            new_weight = linear.weight.detach().split(out_features, dim=0)
+            if linear.bias != None:
+                new_bias = linear.bias.detach().split(out_features, dim=0)
+                linear.bias = nn.Parameter(new_bias[self.rank])
+        else:
+            in_features = in_features // self.world_size
+            new_weight = linear.weight.detach().split(in_features, dim=1)
+        linear.weight = nn.Parameter(new_weight[self.rank])
 
     def gather(self, axis: int = 1):
         # axis after transpose
-        axis = 1 - axis
-        placements = [f"rank:{idx}/cuda:{idx}" for idx in range(self.world_size)]
-        self.spec["output"] = ChunkShardingSpec(
-            dim=axis,
-            placements=placements,
-        )
+        linear = self.named_modules[self.node.target]
+        assert isinstance(linear, nn.Linear)
+        def hook_func(_module, _input, output):
+            dist.all_reduce(output, op=dist.ReduceOp.SUM)
+            return output
+        linear.register_forward_hook(hook_func)
 
     def replace(self, nn_mod: nn.Module, *args, arg_names=[]):
         if len(arg_names) == 0:
@@ -361,38 +357,4 @@ def create_schedule(model: nn.Module, optimizer: torch.optim.Optimizer = None,
 def build(sch: Schedule):
     sch.gm.graph.lint() # Does some checks to make sure the Graph is well-formed.
     sch.gm.recompile()
-    # print(sch.gm)
-    # single device
-    if sch.world_size == 1:
-        return sch.gm, sch.optimizer
-    # Initialize distributed environment
-    rank = sch.rank
-    world_size = sch.world_size
-    if dist.GroupMember.WORLD is None:
-        setup(rank, world_size)
-    # Create sharding plan
-    param_sharding_plan = {}
-    print("Start sharding parameters...")
-    for name, op in sch.ops.items():
-        for param in op.spec:
-            if param == "output":
-                print("Collect local shard on {}".format(name))
-                _collect_local_shard(
-                    _reshard_output(sch.gm.get_submodule(name), op.spec[param])
-                )
-            else:
-                print("Shard {}.{}".format(name, param))
-                param_sharding_plan["{}.{}".format(name, param)] = op.spec[param]
-                shard_parameter(sch.gm.get_submodule(name), param, op.spec[param])
-
-    sch.gm.graph.lint() # Does some checks to make sure the Graph is well-formed.
-    sch.gm.recompile()
-
-    # Create a optimizer for the sharded module.
-    opt = ShardedOptimizer(
-        dict(named_params_with_sharded_tensor(sch.gm)),
-        type(sch.optimizer),
-        lr=sch.optimizer.param_groups[0]["lr"],
-        momentum=sch.optimizer.param_groups[0]["momentum"]
-    )
-    return sch.gm, opt
+    return sch.gm, sch.optimizer

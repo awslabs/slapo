@@ -206,8 +206,7 @@ class Operation():
         linear = self.named_modules[self.node.target]
         assert isinstance(linear, nn.Linear)
         def hook_func(_module, _input, output):
-            dist.all_reduce(output[0], op=dist.ReduceOp.SUM)
-            return (output,)
+            dist.all_reduce(output[0].contiguous(), op=dist.ReduceOp.SUM)
         linear.register_full_backward_hook(hook_func)
 
     def replace(self, nn_mod: nn.Module, *args, arg_names=[]):

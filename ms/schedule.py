@@ -201,6 +201,15 @@ class Operation():
             return output
         linear.register_forward_hook(hook_func)
 
+    def bw_gather(self, axis: int = 1):
+        # axis after transpose
+        linear = self.named_modules[self.node.target]
+        assert isinstance(linear, nn.Linear)
+        def hook_func(_module, _input, output):
+            dist.all_reduce(output[0], op=dist.ReduceOp.SUM)
+            return (output,)
+        linear.register_full_backward_hook(hook_func)
+
     def replace(self, nn_mod: nn.Module, *args, arg_names=[]):
         if len(arg_names) == 0:
             instance = nn_mod(*args)

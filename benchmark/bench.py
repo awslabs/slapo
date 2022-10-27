@@ -61,7 +61,7 @@ class Exp:
         print('Per GPU memory (GB)\t: %.1f'% self.gpu_mem)
         print('Per GPU TFLOPs\t\t: %.1f' % (self.samples_per_sec * self.tflops / self.num_gpus))
 
-def compare(exps):
+def compare(exps, fig_name):
     fig, ax = plt.subplots(ncols=3, figsize=(9,len(exps)/2))
     x = list(range(len(exps)))
     for i, (y, l) in enumerate((
@@ -75,7 +75,7 @@ def compare(exps):
             ax[i].set_yticks(x, labels=[e.name for e in exps])
         else:
             ax[i].set_yticklabels([])
-    plt.savefig(r"megatron.png",format="png",dpi=200,bbox_inches='tight')
+    plt.savefig(fig_name,format="png",dpi=200,bbox_inches='tight')
     plt.show()
 
 def hf_bert(exp):
@@ -149,14 +149,18 @@ def megatron_log(exp, log_filename):
         query('backward-params-all-reduce') / iter_time, query('optimizer') / iter_time))        
     return exp
 
-# mega_bert = megatron_bert(Exp('Megatron BERT', 'bert-large-uncased', 8, bf16=True))
-# mega_bert_2gpu = megatron_bert(Exp('Megatron BERT (2gpu)', 'bert-large-uncased', 8, bf16=True, gpus="0,1"))
-# mega_bert_4gpu = megatron_bert(Exp('Megatron BERT (4gpu)', 'bert-large-uncased', 8, bf16=True, gpus="0,1,2,3"))
-# mega_bert_8gpu = megatron_bert(Exp('Megatron BERT (8gpu)', 'bert-large-uncased', 7, bf16=True, gpus="0,1,2,3,4,5,6,7"))
-# mega_bert_2gpu = megatron_bert(Exp('Megatron BERT (2gpu)', 'bert-large-uncased', 18, bf16=True, gpus="0,1", tensor_para=2))
-# mega_bert_4gpu = megatron_bert(Exp('Megatron BERT (2gpu)', 'bert-large-uncased', 32, bf16=True, gpus="0,1,2,3", tensor_para=4))
-# mega_bert_8gpu = megatron_bert(Exp('Megatron BERT (8gpu)', 'bert-large-uncased', 46, bf16=True, gpus="0,1,2,3,4,5,6,7", tensor_para=8))
+# mega_bert = megatron_bert(Exp('Megatron BERT', 'bert-large-uncased', 8, fp16=True))
+# mega_bert_2gpu = megatron_bert(Exp('Megatron BERT (2gpu)', 'bert-large-uncased', 8, fp16=True, gpus="0,1"))
+# mega_bert_4gpu = megatron_bert(Exp('Megatron BERT (4gpu)', 'bert-large-uncased', 8, fp16=True, gpus="0,1,2,3"))
+# mega_bert_8gpu = megatron_bert(Exp('Megatron BERT (8gpu)', 'bert-large-uncased', 7, fp16=True, gpus="0,1,2,3,4,5,6,7"))
+# mega_bert_2gpu = megatron_bert(Exp('Megatron BERT (2gpu)', 'bert-large-uncased', 18, fp16=True, gpus="0,1", tensor_para=2))
+# mega_bert_4gpu = megatron_bert(Exp('Megatron BERT (2gpu)', 'bert-large-uncased', 32, fp16=True, gpus="0,1,2,3", tensor_para=4))
+# mega_bert_8gpu = megatron_bert(Exp('Megatron BERT (8gpu)', 'bert-large-uncased', 46, fp16=True, gpus="0,1,2,3,4,5,6,7", tensor_para=8))
 
-bert_half = hf_bert(Exp('HF 16-bit', 'bert-large-uncased', 8, fp16=True))
+bert_half = hf_bert(Exp('HF 16-bit', 'bert-large-uncased', 4, fp16=True))
+bert_half_2gpu = hf_bert(Exp('HF 16-bit (2 GPU)', 'bert-large-uncased', 4, fp16=True, gpus="0,1"))
+bert_half_4gpu = hf_bert(Exp('HF 16-bit (4 GPU)', 'bert-large-uncased', 4, fp16=True, gpus="0,1,2,3"))
+bert_half_8gpu = hf_bert(Exp('HF 16-bit (8 GPU)', 'bert-large-uncased', 4, fp16=True, gpus="0,1,2,3,4,5,6,7"))
 
 # compare([mega_bert, mega_bert_2gpu, mega_bert_4gpu])
+compare([bert_half, bert_half_2gpu, bert_half_4gpu, bert_half_8gpu], "hf-ms")

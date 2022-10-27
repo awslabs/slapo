@@ -216,8 +216,10 @@ def model_schedule(model):
     import inspect
     import torch
     import transformers.utils.fx as fx
+    import torch.distributed as dist
 
     print("Using model schedule to optimize")
+    print("World size: {}, rank: {}".format(dist.get_world_size(), dist.get_rank()))
 
     input_names = list(model.dummy_inputs.keys())
     input_names += ["attention_mask", "labels"]
@@ -256,7 +258,7 @@ def model_schedule(model):
 
     optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
 
-    sch = ms.create_schedule(gm, optimizer)#, args.world_size, rank)
+    sch = ms.create_schedule(gm, optimizer, dist.get_world_size(), dist.get_rank())#, args.world_size, rank)
     # print(sch.forward_ops)
     # print(sch.modules)
     # print(bert.config.vocab_size)

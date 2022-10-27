@@ -211,6 +211,87 @@ class DataTrainingArguments:
                 if extension not in ["csv", "json", "txt"]:
                     raise ValueError("`validation_file` should be a csv, a json or a txt file.")
 
+def model_schedule(model):
+    import ms
+    import inspect
+    import torch
+    import transformers.utils.fx as fx
+
+    print("Using model schedule to optimize")
+
+    input_names = list(model.dummy_inputs.keys())
+    input_names += ["attention_mask", "labels"]
+    sig = inspect.signature(model.forward)
+    concrete_args = {p.name: p.default for p in sig.parameters.values() if p.name not in input_names}
+
+    class NewTracer(fx.HFTracer):
+
+        def __init__(self) -> None:
+            super(NewTracer, self).__init__()
+
+        # def is_leaf_module(self, m: nn.Module, module_qualified_name: str) -> bool:
+        #     # if "dense" in module_qualified_name:
+        #     #     return False
+        #     # else:
+        #     #     return (
+        #     #         (m.__module__.startswith("torch.nn") or m.__module__.startswith("torch.ao.nn"))
+        #     #         and not isinstance(m, nn.Sequential)
+        #     #     )
+        #     if "self" in module_qualified_name:
+        #         return True
+        #     else:
+        #         return (not self._stateless_mod_instanciation_depends_on_proxies(m)) and super().is_leaf_module(
+        #             m, module_qualified_name
+        #         )
+
+        def trace(self, *args, **kwargs):
+            graph = super().trace(*args, **kwargs)
+            return graph
+
+
+    device = "cuda:{}".format(0)
+    # gm = fx.symbolic_trace(bert)
+    traced_graph = NewTracer().trace(model, concrete_args=concrete_args)
+    gm = fx.GraphModule(model, traced_graph)
+
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
+
+    sch = ms.create_schedule(gm, optimizer)#, args.world_size, rank)
+    # print(sch.forward_ops)
+    # print(sch.modules)
+    # print(bert.config.vocab_size)
+
+    sch.trace_module()
+    for i in range(24):
+        # MLP
+        sch["bert.encoder.layer.{}.intermediate.dense".format(i)].shard(axis=1, param="weight")
+        sch["bert.encoder.layer.{}.output.dense".format(i)].shard(axis=0, param="weight")
+        sch["bert.encoder.layer.{}.output.dense".format(i)].gather()
+        sch["bert.encoder.layer.{}.intermediate.dense".format(i)].bw_gather()
+
+        # Attention
+        sch["bert.encoder.layer.{}.attention.self.query".format(i)].shard(axis=1, param="weight")
+        sch["bert.encoder.layer.{}.attention.self.key".format(i)].shard(axis=1, param="weight")
+        sch["bert.encoder.layer.{}.attention.self.value".format(i)].shard(axis=1, param="weight")
+        sch["bert.encoder.layer.{}.attention.output.dense".format(i)].shard(axis=0, param="weight")
+        sch["bert.encoder.layer.{}.attention.output.dense".format(i)].gather()
+        sch["bert.encoder.layer.{}.attention.self.query".format(i)].bw_gather()
+        sch["bert.encoder.layer.{}.attention.self.key".format(i)].bw_gather()
+        sch["bert.encoder.layer.{}.attention.self.value".format(i)].bw_gather()
+
+    # fix number of heads
+    import operator
+    mod = dict(sch.gm.named_modules())
+    for node in sch.gm.graph.nodes:
+        if node.op == "call_function" and node.target == operator.add:
+            if isinstance(node.args[1], tuple):
+                lst = list(node.args[1])
+                lst[0] = lst[0] // sch.world_size # num of heads
+                node.args = (node.args[0], tuple(lst))
+
+    model, optimizer = ms.build(sch)
+    model.cuda()
+    return model
 
 def main():
     # See all possible arguments in src/transformers/training_args.py
@@ -390,6 +471,7 @@ def main():
         model = AutoModelForMaskedLM.from_config(config)
 
     model.resize_token_embeddings(len(tokenizer))
+    model = model_schedule(model)
 
     # Preprocessing the datasets.
     # First we tokenize all the texts.
@@ -598,10 +680,10 @@ def main():
         else:
             kwargs["dataset"] = data_args.dataset_name
 
-    if training_args.push_to_hub:
-        trainer.push_to_hub(**kwargs)
-    else:
-        trainer.create_model_card(**kwargs)
+    # if training_args.push_to_hub:
+    #     trainer.push_to_hub(**kwargs)
+    # else:
+    #     trainer.create_model_card(**kwargs)
 
 
 def _mp_fn(index):

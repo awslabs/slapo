@@ -14,6 +14,8 @@ import matplotlib.pyplot as plt
 from dataclasses import dataclass, asdict
 from transformers import AutoConfig, PretrainedConfig
 
+BATCH_SIZE = 8
+
 @dataclass
 class Exp:
     name: str           # Experiment name
@@ -78,7 +80,8 @@ def compare(exps, fig_name):
             ax[i].set_yticks(x, labels=[e.name for e in exps])
         else:
             ax[i].set_yticklabels([])
-    plt.savefig(fig_name,format="png",dpi=200,bbox_inches='tight')
+    plt.title(fig_name)
+    plt.savefig(fig_name+".png",format="png",dpi=200,bbox_inches='tight')
     plt.show()
 
 def hf_bert(exp):
@@ -126,7 +129,8 @@ def hf_log(exp, log_filename):
                 step_time_list = metrics['step_time_list']
                 # Remove the first 5 iterations (warmup)
                 step_time_list = step_time_list[5:] if len(step_time_list) > 5 else step_time_list
-                exp.samples_per_sec = (global_batch_size * len(step_time_list)) / sum(step_time_list)
+                # exp.samples_per_sec = (global_batch_size * len(step_time_list)) / sum(step_time_list)
+                exp.samples_per_sec = (BATCH_SIZE * len(step_time_list)) / sum(step_time_list)
             else:
                 print("Cannot find 'step_time_list', use HF Trainer reported samples/sec")
                 exp.samples_per_sec = metrics['train_samples_per_second']
@@ -149,8 +153,11 @@ def megatron_bert(exp):
     if exp.fp16: cmd += ' --fp16'
     cmd += ' > log.txt 2>&1'
     os.system(cmd)
-    return megatron_log(exp, 'log.txt') 
-    
+    ret = megatron_log(exp, 'log.txt')
+    if ret is not None:
+        ret.print_results()
+    return megatron_log(exp, 'log.txt')
+
 def megatron_log(exp, log_filename):
     with open(log_filename) as f:
         text = f.read()
@@ -179,14 +186,14 @@ def megatron_log(exp, log_filename):
 # mega_bert_4gpu = megatron_bert(Exp('Megatron BERT (2gpu)', 'bert-large-uncased', 32, fp16=True, gpus="0,1,2,3", tensor_para=4))
 # mega_bert_8gpu = megatron_bert(Exp('Megatron BERT (8gpu)', 'bert-large-uncased', 46, fp16=True, gpus="0,1,2,3,4,5,6,7", tensor_para=8))
 
-# mega_bert = megatron_bert(Exp('Megatron 16-bit', 'bert-large-uncased', 4, fp16=True, gpus="0"))
-# mega_bert_2gpu = megatron_bert(Exp('Megatron (2 GPU)', 'bert-large-uncased', 4, fp16=True, gpus="0,1", tensor_para=2))
-# mega_bert_4gpu = megatron_bert(Exp('Megatron (4 GPU)', 'bert-large-uncased', 4, fp16=True, gpus="0,1,2,3", tensor_para=4))
-# mega_bert_8gpu = megatron_bert(Exp('Megatron (8 GPU)', 'bert-large-uncased', 4, fp16=True, gpus="0,1,2,3,4,5,6,7", tensor_para=8))
-# compare([mega_bert, mega_bert_2gpu, mega_bert_4gpu, mega_bert_8gpu], "megatron.png")
+mega_bert = megatron_bert(Exp('Megatron 16-bit', 'bert-large-uncased', BATCH_SIZE, fp16=True, gpus="0"))
+mega_bert_2gpu = megatron_bert(Exp('Megatron (2 GPU)', 'bert-large-uncased', BATCH_SIZE, fp16=True, gpus="0,1", tensor_para=2))
+mega_bert_4gpu = megatron_bert(Exp('Megatron (4 GPU)', 'bert-large-uncased', BATCH_SIZE, fp16=True, gpus="0,1,2,3", tensor_para=4))
+mega_bert_8gpu = megatron_bert(Exp('Megatron (8 GPU)', 'bert-large-uncased', BATCH_SIZE, fp16=True, gpus="0,1,2,3,4,5,6,7", tensor_para=8))
+compare([mega_bert, mega_bert_2gpu, mega_bert_4gpu, mega_bert_8gpu], "Megatron-bs{}".format(BATCH_SIZE))
 
-bert_half = hf_bert(Exp('HF 16-bit', 'bert-large-uncased', 4, fp16=True, optim='adamw_apex_fused')) # kwargs={"flags": ["--half_precision_backend=apex", "--fp16_opt_level=O2"]}
-bert_half_2gpu = hf_bert(Exp('HF 16-bit (2 GPU)', 'bert-large-uncased', 4, fp16=True, gpus="0,1", optim='adamw_apex_fused'))
-bert_half_4gpu = hf_bert(Exp('HF 16-bit (4 GPU)', 'bert-large-uncased', 4, fp16=True, gpus="0,1,2,3", optim='adamw_apex_fused'))
-bert_half_8gpu = hf_bert(Exp('HF 16-bit (8 GPU)', 'bert-large-uncased', 4, fp16=True, gpus="0,1,2,3,4,5,6,7", optim='adamw_apex_fused'))
-compare([bert_half, bert_half_2gpu, bert_half_4gpu, bert_half_8gpu], "hf-ms-half.png")
+bert_half = hf_bert(Exp('HF 16-bit', 'bert-large-uncased', BATCH_SIZE, fp16=True, optim='adamw_apex_fused')) # kwargs={"flags": ["--half_precision_backend=apex", "--fp16_opt_level=O2"]}
+bert_half_2gpu = hf_bert(Exp('HF 16-bit (2 GPU)', 'bert-large-uncased', BATCH_SIZE, fp16=True, gpus="0,1", optim='adamw_apex_fused'))
+bert_half_4gpu = hf_bert(Exp('HF 16-bit (4 GPU)', 'bert-large-uncased', BATCH_SIZE, fp16=True, gpus="0,1,2,3", optim='adamw_apex_fused'))
+bert_half_8gpu = hf_bert(Exp('HF 16-bit (8 GPU)', 'bert-large-uncased', BATCH_SIZE, fp16=True, gpus="0,1,2,3,4,5,6,7", optim='adamw_apex_fused'))
+compare([bert_half, bert_half_2gpu, bert_half_4gpu, bert_half_8gpu], "HF-MS-bs{}".format(BATCH_SIZE))

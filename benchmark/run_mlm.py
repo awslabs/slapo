@@ -250,9 +250,8 @@ def model_schedule(model):
             graph = super().trace(*args, **kwargs)
             return graph
 
-
-    device = "cuda:{}".format(0)
-    # gm = fx.symbolic_trace(bert)
+    print("Directly change model to half")
+    model.half()
     traced_graph = NewTracer().trace(model, concrete_args=concrete_args)
     gm = fx.GraphModule(model, traced_graph)
 

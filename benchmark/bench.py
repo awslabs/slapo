@@ -35,6 +35,9 @@ class Exp:
     tensor_para: int = 1     # Tensor parallelism
     deepspeed: bool = False  # if or not use deepspeed
     ds_config: str = ''      # deepspeed config 
+
+    ## kwargs
+    kwargs: dict = None
         
     def __post_init__(self):         
         model_conf = AutoConfig.from_pretrained(self.model)
@@ -92,22 +95,41 @@ def hf_bert(exp):
 --output_dir /tmp/bert/ --overwrite_output_dir yes --skip_memory_metrics False'''
     if exp.deepspeed:
         cmd += f' --deepspeed {exp.ds_config}'
+    if exp.kwargs is not None and "flags" in exp.kwargs:
+        cmd += " " + " ".join(exp.kwargs["flags"])
     cmd += ' > log.txt 2>&1'
+    print(f"Running command {cmd}", flush=True)
     os.system(cmd)
+    ret = hf_log(exp, 'log.txt')
+    if ret is not None:
+        ret.print_results()
     return hf_log(exp, 'log.txt')
     
 def hf_log(exp, log_filename):
     with open(log_filename) as f:
         lines = f.readlines()
+        
+    global_batch_size = 0
     for l in lines:
         if 'CUDA out of memory' in l:
             print('Out of GPU memory, try a smaller batch size')
             return None
+        if 'Total train batch size' in l:
+            global_batch_size = int(next(iter(reversed(re.findall('= +([\d\.]+)', l))), 0))
         if '{\'train_runtime' in l:
+            if global_batch_size == 0:
+                print(f'Failed to parse global batch size. Check {log_filename} to find error')
             metrics = json.loads(l.replace('\'', '\"'))
             exp.gpu_mem = (metrics['init_mem_cpu_peaked_delta'] + \
                     metrics['train_mem_gpu_alloc_delta'] + metrics['train_mem_gpu_peaked_delta']) / 1e9
-            exp.samples_per_sec = metrics['train_samples_per_second']
+            if 'step_time_list' in metrics:
+                step_time_list = metrics['step_time_list']
+                # Remove the first 5 iterations (warmup)
+                step_time_list = step_time_list[5:] if len(step_time_list) > 5 else step_time_list
+                exp.samples_per_sec = (global_batch_size * len(step_time_list)) / sum(step_time_list)
+            else:
+                print("Cannot find 'step_time_list', use HF Trainer reported samples/sec")
+                exp.samples_per_sec = metrics['train_samples_per_second']
             return exp
     print(f'Failed. Check "{log_filename}" to find error')    
     return None
@@ -157,14 +179,14 @@ def megatron_log(exp, log_filename):
 # mega_bert_4gpu = megatron_bert(Exp('Megatron BERT (2gpu)', 'bert-large-uncased', 32, fp16=True, gpus="0,1,2,3", tensor_para=4))
 # mega_bert_8gpu = megatron_bert(Exp('Megatron BERT (8gpu)', 'bert-large-uncased', 46, fp16=True, gpus="0,1,2,3,4,5,6,7", tensor_para=8))
 
-mega_bert = megatron_bert(Exp('Megatron 16-bit', 'bert-large-uncased', 4, fp16=True))
-mega_bert_2gpu = megatron_bert(Exp('Megatron (2 GPU)', 'bert-large-uncased', 4, fp16=True, gpus="0,1", tensor_para=2))
-mega_bert_4gpu = megatron_bert(Exp('Megatron (4 GPU)', 'bert-large-uncased', 4, fp16=True, gpus="0,1,2,3", tensor_para=4))
-mega_bert_8gpu = megatron_bert(Exp('Megatron (8 GPU)', 'bert-large-uncased', 4, fp16=True, gpus="0,1,2,3,4,5,6,7", tensor_para=8))
-compare([mega_bert, mega_bert_2gpu, mega_bert_4gpu, mega_bert_8gpu], "megatron.png")
+# mega_bert = megatron_bert(Exp('Megatron 16-bit', 'bert-large-uncased', 4, fp16=True, gpus="0"))
+# mega_bert_2gpu = megatron_bert(Exp('Megatron (2 GPU)', 'bert-large-uncased', 4, fp16=True, gpus="0,1", tensor_para=2))
+# mega_bert_4gpu = megatron_bert(Exp('Megatron (4 GPU)', 'bert-large-uncased', 4, fp16=True, gpus="0,1,2,3", tensor_para=4))
+# mega_bert_8gpu = megatron_bert(Exp('Megatron (8 GPU)', 'bert-large-uncased', 4, fp16=True, gpus="0,1,2,3,4,5,6,7", tensor_para=8))
+# compare([mega_bert, mega_bert_2gpu, mega_bert_4gpu, mega_bert_8gpu], "megatron.png")
 
-bert_half = hf_bert(Exp('HF 16-bit', 'bert-large-uncased', 4, fp16=True))
-bert_half_2gpu = hf_bert(Exp('HF 16-bit (2 GPU)', 'bert-large-uncased', 4, fp16=True, gpus="0,1"))
-bert_half_4gpu = hf_bert(Exp('HF 16-bit (4 GPU)', 'bert-large-uncased', 4, fp16=True, gpus="0,1,2,3"))
-bert_half_8gpu = hf_bert(Exp('HF 16-bit (8 GPU)', 'bert-large-uncased', 4, fp16=True, gpus="0,1,2,3,4,5,6,7"))
-compare([bert_half, bert_half_2gpu, bert_half_4gpu, bert_half_8gpu], "hf-ms.png")
+bert_half = hf_bert(Exp('HF 16-bit', 'bert-large-uncased', 4, fp16=True, optim='adamw_apex_fused')) # kwargs={"flags": ["--half_precision_backend=apex", "--fp16_opt_level=O2"]}
+bert_half_2gpu = hf_bert(Exp('HF 16-bit (2 GPU)', 'bert-large-uncased', 4, fp16=True, gpus="0,1", optim='adamw_apex_fused'))
+bert_half_4gpu = hf_bert(Exp('HF 16-bit (4 GPU)', 'bert-large-uncased', 4, fp16=True, gpus="0,1,2,3", optim='adamw_apex_fused'))
+bert_half_8gpu = hf_bert(Exp('HF 16-bit (8 GPU)', 'bert-large-uncased', 4, fp16=True, gpus="0,1,2,3,4,5,6,7", optim='adamw_apex_fused'))
+compare([bert_half, bert_half_2gpu, bert_half_4gpu, bert_half_8gpu], "hf-ms-half.png")

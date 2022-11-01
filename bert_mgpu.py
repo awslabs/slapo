@@ -56,23 +56,24 @@ def train(rank, args):
     # print(sch.modules)
     # print(bert.config.vocab_size)
 
-    sch.trace_module()
-    for i in range(24):
-        # MLP
-        sch["bert.encoder.layer.{}.intermediate.dense".format(i)].shard(axis=1, param="weight")
-        sch["bert.encoder.layer.{}.output.dense".format(i)].shard(axis=0, param="weight")
-        sch["bert.encoder.layer.{}.output.dense".format(i)].gather()
-        sch["bert.encoder.layer.{}.intermediate.dense".format(i)].bw_gather()
+    if args.world_size > 1:
+        sch.trace_module()
+        for i in range(24):
+            # MLP
+            sch["bert.encoder.layer.{}.intermediate.dense".format(i)].shard(axis=1, param="weight")
+            sch["bert.encoder.layer.{}.output.dense".format(i)].shard(axis=0, param="weight")
+            sch["bert.encoder.layer.{}.output.dense".format(i)].gather()
+            sch["bert.encoder.layer.{}.intermediate.dense".format(i)].bw_gather()
 
-        # Attention
-        sch["bert.encoder.layer.{}.attention.self.query".format(i)].shard(axis=1, param="weight")
-        sch["bert.encoder.layer.{}.attention.self.key".format(i)].shard(axis=1, param="weight")
-        sch["bert.encoder.layer.{}.attention.self.value".format(i)].shard(axis=1, param="weight")
-        sch["bert.encoder.layer.{}.attention.output.dense".format(i)].shard(axis=0, param="weight")
-        sch["bert.encoder.layer.{}.attention.output.dense".format(i)].gather()
-        sch["bert.encoder.layer.{}.attention.self.query".format(i)].bw_gather()
-        sch["bert.encoder.layer.{}.attention.self.key".format(i)].bw_gather()
-        sch["bert.encoder.layer.{}.attention.self.value".format(i)].bw_gather()
+            # Attention
+            sch["bert.encoder.layer.{}.attention.self.query".format(i)].shard(axis=1, param="weight")
+            sch["bert.encoder.layer.{}.attention.self.key".format(i)].shard(axis=1, param="weight")
+            sch["bert.encoder.layer.{}.attention.self.value".format(i)].shard(axis=1, param="weight")
+            sch["bert.encoder.layer.{}.attention.output.dense".format(i)].shard(axis=0, param="weight")
+            sch["bert.encoder.layer.{}.attention.output.dense".format(i)].gather()
+            sch["bert.encoder.layer.{}.attention.self.query".format(i)].bw_gather()
+            sch["bert.encoder.layer.{}.attention.self.key".format(i)].bw_gather()
+            sch["bert.encoder.layer.{}.attention.self.value".format(i)].bw_gather()
 
     # fix number of heads
     import operator

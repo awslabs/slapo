@@ -254,8 +254,7 @@ def model_schedule(model):
     model.half()
     traced_graph = NewTracer().trace(model, concrete_args=concrete_args)
     gm = fx.GraphModule(model, traced_graph)
-
-    optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=0.001)
 
     sch = ms.create_schedule(gm, optimizer, dist.get_world_size(), dist.get_rank())#, args.world_size, rank)
     # print(sch.forward_ops)
@@ -263,32 +262,33 @@ def model_schedule(model):
     # print(bert.config.vocab_size)
 
     sch.trace_module()
-    for i in range(24):
-        # MLP
-        sch["bert.encoder.layer.{}.intermediate.dense".format(i)].shard(axis=1, param="weight")
-        sch["bert.encoder.layer.{}.output.dense".format(i)].shard(axis=0, param="weight")
-        sch["bert.encoder.layer.{}.output.dense".format(i)].gather()
-        sch["bert.encoder.layer.{}.intermediate.dense".format(i)].bw_gather()
+    if dist.get_world_size() > 1:
+        for i in range(24):
+            # MLP
+            sch["bert.encoder.layer.{}.intermediate.dense".format(i)].shard(axis=1, param="weight")
+            sch["bert.encoder.layer.{}.output.dense".format(i)].shard(axis=0, param="weight")
+            sch["bert.encoder.layer.{}.output.dense".format(i)].gather()
+            sch["bert.encoder.layer.{}.intermediate.dense".format(i)].bw_gather()
 
-        # Attention
-        sch["bert.encoder.layer.{}.attention.self.query".format(i)].shard(axis=1, param="weight")
-        sch["bert.encoder.layer.{}.attention.self.key".format(i)].shard(axis=1, param="weight")
-        sch["bert.encoder.layer.{}.attention.self.value".format(i)].shard(axis=1, param="weight")
-        sch["bert.encoder.layer.{}.attention.output.dense".format(i)].shard(axis=0, param="weight")
-        sch["bert.encoder.layer.{}.attention.output.dense".format(i)].gather()
-        sch["bert.encoder.layer.{}.attention.self.query".format(i)].bw_gather()
-        sch["bert.encoder.layer.{}.attention.self.key".format(i)].bw_gather()
-        sch["bert.encoder.layer.{}.attention.self.value".format(i)].bw_gather()
+            # Attention
+            sch["bert.encoder.layer.{}.attention.self.query".format(i)].shard(axis=1, param="weight")
+            sch["bert.encoder.layer.{}.attention.self.key".format(i)].shard(axis=1, param="weight")
+            sch["bert.encoder.layer.{}.attention.self.value".format(i)].shard(axis=1, param="weight")
+            sch["bert.encoder.layer.{}.attention.output.dense".format(i)].shard(axis=0, param="weight")
+            sch["bert.encoder.layer.{}.attention.output.dense".format(i)].gather()
+            sch["bert.encoder.layer.{}.attention.self.query".format(i)].bw_gather()
+            sch["bert.encoder.layer.{}.attention.self.key".format(i)].bw_gather()
+            sch["bert.encoder.layer.{}.attention.self.value".format(i)].bw_gather()
 
-    # fix number of heads
-    import operator
-    mod = dict(sch.gm.named_modules())
-    for node in sch.gm.graph.nodes:
-        if node.op == "call_function" and node.target == operator.add:
-            if isinstance(node.args[1], tuple):
-                lst = list(node.args[1])
-                lst[0] = lst[0] // sch.world_size # num of heads
-                node.args = (node.args[0], tuple(lst))
+        # fix number of heads
+        import operator
+        mod = dict(sch.gm.named_modules())
+        for node in sch.gm.graph.nodes:
+            if node.op == "call_function" and node.target == operator.add:
+                if isinstance(node.args[1], tuple):
+                    lst = list(node.args[1])
+                    lst[0] = lst[0] // sch.world_size # num of heads
+                    node.args = (node.args[0], tuple(lst))
 
     model, optimizer = ms.build(sch)
     model.cuda()

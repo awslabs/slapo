@@ -13,6 +13,7 @@ from ms.utils import report_memory
 def train(rank, args):
     # https://huggingface.co/bert-large-uncased/blob/main/config.json
     bert = BertLMHeadModel(BertConfig(num_attention_heads=16, hidden_size=1024, num_hidden_layers=24, is_decoder=True))
+    optimizer = torch.optim.AdamW(bert.parameters(), lr=0.001)
     bert.half()
 
     input_names = list(bert.dummy_inputs.keys())
@@ -49,8 +50,6 @@ def train(rank, args):
     # gm = fx.symbolic_trace(bert)
     traced_graph = NewTracer().trace(bert, concrete_args=concrete_args)
     gm = fx.GraphModule(bert, traced_graph)
-
-    optimizer = torch.optim.SGD(bert.parameters(), lr=0.001)
 
     sch = ms.create_schedule(gm, optimizer, args.world_size, rank)
     # print(sch.forward_ops)

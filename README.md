@@ -1,6 +1,6 @@
 # Model Schedule
 
-This is a DSL for decoupling model execution from definition. It uses [torch.fx](https://pytorch.org/docs/stable/fx.html) as the IR.
+A DSL for large model training with decoupled model execution from definition. It uses [torch.fx](https://pytorch.org/docs/stable/fx.html) as the IR.
 
 
 ## Requirements
@@ -23,10 +23,10 @@ export PYTHONPATH=$(pwd):${PYTHONPATH}
 Please refer to [`model-schedule-demo.ipynb`](/model-schedule-demo.ipynb) for more details.
 
 | Optimization | Primitive |
-| :--: | :--: |
-| Parameter sharding | s[op].shard(param, axis) |
-| synchronization | s[op].sync() |
-| Kernel Injection | s[op].replace(OldModule, NewModule) |
+| :--: | :-- |
+| Parameter sharding | `s[op].shard(param, axis)` |
+| synchronization | `s[op].sync()` |
+| Kernel Injection | `s[op].replace(OldModule, NewModule)` |
 
 
 ## Examples

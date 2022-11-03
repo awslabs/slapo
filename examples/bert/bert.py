@@ -1,7 +1,6 @@
 import time
 import inspect
-import transformers.utils.fx as fx
-from transformers import BertLMHeadModel, BertConfig
+from transformers import BertLMHeadModel, AutoConfig
 import numpy as np
 import torch
 import torch.nn as nn
@@ -10,11 +9,8 @@ import ms
 device = "cuda:0"
 
 # https://huggingface.co/bert-large-uncased/blob/main/config.json
-bert = BertLMHeadModel(
-    BertConfig(
-        num_attention_heads=16, hidden_size=1024, num_hidden_layers=24, is_decoder=True
-    )
-).to(device)
+bert = BertLMHeadModel(AutoConfig.from_pretrained("bert-large-uncased"))
+optimizer = torch.optim.AdamW(bert.parameters(), lr=0.001)
 bert.half()
 
 input_names = list(bert.dummy_inputs.keys())
@@ -24,53 +20,9 @@ concrete_args = {
     p.name: p.default for p in sig.parameters.values() if p.name not in input_names
 }
 
-# from megatron.model import BertModel, ModelType
-# from megatron.initialize import initialize_megatron
-# from megatron.training import get_model
-# initialize_megatron()
-# def model_provider_func(pre_process=True, post_process=True):
-#     model = BertModel(
-#             num_tokentypes=0,
-#             add_binary_head=False,
-#             parallel_output=True,
-#             pre_process=False,
-#             post_process=False)
-#     return model
-# bert = get_model(model_provider_func, ModelType.encoder_or_decoder)
-# concrete_args = {"tokentype_ids": None, "lm_labels": None}
-
-
-class NewTracer(fx.HFTracer):
-    def __init__(self) -> None:
-        super(NewTracer, self).__init__()
-
-    def is_leaf_module(self, m: nn.Module, module_qualified_name: str) -> bool:
-        if 1 == 0:  # "self" in module_qualified_name:
-            return True
-        else:
-            return (
-                not self._stateless_mod_instanciation_depends_on_proxies(m)
-            ) and super().is_leaf_module(m, module_qualified_name)
-
-    def trace(self, *args, **kwargs):
-        graph = super().trace(*args, **kwargs)
-        return graph
-
-
-# gm = fx.symbolic_trace(bert)
-traced_graph = NewTracer().trace(bert, concrete_args=concrete_args)
-gm = fx.GraphModule(bert, traced_graph)
-# print(gm)
-# print(gm.graph)
-# sys.exit()
-
-optimizer = torch.optim.SGD(bert.parameters(), lr=0.001)
-
-sch = ms.create_schedule(gm, optimizer)
-# print(sch.forward_ops)
-# print(sch.modules)
-# print(bert.config.vocab_size)
-
+sch = ms.create_schedule(
+    bert, optimizer, config={"tracer": "huggingface", "concrete_args": concrete_args}
+)
 
 def replace_layernorm():
     print("Replace LayerNorm with FusedLayerNorm")
@@ -292,7 +244,7 @@ def replace_qkv():
 # replace_attention()
 # replace_xformer_attention()
 # replace_softmax()
-replace_qkv()
+# replace_qkv()
 # print(gm.graph)
 
 model, optimizer = ms.build(sch)

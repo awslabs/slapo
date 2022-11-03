@@ -1,28 +1,32 @@
-import torch
-import torch.fx as fx
 import torch.nn as nn
-from typing import List, Dict
+from typing import Dict
 
 
-class NewTracer(fx.Tracer):
-    def __init__(self, tracer_config: Dict = {}) -> None:
-        super(NewTracer, self).__init__()
-        self.leaf_modules = tracer_config.get("leaf_modules", [])
-        self.concrete_args = tracer_config.get("concrete_args", None)
-
-    def is_leaf_module(self, m: nn.Module, module_qualified_name: str) -> bool:
-        if any(t in type(m).__name__ for t in self.leaf_modules):
-            return True
-        else:
-            return (
-                m.__module__.startswith("torch.nn")
-                or m.__module__.startswith("torch.ao.nn")
-            ) and not isinstance(m, nn.Sequential)
-
-
-def trace(model: nn.Module, tracer_config: Dict = {}) -> fx.GraphModule:
+def trace(model: nn.Module, config: Dict = {}):
     """Traces a model to a GraphModule."""
-    tracer = NewTracer(tracer_config)
-    gm = tracer.trace(model)
+    if "tracer" in config and config["tracer"] == "huggingface":
+        print("Use HF tracer")
+        import transformers.utils.fx as fx
+        TracerClass = fx.HFTracer
+    else:
+        import torch.fx as fx
+        TracerClass = fx.Tracer
+
+    class NewTracer(TracerClass):
+        def __init__(self, config: Dict = {}) -> None:
+            super(NewTracer, self).__init__()
+            self.leaf_modules = config.get("leaf_modules", [])
+
+        def is_leaf_module(self, m: nn.Module, module_qualified_name: str) -> bool:
+            if any(t in type(m).__name__ for t in self.leaf_modules):
+                return True
+            else:
+                return (
+                    m.__module__.startswith("torch.nn")
+                    or m.__module__.startswith("torch.ao.nn")
+                ) and not isinstance(m, nn.Sequential)
+
+    tracer = NewTracer(config)
+    gm = tracer.trace(model, config.get("concrete_args", None))
     gm = fx.GraphModule(model, gm)
     return gm

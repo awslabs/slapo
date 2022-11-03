@@ -25,12 +25,12 @@ class Schedule:
         optimizer: torch.optim.Optimizer = None,
         world_size: int = 1,
         rank: int = 0,
-        tracer_config: Dict = {},
+        config: Dict = {},
     ):
         if isinstance(mod, fx.GraphModule):
             self.gm = mod
         else:
-            self.gm = trace(mod, tracer_config)
+            self.gm = trace(mod, config)
         self.world_size = world_size
         self.rank = rank
         assert rank < world_size, "Rank should be smaller than world size"
@@ -372,10 +372,10 @@ def create_schedule(
     optimizer: torch.optim.Optimizer = None,
     world_size: int = 1,
     rank: int = 0,
-    tracer_config: Dict = {}
+    config: Dict = {}
 ):
     return Schedule(
-        model, optimizer=optimizer, world_size=world_size, rank=rank, tracer_config=tracer_config
+        model, optimizer=optimizer, world_size=world_size, rank=rank, config=config
     )
 
 

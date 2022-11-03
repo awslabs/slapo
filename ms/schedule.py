@@ -8,15 +8,7 @@ import torch.fx as fx
 import torch.distributed as dist
 
 from .env import setup
-
-
-class HierarchicalTracer(fx.Tracer):
-    def is_leaf_module(self, m: nn.Module, module_qualified_name: str) -> bool:
-        return (
-            m.__module__.startswith("torch.nn")
-            or m.__module__.startswith("torch.ao.nn")
-        ) and not isinstance(m, nn.Sequential)
-
+from .trace import trace
 
 class Pattern:
     def __init__(self):
@@ -30,40 +22,40 @@ class Schedule:
     def __init__(
         self,
         mod: nn.Module,
-        world_size: int,
-        rank: int,
         optimizer: torch.optim.Optimizer = None,
-        concrete_args: Dict = {},
+        world_size: int = 1,
+        rank: int = 0,
+        tracer_config: Dict = {},
     ):
         if isinstance(mod, fx.GraphModule):
             self.gm = mod
         else:
-            traced_graph = HierarchicalTracer().trace(mod, concrete_args=concrete_args)
-            self.gm: fx.GraphModule = fx.GraphModule(mod, traced_graph)
+            self.gm = trace(mod, tracer_config)
         self.world_size = world_size
         self.rank = rank
+        assert rank < world_size, "Rank should be smaller than world size"
         if world_size != 1 and dist.GroupMember.WORLD is None:
             setup(rank, world_size)
         self._modules = None
         self._ops = {}
         self._func_ops = {}
-        if optimizer == None:
-            self.optimizer = torch.optim.SGD(mod.parameters(), lr=0.001)
-        else:
-            self.optimizer = optimizer
+        assert optimizer != None, "Please provide an optimizer"
+        self.optimizer = optimizer
 
-    def __getitem__(self, name):
+    def __getitem__(self, name_or_lst):
         # should make sure the op list is up-to-date
-        if isinstance(name, List):
-            if isinstance(name[0], List):
-                return OperationList(name, self.gm)
+        if isinstance(name_or_lst, List):
+            lst = name_or_lst
+            if isinstance(lst[0], List):
+                return OperationList(lst, self.gm)
             else:
-                if isinstance(name[0], str):
+                if isinstance(lst[0], str):
                     lst = [self._ops[op] for op in name]
                     return OperationList(lst, self.gm)
                 else:
-                    return OperationList(name, self.gm)
+                    return OperationList(lst, self.gm)
         else:
+            name = name_or_lst
             if name in self._ops:
                 # map from name to op
                 return self._ops[name]
@@ -380,10 +372,10 @@ def create_schedule(
     optimizer: torch.optim.Optimizer = None,
     world_size: int = 1,
     rank: int = 0,
-    concrete_args: Dict = {},
+    tracer_config: Dict = {}
 ):
     return Schedule(
-        model, world_size, rank, optimizer=optimizer, concrete_args=concrete_args
+        model, optimizer=optimizer, world_size=world_size, rank=rank, tracer_config=tracer_config
     )
 
 

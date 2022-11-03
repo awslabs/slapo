@@ -1,7 +1,7 @@
 import gc
 import torch
 import torch.distributed as dist
-
+from torch.profiler import profile, record_function, ProfilerActivity
 
 def report_memory(rank, report_gc=False):
     torch.cuda.empty_cache()
@@ -24,3 +24,16 @@ def report_memory(rank, report_gc=False):
                     tc += obj.numel()
             except:
                 pass
+
+
+def profile(model, inputs):
+    with profile(activities=[
+            ProfilerActivity.CPU, ProfilerActivity.CUDA], with_stack=True, record_shapes=True) as prof:
+        with record_function("model_inference_fw"):
+            output = model(*inputs)
+        # backward
+        with record_function("model_inference_bw"):
+            output["logits"].mean().backward()
+
+    print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=100))
+    print(prof.key_averages(group_by_stack_n=5).table(sort_by="self_cuda_time_total", row_limit=10))

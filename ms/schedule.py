@@ -181,7 +181,7 @@ class Operation:
         self.gm = gm
         self.named_modules = dict(self.gm.named_modules())
 
-    def shard(self, axis: int, param: str):
+    def shard(self, param: str, axis: int):
         # axis after transpose
         linear = self.named_modules[self.node.target]
         if not isinstance(linear, nn.Linear):
@@ -198,28 +198,26 @@ class Operation:
             new_weight = linear.weight.detach().split(in_features, dim=1)
         linear.weight = nn.Parameter(new_weight[self.rank])
 
-    def gather(self, axis: int = 1):
+    def sync(self, axis: int = 1, backward=False):
         # axis after transpose
         linear = self.named_modules[self.node.target]
         if not isinstance(linear, nn.Linear):
             linear = linear.fused_linear
 
-        def hook_func(_module, _input, output):
-            dist.all_reduce(output, op=dist.ReduceOp.SUM)
-            return output
+        if not backward:
 
-        linear.register_forward_hook(hook_func)
+            def hook_func(_module, _input, output):
+                dist.all_reduce(output, op=dist.ReduceOp.SUM)
+                return output
 
-    def bw_gather(self, axis: int = 1):
-        # axis after transpose
-        linear = self.named_modules[self.node.target]
-        if not isinstance(linear, nn.Linear):
-            linear = linear.fused_linear
+            linear.register_forward_hook(hook_func)
 
-        def hook_func(_module, _input, output):
-            dist.all_reduce(output[0].contiguous(), op=dist.ReduceOp.SUM)
+        else:
 
-        linear.register_full_backward_hook(hook_func)
+            def hook_func(_module, _input, output):
+                dist.all_reduce(output[0].contiguous(), op=dist.ReduceOp.SUM)
+
+            linear.register_full_backward_hook(hook_func)
 
     def replace(self, nn_mod: nn.Module, *args, arg_names=[]):
         if len(arg_names) == 0:

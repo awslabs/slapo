@@ -8,7 +8,6 @@ from torch.testing._internal.distributed._shard.sharded_tensor._test_ops_common 
     clone_module_parameter,
 )
 from ms.utils import report_memory
-import torch.distributed as dist
 
 
 class MLP(nn.Module):
@@ -33,19 +32,6 @@ class Top(nn.Module):
 
     def forward(self, x):
         return self.mlp(x)
-
-
-class Block(nn.Module):
-    def __init__(self, dim: int = 32):
-        super().__init__()
-        intermediate_dim = dim * 2
-        self.fc = nn.Linear(dim, intermediate_dim)
-        self.relu = nn.ReLU()
-
-    def forward(self, x):
-        x = self.fc(x)
-        x = self.relu(x)
-        return x
 
 
 def _weight_override(module_dst, module_src):
@@ -82,23 +68,15 @@ def train(rank, args):
     print(ops)
     # >>> [dense_1, activation, dense_2]
 
-    # https://github.com/pytorch/examples/blob/main/distributed/sharded_tensor/tensor_parallel.py
-    # https://github.com/pytorch/pytorch/blob/master/test/distributed/_shard/sharded_tensor/test_megatron_prototype.py
     # Partition parameters
     # column sharding for dense_1
-    sch[ops[0]].shard(axis=1, param="weight")
+    sch[ops[0]].shard("weight", axis=1)
     # row sharding for dense_2
-    sch[ops[2]].shard(axis=0, param="weight")
+    sch[ops[2]].shard("weight", axis=0)
 
     # aggreate results
-    sch[ops[2]].gather()
-    sch[ops[0]].bw_gather()
-
-    # Replace an op.
-    # sch[ops[1]].replace(nn.ReLU)
-
-    # Operator fusion.
-    # sch[ops[0:2]].replace(Block)
+    sch[ops[2]].sync()
+    sch[ops[0]].sync(backward=True)
 
     report_memory(rank)
     # Apply schedule and regenerate module

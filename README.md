@@ -14,7 +14,7 @@ For quick development, we simply export the current project folder to the `PYTHO
 
 ```bash
 git clone https://github.com/chhzh123/model-schedule.git
-cd pt2hls
+cd model-schedule
 export PYTHONPATH=$(pwd):${PYTHONPATH}
 ```
 

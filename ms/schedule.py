@@ -2,6 +2,7 @@ from typing import Dict, List
 import os
 import re
 import operator
+import inspect
 import torch
 import torch.nn as nn
 import torch.fx as fx
@@ -9,6 +10,8 @@ import torch.distributed as dist
 
 from .env import setup
 from .trace import trace
+from .utils import _parent_name, _get_unique_module_name
+
 
 class Pattern:
     def __init__(self):
@@ -42,10 +45,10 @@ class Schedule:
         assert optimizer != None, "Please provide an optimizer"
         self.optimizer = optimizer
 
-    def __getitem__(self, name_or_lst):
+    def __getitem__(self, node_or_lst):
         # should make sure the op list is up-to-date
-        if isinstance(name_or_lst, List):
-            lst = name_or_lst
+        if isinstance(node_or_lst, List):
+            lst = node_or_lst
             if isinstance(lst[0], List):
                 return OperationList(lst, self.gm)
             else:
@@ -55,12 +58,14 @@ class Schedule:
                 else:
                     return OperationList(lst, self.gm)
         else:
-            name = name_or_lst
-            if name in self._ops:
-                # map from name to op
-                return self._ops[name]
-            else:
-                return FunctionOpList(name, self._func_ops[name], self.gm)
+            node = node_or_lst
+            return OperationList([node], self.gm)
+            # name = node_or_lst
+            # if name in self._ops:
+            #     # map from name to op
+            #     return self._ops[name]
+            # else:
+            #     return FunctionOpList(name, self._func_ops[name], self.gm)
 
     def find(self, pattern):
         res = []
@@ -96,7 +101,7 @@ class Schedule:
                     DFS(curr_node, target_node)
                     if matched:
                         res.append(subgraph)
-        else: # lambda function
+        else:  # lambda function
             for node in self.gm.graph.nodes:
                 if node.op == "call_module":
                     if pattern(node):
@@ -250,90 +255,96 @@ class OperationList:
     def __init__(self, op_lst: List[Operation], gm: fx.GraphModule):
         self.op_lst = op_lst
         self.gm = gm
+        self.named_modules = dict(self.gm.named_modules())
 
-    def replace(self, nn_mod: nn.Module, *args, kwargs={}, seq=True):
-        instance = nn_mod(*args, **kwargs)
+    def replace(self, nn_mod: nn.Module, *args, **kwargs):
+        assert len(self.op_lst) == 1
+        node = self.op_lst[0]
+        curr_mod = self.named_modules[node.target]
+        init_arg_names = list(inspect.signature(nn_mod.__init__).parameters)[1:]
+        init_kwargs = {}
+        for init_arg in init_arg_names:
+            init_kwargs[init_arg] = curr_mod.__dict__[init_arg]
+        instance = nn_mod(**init_kwargs)
         name = instance._get_name().split(".")[-1]
-        # avoid name collision
-        existing_names = []
-        for existing_name, _ in self.gm.named_modules():
-            existing_names.append(existing_name)
-        new_name = name
-        num = 1
-        while new_name in existing_names:
-            new_name = "{}_{}".format(name, num)
-            num += 1
-        name = new_name
-        self.gm.add_submodule(name, instance)
-        if seq:
-            first_node, last_node = None, None
-            if isinstance(self.op_lst[0], str):
-                for node in self.gm.graph.nodes:
-                    if node.target == self.op_lst[0].name:
-                        first_node = node
-                    elif node.target == self.op_lst[-1].name:
-                        last_node = node
-            else:
-                first_node = self.op_lst[0]
-                last_node = self.op_lst[-1]
-            assert first_node != None
-            assert last_node != None
-            with self.gm.graph.inserting_after(first_node):
-                new_node = self.gm.graph.call_module(
-                    name, first_node.args, first_node.kwargs
-                )
-                last_node.replace_all_uses_with(new_node)
-            # Remove the old node from the graph
-            if isinstance(self.op_lst[0], str):
-                node_to_remove = []
-                for node in self.gm.graph.nodes:
-                    for op in self.op_lst:
-                        if node.target == op.name:
-                            node_to_remove.append(node)
-            else:
-                node_to_remove = self.op_lst
-            for node in reversed(node_to_remove):
-                self.gm.graph.erase_node(node)
-        else:
-            if not isinstance(self.op_lst[0], List):
-                node_lst = []
-                op_name = [op.name for op in self.op_lst]
-                for node in self.gm.graph.nodes:
-                    if node.target in op_name:
-                        node_lst.append(node)
-                with self.gm.graph.inserting_before(node_lst[0]):
-                    new_node = self.gm.graph.call_module(
-                        name, node_lst[0].args, node_lst[0].kwargs
-                    )
-                with self.gm.graph.inserting_after(new_node):
-                    for i, node in enumerate(node_lst):
-                        getitem = self.gm.graph.call_function(
-                            operator.getitem, (new_node, i)
-                        )
-                        node.replace_all_uses_with(getitem)
-                        self.gm.graph.erase_node(node)
-            else:
-                node_lst = self.op_lst
-                with self.gm.graph.inserting_before(node_lst[0][0]):
-                    new_node = self.gm.graph.call_module(name, node_lst[0][0].args[:2])
-                with self.gm.graph.inserting_after(new_node):
-                    for i, sublst in enumerate(node_lst):
-                        getitem = self.gm.graph.call_function(
-                            operator.getitem, (new_node, i)
-                        )
-                        for node in reversed(sublst):
-                            # hardcoded
-                            if node.op == "call_module" and "dense" in node.target:
-                                with self.gm.graph.inserting_after(getitem):
-                                    new_getitem = self.gm.graph.call_function(
-                                        operator.getitem, (getitem, i)
-                                    )
-                                if node.users not in sublst:
-                                    node.replace_all_uses_with(new_getitem)
-                            else:
-                                if node.users not in sublst:
-                                    node.replace_all_uses_with(getitem)
-                            self.gm.graph.erase_node(node)
+        name = _get_unique_module_name(self.gm, name)
+        parent_name, _ = _parent_name(self.op_lst[0].target)
+        self.named_modules[parent_name].add_module(name, instance)
+        with self.gm.graph.inserting_after(node):
+            new_node = self.gm.graph.call_module(
+                parent_name + "." + name, node.args, node.kwargs
+            )
+            node.replace_all_uses_with(new_node)
+        self.gm.graph.erase_node(node)
+        # if seq:
+        #     first_node, last_node = None, None
+        #     if isinstance(self.op_lst[0], str):
+        #         for node in self.gm.graph.nodes:
+        #             if node.target == self.op_lst[0].name:
+        #                 first_node = node
+        #             elif node.target == self.op_lst[-1].name:
+        #                 last_node = node
+        #     else:
+        #         first_node = self.op_lst[0]
+        #         last_node = self.op_lst[-1]
+        #     assert first_node != None
+        #     assert last_node != None
+        #     with self.gm.graph.inserting_after(first_node):
+        #         new_node = self.gm.graph.call_module(
+        #             name, first_node.args, first_node.kwargs
+        #         )
+        #         last_node.replace_all_uses_with(new_node)
+        #     # Remove the old node from the graph
+        #     if isinstance(self.op_lst[0], str):
+        #         node_to_remove = []
+        #         for node in self.gm.graph.nodes:
+        #             for op in self.op_lst:
+        #                 if node.target == op.name:
+        #                     node_to_remove.append(node)
+        #     else:
+        #         node_to_remove = self.op_lst
+        #     for node in reversed(node_to_remove):
+        #         self.gm.graph.erase_node(node)
+        # else:
+        #     if not isinstance(self.op_lst[0], List):
+        #         node_lst = []
+        #         op_name = [op.name for op in self.op_lst]
+        #         for node in self.gm.graph.nodes:
+        #             if node.target in op_name:
+        #                 node_lst.append(node)
+        #         with self.gm.graph.inserting_before(node_lst[0]):
+        #             new_node = self.gm.graph.call_module(
+        #                 name, node_lst[0].args, node_lst[0].kwargs
+        #             )
+        #         with self.gm.graph.inserting_after(new_node):
+        #             for i, node in enumerate(node_lst):
+        #                 getitem = self.gm.graph.call_function(
+        #                     operator.getitem, (new_node, i)
+        #                 )
+        #                 node.replace_all_uses_with(getitem)
+        #                 self.gm.graph.erase_node(node)
+        #     else:
+        #         node_lst = self.op_lst
+        #         with self.gm.graph.inserting_before(node_lst[0][0]):
+        #             new_node = self.gm.graph.call_module(name, node_lst[0][0].args[:2])
+        #         with self.gm.graph.inserting_after(new_node):
+        #             for i, sublst in enumerate(node_lst):
+        #                 getitem = self.gm.graph.call_function(
+        #                     operator.getitem, (new_node, i)
+        #                 )
+        #                 for node in reversed(sublst):
+        #                     # hardcoded
+        #                     if node.op == "call_module" and "dense" in node.target:
+        #                         with self.gm.graph.inserting_after(getitem):
+        #                             new_getitem = self.gm.graph.call_function(
+        #                                 operator.getitem, (getitem, i)
+        #                             )
+        #                         if node.users not in sublst:
+        #                             node.replace_all_uses_with(new_getitem)
+        #                     else:
+        #                         if node.users not in sublst:
+        #                             node.replace_all_uses_with(getitem)
+        #                     self.gm.graph.erase_node(node)
 
 
 class FunctionOpList:
@@ -377,7 +388,7 @@ def create_schedule(
     optimizer: torch.optim.Optimizer = None,
     world_size: int = 1,
     rank: int = 0,
-    config: Dict = {}
+    config: Dict = {},
 ):
     return Schedule(
         model, optimizer=optimizer, world_size=world_size, rank=rank, config=config

@@ -7,7 +7,7 @@ def replace_layernorm(sch):
     print("Replace LayerNorm with FusedLayerNorm")
     from apex.normalization.fused_layer_norm import FusedLayerNorm
 
-    ops = sch.find(lambda node: "LayerNorm" in node.target)
+    ops = sch.find_module(lambda node: "LayerNorm" in node.target)
     for op in ops:
         sch[op].replace(FusedLayerNorm)
 

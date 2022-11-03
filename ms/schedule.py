@@ -67,6 +67,17 @@ class Schedule:
             # else:
             #     return FunctionOpList(name, self._func_ops[name], self.gm)
 
+    def find_module(self, pattern):
+        """
+        pattern: Lambda function
+        """
+        res = []
+        for node in self.gm.graph.nodes:
+            if node.op == "call_module":
+                if pattern(node):
+                    res.append(node)
+        return res
+
     def find(self, pattern):
         res = []
         if isinstance(pattern, Pattern):
@@ -101,11 +112,6 @@ class Schedule:
                     DFS(curr_node, target_node)
                     if matched:
                         res.append(subgraph)
-        else:  # lambda function
-            for node in self.gm.graph.nodes:
-                if node.op == "call_module":
-                    if pattern(node):
-                        res.append(node)
         return res
 
     def trace_module(self):

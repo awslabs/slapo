@@ -179,7 +179,8 @@ class Operation():
     def shard(self, axis: int, param: str):
         # axis after transpose
         linear = self.named_modules[self.node.target]
-        assert isinstance(linear, nn.Linear)
+        if not isinstance(linear, nn.Linear):
+            linear = linear.fused_linear
         out_features, in_features = linear.out_features, linear.in_features
         if axis == 1:
             out_features = out_features // self.world_size
@@ -195,7 +196,8 @@ class Operation():
     def gather(self, axis: int = 1):
         # axis after transpose
         linear = self.named_modules[self.node.target]
-        assert isinstance(linear, nn.Linear)
+        if not isinstance(linear, nn.Linear):
+            linear = linear.fused_linear
         def hook_func(_module, _input, output):
             dist.all_reduce(output, op=dist.ReduceOp.SUM)
             return output
@@ -204,7 +206,8 @@ class Operation():
     def bw_gather(self, axis: int = 1):
         # axis after transpose
         linear = self.named_modules[self.node.target]
-        assert isinstance(linear, nn.Linear)
+        if not isinstance(linear, nn.Linear):
+            linear = linear.fused_linear
         def hook_func(_module, _input, output):
             dist.all_reduce(output[0].contiguous(), op=dist.ReduceOp.SUM)
         linear.register_full_backward_hook(hook_func)
@@ -363,6 +366,7 @@ def create_schedule(model: nn.Module, optimizer: torch.optim.Optimizer = None,
 
 
 def build(sch: Schedule):
+    sch.gm.delete_all_unused_submodules()
     sch.gm.graph.lint() # Does some checks to make sure the Graph is well-formed.
     sch.gm.recompile()
     return sch.gm, sch.optimizer

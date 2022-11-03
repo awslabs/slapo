@@ -51,13 +51,69 @@ def train(rank, args):
     traced_graph = NewTracer().trace(bert, concrete_args=concrete_args)
     gm = fx.GraphModule(bert, traced_graph)
 
+    optimizer = torch.optim.AdamW(bert.parameters(), lr=0.001)
     sch = ms.create_schedule(gm, optimizer, args.world_size, rank)
     # print(sch.forward_ops)
     # print(sch.modules)
     # print(bert.config.vocab_size)
 
+    def replace_qkv():
+        print("Replace HF QKV Dense with FusedQKV")
+
+        class FusedQKV(nn.Module):
+            
+            def __init__(self, hidden_size = 768, num_heads = 12) -> None:
+                super(FusedQKV, self).__init__()
+                self.hidden_size = hidden_size
+                self.num_heads = num_heads
+                self.head_size = hidden_size // num_heads
+                self.fused_linear = nn.Linear(hidden_size, num_heads * self.head_size * 3)
+
+            def transpose_for_scores(self, x):
+                new_x_shape = x.size()[:-1] + (self.num_heads // args.world_size, self.head_size, 3)
+                x = x.view(*new_x_shape)
+                return x.permute(0, 2, 1, 3, 4)
+
+            def forward(self, hidden_states): # [8, 512, 768]
+                # expanded_states = torch.concat((hidden_states, hidden_states, hidden_states), axis=2)
+                # qkv = self.fused_linear(expanded_states)
+                qkv = self.fused_linear(hidden_states)
+                transposed_qkv = self.transpose_for_scores(qkv)
+                return [torch.squeeze(t) for t in torch.split(transposed_qkv, 1, dim=-1)]
+
+        class QKV_Pattern(ms.Pattern):
+            
+            def __init__(self, layer_num):
+                super(QKV_Pattern, self).__init__()
+                self.layer_num = layer_num
+
+            @staticmethod
+            def func(x: torch.Tensor) -> torch.Tensor:
+                new_x_shape = x.size()[:-1] + (16, 1024)#(12, 768)
+                x = x.view(new_x_shape)
+                return x.permute(0, 2, 1, 3)
+
+            def starting_point(self, node):
+                if node.op != "call_module":
+                    return False
+                name = node.target
+                if "layer.{}.".format(self.layer_num) in name and "self" in name:
+                    if "query" in name or "key" in name or "value" in name:
+                        return True
+                return False
+
+        for i in range(24):
+            op_lst = sch.find(QKV_Pattern(i))
+            sch[op_lst].replace(FusedQKV, kwargs={"hidden_size": 1024, "num_heads": 16}, seq=False)
+            print("Fused the {}th QKV layer".format(i+1))
+
+    sch.trace_module()
+    replace_qkv()
+    sch.trace_module()
+    # print(sch.gm)
+    # print(sch.gm.graph)
+    # sys.exit()
     if args.world_size > 1:
-        sch.trace_module()
         for i in range(24):
             # MLP
             sch["bert.encoder.layer.{}.intermediate.dense".format(i)].shard(axis=1, param="weight")
@@ -66,27 +122,32 @@ def train(rank, args):
             sch["bert.encoder.layer.{}.intermediate.dense".format(i)].bw_gather()
 
             # Attention
-            sch["bert.encoder.layer.{}.attention.self.query".format(i)].shard(axis=1, param="weight")
-            sch["bert.encoder.layer.{}.attention.self.key".format(i)].shard(axis=1, param="weight")
-            sch["bert.encoder.layer.{}.attention.self.value".format(i)].shard(axis=1, param="weight")
+            # sch["bert.encoder.layer.{}.attention.self.query".format(i)].shard(axis=1, param="weight")
+            # sch["bert.encoder.layer.{}.attention.self.key".format(i)].shard(axis=1, param="weight")
+            # sch["bert.encoder.layer.{}.attention.self.value".format(i)].shard(axis=1, param="weight")
+            
+            name = "FusedQKV" if i == 0 else "FusedQKV_{}".format(i)
+            sch[name].shard(axis=1, param="fused_linear.weight")
             sch["bert.encoder.layer.{}.attention.output.dense".format(i)].shard(axis=0, param="weight")
             sch["bert.encoder.layer.{}.attention.output.dense".format(i)].gather()
-            sch["bert.encoder.layer.{}.attention.self.query".format(i)].bw_gather()
-            sch["bert.encoder.layer.{}.attention.self.key".format(i)].bw_gather()
-            sch["bert.encoder.layer.{}.attention.self.value".format(i)].bw_gather()
+            # sch["bert.encoder.layer.{}.attention.self.query".format(i)].bw_gather()
+            # sch["bert.encoder.layer.{}.attention.self.key".format(i)].bw_gather()
+            # sch["bert.encoder.layer.{}.attention.self.value".format(i)].bw_gather()
+            sch[name].bw_gather(axis=1)
 
-    # fix number of heads
-    import operator
-    mod = dict(sch.gm.named_modules())
-    for node in sch.gm.graph.nodes:
-        if node.op == "call_function" and node.target == operator.add:
-            if isinstance(node.args[1], tuple):
-                lst = list(node.args[1])
-                lst[0] = lst[0] // sch.world_size # num of heads
-                node.args = (node.args[0], tuple(lst))
+        # fix number of heads
+        import operator
+        mod = dict(sch.gm.named_modules())
+        for node in sch.gm.graph.nodes:
+            if node.op == "call_function" and node.target == operator.add:
+                if isinstance(node.args[1], tuple):
+                    lst = list(node.args[1])
+                    lst[0] = lst[0] // sch.world_size # num of heads
+                    node.args = (node.args[0], tuple(lst))
 
     report_memory(rank)
     model, optimizer = ms.build(sch)
+    model.half()
     model.cuda()
     report_memory(rank)
 

@@ -167,3 +167,8 @@ data
 *.idx
 *.log
 *.txt
+
+*.yaml
+*.png
+*.out
+*.log

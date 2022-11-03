@@ -1,0 +1,13 @@
+diff --git a/megatron/schedules.py b/megatron/schedules.py
+index ac5ba6f..81895fe 100644
+--- a/megatron/schedules.py
++++ b/megatron/schedules.py
+@@ -126,7 +126,7 @@ def forward_step(forward_step_func,
+         input_tensor = [input_tensor]
+         unwrap_output_tensor = True
+
+-    unwrapped_model.set_input_tensor(input_tensor)
++    #unwrapped_model.set_input_tensor(input_tensor)
+     output_tensor, loss_func = forward_step_func(data_iterator, model)
+     if mpu.is_pipeline_last_stage():
+         if not collect_non_loss_data:

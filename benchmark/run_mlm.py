@@ -254,6 +254,8 @@ def model_schedule(model):
     model.half()
     traced_graph = NewTracer().trace(model, concrete_args=concrete_args)
     gm = fx.GraphModule(model, traced_graph)
+
+    # Placeholder. Not effective for now.
     optimizer = torch.optim.AdamW(model.parameters(), lr=0.001)
 
     sch = ms.create_schedule(gm, optimizer, dist.get_world_size(), dist.get_rank())#, args.world_size, rank)

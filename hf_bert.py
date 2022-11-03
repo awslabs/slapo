@@ -39,7 +39,7 @@ class NewTracer(fx.HFTracer):
         super(NewTracer, self).__init__()
 
     def is_leaf_module(self, m: nn.Module, module_qualified_name: str) -> bool:
-        if "self" in module_qualified_name:
+        if 1 == 0:#"self" in module_qualified_name:
             return True
         else:
             return (not self._stateless_mod_instanciation_depends_on_proxies(m)) and super().is_leaf_module(
@@ -53,6 +53,7 @@ class NewTracer(fx.HFTracer):
 # gm = fx.symbolic_trace(bert)
 traced_graph = NewTracer().trace(bert, concrete_args=concrete_args)
 gm = fx.GraphModule(bert, traced_graph)
+# print(gm)
 # print(gm.graph)
 # sys.exit()
 
@@ -244,7 +245,7 @@ def replace_qkv():
 
         @staticmethod
         def func(x: torch.Tensor) -> torch.Tensor:
-            new_x_shape = x.size()[:-1] + (12, 768)
+            new_x_shape = x.size()[:-1] + (16, 1024)#(12, 768)
             x = x.view(new_x_shape)
             return x.permute(0, 2, 1, 3)
 
@@ -257,19 +258,21 @@ def replace_qkv():
                     return True
             return False
 
-    for i in range(12):
+    for i in range(24):
         op_lst = sch.find(QKV_Pattern(i))
-        sch[op_lst].replace(FusedQKV, seq=False)
+        sch[op_lst].replace(FusedQKV, kwargs={"hidden_size": 1024, "num_heads": 16}, seq=False)
 
 # replace_layernorm()
 # replace_gelu()
 # replace_attention()
-replace_xformer_attention()
+# replace_xformer_attention()
 # replace_softmax()
-# replace_qkv()
+replace_qkv()
 # print(gm.graph)
 
 model, optimizer = ms.build(sch)
+model.half()
+model.cuda()
 # print(sch.gm)
 # print(sch.gm.graph)
 
@@ -299,15 +302,15 @@ bw_avg =np.array(bw_time[1:-1]).mean()
 total_avg =np.array(total_time[1:-1]).mean()
 print(f"Average fw: {fw_avg*1000:.10f}ms, bw: {bw_avg*1000:.10f}ms, total: {total_avg*1000:.10f}ms")
 
-from torch.profiler import profile, record_function, ProfilerActivity
-with profile(activities=[
-        ProfilerActivity.CPU, ProfilerActivity.CUDA], with_stack=True, record_shapes=True) as prof:
-    with record_function("model_inference"):
-        output = model(bert_input_dict["input_ids"], bert_input_dict["attention_mask"], bert_input_dict["labels"])
+# from torch.profiler import profile, record_function, ProfilerActivity
+# with profile(activities=[
+#         ProfilerActivity.CPU, ProfilerActivity.CUDA], with_stack=True, record_shapes=True) as prof:
+#     with record_function("model_inference"):
+#         output = model(bert_input_dict["input_ids"], bert_input_dict["attention_mask"], bert_input_dict["labels"])
     # # backward
     # output = model(bert_input_dict["input_ids"], bert_input_dict["attention_mask"], bert_input_dict["labels"])
     # with record_function("model_inference"):
     #     output["logits"].mean().backward()
 
-print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=100))
+# print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=100))
 # print(prof.key_averages(group_by_stack_n=5).table(sort_by="self_cuda_time_total", row_limit=10))

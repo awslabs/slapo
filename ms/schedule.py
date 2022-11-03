@@ -78,6 +78,17 @@ class Schedule:
                     res.append(node)
         return res
 
+    def find_function(self, pattern):
+        """
+        pattern: Lambda function
+        """
+        res = []
+        for node in self.gm.graph.nodes:
+            if node.op == "call_function":
+                if pattern(node):
+                    res.append(node)
+        return res
+
     def find(self, pattern):
         res = []
         if isinstance(pattern, Pattern):

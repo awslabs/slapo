@@ -1,5 +1,6 @@
 import torch
 
+
 class MyNetworkBlock(torch.nn.Module):
     def __init__(self, in_dim, out_dim):
         super().__init__()
@@ -17,7 +18,7 @@ class MyNetwork(torch.nn.Module):
 
         prev_dim = in_dim
         for i, dim in enumerate(layer_dims):
-            setattr(self, f'layer{i}', MyNetworkBlock(prev_dim, dim))
+            setattr(self, f"layer{i}", MyNetworkBlock(prev_dim, dim))
             prev_dim = dim
 
         self.num_layers = len(layer_dims)
@@ -26,9 +27,10 @@ class MyNetwork(torch.nn.Module):
 
     def forward(self, x):
         for i in range(self.num_layers):
-            x = getattr(self, f'layer{i}')(x)
+            x = getattr(self, f"layer{i}")(x)
 
         return self.output_proj(x)
+
 
 mn = MyNetwork(512, [512, 1024, 256])
 print("Done building")

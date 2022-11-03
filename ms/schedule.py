@@ -11,16 +11,14 @@ from .env import setup
 
 
 class HierarchicalTracer(fx.Tracer):
-
     def is_leaf_module(self, m: nn.Module, module_qualified_name: str) -> bool:
         return (
-            (m.__module__.startswith("torch.nn") or m.__module__.startswith("torch.ao.nn"))
-            and not isinstance(m, nn.Sequential)
-        )
+            m.__module__.startswith("torch.nn")
+            or m.__module__.startswith("torch.ao.nn")
+        ) and not isinstance(m, nn.Sequential)
 
 
-class Pattern():
-
+class Pattern:
     def __init__(self):
         pass
 
@@ -28,10 +26,15 @@ class Pattern():
         raise RuntimeError("Not implemented")
 
 
-class Schedule():
-
-    def __init__(self, mod: nn.Module, world_size: int, rank: int,
-                 optimizer: torch.optim.Optimizer = None, concrete_args: Dict = {}):
+class Schedule:
+    def __init__(
+        self,
+        mod: nn.Module,
+        world_size: int,
+        rank: int,
+        optimizer: torch.optim.Optimizer = None,
+        concrete_args: Dict = {},
+    ):
         if isinstance(mod, fx.GraphModule):
             self.gm = mod
         else:
@@ -74,6 +77,7 @@ class Schedule():
             if pattern.starting_point(node):
                 subgraph = [node]
                 matched = True
+
                 def DFS(curr, target):
                     nonlocal matched
                     for cusr, tusr in zip(curr.users, target.users):
@@ -109,15 +113,15 @@ class Schedule():
         new_funcs = {}
         if isinstance(self.gm, fx.GraphModule):
             # Recompile fx module
-            self.gm.graph.lint() # Does some checks to make sure the Graph is well-formed.
+            self.gm.graph.lint()  # Does some checks to make sure the Graph is well-formed.
             self.gm.recompile()
         prev_path = ""
         for node in self.gm.graph.nodes:
             if node.op == "call_module":
                 name = node.target
-                name = re.sub(r".([0-9]+).", r"_\1.", name) # for nn.Sequential
+                name = re.sub(r".([0-9]+).", r"_\1.", name)  # for nn.Sequential
                 curr_path = name.rsplit(".", 1)[0]
-                prefix = os.path.commonprefix([prev_path+".", curr_path+"."])
+                prefix = os.path.commonprefix([prev_path + ".", curr_path + "."])
                 tmp_mod = self._modules
                 for i in range(name.count(".")):
                     if len(tmp_mod) == 0 or i >= prefix.count("."):
@@ -127,7 +131,9 @@ class Schedule():
                 tmp_mod.append(name)
                 prev_path = curr_path
                 if name not in self._ops:
-                    new_ops[name] = Operation(name, self.world_size, self.rank, node, self.gm)
+                    new_ops[name] = Operation(
+                        name, self.world_size, self.rank, node, self.gm
+                    )
                 else:
                     new_ops[name] = self._ops[name]
             elif node.op == "call_function":
@@ -162,11 +168,10 @@ class Schedule():
         return list(self.ops.keys())
 
 
-class Operation():
-
-    def __init__(self, name: str,
-                       world_size: int, rank: int,
-                       node: fx.Node, gm: fx.GraphModule):
+class Operation:
+    def __init__(
+        self, name: str, world_size: int, rank: int, node: fx.Node, gm: fx.GraphModule
+    ):
         self.name = name
         self.spec = {}
         self.world_size = world_size
@@ -198,9 +203,11 @@ class Operation():
         linear = self.named_modules[self.node.target]
         if not isinstance(linear, nn.Linear):
             linear = linear.fused_linear
+
         def hook_func(_module, _input, output):
             dist.all_reduce(output, op=dist.ReduceOp.SUM)
             return output
+
         linear.register_forward_hook(hook_func)
 
     def bw_gather(self, axis: int = 1):
@@ -208,8 +215,10 @@ class Operation():
         linear = self.named_modules[self.node.target]
         if not isinstance(linear, nn.Linear):
             linear = linear.fused_linear
+
         def hook_func(_module, _input, output):
             dist.all_reduce(output[0].contiguous(), op=dist.ReduceOp.SUM)
+
         linear.register_full_backward_hook(hook_func)
 
     def replace(self, nn_mod: nn.Module, *args, arg_names=[]):
@@ -242,8 +251,7 @@ class Operation():
         self.node = new_node
 
 
-class OperationList():
-
+class OperationList:
     def __init__(self, op_lst: List[Operation], gm: fx.GraphModule):
         self.op_lst = op_lst
         self.gm = gm
@@ -276,7 +284,9 @@ class OperationList():
             assert first_node != None
             assert last_node != None
             with self.gm.graph.inserting_after(first_node):
-                new_node = self.gm.graph.call_module(name, first_node.args, first_node.kwargs)
+                new_node = self.gm.graph.call_module(
+                    name, first_node.args, first_node.kwargs
+                )
                 last_node.replace_all_uses_with(new_node)
             # Remove the old node from the graph
             if isinstance(self.op_lst[0], str):
@@ -297,10 +307,14 @@ class OperationList():
                     if node.target in op_name:
                         node_lst.append(node)
                 with self.gm.graph.inserting_before(node_lst[0]):
-                    new_node = self.gm.graph.call_module(name, node_lst[0].args, node_lst[0].kwargs)
+                    new_node = self.gm.graph.call_module(
+                        name, node_lst[0].args, node_lst[0].kwargs
+                    )
                 with self.gm.graph.inserting_after(new_node):
                     for i, node in enumerate(node_lst):
-                        getitem = self.gm.graph.call_function(operator.getitem, (new_node, i))
+                        getitem = self.gm.graph.call_function(
+                            operator.getitem, (new_node, i)
+                        )
                         node.replace_all_uses_with(getitem)
                         self.gm.graph.erase_node(node)
             else:
@@ -309,12 +323,16 @@ class OperationList():
                     new_node = self.gm.graph.call_module(name, node_lst[0][0].args[:2])
                 with self.gm.graph.inserting_after(new_node):
                     for i, sublst in enumerate(node_lst):
-                        getitem = self.gm.graph.call_function(operator.getitem, (new_node, i))
+                        getitem = self.gm.graph.call_function(
+                            operator.getitem, (new_node, i)
+                        )
                         for node in reversed(sublst):
                             # hardcoded
                             if node.op == "call_module" and "dense" in node.target:
                                 with self.gm.graph.inserting_after(getitem):
-                                    new_getitem = self.gm.graph.call_function(operator.getitem, (getitem, i))
+                                    new_getitem = self.gm.graph.call_function(
+                                        operator.getitem, (getitem, i)
+                                    )
                                 if node.users not in sublst:
                                     node.replace_all_uses_with(new_getitem)
                             else:
@@ -323,8 +341,7 @@ class OperationList():
                             self.gm.graph.erase_node(node)
 
 
-class FunctionOpList():
-
+class FunctionOpList:
     def __init__(self, name: str, func_lst: List[Operation], gm: fx.GraphModule):
         self.name = name
         self.func_lst = func_lst
@@ -360,13 +377,20 @@ class FunctionOpList():
             self.gm.graph.erase_node(node)
 
 
-def create_schedule(model: nn.Module, optimizer: torch.optim.Optimizer = None,
-                    world_size: int = 1, rank: int = 0, concrete_args: Dict = {}):
-    return Schedule(model, world_size, rank, optimizer=optimizer, concrete_args=concrete_args)
+def create_schedule(
+    model: nn.Module,
+    optimizer: torch.optim.Optimizer = None,
+    world_size: int = 1,
+    rank: int = 0,
+    concrete_args: Dict = {},
+):
+    return Schedule(
+        model, world_size, rank, optimizer=optimizer, concrete_args=concrete_args
+    )
 
 
 def build(sch: Schedule):
     sch.gm.delete_all_unused_submodules()
-    sch.gm.graph.lint() # Does some checks to make sure the Graph is well-formed.
+    sch.gm.graph.lint()  # Does some checks to make sure the Graph is well-formed.
     sch.gm.recompile()
     return sch.gm, sch.optimizer

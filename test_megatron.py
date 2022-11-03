@@ -9,7 +9,7 @@ from torch.distributed._shard.sharded_optim import (
 from torch.distributed._shard.api import (
     shard_parameter,
     _reshard_output,
-    _collect_local_shard
+    _collect_local_shard,
 )
 from torch.testing._internal.common_distributed import (
     requires_nccl,
@@ -37,6 +37,7 @@ if TEST_WITH_DEV_DBG_ASAN:
         file=sys.stderr,
     )
     sys.exit(0)
+
 
 class TestShardedTensorMegatronLinear(ShardedTensorTestBase):
     def assertEdistNorm(self, t1, t2):
@@ -77,7 +78,6 @@ class TestShardedTensorMegatronLinear(ShardedTensorTestBase):
         sharded_megatron_lm = _collect_local_shard(
             _reshard_output(sharded_megatron_lm, reshard_spec)
         )
-
 
         torch.manual_seed(self.rank)  # inputs different on each rank
         inp = torch.rand(*input_size, requires_grad=True, device=self.rank, dtype=dtype)
@@ -202,16 +202,32 @@ class TestShardedTensorMegatronLinear(ShardedTensorTestBase):
         colwise_sharding_spec = generate_chunk_sharding_specs_for_test(0)
         rowwise_sharding_spec = generate_chunk_sharding_specs_for_test(1)
         for spec in zip(colwise_sharding_spec, rowwise_sharding_spec):
-            self._run_megatron_linear(spec, [22, 17], [[17, 12], [12, 29]], torch.float16)
-            self._run_megatron_linear(spec, [28, 21], [[21, 11], [11, 29]], torch.float32)
-            self._run_megatron_linear(spec, [37, 23], [[23, 13], [13, 24]], torch.float64)
-            self._run_megatron_linear(spec, [24, 15], [[15, 14], [14, 20]], torch.float16)
+            self._run_megatron_linear(
+                spec, [22, 17], [[17, 12], [12, 29]], torch.float16
+            )
+            self._run_megatron_linear(
+                spec, [28, 21], [[21, 11], [11, 29]], torch.float32
+            )
+            self._run_megatron_linear(
+                spec, [37, 23], [[23, 13], [13, 24]], torch.float64
+            )
+            self._run_megatron_linear(
+                spec, [24, 15], [[15, 14], [14, 20]], torch.float16
+            )
 
             # Test multiple input dims
-            self._run_megatron_linear(spec, [10, 22, 17], [[17, 12], [12, 29]], torch.float32)
-            self._run_megatron_linear(spec, [13, 28, 21], [[21, 11], [11, 29]], torch.float16)
-            self._run_megatron_linear(spec, [27, 37, 23], [[23, 13], [13, 24]], torch.float32)
-            self._run_megatron_linear(spec, [100, 24, 15], [[15, 14], [14, 20]], torch.float64)
+            self._run_megatron_linear(
+                spec, [10, 22, 17], [[17, 12], [12, 29]], torch.float32
+            )
+            self._run_megatron_linear(
+                spec, [13, 28, 21], [[21, 11], [11, 29]], torch.float16
+            )
+            self._run_megatron_linear(
+                spec, [27, 37, 23], [[23, 13], [13, 24]], torch.float32
+            )
+            self._run_megatron_linear(
+                spec, [100, 24, 15], [[15, 14], [14, 20]], torch.float64
+            )
 
             # Test single input dim
             self._run_megatron_linear(spec, [17], [[17, 12], [12, 29]], torch.float16)

@@ -54,25 +54,39 @@ import time
 #     the num_worker of torch.utils.data.DataLoader() to 0.
 
 transform = transforms.Compose(
-    [transforms.ToTensor(),
-     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+    [transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
+)
 
 batch_size = 4
 
-trainset = torchvision.datasets.CIFAR10(root='./data', train=True,
-                                        download=True, transform=transform)
-trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
-                                          shuffle=True, num_workers=2)
+trainset = torchvision.datasets.CIFAR10(
+    root="./data", train=True, download=True, transform=transform
+)
+trainloader = torch.utils.data.DataLoader(
+    trainset, batch_size=batch_size, shuffle=True, num_workers=2
+)
 
-testset = torchvision.datasets.CIFAR10(root='./data', train=False,
-                                       download=True, transform=transform)
-testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
-                                         shuffle=False, num_workers=2)
+testset = torchvision.datasets.CIFAR10(
+    root="./data", train=False, download=True, transform=transform
+)
+testloader = torch.utils.data.DataLoader(
+    testset, batch_size=batch_size, shuffle=False, num_workers=2
+)
 
-classes = ('plane', 'car', 'bird', 'cat',
-           'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
+classes = (
+    "plane",
+    "car",
+    "bird",
+    "cat",
+    "deer",
+    "dog",
+    "frog",
+    "horse",
+    "ship",
+    "truck",
+)
 
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(device)
 
 ########################################################################
@@ -89,11 +103,11 @@ import torch.optim as optim
 class Net(nn.Module):
     def __init__(self):
         super().__init__()
-        self.conv1 = nn.Conv2d(3, 6, 5) # 6*28*28
+        self.conv1 = nn.Conv2d(3, 6, 5)  # 6*28*28
         # self.bn1 = nn.BatchNorm2d(6)
         self.ln1 = nn.LayerNorm([6, 28, 28])
         self.pool = nn.MaxPool2d(2, 2)
-        self.conv2 = nn.Conv2d(6, 16, 5) # 16*10*10
+        self.conv2 = nn.Conv2d(6, 16, 5)  # 16*10*10
         # self.bn2 = nn.BatchNorm2d(16)
         self.ln2 = nn.LayerNorm([16, 10, 10])
         self.fc1 = nn.Linear(16 * 5 * 5, 120)
@@ -105,7 +119,7 @@ class Net(nn.Module):
         x = self.pool(x)
         x = self.ln2(F.relu(self.conv2(x)))
         x = self.pool(x)
-        x = torch.flatten(x, 1) # flatten all dimensions except batch
+        x = torch.flatten(x, 1)  # flatten all dimensions except batch
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         x = self.fc3(x)
@@ -125,6 +139,7 @@ optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
 ########################################################################
 # Create schedule and transform program
 import ms
+
 sch = ms.create_schedule(net, optimizer, 1, 0)
 sch.trace_module()
 print(sch.gm.graph)
@@ -133,6 +148,7 @@ ops = sch.forward_ops
 print(ops)
 
 from apex.normalization.fused_layer_norm import FusedLayerNorm
+
 sch[ops[1]].replace(FusedLayerNorm, [6, 28, 28])
 sch[ops[4]].replace(FusedLayerNorm, [16, 10, 10])
 
@@ -167,13 +183,15 @@ for epoch in range(2):  # loop over the dataset multiple times
 
         # print statistics
         running_loss += loss.item()
-        if i % 2000 == 1999:    # print every 2000 mini-batches
+        if i % 2000 == 1999:  # print every 2000 mini-batches
             elapsed_time = time.time() - start_time
-            print(f'[{epoch + 1}, {i + 1:5d}] loss: {running_loss / 2000:.3f} time: {elapsed_time:.4f}s')
+            print(
+                f"[{epoch + 1}, {i + 1:5d}] loss: {running_loss / 2000:.3f} time: {elapsed_time:.4f}s"
+            )
             running_loss = 0.0
             start_time = time.time()
 
-print('Finished Training')
+print("Finished Training")
 
 
 ########################################################################
@@ -195,4 +213,4 @@ with torch.no_grad():
         total += labels.size(0)
         correct += (predicted == labels).sum().item()
 
-print(f'Accuracy of the network on the 10000 test images: {100 * correct // total} %')
+print(f"Accuracy of the network on the 10000 test images: {100 * correct // total} %")

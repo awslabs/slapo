@@ -56,7 +56,11 @@ class Exp:
         if self.seq_len is None:
             self.seq_len = get("max_position_embeddings", "n_ctx")
         n, h, s, v = self.num_layers, self.hidden_size, self.seq_len, self.vocab_size
-        att, ffn, embed = 4 * h * s**2 + 8 * s * h**2, 16 * s * h**2, 2 * s * h * v
+        att, ffn, embed = (
+            4 * h * s**2 + 8 * s * h**2,
+            16 * s * h**2,
+            2 * s * h * v,
+        )
         forward = n * (att + ffn) + embed
         # TFLOPs to train one example
         self.tflops = (4 * forward if self.grad_ckpt else 3 * forward) / 1e12
@@ -68,7 +72,10 @@ class Exp:
     def print_results(self):
         print("Total samples / second\t: %.1f" % self.samples_per_sec)
         print("Per GPU memory (GB)\t: %.1f" % self.gpu_mem)
-        print("Per GPU TFLOPs\t\t: %.1f" % (self.samples_per_sec * self.tflops / self.num_gpus))
+        print(
+            "Per GPU TFLOPs\t\t: %.1f"
+            % (self.samples_per_sec * self.tflops / self.num_gpus)
+        )
 
 
 def compare(exps, fig_name):
@@ -77,11 +84,16 @@ def compare(exps, fig_name):
     for i, (y, l) in enumerate(
         (
             ([e.samples_per_sec for e in exps], "Samples / sec"),
-            ([e.samples_per_sec * e.tflops / e.num_gpus for e in exps], "per GPU TFLOPS"),
+            (
+                [e.samples_per_sec * e.tflops / e.num_gpus for e in exps],
+                "per GPU TFLOPS",
+            ),
             ([e.gpu_mem for e in exps], "per GPU memory (GB)"),
         )
     ):
-        bar = ax[i].barh(x, y, align="center", height=0.6, color=plt.get_cmap("Set1")(x))
+        bar = ax[i].barh(
+            x, y, align="center", height=0.6, color=plt.get_cmap("Set1")(x)
+        )
         ax[i].bar_label(bar, fmt="%.2f", label_type="center")
         ax[i].invert_yaxis()
         ax[i].set_xlabel(l)
@@ -137,7 +149,9 @@ def megatron_log(exp, log_filename):
     with open(log_filename) as f:
         text = f.read()
     # Find the last number after the key, returns 0 if not exists
-    query = lambda key: float(next(iter(reversed(re.findall(key + ": +([\d\.]+)", text))), 0))
+    query = lambda key: float(
+        next(iter(reversed(re.findall(key + ": +([\d\.]+)", text))), 0)
+    )
     if "CUDA out of memory" in text:
         print("Out of GPU memory, try a smaller batch size")
         return
@@ -171,8 +185,8 @@ if MEGATRON_NO_FUSE:
         ]
     }
 
-#hf_bert = []
-#for idx, n_gpu in enumerate((1, 2, 4, 8)):
+# hf_bert = []
+# for idx, n_gpu in enumerate((1, 2, 4, 8)):
 #    gpus = ",".join([str(e) for e in range(n_gpu)])
 #    batch_size = BATCH_SIZE * (idx + 1)
 #    hf_bert.append(
@@ -189,7 +203,7 @@ if MEGATRON_NO_FUSE:
 #            script_file="./pretrain_hf_bert.py"
 #        )
 #    )
-#compare(hf_bert, f"HF-MS")
+# compare(hf_bert, f"HF-MS")
 
 mega_bert = []
 no_fuse = " no fuse" if MEGATRON_NO_FUSE else ""
@@ -210,5 +224,3 @@ for idx, n_gpu in enumerate((1, 2, 4, 8)):
         )
     )
 compare(mega_bert, f"Megatron{'-nofuse' if no_fuse else ''}")
-
-

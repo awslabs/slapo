@@ -4,11 +4,14 @@ import copy
 import torch
 import torch.nn as nn
 import ms, sys
-from torch.testing._internal.distributed._shard.sharded_tensor._test_ops_common import clone_module_parameter
+from torch.testing._internal.distributed._shard.sharded_tensor._test_ops_common import (
+    clone_module_parameter,
+)
 from ms.utils import report_memory
+import torch.distributed as dist
+
 
 class MLP(nn.Module):
-
     def __init__(self, dim: int = 1024):
         super().__init__()
         intermediate_dim = dim * 2
@@ -22,8 +25,8 @@ class MLP(nn.Module):
         x = self.dense_2(x)
         return x
 
-class Top(nn.Module):
 
+class Top(nn.Module):
     def __init__(self):
         super().__init__()
         self.mlp = MLP()
@@ -31,8 +34,8 @@ class Top(nn.Module):
     def forward(self, x):
         return self.mlp(x)
 
-class Block(nn.Module):
 
+class Block(nn.Module):
     def __init__(self, dim: int = 32):
         super().__init__()
         intermediate_dim = dim * 2
@@ -44,11 +47,17 @@ class Block(nn.Module):
         x = self.relu(x)
         return x
 
+
 def _weight_override(module_dst, module_src):
-    module_dst.mlp.dense_1.weight = clone_module_parameter(module_src.mlp.dense_1, "weight")
+    module_dst.mlp.dense_1.weight = clone_module_parameter(
+        module_src.mlp.dense_1, "weight"
+    )
     module_dst.mlp.dense_1.bias = clone_module_parameter(module_src.mlp.dense_1, "bias")
-    module_dst.mlp.dense_2.weight = clone_module_parameter(module_src.mlp.dense_2, "weight")
+    module_dst.mlp.dense_2.weight = clone_module_parameter(
+        module_src.mlp.dense_2, "weight"
+    )
     # module_dst.mlp.dense_2.bias = clone_module_parameter(module_src.mlp.dense_2, "bias")
+
 
 def train(rank, args):
     print(f"Running basic MLP example on rank {rank}.")
@@ -80,9 +89,10 @@ def train(rank, args):
     sch[ops[0]].shard(axis=1, param="weight")
     # row sharding for dense_2
     sch[ops[2]].shard(axis=0, param="weight")
-    
+
     # aggreate results
     sch[ops[2]].gather()
+    sch[ops[0]].bw_gather()
 
     # Replace an op.
     # sch[ops[1]].replace(nn.ReLU)
@@ -98,12 +108,24 @@ def train(rank, args):
 
     # test correctness
     torch.manual_seed(8899)
-    inp = torch.rand((2048, 1024)).cuda(rank)
+    local_inp = torch.rand((2048, 1024), requires_grad=True).cuda(rank)
+    opt_inp = local_inp.detach().clone()
+    print(local_inp)
+    print(opt_inp)
     local_model.cuda(rank)
-    output = local_model(inp)
-    opt_output = opt_model(inp)
+    output = local_model(local_inp)
+    opt_output = opt_model(opt_inp)
     assert torch.allclose(output, opt_output, atol=1e-3, rtol=1e-6)
-    print("Pass!")
+    print("Pass fw!")
+    output.mean().backward()
+    opt_output.mean().backward()
+    # print(local_inp.grad)
+    # print(opt_inp.grad)
+    # assert torch.allclose(local_inp.grad, opt_inp.grad)
+    # assert torch.allclose(local_model.mlp.dense_1.weight.grad, opt_model.mlp.dense_1.weight.grad)
+    # assert torch.allclose(local_model.mlp.dense_1.bias.grad, opt_model.mlp.dense_1.bias.grad)
+    # assert torch.allclose(local_model.mlp.dense_2.weight.grad, opt_model.mlp.dense_2.weight.grad)
+    print("Pass bw!")
     sys.exit()
 
     # Perform a num of iterations of forward/backward

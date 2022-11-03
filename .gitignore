@@ -172,3 +172,4 @@ data
 *.png
 *.out
 *.log
+.vscode

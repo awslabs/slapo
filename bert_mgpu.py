@@ -10,19 +10,28 @@ import ms
 import copy
 from ms.utils import report_memory
 
+
 def train(rank, args):
     # https://huggingface.co/bert-large-uncased/blob/main/config.json
-    bert = BertLMHeadModel(BertConfig(num_attention_heads=16, hidden_size=1024, num_hidden_layers=24, is_decoder=True))
+    bert = BertLMHeadModel(
+        BertConfig(
+            num_attention_heads=16,
+            hidden_size=1024,
+            num_hidden_layers=24,
+            is_decoder=True,
+        )
+    )
     optimizer = torch.optim.AdamW(bert.parameters(), lr=0.001)
     bert.half()
 
     input_names = list(bert.dummy_inputs.keys())
     input_names += ["attention_mask", "labels"]
     sig = inspect.signature(bert.forward)
-    concrete_args = {p.name: p.default for p in sig.parameters.values() if p.name not in input_names}
+    concrete_args = {
+        p.name: p.default for p in sig.parameters.values() if p.name not in input_names
+    }
 
     class NewTracer(fx.HFTracer):
-
         def __init__(self) -> None:
             super(NewTracer, self).__init__()
 
@@ -45,7 +54,6 @@ def train(rank, args):
             graph = super().trace(*args, **kwargs)
             return graph
 
-
     device = "cuda:{}".format(rank)
     # gm = fx.symbolic_trace(bert)
     traced_graph = NewTracer().trace(bert, concrete_args=concrete_args)
@@ -61,35 +69,41 @@ def train(rank, args):
         print("Replace HF QKV Dense with FusedQKV")
 
         class FusedQKV(nn.Module):
-            
-            def __init__(self, hidden_size = 768, num_heads = 12) -> None:
+            def __init__(self, hidden_size=768, num_heads=12) -> None:
                 super(FusedQKV, self).__init__()
                 self.hidden_size = hidden_size
                 self.num_heads = num_heads
                 self.head_size = hidden_size // num_heads
-                self.fused_linear = nn.Linear(hidden_size, num_heads * self.head_size * 3)
+                self.fused_linear = nn.Linear(
+                    hidden_size, num_heads * self.head_size * 3
+                )
 
             def transpose_for_scores(self, x):
-                new_x_shape = x.size()[:-1] + (self.num_heads // args.world_size, self.head_size, 3)
+                new_x_shape = x.size()[:-1] + (
+                    self.num_heads // args.world_size,
+                    self.head_size,
+                    3,
+                )
                 x = x.view(*new_x_shape)
                 return x.permute(0, 2, 1, 3, 4)
 
-            def forward(self, hidden_states): # [8, 512, 768]
+            def forward(self, hidden_states):  # [8, 512, 768]
                 # expanded_states = torch.concat((hidden_states, hidden_states, hidden_states), axis=2)
                 # qkv = self.fused_linear(expanded_states)
                 qkv = self.fused_linear(hidden_states)
                 transposed_qkv = self.transpose_for_scores(qkv)
-                return [torch.squeeze(t) for t in torch.split(transposed_qkv, 1, dim=-1)]
+                return [
+                    torch.squeeze(t) for t in torch.split(transposed_qkv, 1, dim=-1)
+                ]
 
         class QKV_Pattern(ms.Pattern):
-            
             def __init__(self, layer_num):
                 super(QKV_Pattern, self).__init__()
                 self.layer_num = layer_num
 
             @staticmethod
             def func(x: torch.Tensor) -> torch.Tensor:
-                new_x_shape = x.size()[:-1] + (16, 1024)#(12, 768)
+                new_x_shape = x.size()[:-1] + (16, 1024)  # (12, 768)
                 x = x.view(new_x_shape)
                 return x.permute(0, 2, 1, 3)
 
@@ -104,8 +118,10 @@ def train(rank, args):
 
         for i in range(24):
             op_lst = sch.find(QKV_Pattern(i))
-            sch[op_lst].replace(FusedQKV, kwargs={"hidden_size": 1024, "num_heads": 16}, seq=False)
-            print("Fused the {}th QKV layer".format(i+1))
+            sch[op_lst].replace(
+                FusedQKV, kwargs={"hidden_size": 1024, "num_heads": 16}, seq=False
+            )
+            print("Fused the {}th QKV layer".format(i + 1))
 
     sch.trace_module()
     replace_qkv()
@@ -116,8 +132,12 @@ def train(rank, args):
     if args.world_size > 1:
         for i in range(24):
             # MLP
-            sch["bert.encoder.layer.{}.intermediate.dense".format(i)].shard(axis=1, param="weight")
-            sch["bert.encoder.layer.{}.output.dense".format(i)].shard(axis=0, param="weight")
+            sch["bert.encoder.layer.{}.intermediate.dense".format(i)].shard(
+                axis=1, param="weight"
+            )
+            sch["bert.encoder.layer.{}.output.dense".format(i)].shard(
+                axis=0, param="weight"
+            )
             sch["bert.encoder.layer.{}.output.dense".format(i)].gather()
             sch["bert.encoder.layer.{}.intermediate.dense".format(i)].bw_gather()
 
@@ -125,10 +145,12 @@ def train(rank, args):
             # sch["bert.encoder.layer.{}.attention.self.query".format(i)].shard(axis=1, param="weight")
             # sch["bert.encoder.layer.{}.attention.self.key".format(i)].shard(axis=1, param="weight")
             # sch["bert.encoder.layer.{}.attention.self.value".format(i)].shard(axis=1, param="weight")
-            
+
             name = "FusedQKV" if i == 0 else "FusedQKV_{}".format(i)
             sch[name].shard(axis=1, param="fused_linear.weight")
-            sch["bert.encoder.layer.{}.attention.output.dense".format(i)].shard(axis=0, param="weight")
+            sch["bert.encoder.layer.{}.attention.output.dense".format(i)].shard(
+                axis=0, param="weight"
+            )
             sch["bert.encoder.layer.{}.attention.output.dense".format(i)].gather()
             # sch["bert.encoder.layer.{}.attention.self.query".format(i)].bw_gather()
             # sch["bert.encoder.layer.{}.attention.self.key".format(i)].bw_gather()
@@ -137,12 +159,13 @@ def train(rank, args):
 
         # fix number of heads
         import operator
+
         mod = dict(sch.gm.named_modules())
         for node in sch.gm.graph.nodes:
             if node.op == "call_function" and node.target == operator.add:
                 if isinstance(node.args[1], tuple):
                     lst = list(node.args[1])
-                    lst[0] = lst[0] // sch.world_size # num of heads
+                    lst[0] = lst[0] // sch.world_size  # num of heads
                     node.args = (node.args[0], tuple(lst))
 
     report_memory(rank)
@@ -154,9 +177,14 @@ def train(rank, args):
     bs = 8
     seq_length = 512
     bert_input_dict = {
-        'input_ids': torch.zeros(bs, seq_length, dtype=torch.long, device=device).random_(bert.config.vocab_size),
-        'labels': torch.zeros(bs, seq_length, dtype=torch.long, device=device).random_(bert.config.vocab_size),
-        'attention_mask': torch.ones(bs, seq_length, device=device)}
+        "input_ids": torch.zeros(
+            bs, seq_length, dtype=torch.long, device=device
+        ).random_(bert.config.vocab_size),
+        "labels": torch.zeros(bs, seq_length, dtype=torch.long, device=device).random_(
+            bert.config.vocab_size
+        ),
+        "attention_mask": torch.ones(bs, seq_length, device=device),
+    }
 
     # from pytorch_memlab import MemReporter
     # reporter = MemReporter(model)
@@ -167,7 +195,11 @@ def train(rank, args):
     total_time = []
     for i in range(10):
         start_time = time.time()
-        output = model(bert_input_dict["input_ids"].cuda(rank), bert_input_dict["attention_mask"].cuda(rank), bert_input_dict["labels"].cuda(rank))
+        output = model(
+            bert_input_dict["input_ids"].cuda(rank),
+            bert_input_dict["attention_mask"].cuda(rank),
+            bert_input_dict["labels"].cuda(rank),
+        )
         mid_time = time.time()
         output["logits"].mean().backward()
         final_time = time.time()
@@ -175,24 +207,29 @@ def train(rank, args):
         fw_time.append(mid_time - start_time)
         bw_time.append(final_time - mid_time)
         total_time.append(final_time - start_time)
-        print(f"Finish step {i}, fw: {fw_time[-1]:.10f}s, bw: {bw_time[-1]:.10f}s, total: {total_time[-1]:.10f}s")
-    fw_avg =np.array(fw_time[1:-1]).mean()
-    bw_avg =np.array(bw_time[1:-1]).mean()
-    total_avg =np.array(total_time[1:-1]).mean()
-    print(f"Average fw: {fw_avg*1000:.10f}ms, bw: {bw_avg*1000:.10f}ms, total: {total_avg*1000:.10f}ms")
+        print(
+            f"Finish step {i}, fw: {fw_time[-1]:.10f}s, bw: {bw_time[-1]:.10f}s, total: {total_time[-1]:.10f}s"
+        )
+    fw_avg = np.array(fw_time[1:-1]).mean()
+    bw_avg = np.array(bw_time[1:-1]).mean()
+    total_avg = np.array(total_time[1:-1]).mean()
+    print(
+        f"Average fw: {fw_avg*1000:.10f}ms, bw: {bw_avg*1000:.10f}ms, total: {total_avg*1000:.10f}ms"
+    )
 
     # from torch.profiler import profile, record_function, ProfilerActivity
     # with profile(activities=[
     #         ProfilerActivity.CPU, ProfilerActivity.CUDA], with_stack=True, record_shapes=True) as prof:
     #     with record_function("model_inference"):
     #         output = model(bert_input_dict["input_ids"], bert_input_dict["attention_mask"], bert_input_dict["labels"])
-        # # backward
-        # output = model(bert_input_dict["input_ids"], bert_input_dict["attention_mask"], bert_input_dict["labels"])
-        # with record_function("model_inference"):
-        #     output["logits"].mean().backward()
+    # # backward
+    # output = model(bert_input_dict["input_ids"], bert_input_dict["attention_mask"], bert_input_dict["labels"])
+    # with record_function("model_inference"):
+    #     output["logits"].mean().backward()
 
     # print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=100))
     # print(prof.key_averages(group_by_stack_n=5).table(sort_by="self_cuda_time_total", row_limit=10))
+
 
 if __name__ == "__main__":
     n_gpus = torch.cuda.device_count()

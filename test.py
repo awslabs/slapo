@@ -1,10 +1,10 @@
 import time, argparse
 import torch
 import torch.nn as nn
-import ms # model-scheduling
+import ms  # model-scheduling
+
 
 class MLP(nn.Module):
-
     def __init__(self, dim: int):
         super().__init__()
         self.dense_1 = nn.Linear(dim, dim * 2)
@@ -19,6 +19,7 @@ class MLP(nn.Module):
         x = self.dense_2(x)
         return x
 
+
 def train(rank, args):
     print(f"Running basic MLP example on rank {rank}.")
 
@@ -28,7 +29,7 @@ def train(rank, args):
 
     # Create a default schedule
     sch = ms.create_schedule(model, optimizer, args.world_size, rank)
-    
+
     # Access operators
     ops = sch.forward_ops
     print(ops)
@@ -58,6 +59,7 @@ def train(rank, args):
         optimizer.step()
         elapsed_time = time.time() - start_time
         print(f"Finish step {i}, time: {elapsed_time:.10f}s")
+
 
 if __name__ == "__main__":
     n_gpus = torch.cuda.device_count()

@@ -35,12 +35,13 @@ to use it in the example, too.
 
 
 def setup(rank, world_size):
-    os.environ['MASTER_ADDR'] = 'localhost'
-    os.environ['MASTER_PORT'] = '12355'
+    os.environ["MASTER_ADDR"] = "localhost"
+    os.environ["MASTER_PORT"] = "12355"
 
     # initialize the process group
     dist.init_process_group("nccl", rank=rank, world_size=world_size)
     torch.cuda.set_device(rank)
+
 
 def cleanup():
     dist.destroy_process_group()
@@ -95,7 +96,7 @@ def _get_toy_module_optim(module, lr):
     """
     return ShardedOptimizer(
         dict(named_params_with_sharded_tensor(module)),
-        torch.optim.SGD, # SGD is only demo purpose, one can use other optims.
+        torch.optim.SGD,  # SGD is only demo purpose, one can use other optims.
         lr=lr,
     )
 
@@ -137,9 +138,7 @@ def demo_tp(rank, args):
     print(f"Running basic Megatron style TP example on rank {rank}.")
     setup(rank, args.world_size)
     # create a sharding plan based on the given world_size.
-    module_sharding_plan = _get_toy_module_sharding_plan(
-        args.world_size
-    )
+    module_sharding_plan = _get_toy_module_sharding_plan(args.world_size)
 
     # create model and move it to GPU with id rank
     model = ToyModel().cuda(rank)
@@ -161,10 +160,7 @@ def demo_tp(rank, args):
 
 
 def run_demo(demo_fn, args):
-    mp.spawn(demo_fn,
-             args=(args,),
-             nprocs=args.world_size,
-             join=True)
+    mp.spawn(demo_fn, args=(args,), nprocs=args.world_size, join=True)
 
 
 if __name__ == "__main__":

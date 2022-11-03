@@ -3,8 +3,8 @@ import torch
 import torch.nn as nn
 import ms
 
-class Block(nn.Module):
 
+class Block(nn.Module):
     def __init__(self, dim: int = 32):
         super().__init__()
         intermediate_dim = dim
@@ -18,7 +18,6 @@ class Block(nn.Module):
 
 
 class Block2(nn.Module):
-
     def __init__(self, dim: int = 32):
         super().__init__()
         intermediate_dim = dim
@@ -29,7 +28,6 @@ class Block2(nn.Module):
 
 
 class MLP(nn.Module):
-
     def __init__(self, dim: int = 32):
         super().__init__()
         self.blocks = [Block(dim) for _ in range(2)]

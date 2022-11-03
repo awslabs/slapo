@@ -62,40 +62,45 @@ class Schedule:
             else:
                 return FunctionOpList(name, self._func_ops[name], self.gm)
 
-    def find(self, pattern: Pattern):
-        self.trace_module()
+    def find(self, pattern):
         res = []
-        for node in self.gm.graph.nodes:
-            if pattern.starting_point(node):
-                subgraph = [node]
-                matched = True
+        if isinstance(pattern, Pattern):
+            for node in self.gm.graph.nodes:
+                if pattern.starting_point(node):
+                    subgraph = [node]
+                    matched = True
 
-                def DFS(curr, target):
-                    nonlocal matched
-                    for cusr, tusr in zip(curr.users, target.users):
-                        if tusr.target == "output":
-                            return True
-                        if cusr.target != tusr.target:
-                            matched = False
-                            return False
-                        if cusr not in subgraph:
-                            subgraph.append(cusr)
-                        DFS(cusr, tusr)
-                    return True
+                    def DFS(curr, target):
+                        nonlocal matched
+                        for cusr, tusr in zip(curr.users, target.users):
+                            if tusr.target == "output":
+                                return True
+                            if cusr.target != tusr.target:
+                                matched = False
+                                return False
+                            if cusr not in subgraph:
+                                subgraph.append(cusr)
+                            DFS(cusr, tusr)
+                        return True
 
-                class Test(nn.Module):
-                    def __init__(self):
-                        super(Test, self).__init__()
+                    class Test(nn.Module):
+                        def __init__(self):
+                            super(Test, self).__init__()
 
-                    def forward(self, x):
-                        return pattern.func(x)
+                        def forward(self, x):
+                            return pattern.func(x)
 
-                mod = fx.symbolic_trace(Test())
-                target_node = list(mod.graph.nodes)[0]
-                curr_node = node
-                DFS(curr_node, target_node)
-                if matched:
-                    res.append(subgraph)
+                    mod = fx.symbolic_trace(Test())
+                    target_node = list(mod.graph.nodes)[0]
+                    curr_node = node
+                    DFS(curr_node, target_node)
+                    if matched:
+                        res.append(subgraph)
+        else: # lambda function
+            for node in self.gm.graph.nodes:
+                if node.op == "call_module":
+                    if pattern(node):
+                        res.append(node)
         return res
 
     def trace_module(self):

@@ -40,63 +40,16 @@ def replace_xformer_attention(sch):
         sch[op].replace(BertSelfAttentionXFormer, config=config)
 
 
-def replace_softmax():
-    print("Replace HF Softmax with Megatron FusedScaleMaskSoftmax")
-    from megatron.model.fused_softmax import FusedScaleMaskSoftmax
-    from megatron.model.enums import AttnMaskType
-    from megatron.model.utils import attention_mask_func
-    import operator
-
-    class Softmax_Pattern(ms.Pattern):
-        """
-        %truediv: attention_scores
-        %mul_1: attention_masks
-
-        %add_7 : [#users=1] = call_function[target=operator.add](args = (%truediv, %mul_1), kwargs = {})
-        %softmax : [#users=1] = call_function[target=torch.nn.functional.softmax](args = (%add_7,), kwargs = {dim: -1, _stacklevel: 3, dtype: None})
-        """
-
-        def __init__(self):
-            super(Softmax_Pattern, self).__init__()
-
-        @staticmethod
-        def func(x: torch.Tensor) -> torch.Tensor:
-            return nn.functional.softmax(x)
-
-        def starting_point(self, node):
-            if node.op != "call_function":
-                return False
-            if node.target == operator.add:
-                return True
-            else:
-                return False
-
-    config = {
-        "input_in_fp16": True,
-        "input_in_bf16": False,
-        "attn_mask_type": AttnMaskType.padding,
-        "scaled_masked_softmax_fusion": True,
-        "mask_func": attention_mask_func,
-        "softmax_in_fp32": True,
-        "scale": None,
-    }
-    op_lst = sch.find(Softmax_Pattern())
-    for ops in op_lst:
-        sch[ops].replace(FusedScaleMaskSoftmax, kwargs=config, seq=True)
-
-
-def replace_qkv():
+def replace_qkv(sch, hidden_size, num_heads):
     print("Replace HF QKV Dense with FusedQKV")
 
     class FusedQKV(nn.Module):
-        def __init__(self, hidden_size=768, num_heads=12) -> None:
+        def __init__(self, hidden_size, num_heads) -> None:
             super(FusedQKV, self).__init__()
             self.hidden_size = hidden_size
             self.num_heads = num_heads
             self.head_size = hidden_size // num_heads
-            self.fused_linear = nn.Linear(
-                hidden_size * 3, num_heads * self.head_size * 3
-            )
+            self.fused_linear = nn.Linear(hidden_size, num_heads * self.head_size * 3)
 
         def transpose_for_scores(self, x):
             new_x_shape = x.size()[:-1] + (self.num_heads, self.head_size, 3)
@@ -104,10 +57,7 @@ def replace_qkv():
             return x.permute(0, 2, 1, 3, 4)
 
         def forward(self, hidden_states):  # [8, 512, 768]
-            expanded_states = torch.concat(
-                (hidden_states, hidden_states, hidden_states), axis=2
-            )
-            qkv = self.fused_linear(expanded_states)
+            qkv = self.fused_linear(hidden_states)
             transposed_qkv = self.transpose_for_scores(qkv)
             return [torch.squeeze(t) for t in torch.split(transposed_qkv, 1, dim=-1)]
 
@@ -118,7 +68,7 @@ def replace_qkv():
 
         @staticmethod
         def func(x: torch.Tensor) -> torch.Tensor:
-            new_x_shape = x.size()[:-1] + (16, 1024)  # (12, 768)
+            new_x_shape = x.size()[:-1] + (num_heads, hidden_size)
             x = x.view(new_x_shape)
             return x.permute(0, 2, 1, 3)
 
@@ -133,6 +83,4 @@ def replace_qkv():
 
     for i in range(24):
         op_lst = sch.find(QKV_Pattern(i))
-        sch[op_lst].replace(
-            FusedQKV, kwargs={"hidden_size": 1024, "num_heads": 16}, seq=False
-        )
+        sch[op_lst].replace(FusedQKV, hidden_size=hidden_size, num_heads=num_heads)

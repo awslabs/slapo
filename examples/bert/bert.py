@@ -5,10 +5,11 @@ import numpy as np
 import torch
 import torch.nn as nn
 import ms
-from bert_schedule import replace_layernorm, replace_gelu, replace_xformer_attention
+from bert_schedule import replace_layernorm, replace_gelu, replace_xformer_attention, replace_qkv
 
 # https://huggingface.co/bert-large-uncased/blob/main/config.json
-bert = BertLMHeadModel(AutoConfig.from_pretrained("bert-large-uncased"))
+bert_config = AutoConfig.from_pretrained("bert-large-uncased")
+bert = BertLMHeadModel(bert_config)
 optimizer = torch.optim.AdamW(bert.parameters(), lr=0.001)
 bert.half()
 
@@ -19,24 +20,23 @@ concrete_args = {
     p.name: p.default for p in sig.parameters.values() if p.name not in input_names
 }
 
-sch = ms.create_schedule(
-    bert,
-    optimizer,
-    config={
-        "tracer": "huggingface",
-        "leaf_modules": ["BertSelfAttention"],
-        "concrete_args": concrete_args,
-    },
-)
-replace_xformer_attention(sch)
-
 # sch = ms.create_schedule(
-#     bert, optimizer, config={"tracer": "huggingface", "concrete_args": concrete_args}
+#     bert,
+#     optimizer,
+#     config={
+#         "tracer": "huggingface",
+#         "leaf_modules": ["BertSelfAttention"],
+#         "concrete_args": concrete_args,
+#     },
 # )
+# replace_xformer_attention(sch)
+
+sch = ms.create_schedule(
+    bert, optimizer, config={"tracer": "huggingface", "concrete_args": concrete_args}
+)
 # replace_layernorm(sch)
 # replace_gelu(sch)
-# replace_softmax()
-# replace_qkv()
+replace_qkv(sch, bert_config.hidden_size, bert_config.num_attention_heads)
 # print(gm.graph)
 
 device = "cuda:0"

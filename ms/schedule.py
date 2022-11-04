@@ -231,18 +231,48 @@ class Operation:
     def shard(self, param_name: str, axis: int):
         # axis after transpose
         mod = self.named_modules[self.node.target]
-        if not isinstance(mod, nn.Linear):
+        if not isinstance(mod, nn.Linear) and not isinstance(mod, nn.Embedding):
             mod = mod.fused_linear
         param = mod.get_parameter(param_name)
         sharded_size = param.shape[axis] // self.world_size
         new_param = param.detach().split(sharded_size, dim=axis)[self.rank]
         mod.register_parameter(param_name, nn.Parameter(new_param))
 
+    def hook(self, mode, func):
+        mod = self.named_modules[self.node.target]
+
+        if mode == "fw_pre":
+
+            def fw_pre_hook(_module, _input):
+                return func(_input)
+
+            mod.register_forward_pre_hook(fw_pre_hook)
+        elif mode == "fw_post":
+
+            def fw_post_hook(_module, _input, output):
+                return func(_input, output)
+
+            mod.register_forward_hook(fw_post_hook)
+        # elif mode == "bw_pre":
+
+        #     def bw_pre_hook(_module, _input):
+        #         return func(_input)
+
+        #     mod.register_backward_pre_hook(bw_pre_hook)
+        elif mode == "fw_post":
+
+            def bw_post_hook(_module, _input, output):
+                return func(_input, output)
+
+            mod.register_full_backward_hook(bw_post_hook)
+        else:
+            raise RuntimeError("Mode {} is not supported".format())
+
     def sync(self, axis: int = 1, backward=False):
         # axis after transpose
-        linear = self.named_modules[self.node.target]
-        if not isinstance(linear, nn.Linear):
-            linear = linear.fused_linear
+        mod = self.named_modules[self.node.target]
+        if not isinstance(mod, nn.Linear) and not isinstance(mod, nn.Embedding):
+            mod = mod.fused_linear
 
         if not backward:
 
@@ -250,14 +280,14 @@ class Operation:
                 dist.all_reduce(output, op=dist.ReduceOp.SUM)
                 return output
 
-            linear.register_forward_hook(hook_func)
+            mod.register_forward_hook(hook_func)
 
         else:
 
             def hook_func(_module, _input, output):
                 dist.all_reduce(output[0].contiguous(), op=dist.ReduceOp.SUM)
 
-            linear.register_full_backward_hook(hook_func)
+            mod.register_full_backward_hook(hook_func)
 
 
 class OperationList:

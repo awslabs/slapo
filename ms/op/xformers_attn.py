@@ -44,6 +44,15 @@ def pt_attention(q, k, v, attn_bias, p=0.0):
     return out.permute((0, 2, 1, 3))
 
 
+class MemoryEfficientAttention(nn.Module):
+    def __init__(self, op):
+        super(MemoryEfficientAttention, self).__init__()
+        self.op = op
+
+    def forward(self, q, k, v, m, p):
+        return xformers.ops.memory_efficient_attention(q, k, v, m, p, op=self.op)
+
+
 class BertSelfAttentionXFormer(nn.Module):
     """Modified from HuggingFace's BertSelfAttention to use the xformers attention op"""
 
@@ -91,11 +100,7 @@ class BertSelfAttentionXFormer(nn.Module):
             else:
                 raise ValueError(f"Unknown attn_op_name {attn_op_name}")
 
-            self.attn_op = (
-                lambda q, k, v, m, p: xformers.ops.memory_efficient_attention(
-                    q, k, v, m, p, op=op
-                )
-            )
+            self.attn_op = MemoryEfficientAttention(op)
 
     def reshape_for_scores(self, x: torch.Tensor) -> torch.Tensor:
         """Copy from transpose_for_scores but without the transpose"""

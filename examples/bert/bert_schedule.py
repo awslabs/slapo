@@ -81,7 +81,8 @@ def replace_qkv(sch, hidden_size, num_heads, num_layers):
         sch[op_lst].replace(FusedQKV, hidden_size=hidden_size, num_heads=num_heads)
 
 
-def shard_params(sch, num_layers, fused_qkv=False, prefix="bert."):
+def shard_params(sch, num_layers, fused_qkv=False, prefix=""):
+    prefix = "" if prefix == "" else prefix + "."
     for i in range(num_layers):
         # MLP
         sch[prefix+"encoder.layer.{}.intermediate.dense".format(i)].shard("weight", axis=0)

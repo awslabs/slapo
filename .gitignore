@@ -174,3 +174,4 @@ data
 *.log
 *.json
 
+.vscode

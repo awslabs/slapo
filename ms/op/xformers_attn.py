@@ -35,7 +35,9 @@ def pt_attention(q, k, v, attn_bias, p=0.0):
     assert q.ndim == 4
 
     def T(t):
-        return t.permute((0, 2, 1, 3)).reshape([t.shape[0] * t.shape[2], t.shape[1], t.shape[3]])
+        return t.permute((0, 2, 1, 3)).reshape(
+            [t.shape[0] * t.shape[2], t.shape[1], t.shape[3]]
+        )
 
     out = attention_bmk(T(q), T(k), T(v), attn_bias, p)
     out = out.reshape([q.shape[0], q.shape[2], q.shape[1], v.shape[3]])
@@ -89,13 +91,18 @@ class BertSelfAttentionXFormer(nn.Module):
             else:
                 raise ValueError(f"Unknown attn_op_name {attn_op_name}")
 
-            self.attn_op = lambda q, k, v, m, p: xformers.ops.memory_efficient_attention(
-                q, k, v, m, p, op=op
+            self.attn_op = (
+                lambda q, k, v, m, p: xformers.ops.memory_efficient_attention(
+                    q, k, v, m, p, op=op
+                )
             )
 
     def reshape_for_scores(self, x: torch.Tensor) -> torch.Tensor:
         """Copy from transpose_for_scores but without the transpose"""
-        new_x_shape = x.size()[:-1] + (self.num_attention_heads, self.attention_head_size)
+        new_x_shape = x.size()[:-1] + (
+            self.num_attention_heads,
+            self.attention_head_size,
+        )
         x = x.view(new_x_shape)
         return x
 
@@ -143,10 +150,16 @@ class BertSelfAttentionXFormer(nn.Module):
         # The required attention mask shape is [batch_size x #heads, seq_length, seq_length];
         # while the input shape is [batch_size, 1, 1, seq_length].
         # In other words, we need to broadcast other dimensions manually.
-        attention_mask = self.layout_attention_mask(attention_mask, self.num_attention_heads)
+        attention_mask = self.layout_attention_mask(
+            attention_mask, self.num_attention_heads
+        )
 
         context_layer = self.attn_op(
-            query_layer, key_layer, value_layer, attention_mask, p=self.attention_probs_dropout_prob
+            query_layer,
+            key_layer,
+            value_layer,
+            attention_mask,
+            p=self.attention_probs_dropout_prob,
         )
         context_layer = context_layer.contiguous()
         new_context_layer_shape = context_layer.size()[:-2] + (self.all_head_size,)
@@ -160,15 +173,18 @@ class BertSelfAttentionXFormer(nn.Module):
 
 class GPT2Attention(nn.Module):
     """FIXME: This is not working yet"""
-    def __init__(self, config, is_cross_attention=False, layer_idx=None, attn_op_name="native"):
+
+    def __init__(
+        self, config, is_cross_attention=False, layer_idx=None, attn_op_name="native"
+    ):
         super().__init__()
 
         max_positions = config.max_position_embeddings
         self.register_buffer(
             "bias",
-            torch.tril(torch.ones((max_positions, max_positions), dtype=torch.uint8)).view(
-                1, 1, max_positions, max_positions
-            ),
+            torch.tril(
+                torch.ones((max_positions, max_positions), dtype=torch.uint8)
+            ).view(1, 1, max_positions, max_positions),
         )
         self.register_buffer("masked_bias", torch.tensor(-1e4))
 
@@ -191,8 +207,12 @@ class GPT2Attention(nn.Module):
         self.scale_attn_by_inverse_layer_idx = config.scale_attn_by_inverse_layer_idx
         self.layer_idx = layer_idx
         self.reorder_and_upcast_attn = config.reorder_and_upcast_attn
-        assert not self.scale_attn_by_inverse_layer_idx, "scale_attn_by_inverse_layer_idx is not supported for now"
-        assert not self.reorder_and_upcast_attn, "reorder_and_upcast_attn is not supported for now"
+        assert (
+            not self.scale_attn_by_inverse_layer_idx
+        ), "scale_attn_by_inverse_layer_idx is not supported for now"
+        assert (
+            not self.reorder_and_upcast_attn
+        ), "reorder_and_upcast_attn is not supported for now"
 
         self.c_attn = Conv1D(3 * self.embed_dim, self.embed_dim)
         self.c_proj = Conv1D(self.embed_dim, self.embed_dim)
@@ -210,14 +230,18 @@ class GPT2Attention(nn.Module):
         heads, index = find_pruneable_heads_and_indices(
             heads, self.num_heads, self.head_dim, self.pruned_heads
         )
-        index_attn = torch.cat([index, index + self.split_size, index + (2 * self.split_size)])
+        index_attn = torch.cat(
+            [index, index + self.split_size, index + (2 * self.split_size)]
+        )
 
         # Prune conv1d layers
         self.c_attn = prune_conv1d_layer(self.c_attn, index_attn, dim=1)
         self.c_proj = prune_conv1d_layer(self.c_proj, index, dim=0)
 
         # Update hyper params
-        self.split_size = (self.split_size // self.num_heads) * (self.num_heads - len(heads))
+        self.split_size = (self.split_size // self.num_heads) * (
+            self.num_heads - len(heads)
+        )
         self.num_heads = self.num_heads - len(heads)
         self.pruned_heads = self.pruned_heads.union(heads)
 
@@ -226,7 +250,9 @@ class GPT2Attention(nn.Module):
 
         if self.scale_attn_weights:
             attn_weights = attn_weights / torch.tensor(
-                value.size(-1) ** 0.5, dtype=attn_weights.dtype, device=attn_weights.device
+                value.size(-1) ** 0.5,
+                dtype=attn_weights.dtype,
+                device=attn_weights.device,
             )
 
         # Layer-wise attention scaling
@@ -236,13 +262,15 @@ class GPT2Attention(nn.Module):
         if not self.is_cross_attention:
             # if only "normal" attention layer implements causal mask
             query_length, key_length = query.size(-2), key.size(-2)
-            causal_mask = self.bias[:, :, key_length - query_length : key_length, :key_length].to(
-                torch.bool
-            )
+            causal_mask = self.bias[
+                :, :, key_length - query_length : key_length, :key_length
+            ].to(torch.bool)
             mask_value = torch.finfo(attn_weights.dtype).min
             # Need to be a tensor, otherwise we get error: `RuntimeError: expected scalar type float but found double`.
             # Need to be on the same device, otherwise `RuntimeError: ..., x and y to be on the same device`
-            mask_value = torch.tensor(mask_value, dtype=attn_weights.dtype).to(attn_weights.device)
+            mask_value = torch.tensor(mask_value, dtype=attn_weights.dtype).to(
+                attn_weights.device
+            )
             attn_weights = torch.where(causal_mask, attn_weights, mask_value)
 
         if attention_mask is not None:
@@ -263,14 +291,20 @@ class GPT2Attention(nn.Module):
 
         return attn_output, attn_weights
 
-    def _upcast_and_reordered_attn(self, query, key, value, attention_mask=None, head_mask=None):
+    def _upcast_and_reordered_attn(
+        self, query, key, value, attention_mask=None, head_mask=None
+    ):
         # Use `torch.baddbmm` (a bit more efficient w/ alpha param for scaling -- from Megatron-LM)
         bsz, num_heads, q_seq_len, dk = query.size()
         _, _, k_seq_len, _ = key.size()
 
         # Preallocate attn_weights for `baddbmm`
         attn_weights = torch.empty(
-            bsz * num_heads, q_seq_len, k_seq_len, dtype=torch.float32, device=query.device
+            bsz * num_heads,
+            q_seq_len,
+            k_seq_len,
+            dtype=torch.float32,
+            device=query.device,
         )
 
         # Compute Scale Factor
@@ -300,7 +334,9 @@ class GPT2Attention(nn.Module):
             mask_value = torch.finfo(attn_weights.dtype).min
             # Need to be a tensor, otherwise we get error: `RuntimeError: expected scalar type float but found double`.
             # Need to be on the same device, otherwise `RuntimeError: ..., x and y to be on the same device`
-            mask_value = torch.tensor(mask_value, dtype=attn_weights.dtype).to(attn_weights.device)
+            mask_value = torch.tensor(mask_value, dtype=attn_weights.dtype).to(
+                attn_weights.device
+            )
             attn_weights = torch.where(causal_mask, attn_weights, mask_value)
 
         if attention_mask is not None:
@@ -331,7 +367,7 @@ class GPT2Attention(nn.Module):
         """
         new_shape = tensor.size()[:-1] + (num_heads, attn_head_size)
         tensor = tensor.view(new_shape)
-        return tensor # (batch, seq_length, head, head_features)
+        return tensor  # (batch, seq_length, head, head_features)
 
     def _merge_heads(self, tensor, num_heads, attn_head_size):
         """
@@ -360,7 +396,9 @@ class GPT2Attention(nn.Module):
                 )
 
             query = self.q_attn(hidden_states)
-            key, value = self.c_attn(encoder_hidden_states).split(self.split_size, dim=2)
+            key, value = self.c_attn(encoder_hidden_states).split(
+                self.split_size, dim=2
+            )
             attention_mask = encoder_attention_mask
         else:
             query, key, value = self.c_attn(hidden_states).split(self.split_size, dim=2)
@@ -387,7 +425,7 @@ class GPT2Attention(nn.Module):
             assert head_mask is None, "head_mask is not supported for now"
             attn_output = pt_attention(query, key, value, attention_mask)
             attn_weights = None
-            #attn_output, attn_weights = self._attn(query, key, value, attention_mask, head_mask)
+            # attn_output, attn_weights = self._attn(query, key, value, attention_mask, head_mask)
 
         attn_output = self._merge_heads(attn_output, self.num_heads, self.head_dim)
         attn_output = self.c_proj(attn_output)

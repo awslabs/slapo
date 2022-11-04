@@ -3,7 +3,6 @@ import inspect
 from transformers import BertLMHeadModel, AutoConfig
 import numpy as np
 import torch
-import torch.nn as nn
 import ms
 from bert_schedule import replace_layernorm, replace_gelu, replace_xformer_attention, replace_qkv
 
@@ -36,7 +35,7 @@ sch = ms.create_schedule(
 )
 # replace_layernorm(sch)
 # replace_gelu(sch)
-replace_qkv(sch, bert_config.hidden_size, bert_config.num_attention_heads)
+replace_qkv(sch, bert_config.hidden_size, bert_config.num_attention_heads, bert_config.num_hidden_layers)
 # print(gm.graph)
 
 device = "cuda:0"

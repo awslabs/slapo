@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.fx as fx
+import torch.distributed as dist
 import ms
 
 
@@ -83,6 +84,27 @@ def replace_qkv(sch, hidden_size, num_heads, num_layers):
 
 def shard_params(sch, config, fused_qkv=False, prefix=""):
     prefix = "" if prefix == "" else prefix + "."
+
+    # Embedding
+    sch[prefix+"embeddings.word_embeddings"].shard("weight", axis=0)
+    # Build the mask
+    vocab_start_index = sch.rank * config.vocab_size // sch.world_size
+    vocab_end_index = (sch.rank + 1) * config.vocab_size // sch.world_size
+    def fw_pre_hook(_input):
+        # Mask the input
+        input_mask = (_input[0] < vocab_start_index) | (_input[0] >= vocab_end_index)
+        masked_input = _input[0].clone() - vocab_start_index
+        masked_input[input_mask] = 0
+        return masked_input
+    sch[prefix+"embeddings.word_embeddings"].hook("fw_pre", fw_pre_hook)
+    def fw_post_hook(_input, output):
+        # Mask the output embedding
+        input_mask = (_input[0] < vocab_start_index) | (_input[0] >= vocab_end_index)
+        output[input_mask, :] = 0.0
+        # Reduce across all the model parallel GPUs
+        dist.all_reduce(output, op=dist.ReduceOp.SUM)
+        return output
+    sch[prefix+"embeddings.word_embeddings"].hook("fw_post", fw_post_hook)
 
     for i in range(config.num_hidden_layers):
         # MLP

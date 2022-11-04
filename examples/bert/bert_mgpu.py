@@ -38,7 +38,7 @@ def train(rank, args):
     )
 
     if args.world_size > 1:
-        shard_params(sch, bert_config.num_hidden_layers, prefix="bert")
+        shard_params(sch, bert_config, prefix="bert")
 
     report_memory(rank)
     device = "cuda:{}".format(rank)

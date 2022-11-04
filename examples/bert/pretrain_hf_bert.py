@@ -38,7 +38,7 @@ def model_schedule(model, config):
     import ms
     import inspect
     import torch.distributed as dist
-    from bert_schedule import replace_qkv, shard_params
+    from bert_schedule import replace_qkv, shard_params, replace_xformer_attention
 
     print("Using model schedule to optimize")
     print("World size: {}, rank: {}".format(dist.get_world_size(), dist.get_rank()))
@@ -63,12 +63,11 @@ def model_schedule(model, config):
         rank,
         config={"tracer": "huggingface", "concrete_args": concrete_args},
     )
-
     replace_qkv(
         sch, config.hidden_size, config.num_attention_heads, config.num_hidden_layers
     )
     if world_size > 1:
-        shard_params(sch, config.num_hidden_layers, fused_qkv=True, prefix="")
+        shard_params(sch, config, fused_qkv=True)
 
     model, _ = ms.build(sch)
     if args.fp16:

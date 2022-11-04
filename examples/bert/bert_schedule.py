@@ -40,7 +40,7 @@ def replace_xformer_attention(sch):
         sch[op].replace(BertSelfAttentionXFormer, config=config)
 
 
-def replace_qkv(sch, hidden_size, num_heads):
+def replace_qkv(sch, hidden_size, num_heads, num_layers):
     print("Replace HF QKV Dense with FusedQKV")
 
     class FusedQKV(nn.Module):
@@ -81,6 +81,40 @@ def replace_qkv(sch, hidden_size, num_heads):
                     return True
             return False
 
-    for i in range(24):
+    for i in range(num_layers):
         op_lst = sch.find(QKV_Pattern(i))
         sch[op_lst].replace(FusedQKV, hidden_size=hidden_size, num_heads=num_heads)
+
+
+def shard_params(sch, num_layers):
+    for i in range(num_layers):
+        # MLP
+        sch["bert.encoder.layer.{}.intermediate.dense".format(i)].shard("weight", axis=1)
+        sch["bert.encoder.layer.{}.output.dense".format(i)].shard("weight", axis=0)
+        sch["bert.encoder.layer.{}.output.dense".format(i)].sync()
+        sch["bert.encoder.layer.{}.intermediate.dense".format(i)].sync(backward=True)
+
+        # Attention
+        sch["bert.encoder.layer.{}.attention.self.query".format(i)].shard("weight", axis=1)
+        sch["bert.encoder.layer.{}.attention.self.key".format(i)].shard("weight", axis=1)
+        sch["bert.encoder.layer.{}.attention.self.value".format(i)].shard("weight", axis=1)
+        sch["bert.encoder.layer.{}.attention.self.query".format(i)].sync(backward=True)
+        sch["bert.encoder.layer.{}.attention.self.key".format(i)].sync(backward=True)
+        sch["bert.encoder.layer.{}.attention.self.value".format(i)].sync(backward=True)
+
+        sch["bert.encoder.layer.{}.attention.output.dense".format(i)].shard("weight", axis=0)
+        sch["bert.encoder.layer.{}.attention.output.dense".format(i)].sync()
+
+        # name = "FusedQKV" if i == 0 else "FusedQKV_{}".format(i)
+        # sch[name].shard("fused_linear.weight", axis=1)
+        # sch[name].sync(backward=True)
+
+    # fix number of heads
+    import operator
+
+    for node in sch.gm.graph.nodes:
+        if node.op == "call_function" and node.target == operator.add:
+            if isinstance(node.args[1], tuple):
+                lst = list(node.args[1])
+                lst[0] = lst[0] // sch.world_size  # num of heads
+                node.args = (node.args[0], tuple(lst))

@@ -167,6 +167,22 @@ def model_schedule(model, config):
             sch[op].replace(NewView)
         print(f"Replaced {len(op_lst)} view ops")
 
+    def fix_view_after_shard_using_fx(sch):
+        """A workaround. Should be removed and use fix_view_after_shard."""
+        import operator
+
+        cnt = 0
+        for node in sch.gm.graph.nodes:
+            if (node.op == "call_method" and
+                node.target == "view" and
+                len(node.args) == 2 and
+                node.args[0].target == "contiguous" and
+                isinstance(node.args[1], torch.fx.Node) and
+                node.args[1].target == operator.add):
+                node.args[1].args = (node.args[1].args[0], (-1,))
+                cnt += 1
+        print(f"Replaced {cnt} view ops")
+
     sch.trace_module()
     replace_qkv()
     sch.trace_module()
@@ -187,8 +203,10 @@ def model_schedule(model, config):
             sch[f"h.{i}.mlp.c_proj"].sync()
             sch[f"h.{i}.mlp.c_fc"].sync(backward=True)
 
-        sch.trace_module()
-        fix_view_after_shard()
+        # sch.trace_module()
+        # fix_view_after_shard()
+        fix_view_after_shard_using_fx(sch)
+
 
     model, _ = ms.build(sch)
     if args.fp16:

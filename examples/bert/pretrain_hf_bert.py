@@ -36,10 +36,8 @@ from megatron.model.utils import init_method_normal, get_linear_layer
 def model_schedule(model, config):
     import ms
     import inspect
-    import torch
-    import transformers.utils.fx as fx
     import torch.distributed as dist
-    import torch.nn as nn
+    from bert_schedule import replace_qkv, shard_params
 
     print("Using model schedule to optimize")
     print("World size: {}, rank: {}".format(dist.get_world_size(), dist.get_rank()))
@@ -51,153 +49,23 @@ def model_schedule(model, config):
         p.name: p.default for p in sig.parameters.values() if p.name not in input_names
     }
 
-    class NewTracer(fx.HFTracer):
-        def __init__(self) -> None:
-            super(NewTracer, self).__init__()
-
-        def trace(self, *args, **kwargs):
-            graph = super().trace(*args, **kwargs)
-            return graph
-
-    print("Directly change model to half")
+    world_size = dist.get_world_size()
+    rank = dist.get_rank()
     model.half()
-    traced_graph = NewTracer().trace(model, concrete_args=concrete_args)
-    gm = fx.GraphModule(model, traced_graph)
+    sch = ms.create_schedule(
+        model,
+        None,
+        world_size,
+        rank,
+        config={"tracer": "huggingface", "concrete_args": concrete_args},
+    )
 
-    # Placeholder. Not effective for now.
-    optimizer = torch.optim.AdamW(model.parameters(), lr=0.001)
+    replace_qkv(sch, config.hidden_size, config.num_attention_heads, config.num_hidden_layers)
+    print(sch.gm)
+    if world_size > 1:
+        shard_params(sch, model.num_hidden_layers, fused_qkv=True)
 
-    sch = ms.create_schedule(gm, optimizer, dist.get_world_size(), dist.get_rank())
-
-    def replace_attention():
-        print("Replace HF BertSelfAttention with xformer Attention")
-        from ms.op.xformers_attn import BertSelfAttentionXFormer
-
-        class SelfAttention_Pattern(ms.Pattern):
-            def __init__(self, layer_num):
-                super(SelfAttention_Pattern, self).__init__()
-                self.layer_num = layer_num
-
-            @staticmethod
-            def func(x: torch.Tensor) -> torch.Tensor:
-                return x
-
-            def starting_point(self, node):
-                if node.op != "call_module":
-                    return False
-                name = node.target
-                if "layer.{}.attention.self".format(self.layer_num) in name:
-                    return True
-                else:
-                    return False
-
-        sch.trace_module()
-        for i in range(config.num_hidden_layers):
-            op_lst = sch.find(SelfAttention_Pattern(i))
-            sch[op_lst[0][0].name.replace("_", ".")].replace(
-                BertSelfAttentionXFormer, config
-            )
-
-    def replace_qkv():
-        print("Replace HF QKV Dense with FusedQKV")
-
-        class FusedQKV(nn.Module):
-            def __init__(self, hidden_size=768, num_heads=12) -> None:
-                super(FusedQKV, self).__init__()
-                self.hidden_size = hidden_size
-                self.num_heads = num_heads
-                self.head_size = hidden_size // num_heads
-                self.fused_linear = nn.Linear(
-                    hidden_size, num_heads * self.head_size * 3
-                )
-
-            def transpose_for_scores(self, x):
-                new_x_shape = x.size()[:-1] + (
-                    self.num_heads // dist.get_world_size(),
-                    self.head_size,
-                    3,
-                )
-                x = x.view(*new_x_shape)
-                return x.permute(0, 2, 1, 3, 4)
-
-            def forward(self, hidden_states):  # [8, 512, 768]
-                qkv = self.fused_linear(hidden_states)
-                transposed_qkv = self.transpose_for_scores(qkv)
-                return [
-                    torch.squeeze(t) for t in torch.split(transposed_qkv, 1, dim=-1)
-                ]
-
-        class QKV_Pattern(ms.Pattern):
-            def __init__(self, layer_num):
-                super(QKV_Pattern, self).__init__()
-                self.layer_num = layer_num
-
-            @staticmethod
-            def func(x: torch.Tensor) -> torch.Tensor:
-                new_x_shape = x.size()[:-1] + (16, 1024)  # (12, 768)
-                x = x.view(new_x_shape)
-                return x.permute(0, 2, 1, 3)
-
-            def starting_point(self, node):
-                if node.op != "call_module":
-                    return False
-                name = node.target
-                if "layer.{}.".format(self.layer_num) in name and "self" in name:
-                    if "query" in name or "key" in name or "value" in name:
-                        return True
-                return False
-
-        for i in range(config.num_hidden_layers):
-            op_lst = sch.find(QKV_Pattern(i))
-            sch[op_lst].replace(
-                FusedQKV,
-                kwargs={
-                    "hidden_size": config.hidden_size,
-                    "num_heads": config.num_attention_heads,
-                },
-                seq=False,
-            )
-
-    # Disable for now. Need retracing with a different granularity.
-    # sch.trace_module()
-    # replace_attention()
-
-    sch.trace_module()
-    replace_qkv()
-    sch.trace_module()
-
-    if dist.get_world_size() > 1:
-        sch.trace_module()
-        for i in range(24):
-            # MLP
-            sch["encoder.layer.{}.intermediate.dense".format(i)].shard(
-                axis=1, param="weight"
-            )
-            sch["encoder.layer.{}.output.dense".format(i)].shard(axis=0, param="weight")
-            sch["encoder.layer.{}.output.dense".format(i)].gather()
-            sch["encoder.layer.{}.intermediate.dense".format(i)].bw_gather()
-
-            # Attention
-            name = "FusedQKV" if i == 0 else "FusedQKV_{}".format(i)
-            sch[name].shard(axis=1, param="fused_linear.weight")
-            sch["encoder.layer.{}.attention.output.dense".format(i)].shard(
-                axis=0, param="weight"
-            )
-            sch["encoder.layer.{}.attention.output.dense".format(i)].gather()
-            sch[name].bw_gather(axis=1)
-
-        # fix number of heads
-        import operator
-
-        mod = dict(sch.gm.named_modules())
-        for node in sch.gm.graph.nodes:
-            if node.op == "call_function" and node.target == operator.add:
-                if isinstance(node.args[1], tuple):
-                    lst = list(node.args[1])
-                    lst[0] = lst[0] // sch.world_size  # num of heads
-                    node.args = (node.args[0], tuple(lst))
-
-    model, optimizer = ms.build(sch)
+    model, _ = ms.build(sch)
     model.half()
     model.cuda()
     return model

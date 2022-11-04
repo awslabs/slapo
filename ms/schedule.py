@@ -69,6 +69,7 @@ class Schedule:
                     if n.op == "call_module" and n.target == node:
                         node = n
                         break
+                assert isinstance(node, fx.Node), "Cannot find target node with name {}".format(node)
                 return Operation(node.target, self.world_size, self.rank, node, self.gm)
             else:
                 return OperationList([node], self.gm)

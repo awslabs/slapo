@@ -61,9 +61,8 @@ def model_schedule(model, config):
     )
 
     replace_qkv(sch, config.hidden_size, config.num_attention_heads, config.num_hidden_layers)
-    print(sch.gm)
     if world_size > 1:
-        shard_params(sch, model.num_hidden_layers, fused_qkv=True)
+        shard_params(sch, config.num_hidden_layers, fused_qkv=True, prefix="")
 
     model, _ = ms.build(sch)
     model.half()

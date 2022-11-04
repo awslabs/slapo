@@ -52,7 +52,7 @@ def replace_qkv(sch, hidden_size, num_heads, num_layers):
             self.fused_linear = nn.Linear(hidden_size, num_heads * self.head_size * 3)
 
         def transpose_for_scores(self, x):
-            new_x_shape = x.size()[:-1] + (self.num_heads, self.head_size, 3)
+            new_x_shape = x.size()[:-1] + (self.num_heads // sch.world_size, self.head_size, 3)
             x = x.view(*new_x_shape)
             return x.permute(0, 2, 1, 3, 4)
 
@@ -86,28 +86,28 @@ def replace_qkv(sch, hidden_size, num_heads, num_layers):
         sch[op_lst].replace(FusedQKV, hidden_size=hidden_size, num_heads=num_heads)
 
 
-def shard_params(sch, num_layers, fused_qkv=False):
+def shard_params(sch, num_layers, fused_qkv=False, prefix="bert."):
     for i in range(num_layers):
         # MLP
-        sch["bert.encoder.layer.{}.intermediate.dense".format(i)].shard("weight", axis=1)
-        sch["bert.encoder.layer.{}.output.dense".format(i)].shard("weight", axis=0)
-        sch["bert.encoder.layer.{}.output.dense".format(i)].sync()
-        sch["bert.encoder.layer.{}.intermediate.dense".format(i)].sync(backward=True)
+        sch[prefix+"encoder.layer.{}.intermediate.dense".format(i)].shard("weight", axis=1)
+        sch[prefix+"encoder.layer.{}.output.dense".format(i)].shard("weight", axis=0)
+        sch[prefix+"encoder.layer.{}.output.dense".format(i)].sync()
+        sch[prefix+"encoder.layer.{}.intermediate.dense".format(i)].sync(backward=True)
 
         # Attention
         if not fused_qkv:
-            sch["bert.encoder.layer.{}.attention.self.query".format(i)].shard("weight", axis=1)
-            sch["bert.encoder.layer.{}.attention.self.key".format(i)].shard("weight", axis=1)
-            sch["bert.encoder.layer.{}.attention.self.value".format(i)].shard("weight", axis=1)
-            sch["bert.encoder.layer.{}.attention.self.query".format(i)].sync(backward=True)
-            sch["bert.encoder.layer.{}.attention.self.key".format(i)].sync(backward=True)
-            sch["bert.encoder.layer.{}.attention.self.value".format(i)].sync(backward=True)
+            sch[prefix+"encoder.layer.{}.attention.self.query".format(i)].shard("weight", axis=1)
+            sch[prefix+"encoder.layer.{}.attention.self.key".format(i)].shard("weight", axis=1)
+            sch[prefix+"encoder.layer.{}.attention.self.value".format(i)].shard("weight", axis=1)
+            sch[prefix+"encoder.layer.{}.attention.self.query".format(i)].sync(backward=True)
+            sch[prefix+"encoder.layer.{}.attention.self.key".format(i)].sync(backward=True)
+            sch[prefix+"encoder.layer.{}.attention.self.value".format(i)].sync(backward=True)
         else:
-            sch["bert.encoder.layer.{}.attention.self.FusedQKV_0".format(i)].shard("fused_linear.weight", axis=1)
-            sch["bert.encoder.layer.{}.attention.self.FusedQKV_0".format(i)].sync(backward=True)
+            sch[prefix+"encoder.layer.{}.attention.self.FusedQKV_0".format(i)].shard("fused_linear.weight", axis=1)
+            sch[prefix+"encoder.layer.{}.attention.self.FusedQKV_0".format(i)].sync(backward=True)
 
-        sch["bert.encoder.layer.{}.attention.output.dense".format(i)].shard("weight", axis=0)
-        sch["bert.encoder.layer.{}.attention.output.dense".format(i)].sync()
+        sch[prefix+"encoder.layer.{}.attention.output.dense".format(i)].shard("weight", axis=0)
+        sch[prefix+"encoder.layer.{}.attention.output.dense".format(i)].sync()
 
     # fix number of heads
     import operator

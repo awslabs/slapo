@@ -47,7 +47,6 @@ class Schedule:
         self._modules = None
         self._ops = {}
         self._func_ops = {}
-        assert optimizer != None, "Please provide an optimizer"
         self.optimizer = optimizer
 
     def __getitem__(self, node_or_lst):

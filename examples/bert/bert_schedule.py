@@ -81,9 +81,10 @@ def replace_qkv(sch, hidden_size, num_heads, num_layers):
         sch[op_lst].replace(FusedQKV, hidden_size=hidden_size, num_heads=num_heads)
 
 
-def shard_params(sch, num_layers, fused_qkv=False, prefix=""):
+def shard_params(sch, config, fused_qkv=False, prefix=""):
     prefix = "" if prefix == "" else prefix + "."
-    for i in range(num_layers):
+
+    for i in range(config.num_hidden_layers):
         # MLP
         sch[prefix+"encoder.layer.{}.intermediate.dense".format(i)].shard("weight", axis=0)
         sch[prefix+"encoder.layer.{}.intermediate.dense".format(i)].shard("bias", axis=0)
@@ -103,8 +104,9 @@ def shard_params(sch, num_layers, fused_qkv=False, prefix=""):
             sch[prefix+"encoder.layer.{}.attention.self.key".format(i)].sync(backward=True)
             sch[prefix+"encoder.layer.{}.attention.self.value".format(i)].sync(backward=True)
         else:
-            sch[prefix+"encoder.layer.{}.attention.self.FusedQKV_0".format(i)].shard("fused_linear.weight", axis=0)
-            sch[prefix+"encoder.layer.{}.attention.self.FusedQKV_0".format(i)].shard("fused_linear.bias", axis=0)
+            # FIXME: the fused_linear is currently hardcoded in the schedule
+            sch[prefix+"encoder.layer.{}.attention.self.FusedQKV_0".format(i)].shard("weight", axis=0)
+            sch[prefix+"encoder.layer.{}.attention.self.FusedQKV_0".format(i)].shard("bias", axis=0)
             sch[prefix+"encoder.layer.{}.attention.self.FusedQKV_0".format(i)].sync(backward=True)
 
         sch[prefix+"encoder.layer.{}.attention.output.dense".format(i)].shard("weight", axis=1)

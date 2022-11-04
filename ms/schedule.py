@@ -65,13 +65,14 @@ class Schedule:
                     return OperationList(lst, self.gm)
         else:
             node = node_or_lst
-            return OperationList([node], self.gm)
-            # name = node_or_lst
-            # if name in self._ops:
-            #     # map from name to op
-            #     return self._ops[name]
-            # else:
-            #     return FunctionOpList(name, self._func_ops[name], self.gm)
+            if isinstance(node, str):
+                for n in self.gm.graph.nodes:
+                    if n.op == "call_module" and n.target == node:
+                        node = n
+                        break
+                return Operation(node.target, self.world_size, self.rank, node, self.gm)
+            else:
+                return OperationList([node], self.gm)
 
     def find_module(self, pattern):
         """
@@ -252,35 +253,6 @@ class Operation:
 
             linear.register_full_backward_hook(hook_func)
 
-    def replace(self, nn_mod: nn.Module, *args, arg_names=[]):
-        if len(arg_names) == 0:
-            instance = nn_mod(*args)
-        else:
-            for name, mod in self.gm.named_modules():
-                if name == self.name:
-                    new_args = [getattr(mod, arg) for arg in arg_names]
-                    break
-            instance = nn_mod(*new_args)
-        instance.cuda().half()
-        name = instance._get_name().split(".")[-1]
-        # avoid name collision
-        existing_names = []
-        for existing_name, _ in self.gm.named_modules():
-            existing_names.append(existing_name)
-        new_name = name
-        num = 1
-        while new_name in existing_names:
-            new_name = "{}_{}".format(name, num)
-            num += 1
-        name = new_name
-        self.gm.add_submodule(name, instance)
-        with self.gm.graph.inserting_after(self.node):
-            new_node = self.gm.graph.call_module(name, self.node.args[:2])
-            self.node.replace_all_uses_with(new_node)
-        # Remove the old node from the graph
-        self.gm.graph.erase_node(self.node)
-        self.node = new_node
-
 
 class OperationList:
     def __init__(self, op_lst: List[Operation], gm: fx.GraphModule):
@@ -317,7 +289,9 @@ class OperationList:
             parent_name, _ = _parent_name(node.target)
             self.named_modules[parent_name].add_module(name, instance)
             with self.gm.graph.inserting_before(node):
-                new_node = self.gm.graph.call_module(parent_name + "." + name, node.args, node.kwargs)
+                new_node = self.gm.graph.call_module(
+                    parent_name + "." + name, node.args, node.kwargs
+                )
             with self.gm.graph.inserting_after(new_node):
                 for i, sublst in enumerate(self.op_lst):
                     getitem = self.gm.graph.call_function(

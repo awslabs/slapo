@@ -86,7 +86,7 @@ def replace_qkv(sch, hidden_size, num_heads, num_layers):
         sch[op_lst].replace(FusedQKV, hidden_size=hidden_size, num_heads=num_heads)
 
 
-def shard_params(sch, num_layers):
+def shard_params(sch, num_layers, fused_qkv=False):
     for i in range(num_layers):
         # MLP
         sch["bert.encoder.layer.{}.intermediate.dense".format(i)].shard("weight", axis=1)
@@ -95,19 +95,19 @@ def shard_params(sch, num_layers):
         sch["bert.encoder.layer.{}.intermediate.dense".format(i)].sync(backward=True)
 
         # Attention
-        sch["bert.encoder.layer.{}.attention.self.query".format(i)].shard("weight", axis=1)
-        sch["bert.encoder.layer.{}.attention.self.key".format(i)].shard("weight", axis=1)
-        sch["bert.encoder.layer.{}.attention.self.value".format(i)].shard("weight", axis=1)
-        sch["bert.encoder.layer.{}.attention.self.query".format(i)].sync(backward=True)
-        sch["bert.encoder.layer.{}.attention.self.key".format(i)].sync(backward=True)
-        sch["bert.encoder.layer.{}.attention.self.value".format(i)].sync(backward=True)
+        if not fused_qkv:
+            sch["bert.encoder.layer.{}.attention.self.query".format(i)].shard("weight", axis=1)
+            sch["bert.encoder.layer.{}.attention.self.key".format(i)].shard("weight", axis=1)
+            sch["bert.encoder.layer.{}.attention.self.value".format(i)].shard("weight", axis=1)
+            sch["bert.encoder.layer.{}.attention.self.query".format(i)].sync(backward=True)
+            sch["bert.encoder.layer.{}.attention.self.key".format(i)].sync(backward=True)
+            sch["bert.encoder.layer.{}.attention.self.value".format(i)].sync(backward=True)
+        else:
+            sch["bert.encoder.layer.{}.attention.self.FusedQKV_0".format(i)].shard("fused_linear.weight", axis=1)
+            sch["bert.encoder.layer.{}.attention.self.FusedQKV_0".format(i)].sync(backward=True)
 
         sch["bert.encoder.layer.{}.attention.output.dense".format(i)].shard("weight", axis=0)
         sch["bert.encoder.layer.{}.attention.output.dense".format(i)].sync()
-
-        # name = "FusedQKV" if i == 0 else "FusedQKV_{}".format(i)
-        # sch[name].shard("fused_linear.weight", axis=1)
-        # sch[name].sync(backward=True)
 
     # fix number of heads
     import operator

@@ -275,7 +275,8 @@ class OperationList:
         name = instance._get_name().split(".")[-1]
         name = _get_unique_module_name(self.gm, name)
         if len(self.op_lst) == 1:
-            parent_name, _ = _parent_name(self.op_lst[0].target)
+            node = self.op_lst[0]
+            parent_name, _ = _parent_name(node.target)
             self.named_modules[parent_name].add_module(name, instance)
             with self.gm.graph.inserting_after(node):
                 new_node = self.gm.graph.call_module(

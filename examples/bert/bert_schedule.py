@@ -23,18 +23,12 @@ def replace_gelu(sch):
         sch[op].replace(BiasGeLU)
 
 
-def replace_xformer_attention(sch):
+def replace_xformer_attention(sch, config):
     # https://github.com/huggingface/transformers/blob/344e2664d450eaa9167ce31f7d1fc0f0fe3b10af/src/transformers/models/bert/modeling_bert.py#L243
     # https://github.com/comaniac/epoi/blob/main/epoi/ops/xformers_attn.py#L45
     print("Replace HF BertSelfAttention with xformer Attention")
     from ms.op import BertSelfAttentionXFormer
-    from transformers import AutoConfig
 
-    config = AutoConfig.from_pretrained("bert-large-uncased")
-    config.hidden_size = 1024
-    config.num_attention_heads = 16
-    config.intermediate_size = 4096
-    config.vocab_size = 30522
     ops = sch.find_module(lambda node: ".attention.self" in node.target)
     for op in ops:
         sch[op].replace(BertSelfAttentionXFormer, config=config)

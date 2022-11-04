@@ -16,36 +16,18 @@ def replace_gelu(sch):
     # https://github.com/NVIDIA/Megatron-LM/blob/master/megatron/model/fused_bias_gelu.py
     print("Replace GeLU with FusedBiasGeLU")
     from ms.op import BiasGeLU
+
     raise RuntimeError("Not correct! Should fuse with previous linear bias!")
     ops = sch.find_function(lambda node: "gelu" in str(node.target))
     for op in ops:
         sch[op].replace(BiasGeLU)
 
 
-def replace_xformer_attention():
+def replace_xformer_attention(sch):
     # https://github.com/huggingface/transformers/blob/344e2664d450eaa9167ce31f7d1fc0f0fe3b10af/src/transformers/models/bert/modeling_bert.py#L243
     # https://github.com/comaniac/epoi/blob/main/epoi/ops/xformers_attn.py#L45
     print("Replace HF BertSelfAttention with xformer Attention")
     from ms.op import BertSelfAttentionXFormer
-
-    class SelfAttention_Pattern(ms.Pattern):
-        def __init__(self, layer_num):
-            super(SelfAttention_Pattern, self).__init__()
-            self.layer_num = layer_num
-
-        @staticmethod
-        def func(x: torch.Tensor) -> torch.Tensor:
-            return x
-
-        def starting_point(self, node):
-            if node.op != "call_module":
-                return False
-            name = node.target
-            if "layer.{}.attention.self".format(self.layer_num) in name:
-                return True
-            else:
-                return False
-
     from transformers import AutoConfig
 
     config = AutoConfig.from_pretrained("bert-large-uncased")
@@ -53,73 +35,9 @@ def replace_xformer_attention():
     config.num_attention_heads = 16
     config.intermediate_size = 4096
     config.vocab_size = 30522
-    sch.trace_module()
-    for i in range(12):
-        op_lst = sch.find(SelfAttention_Pattern(i))
-        sch[op_lst[0][0].name.replace("_", ".")].replace(
-            BertSelfAttentionXFormer, config
-        )
-
-
-def replace_attention():
-    # https://github.com/huggingface/transformers/blob/344e2664d450eaa9167ce31f7d1fc0f0fe3b10af/src/transformers/models/bert/modeling_bert.py#L243
-    # https://github.com/NVIDIA/Megatron-LM/blob/0bb597b42c53355a567aba2a1357cc34b9d99ddd/megatron/model/transformer.py#L306
-    #  MASTER_ADDR=localhost MASTER_PORT=6000 python3 hf_bert.py --micro-batch-size 8 --num-layers 24 --hidden-size 1024 --num-attention-heads 16 --max-position-embeddings 512 --encoder-seq-length 512 --fp16
-    print("Replace HF BertSelfAttention with Megatron CoreAttention")
-    from megatron.model.transformer import ParallelAttention
-    from megatron.model.utils import init_method_normal, scaled_init_method_normal
-    from megatron.initialize import initialize_megatron
-
-    initialize_megatron()
-
-    class SelfAttention(nn.Module):
-        def __init__(self, layer_number=12):
-            super(SelfAttention, self).__init__()
-            init_method = init_method_normal(0.006)
-            output_layer_init_method = scaled_init_method_normal(0.006, layer_number)
-            self.parallel_attention = ParallelAttention(
-                init_method, output_layer_init_method, layer_number
-            )
-
-        def forward(self, hidden_states, attention_mask):
-            hidden_states = hidden_states.permute(1, 0, 2)
-            output, bias = self.parallel_attention(hidden_states, attention_mask)
-            output = output.permute(1, 0, 2)
-            return [(output + bias,)]
-
-    class SelfAttention_Pattern(ms.Pattern):
-        """
-        %bert_encoder_layer_0_attention_self : [#users=2] = call_module[target=bert.encoder.layer.0.attention.self](args = (%bert_embeddings_dropout, %mul_1, None, None, None, None, False), kwargs = {})
-        %getitem_401 : [#users=1] = call_function[target=operator.getitem](args = (%bert_encoder_layer_0_attention_self, 0), kwargs = {})
-        %bert_encoder_layer_0_attention_output_dense : [#users=1] = call_module[target=bert.encoder.layer.0.attention.output.dense](args = (%getitem_401,), kwargs = {})
-        %getitem_402 : [#users=1] = call_function[target=operator.getitem](args = (%bert_encoder_layer_0_attention_self, slice(1, None, None)), kwargs = {})
-        """
-
-        def __init__(self, layer_num):
-            super(SelfAttention_Pattern, self).__init__()
-            self.layer_num = layer_num
-
-        @staticmethod
-        def func(x: torch.Tensor) -> torch.Tensor:
-            return x[0]
-
-        def starting_point(self, node):
-            if node.op != "call_module":
-                return False
-            name = node.target
-            if "layer.{}.attention.self".format(self.layer_num) in name:
-                return True
-            else:
-                return False
-
-    for i in range(12):
-        op_lst = sch.find(SelfAttention_Pattern(i))
-        for op in sch._ops:
-            node = sch._ops[op].node
-            if "layer.{}.attention.output.dense".format(i) in node.target:
-                op_lst[0].insert(2, node)
-                break
-        sch[op_lst].replace(SelfAttention, seq=False)
+    ops = sch.find_module(lambda node: ".attention.self" in node.target)
+    for op in ops:
+        sch[op].replace(BertSelfAttentionXFormer, config=config)
 
 
 def replace_softmax():

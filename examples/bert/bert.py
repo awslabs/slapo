@@ -5,7 +5,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import ms
-from bert_schedule import replace_layernorm
+from bert_schedule import replace_layernorm, replace_gelu, replace_xformer_attention
 
 # https://huggingface.co/bert-large-uncased/blob/main/config.json
 bert = BertLMHeadModel(AutoConfig.from_pretrained("bert-large-uncased"))
@@ -20,13 +20,21 @@ concrete_args = {
 }
 
 sch = ms.create_schedule(
-    bert, optimizer, config={"tracer": "huggingface", "concrete_args": concrete_args}
+    bert,
+    optimizer,
+    config={
+        "tracer": "huggingface",
+        "leaf_modules": ["BertSelfAttention"],
+        "concrete_args": concrete_args,
+    },
 )
+replace_xformer_attention(sch)
 
-replace_layernorm(sch)
-# replace_gelu()
-# replace_attention()
-# replace_xformer_attention()
+# sch = ms.create_schedule(
+#     bert, optimizer, config={"tracer": "huggingface", "concrete_args": concrete_args}
+# )
+# replace_layernorm(sch)
+# replace_gelu(sch)
 # replace_softmax()
 # replace_qkv()
 # print(gm.graph)

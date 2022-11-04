@@ -48,10 +48,11 @@ def model_schedule(model, config):
     sig = inspect.signature(model.forward)
     concrete_args = {p.name: p.default for p in sig.parameters.values() if p.name not in input_names}
 
-    class NewTracer(fx.HFTracer):
+    # FIXME: Let "create_schedule" accept a custom tracer.
+    class HFGPTTracer(fx.HFTracer):
 
         def __init__(self) -> None:
-            super(NewTracer, self).__init__()
+            super(HFGPTTracer, self).__init__()
 
         def trace(self, *args, **kwargs):
             graph = super().trace(*args, **kwargs)
@@ -68,13 +69,11 @@ def model_schedule(model, config):
     if args.fp16:
         print("Change model dtype to fp16")
         model.half()
-    traced_graph = NewTracer().trace(model, concrete_args=concrete_args)
+    traced_graph = HFGPTTracer().trace(model, concrete_args=concrete_args)
     gm = fx.GraphModule(model, traced_graph)
 
-    # Placeholder. Not effective for now.
-    optimizer = torch.optim.AdamW(model.parameters(), lr=0.001)
-
-    sch = ms.create_schedule(gm, optimizer, dist.get_world_size(), dist.get_rank())
+    # FIXME: Let optimizer be an optional argument. Now simplify pass "0".
+    sch = ms.create_schedule(gm, 0, dist.get_world_size(), dist.get_rank())
 
     def replace_qkv():
         print("Replace HF QKV Linear with FusedQKV")
@@ -100,10 +99,10 @@ def model_schedule(model, config):
                 transposed_qkv = self.transpose_for_scores(qkv)
                 return [torch.squeeze(t) for t in torch.split(transposed_qkv, 1, dim=-1)]
 
-        class QKV_Pattern(ms.Pattern):
+        class QKVPattern(ms.Pattern):
             
             def __init__(self, layer_num):
-                super(QKV_Pattern, self).__init__()
+                super(QKVPattern, self).__init__()
                 self.layer_num = layer_num
 
             @staticmethod
@@ -122,15 +121,14 @@ def model_schedule(model, config):
                 return False
 
         for i in range(config.num_layers):
-            op_lst = sch.find(QKV_Pattern(i))
+            op_lst = sch.find(QKVPattern(i))
             assert op_lst, "Cannot find QKV pattern"
-            sch[op_lst].replace(FusedQKV, 
-                kwargs={"hidden_size": hidden_size, "num_heads": num_heads}, seq=False)
+            sch[op_lst].replace(FusedQKV, hidden_size=hidden_size, num_heads=num_heads)
 
     def fix_view_after_shard():
         import operator
 
-        class View_Pattern(ms.Pattern):
+        class ViewPattern(ms.Pattern):
             def __init__(self):
                 super().__init__()
 
@@ -161,37 +159,56 @@ def model_schedule(model, config):
                 new_shape = old_shape[:-1] + (-1,)
                 return tensor.view(new_shape)
 
-        op_lst = sch.find(View_Pattern())
+        op_lst = sch.find(ViewPattern())
         assert op_lst, "Cannot find View pattern"
         for op in op_lst:
-            sch[op].replace(NewView, seq=True)
+            # FIXME: Broken. "replace" API now cannot replace "call_method" with "call_module",
+            # but fx actually allows it.
+            sch[op].replace(NewView)
         print(f"Replaced {len(op_lst)} view ops")
+
+    def fix_view_after_shard_using_fx(sch):
+        """A workaround. Should be removed and use fix_view_after_shard."""
+        import operator
+
+        cnt = 0
+        for node in sch.gm.graph.nodes:
+            if (node.op == "call_method" and
+                node.target == "view" and
+                len(node.args) == 2 and
+                node.args[0].target == "contiguous" and
+                isinstance(node.args[1], torch.fx.Node) and
+                node.args[1].target == operator.add):
+                node.args[1].args = (node.args[1].args[0], (-1,))
+                cnt += 1
+        print(f"Replaced {cnt} view ops")
 
     sch.trace_module()
     replace_qkv()
     sch.trace_module()
 
-    # Sharding
+    # Sharding. Assuming QKV is fused.
     if dist.get_world_size() > 1:
         sch.trace_module()
         for i in range(config.num_layers):
             # Attention
-            name = "FusedQKV" if i == 0 else "FusedQKV_{}".format(i)
-            sch[name].shard(axis=1, param="weight")
-            sch[f"h.{i}.attn.attention.out_proj"].shard(axis=0, param="weight")
-            sch[f"h.{i}.attn.attention.out_proj"].gather()
-            sch[name].bw_gather(axis=1)
+            sch[f"h.{i}.attn.attention.FusedQKV_0"].shard(param="fused_linear.weight", axis=1)
+            sch[f"h.{i}.attn.attention.FusedQKV_0"].sync(backward=True)
+            sch[f"h.{i}.attn.attention.out_proj"].shard(param="weight", axis=0)
+            sch[f"h.{i}.attn.attention.out_proj"].sync()
 
             # MLP
             sch[f"h.{i}.mlp.c_fc"].shard(axis=1, param="weight")
             sch[f"h.{i}.mlp.c_proj"].shard(axis=0, param="weight")
-            sch[f"h.{i}.mlp.c_proj"].gather()
-            sch[f"h.{i}.mlp.c_fc"].bw_gather()
+            sch[f"h.{i}.mlp.c_proj"].sync()
+            sch[f"h.{i}.mlp.c_fc"].sync(backward=True)
 
-        sch.trace_module()
-        fix_view_after_shard()
+        # sch.trace_module()
+        # fix_view_after_shard()
+        fix_view_after_shard_using_fx(sch)
 
-    model, optimizer = ms.build(sch)
+
+    model, _ = ms.build(sch)
     if args.fp16:
         model.half()
     model.cuda()

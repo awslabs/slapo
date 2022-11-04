@@ -172,3 +172,5 @@ data
 *.png
 *.out
 *.log
+*.json
+

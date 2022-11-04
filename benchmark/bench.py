@@ -1,21 +1,12 @@
+import argparse
+import math
 import os
-import sys
 import re
-import json
+from dataclasses import dataclass
 
-import torch
 import matplotlib.pyplot as plt
-from dataclasses import dataclass, asdict
-from transformers import AutoConfig, PretrainedConfig
-
-MEGATRON_NO_FUSE = True
-BATCH_SIZE = 8
-
-print("Pytorch version\t:", torch.__version__)
-print("CUDA version\t:", torch.version.cuda)
-
-for i in range(torch.cuda.device_count()):
-    print(f"GPU{i}\t\t:", torch.cuda.get_device_name(i))
+import torch
+from transformers import AutoConfig
 
 
 @dataclass
@@ -28,7 +19,6 @@ class Exp:
     ## Improve speed / reduce memory
     bf16: bool = False  # Faster, less memory. Recommend if GPU supports
     fp16: bool = False  # Faster, less memory, but need to scale loos.
-    # Recommend if BF16 is not available.
     optim: str = "adamw_hf"  # Optimization method
     grad_ckpt: bool = False  # save memory with an extra forward
     grad_accum: int = 1  # accumulate gradients for better performance
@@ -37,8 +27,6 @@ class Exp:
     ## Multi-GPUs
     gpus: str = "0"  # GPUs to use. "0,1" means use GPU 0 and 1
     tensor_para: int = 1  # Tensor parallelism
-    deepspeed: bool = False  # if or not use deepspeed
-    ds_config: str = ""  # deepspeed config
 
     ## kwargs
     kwargs: dict = None
@@ -60,10 +48,7 @@ class Exp:
         forward = n * (att + ffn) + embed
         # TFLOPs to train one example
         self.tflops = (4 * forward if self.grad_ckpt else 3 * forward) / 1e12
-        if self.deepspeed:
-            self.launcher = "deepspeed"
-        else:
-            self.launcher = f"torchrun --nproc_per_node {self.num_gpus}"
+        self.launcher = f"torchrun --nproc_per_node {self.num_gpus}"
 
     def print_results(self):
         print("Total samples / second\t: %.1f" % self.samples_per_sec)
@@ -71,8 +56,84 @@ class Exp:
         print("Per GPU TFLOPs\t\t: %.1f" % (self.samples_per_sec * self.tflops / self.num_gpus))
 
 
+def parse_args():
+    common_parser = argparse.ArgumentParser(add_help=False)
+    common_parser.add_argument("--model", type=str, help="Model name")
+    common_parser.add_argument(
+        "--error-stop",
+        action="store_true",
+        help="Stop when error occurs. Note that out-of-memory is not considdered as error",
+    )
+    common_parser.add_argument(
+        "--seq-len", type=int, default=512, help="Sequence length. Default: 512"
+    )
+    common_parser.add_argument(
+        "--dtype", type=str, default="fp16", help="Model dtype. Default: fp16"
+    )
+    common_parser.add_argument(
+        "--gpus",
+        type=str,
+        default="pow2",
+        help="Number of GPUs to be used. Options: "
+        "1. A single number (e.g., 1); "
+        "2. A comma separated list of GPU numbers (e.g., 1,2); "
+        "3. A string 'pow2' (e.g., pow2) to cover power of 2 GPUs (e.g., 1,2,4,8).",
+    )
+    common_parser.add_argument(
+        "--batch-sizes",
+        type=str,
+        default="8 * int(math.log2(n) + 1)",
+        help="An expression with `n` as GPU number to to calculate batch size. `math` can be used."
+        "Default: 8 * int(math.log2(n) + 1)",
+    )
+
+    parser = argparse.ArgumentParser()
+    subprasers = parser.add_subparsers(dest="impl", help="Model implementation (hf or megatron)")
+    hf_parser = subprasers.add_parser(
+        "hf",
+        parents=[common_parser],
+        help="HuggingFace model",
+    )
+    hf_parser.add_argument(
+        "script_file",
+        type=str,
+        help="Megatron script file to run the HuggingFace model",
+    )
+    mt_parser = subprasers.add_parser(
+        "megatron",
+        parents=[common_parser],
+        help="Megatron model",
+    )
+    mt_parser.add_argument(
+        "--disable-fuse-kernels",
+        action="store_true",
+        help="Disable fusion kernels in Megatron models.",
+    )
+    return parser.parse_args()
+
+
+def parse_gpus(gpus):
+    n_gpu = torch.cuda.device_count()
+    if gpus == "pow2":
+        n_gpus = [2**i for i in range(int(math.log2(n_gpu)) + 1)]
+    elif "," in gpus:
+        n_gpus = [int(e) for e in gpus.split(",")]
+    else:
+        n_gpus = [int(gpus)]
+
+    assert (
+        min(n_gpus) > 0 and max(n_gpus) <= n_gpu
+    ), f"GPU numbers must be in 0 - {n_gpu}, but got {n_gpus}"
+
+    print("GPUs to be used\t:")
+    for i in range(max(n_gpus)):
+        print(f"GPU{i}\t\t:", torch.cuda.get_device_name(i))
+
+    return n_gpus
+
+
 def compare(exps, fig_name):
-    fig, ax = plt.subplots(ncols=3, figsize=(9, len(exps) / 2))
+    _, ax = plt.subplots(ncols=3, figsize=(9, len(exps) / 2))
     x = list(range(len(exps)))
     for i, (y, l) in enumerate(
         (
@@ -91,46 +152,46 @@ def compare(exps, fig_name):
             ax[i].set_yticklabels([])
 
     plt.title(fig_name)
-    plt.savefig(fig_name + ".png", format="png", dpi=200, bbox_inches="tight")
+    file_name = fig_name.replace(" ", "-").replace("/", "-")
+    plt.savefig(f"{file_name}.png", format="png", dpi=200, bbox_inches="tight")
+    print(f"Result saved to {file_name}.png")
     plt.show()
 
 
-def megatron_bert(exp, script_file=None):
-    import megatron
-
+def megatron_bert_cmd(script_file=None):
     if script_file is None:
+        import megatron
+
         path = megatron.__path__[0]
         script_file = f"{path}/../pretrain_bert.py"
 
-    cmd = f"""{exp.launcher} {script_file} \
---num-layers {exp.num_layers} --hidden-size {exp.hidden_size} \
---num-attention-heads {exp.num_heads} \
---tensor-model-parallel-size {exp.tensor_para} \
---micro-batch-size {exp.batch_size} \
---seq-length {exp.seq_len} --max-position-embeddings {exp.seq_len} \
---train-iters {exp.steps} \
---data-path bert-sample_text_sentence \
---vocab-file bert-large-uncased-vocab.txt \
---data-impl mmap --lr 0.00015 --log-interval 5"""
-    if exp.bf16:
-        cmd += " --bf16"
-    if exp.fp16:
-        cmd += " --fp16"
+    return (
+        script_file,
+        ["--data-path bert-sample_text_sentence", "--vocab-file bert-large-uncased-vocab.txt"],
+    )
 
-    if exp.kwargs is not None and "flags" in exp.kwargs:
-        cmd += " " + " ".join(exp.kwargs["flags"])
 
-    cmd += " > megatron.log 2>&1"
-    print(cmd)
-    os.system(cmd)
-    ret = megatron_log(exp, "megatron.log")
-    if ret is not None:
-        ret.print_results()
-    else:
-        ret = exp
-        ret.samples_per_sec = 0
-        ret.gpu_mem = 0
-    return ret
+def megatron_gpt_cmd(script_file=None):
+    if script_file is None:
+        import megatron
+
+        path = megatron.__path__[0]
+        script_file = f"{path}/../pretrain_gpt.py"
+
+    return (
+        script_file,
+        [
+            "--data-path gpt2-sample_text_document",
+            "--vocab-file gpt2-vocab.json",
+            "--merge-file gpt2-merges.txt",
+        ],
+    )
+
+
+MEGATRON_COMMAND_BY_MODEL = {
+    "bert": megatron_bert_cmd,
+    "gpt": megatron_gpt_cmd,
+}
 
 
 def megatron_log(exp, log_filename):
@@ -140,75 +201,116 @@ def megatron_log(exp, log_filename):
     query = lambda key: float(next(iter(reversed(re.findall(key + ": +([\d\.]+)", text))), 0))
     if "CUDA out of memory" in text:
         print("Out of GPU memory, try a smaller batch size")
-        return
+        exp.error_code = 1
+        return exp
+
     iter_time = query("elapsed time per iteration \(ms\)")
     if iter_time == 0:
         print(f'Failed. Check "{log_filename}" to find error')
-        return
+        exp.error_code = 2
+        return exp
+
     exp.samples_per_sec = query("global batch size") / iter_time * 1e3
     exp.gpu_mem = query("max allocated") / 1e3
     print(
-        "Breakdown(ms)\t\t: total %.2f, forward %.2f, backward %.2f, backward-params-all-reduce %.2f, optimizer %.2f"
-        % (
-            iter_time,
-            query("forward-compute"),
-            query("backward-compute"),
-            query("backward-params-all-reduce"),
-            query("optimizer"),
-        )
+        f"Breakdown(ms)\t\t: total {iter_time:.2f}, forward {query('forward-compute'):.2f}, "
+        f"backward {query('backward-compute'):.2f}, "
+        f"backward-params-all-reduce {query('backward-params-all-reduce'):.2f}, "
+        f"optimizer {query('optimizer'):.2f}"
     )
+    exp.error_code = 0
     return exp
 
 
-kwargs = {}
-if MEGATRON_NO_FUSE:
-    kwargs = {
-        "flags": [
-            "--no-bias-gelu-fusion",
-            "--no-bias-dropout-fusion",
-            "--no-persist-layer-norm",
-            "--no-masked-softmax-fusion",
-        ]
-    }
+def run_megatron(exp, args):
+    script_file = args.script_file if args.impl == "hf" else None
+    for model_key, gen in MEGATRON_COMMAND_BY_MODEL.items():
+        if model_key in exp.model:
+            script_file, data_args = gen(script_file)
+            break
+    else:
+        raise ValueError(f"Unsupported model {exp.model}")
 
-#hf_bert = []
-#for idx, n_gpu in enumerate((1, 2, 4, 8)):
-#    gpus = ",".join([str(e) for e in range(n_gpu)])
-#    batch_size = BATCH_SIZE * (idx + 1)
-#    hf_bert.append(
-#        megatron_bert(
-#            Exp(
-#                f"HF bs{batch_size} ({n_gpu} GPU)",
-#                "bert-large-uncased",
-#                batch_size,
-#                fp16=True,
-#                gpus=gpus,
-#                tensor_para=n_gpu,
-#                kwargs=kwargs,
-#            ),
-#            script_file="./pretrain_hf_bert.py"
-#        )
-#    )
-#compare(hf_bert, f"HF-MS")
+    cmd = f"""MODEL_NAME={exp.model} {exp.launcher} {script_file} \
+--num-layers {exp.num_layers} --hidden-size {exp.hidden_size} \
+--num-attention-heads {exp.num_heads} \
+--tensor-model-parallel-size {exp.tensor_para} \
+--micro-batch-size {exp.batch_size} \
+--seq-length {exp.seq_len} --max-position-embeddings {exp.seq_len} \
+--train-iters {exp.steps} {' '.join(data_args)} \
+--data-impl mmap --lr 0.00015 --log-interval 5"""
+    if exp.bf16:
+        cmd += " --bf16"
+    if exp.fp16:
+        cmd += " --fp16"
 
-mega_bert = []
-no_fuse = " no fuse" if MEGATRON_NO_FUSE else ""
-for idx, n_gpu in enumerate((1, 2, 4, 8)):
-    gpus = ",".join([str(e) for e in range(n_gpu)])
-    batch_size = BATCH_SIZE * (idx + 1)
-    mega_bert.append(
-        megatron_bert(
-            Exp(
-                f"Megatron bs{batch_size}{no_fuse} ({n_gpu} GPU)",
-                "bert-large-uncased",
-                batch_size,
-                fp16=True,
-                gpus=gpus,
-                tensor_para=n_gpu,
-                kwargs=kwargs,
+    if exp.kwargs is not None and "flags" in exp.kwargs:
+        cmd += " " + " ".join(exp.kwargs["flags"])
+
+    cmd += " > log.txt 2>&1"
+    print(cmd)
+    os.system(cmd)
+    ret = megatron_log(exp, "log.txt")
+    if ret.error_code != 0:
+        ret.samples_per_sec = 0
+        ret.gpu_mem = 0
+    else:
+        ret.print_results()
+    return ret
+
+
+def main():
+    args = parse_args()
+    assert args.dtype == "fp16", "Only fp16 is supported for now"
+
+    print("Pytorch version\t:", torch.__version__)
+    print("CUDA version\t:", torch.version.cuda)
+
+    title = f"{'Megatron' if args.impl == 'megatron' else 'HF'} {args.model}"
+    memo = ""
+
+    n_gpus = parse_gpus(args.gpus)
+    get_batch_size = eval(f"lambda n: {args.batch_sizes}", {"math": math})
+
+    # Deal with Megatron model args.
+    kwargs = {}
+    if hasattr(args, "disable_fuse_kernels") and args.disable_fuse_kernels:
+        kwargs = {
+            "flags": [
+                "--no-bias-gelu-fusion",
+                "--no-bias-dropout-fusion",
+                "--no-persist-layer-norm",
+                "--no-masked-softmax-fusion",
+            ]
+        }
+        memo = "no_fuse"
+
+    results = []
+    for n_gpu in n_gpus:
+        gpus = ",".join([str(e) for e in range(n_gpu)])
+        batch_size = get_batch_size(n_gpu)
+        canoncialized_memo = f" {memo}" if memo else ""
+        results.append(
+            run_megatron(
+                Exp(
+                    f"BS{batch_size}{canoncialized_memo} ({n_gpu} GPU)",
+                    args.model,
+                    batch_size,
+                    args.seq_len,
+                    fp16=args.dtype == "fp16",
+                    gpus=gpus,
+                    tensor_para=n_gpu,
+                    kwargs=kwargs,
+                ),
+                args,
             )
         )
-    )
-compare(mega_bert, f"Megatron{'-nofuse' if no_fuse else ''}")
+        if results[-1].error_code == 2 and args.error_stop:
+            print("Stop benchmarking due to error")
+            break
+    canoncialized_memo = f"-{memo}" if memo else ""
+    compare(results, f"{title}{canoncialized_memo}")
 
 
+if __name__ == "__main__":
+    main()

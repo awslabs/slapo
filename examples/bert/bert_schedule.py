@@ -12,19 +12,21 @@ def replace_layernorm(sch):
         sch[op].replace(FusedLayerNorm)
 
 
-def replace_gelu():
+def replace_gelu(sch):
     # https://github.com/NVIDIA/Megatron-LM/blob/master/megatron/model/fused_bias_gelu.py
     print("Replace GeLU with FusedBiasGeLU")
-    print(sch.func_ops)
-    # sch["gelu"].replace(ms.op.gelu)
-    sch["gelu"].replace_module(ms.op.BiasGeLU, half=True)
+    from ms.op import BiasGeLU
+    raise RuntimeError("Not correct! Should fuse with previous linear bias!")
+    ops = sch.find_function(lambda node: "gelu" in str(node.target))
+    for op in ops:
+        sch[op].replace(BiasGeLU)
 
 
 def replace_xformer_attention():
     # https://github.com/huggingface/transformers/blob/344e2664d450eaa9167ce31f7d1fc0f0fe3b10af/src/transformers/models/bert/modeling_bert.py#L243
     # https://github.com/comaniac/epoi/blob/main/epoi/ops/xformers_attn.py#L45
     print("Replace HF BertSelfAttention with xformer Attention")
-    from ms.op.xformers_attn import BertSelfAttentionXFormer
+    from ms.op import BertSelfAttentionXFormer
 
     class SelfAttention_Pattern(ms.Pattern):
         def __init__(self, layer_num):

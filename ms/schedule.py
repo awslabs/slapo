@@ -276,12 +276,16 @@ class OperationList:
 
     def replace(self, nn_mod: nn.Module, *args, **kwargs):
         assert len(self.op_lst) == 1
+        assert isinstance(nn_mod, nn.Module), "Input module is a {}".format(type(nn_mod))
         node = self.op_lst[0]
-        curr_mod = self.named_modules[node.target]
-        init_arg_names = list(inspect.signature(nn_mod.__init__).parameters)[1:]
-        init_kwargs = {}
-        for init_arg in init_arg_names:
-            init_kwargs[init_arg] = curr_mod.__dict__[init_arg]
+        if node.op == "call_module":
+            curr_mod = self.named_modules[node.target]
+            init_arg_names = list(inspect.signature(nn_mod.__init__).parameters)[1:]
+            init_kwargs = {}
+            for init_arg in init_arg_names:
+                init_kwargs[init_arg] = curr_mod.__dict__[init_arg]
+        else:
+            raise RuntimeError("Operator not supported!")
         instance = nn_mod(**init_kwargs)
         name = instance._get_name().split(".")[-1]
         name = _get_unique_module_name(self.gm, name)

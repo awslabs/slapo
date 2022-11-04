@@ -22,10 +22,11 @@ export PYTHONPATH=$(pwd):${PYTHONPATH}
 ## Quick Start
 Please refer to [`examples/model-schedule-demo.ipynb`](examples/model-schedule-demo.ipynb) for more details.
 
-| Optimization | Primitive |
+| Feature | Primitive |
 | :--: | :-- |
+| Pattern matching | `s.find_module/function(pattern)` |
 | Parameter sharding | `s[op].shard(param, axis)` |
-| synchronization | `s[op].sync()` |
+| synchronization | `s[op].sync(backward=False/True)` |
 | Kernel Injection | `s[op].replace(OldModule, NewModule)` |
 
 

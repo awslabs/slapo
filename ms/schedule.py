@@ -30,6 +30,11 @@ class Schedule:
         rank: int = 0,
         config: Dict = {},
     ):
+        self.config = config
+        # check validity
+        for key in self.config.keys():
+            if key not in ["tracer", "leaf_modules", "concrete_args"]:
+                raise RuntimeError("Unknown config key {}".format(key))
         if isinstance(mod, fx.GraphModule):
             self.gm = mod
         else:
@@ -124,6 +129,14 @@ class Schedule:
                     if matched:
                         res.append(subgraph)
         return res
+
+    def retrace(self, leaf_modules):
+        self.gm.graph.lint()  # Does some checks to make sure the Graph is well-formed.
+        self.gm.recompile()
+        self.gm.delete_all_unused_submodules()
+        self.config["tracer"] = "pytorch"
+        self.config["leaf_modules"] = leaf_modules
+        self.gm = trace(self.gm, self.config)
 
     def trace_module(self):
         # List of [List of Operation names]

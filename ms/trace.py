@@ -9,6 +9,7 @@ def trace(model: nn.Module, config: Dict = {}):
         import transformers.utils.fx as fx
         TracerClass = fx.HFTracer
     else:
+        print("Use PyTorch tracer")
         import torch.fx as fx
         TracerClass = fx.Tracer
 

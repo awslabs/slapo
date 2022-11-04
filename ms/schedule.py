@@ -1,4 +1,5 @@
 from typing import Dict, List
+from types import FunctionType
 import os
 import re
 import operator
@@ -355,7 +356,7 @@ class OperationList:
                         self.gm.graph.erase_node(node)
 
     def replace(self, func_or_mod, *args, **kwargs):
-        if isinstance(func_or_mod, nn.Module):
+        if not isinstance(func_or_mod, FunctionType):
             self.replace_module(func_or_mod, *args, **kwargs)
         else:
             self.replace_function(func_or_mod)

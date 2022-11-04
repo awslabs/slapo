@@ -83,24 +83,29 @@ def replace_qkv(sch, hidden_size, num_heads, num_layers):
 def shard_params(sch, num_layers, fused_qkv=False, prefix="bert."):
     for i in range(num_layers):
         # MLP
-        sch[prefix+"encoder.layer.{}.intermediate.dense".format(i)].shard("weight", axis=1)
-        sch[prefix+"encoder.layer.{}.output.dense".format(i)].shard("weight", axis=0)
+        sch[prefix+"encoder.layer.{}.intermediate.dense".format(i)].shard("weight", axis=0)
+        sch[prefix+"encoder.layer.{}.intermediate.dense".format(i)].shard("bias", axis=0)
+        sch[prefix+"encoder.layer.{}.output.dense".format(i)].shard("weight", axis=1)
         sch[prefix+"encoder.layer.{}.output.dense".format(i)].sync()
         sch[prefix+"encoder.layer.{}.intermediate.dense".format(i)].sync(backward=True)
 
         # Attention
         if not fused_qkv:
-            sch[prefix+"encoder.layer.{}.attention.self.query".format(i)].shard("weight", axis=1)
-            sch[prefix+"encoder.layer.{}.attention.self.key".format(i)].shard("weight", axis=1)
-            sch[prefix+"encoder.layer.{}.attention.self.value".format(i)].shard("weight", axis=1)
+            sch[prefix+"encoder.layer.{}.attention.self.query".format(i)].shard("weight", axis=0)
+            sch[prefix+"encoder.layer.{}.attention.self.key".format(i)].shard("weight", axis=0)
+            sch[prefix+"encoder.layer.{}.attention.self.value".format(i)].shard("weight", axis=0)
+            sch[prefix+"encoder.layer.{}.attention.self.query".format(i)].shard("bias", axis=0)
+            sch[prefix+"encoder.layer.{}.attention.self.key".format(i)].shard("bias", axis=0)
+            sch[prefix+"encoder.layer.{}.attention.self.value".format(i)].shard("bias", axis=0)
             sch[prefix+"encoder.layer.{}.attention.self.query".format(i)].sync(backward=True)
             sch[prefix+"encoder.layer.{}.attention.self.key".format(i)].sync(backward=True)
             sch[prefix+"encoder.layer.{}.attention.self.value".format(i)].sync(backward=True)
         else:
-            sch[prefix+"encoder.layer.{}.attention.self.FusedQKV_0".format(i)].shard("fused_linear.weight", axis=1)
+            sch[prefix+"encoder.layer.{}.attention.self.FusedQKV_0".format(i)].shard("fused_linear.weight", axis=0)
+            sch[prefix+"encoder.layer.{}.attention.self.FusedQKV_0".format(i)].shard("fused_linear.bias", axis=0)
             sch[prefix+"encoder.layer.{}.attention.self.FusedQKV_0".format(i)].sync(backward=True)
 
-        sch[prefix+"encoder.layer.{}.attention.output.dense".format(i)].shard("weight", axis=0)
+        sch[prefix+"encoder.layer.{}.attention.output.dense".format(i)].shard("weight", axis=1)
         sch[prefix+"encoder.layer.{}.attention.output.dense".format(i)].sync()
 
     # fix number of heads

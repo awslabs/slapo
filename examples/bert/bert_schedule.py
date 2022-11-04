@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.fx as fx
 import ms
 
 
@@ -110,10 +111,15 @@ def shard_params(sch, num_layers, fused_qkv=False, prefix="bert."):
 
     # fix number of heads
     import operator
+    ops = sch.find_method(lambda node:
+        node.target == "view" and # args[0] is self
+        isinstance(node.args[1], fx.Node) and
+        node.args[1].op == "call_function" and
+        node.args[1].target == operator.add)
 
-    for node in sch.gm.graph.nodes:
-        if node.op == "call_function" and node.target == operator.add:
-            if isinstance(node.args[1], tuple):
-                lst = list(node.args[1])
-                lst[0] = lst[0] // sch.world_size  # num of heads
-                node.args = (node.args[0], tuple(lst))
+    def new_view(tensor, old_shape):
+        new_shape = old_shape[:-1] + (-1,)
+        return tensor.view(new_shape)
+
+    for op in ops:
+        sch[op].replace(new_view)

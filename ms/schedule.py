@@ -98,6 +98,17 @@ class Schedule:
                     res.append(node)
         return res
 
+    def find_method(self, pattern):
+        """
+        pattern: Lambda function
+        """
+        res = []
+        for node in self.gm.graph.nodes:
+            if node.op == "call_method":
+                if pattern(node):
+                    res.append(node)
+        return res
+
     def find(self, pattern):
         res = []
         if isinstance(pattern, Pattern):
@@ -255,10 +266,16 @@ class OperationList:
         self.gm = gm
         self.named_modules = dict(self.gm.named_modules())
 
-    def replace(self, nn_mod: nn.Module, *args, **kwargs):
-        if len(kwargs) == 0:
-            node = self.op_lst[0]
-            assert node.op == "call_module", "Operator not supported!"
+    def replace_function(self, func):
+        node = self.op_lst[0]
+        with self.gm.graph.inserting_after(node):
+            new_node = self.gm.graph.call_function(func, node.args, node.kwargs)
+            node.replace_all_uses_with(new_node)
+        self.gm.graph.erase_node(node)
+
+    def replace_module(self, nn_mod: nn.Module, *args, **kwargs):
+        node = self.op_lst[0]
+        if len(kwargs) == 0 and isinstance(node, fx.Node) and node.op == "call_module":
             curr_mod = self.named_modules[node.target]
             init_arg_names = list(inspect.signature(nn_mod.__init__).parameters)[1:]
             init_kwargs = {}
@@ -306,6 +323,12 @@ class OperationList:
                             if node.users not in sublst:
                                 node.replace_all_uses_with(getitem)
                         self.gm.graph.erase_node(node)
+
+    def replace(self, func_or_mod, *args, **kwargs):
+        if isinstance(func_or_mod, nn.Module):
+            self.replace_module(func_or_mod, *args, **kwargs)
+        else:
+            self.replace_function(func_or_mod)
 
 
 class FunctionOpList:

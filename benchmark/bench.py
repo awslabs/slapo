@@ -185,25 +185,25 @@ if MEGATRON_NO_FUSE:
         ]
     }
 
-# hf_bert = []
-# for idx, n_gpu in enumerate((1, 2, 4, 8)):
-#    gpus = ",".join([str(e) for e in range(n_gpu)])
-#    batch_size = BATCH_SIZE * (idx + 1)
-#    hf_bert.append(
-#        megatron_bert(
-#            Exp(
-#                f"HF bs{batch_size} ({n_gpu} GPU)",
-#                "bert-large-uncased",
-#                batch_size,
-#                fp16=True,
-#                gpus=gpus,
-#                tensor_para=n_gpu,
-#                kwargs=kwargs,
-#            ),
-#            script_file="./pretrain_hf_bert.py"
-#        )
-#    )
-# compare(hf_bert, f"HF-MS")
+hf_bert = []
+for idx, n_gpu in enumerate((1, 2, 4, 8)):
+   gpus = ",".join([str(e) for e in range(n_gpu)])
+   batch_size = BATCH_SIZE * (idx + 1)
+   hf_bert.append(
+       megatron_bert(
+           Exp(
+               f"HF bs{batch_size} ({n_gpu} GPU)",
+               "bert-large-uncased",
+               batch_size,
+               fp16=True,
+               gpus=gpus,
+               tensor_para=n_gpu,
+               kwargs=kwargs,
+           ),
+           script_file="./../examples/bert/pretrain_hf_bert.py"
+       )
+   )
+compare(hf_bert, f"HF-MS")
 
 mega_bert = []
 no_fuse = " no fuse" if MEGATRON_NO_FUSE else ""

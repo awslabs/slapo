@@ -16,6 +16,7 @@
 """Pretrain BERT"""
 
 from functools import partial
+import os
 
 import torch
 import torch.nn.functional as F
@@ -42,6 +43,7 @@ def model_schedule(model, config):
     print("Using model schedule to optimize")
     print("World size: {}, rank: {}".format(dist.get_world_size(), dist.get_rank()))
 
+    args = get_args()
     input_names = list(model.dummy_inputs.keys())
     input_names += ["attention_mask", "token_type_ids"]
     sig = inspect.signature(model.forward)
@@ -51,7 +53,9 @@ def model_schedule(model, config):
 
     world_size = dist.get_world_size()
     rank = dist.get_rank()
-    model.half()
+    if args.fp16:
+        print("Change model dtype to fp16")
+        model.half()
     sch = ms.create_schedule(
         model,
         None,
@@ -60,23 +64,29 @@ def model_schedule(model, config):
         config={"tracer": "huggingface", "concrete_args": concrete_args},
     )
 
-    replace_qkv(sch, config.hidden_size, config.num_attention_heads, config.num_hidden_layers)
+    replace_qkv(
+        sch, config.hidden_size, config.num_attention_heads, config.num_hidden_layers
+    )
     if world_size > 1:
         shard_params(sch, config.num_hidden_layers, fused_qkv=True, prefix="")
 
     model, _ = ms.build(sch)
-    model.half()
+    if args.fp16:
+        model.half()
     model.cuda()
     return model
 
 
 def model_provider(pre_process=True, post_process=True):
-    from transformers import AutoConfig, AutoModelForMaskedLM, BertModel
-    from transformers import PreTrainedModel
+    from transformers import AutoConfig, BertModel
 
-    print_rank_0("building HF BERT model ...")
-    config = AutoConfig.from_pretrained("bert-large-uncased")
     args = get_args()
+    model_name = os.environ.get("MODEL_NAME", None)
+    if model_name is None:
+        raise RuntimeError("'MODEL_NAME' not found in environment")
+
+    print_rank_0(f"Building HF {model_name} ...")
+    config = AutoConfig.from_pretrained(model_name)
     config.vocab_size = args.padded_vocab_size
     config.type_vocab_size = 2 if args.bert_binary_head else 0
     print(config)
@@ -103,21 +113,9 @@ def model_provider(pre_process=True, post_process=True):
             attention_mask=None,
             token_type_ids=None,
             position_ids=None,
-            head_mask=None,
-            inputs_embeds=None,
-            encoder_hidden_states=None,
-            encoder_attention_mask=None,
             labels=None,
-            past_key_values=None,
-            use_cache=None,
-            output_attentions=None,
-            output_hidden_states=None,
-            return_dict=None,
         ):
-            #            output = self.bert(input_ids, attention_mask, token_type_ids,
-            #                               position_ids, head_mask, inputs_embeds, encoder_hidden_states,
-            #                               encoder_attention_mask, past_key_values, use_cache,
-            #                               output_attentions, output_hidden_states, return_dict)
+            # Note: other arguments (e.g., head_mask) are not supported yet.
             output = self.bert(input_ids, attention_mask, token_type_ids)
             lm_output = output["last_hidden_state"].transpose(0, 1).contiguous()
             pooled_output = output["pooler_output"]

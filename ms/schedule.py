@@ -69,7 +69,9 @@ class Schedule:
                     if n.op == "call_module" and n.target == node:
                         node = n
                         break
-                assert isinstance(node, fx.Node), "Cannot find target node with name {}".format(node)
+                assert isinstance(
+                    node, fx.Node
+                ), "Cannot find target node with name {}".format(node)
                 return Operation(node.target, self.world_size, self.rank, node, self.gm)
             else:
                 return OperationList([node], self.gm)
@@ -215,22 +217,15 @@ class Operation:
         self.gm = gm
         self.named_modules = dict(self.gm.named_modules())
 
-    def shard(self, param: str, axis: int):
+    def shard(self, param_name: str, axis: int):
         # axis after transpose
-        linear = self.named_modules[self.node.target]
-        if not isinstance(linear, nn.Linear):
-            linear = linear.fused_linear
-        out_features, in_features = linear.out_features, linear.in_features
-        if axis == 1:
-            out_features = out_features // self.world_size
-            new_weight = linear.weight.detach().split(out_features, dim=0)
-            if linear.bias != None:
-                new_bias = linear.bias.detach().split(out_features, dim=0)
-                linear.bias = nn.Parameter(new_bias[self.rank])
-        else:
-            in_features = in_features // self.world_size
-            new_weight = linear.weight.detach().split(in_features, dim=1)
-        linear.weight = nn.Parameter(new_weight[self.rank])
+        mod = self.named_modules[self.node.target]
+        if not isinstance(mod, nn.Linear):
+            mod = mod.fused_linear
+        param = mod.get_parameter(param_name)
+        sharded_size = param.shape[axis] // self.world_size
+        new_param = param.detach().split(sharded_size, dim=axis)[self.rank]
+        mod.register_parameter(param_name, nn.Parameter(new_param))
 
     def sync(self, axis: int = 1, backward=False):
         # axis after transpose

@@ -68,11 +68,12 @@ def train(rank, args):
     print(ops)
     # >>> [dense_1, activation, dense_2]
 
-    # Partition parameters
+    # Partition parameters (notice the weights are transposed!)
     # column sharding for dense_1
-    sch[ops[0]].shard("weight", axis=1)
+    sch[ops[0]].shard("weight", axis=0)
+    sch[ops[0]].shard("bias", axis=0)
     # row sharding for dense_2
-    sch[ops[2]].shard("weight", axis=0)
+    sch[ops[2]].shard("weight", axis=1)
 
     # aggreate results
     sch[ops[2]].sync()

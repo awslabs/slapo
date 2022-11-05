@@ -192,14 +192,16 @@ def model_schedule(model, config):
         sch.trace_module()
         for i in range(config.num_layers):
             # Attention
-            sch[f"h.{i}.attn.attention.FusedQKV_0"].shard(param="fused_linear.weight", axis=1)
+            sch[f"h.{i}.attn.attention.FusedQKV_0"].shard("weight", axis=0)
+            sch[f"h.{i}.attn.attention.FusedQKV_0"].shard("bias", axis=0)
             sch[f"h.{i}.attn.attention.FusedQKV_0"].sync(backward=True)
-            sch[f"h.{i}.attn.attention.out_proj"].shard(param="weight", axis=0)
+            sch[f"h.{i}.attn.attention.out_proj"].shard("weight", axis=1)
             sch[f"h.{i}.attn.attention.out_proj"].sync()
 
             # MLP
-            sch[f"h.{i}.mlp.c_fc"].shard(axis=1, param="weight")
-            sch[f"h.{i}.mlp.c_proj"].shard(axis=0, param="weight")
+            sch[f"h.{i}.mlp.c_fc"].shard("weight", axis=0)
+            sch[f"h.{i}.mlp.c_fc"].shard("bias", axis=0)
+            sch[f"h.{i}.mlp.c_proj"].shard("weight", axis=1)
             sch[f"h.{i}.mlp.c_proj"].sync()
             sch[f"h.{i}.mlp.c_fc"].sync(backward=True)
 

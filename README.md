@@ -24,10 +24,11 @@ Please refer to [`examples/model-schedule-demo.ipynb`](examples/model-schedule-d
 
 | Feature | Primitive |
 | :--: | :-- |
-| Pattern matching | `s.find_module/function(pattern)` |
+| Pattern matching | `s.find_module/function/method(pattern)` |
 | Parameter sharding | `s[op].shard(param, axis)` |
 | synchronization | `s[op].sync(backward=False/True)` |
 | Kernel Injection | `s[op].replace(OldModule, NewModule)` |
+| Forward/Backward Hook | `s[op].hook("fw_pre", hook)` |
 
 
 ## Examples

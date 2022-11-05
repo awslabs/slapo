@@ -16,9 +16,9 @@ def trace(model: nn.Module, **kwargs: Dict[str, Any]):
         else:
             raise ValueError(f"Unknown tracer: {tracer_cls_name}")
 
-        class TracWrapper(TracerClass):
+        class TraceWrapper(TracerClass):
             def __init__(self, **config: Dict[str, Any]) -> None:
-                super(TracWrapper, self).__init__()
+                super(TraceWrapper, self).__init__()
                 self.leaf_modules = config.get("leaf_modules", [])
 
             def is_leaf_module(self, m: nn.Module, module_qualified_name: str) -> bool:
@@ -29,7 +29,7 @@ def trace(model: nn.Module, **kwargs: Dict[str, Any]):
                         m.__module__.startswith("torch.nn")
                         or m.__module__.startswith("torch.ao.nn")
                     ) and not isinstance(m, nn.Sequential)
-        tracer = TracWrapper(**kwargs)
+        tracer = TraceWrapper(**kwargs)
     else:
         # A custom tracer class.
         tracer = tracer_cls_name(**kwargs)

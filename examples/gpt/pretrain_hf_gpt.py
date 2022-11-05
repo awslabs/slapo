@@ -149,11 +149,36 @@ def model_schedule(model, config):
     replace_qkv()
     sch.trace_module()
 
-    # Sharding. Assuming QKV is fused.
+    # Sharding.
     if dist.get_world_size() > 1:
+        # Embedding
+        sch["wte"].shard("weight", axis=0)
+        # Build the mask
+        vocab_start_index = sch.rank * config.vocab_size // sch.world_size
+        vocab_end_index = (sch.rank + 1) * config.vocab_size // sch.world_size
+
+        def fw_pre_hook(_input):
+            # Mask the input
+            input_mask = (_input[0] < vocab_start_index) | (_input[0] >= vocab_end_index)
+            masked_input = _input[0].clone() - vocab_start_index
+            masked_input[input_mask] = 0
+            return masked_input
+
+        sch["wte"].hook("fw_pre", fw_pre_hook)
+
+        def fw_post_hook(_input, output):
+            # Mask the output embedding
+            input_mask = (_input[0] < vocab_start_index) | (_input[0] >= vocab_end_index)
+            output[input_mask, :] = 0.0
+            # Reduce across all the model parallel GPUs
+            dist.all_reduce(output, op=dist.ReduceOp.SUM)
+            return output
+
+        sch["wte"].hook("fw_post", fw_post_hook)
+
         sch.trace_module()
         for i in range(config.num_layers):
-            # Attention
+            # Attention. Assuming QKV is fused.
             sch[f"h.{i}.attn.attention.FusedQKV_0"].shard("weight", axis=0)
             sch[f"h.{i}.attn.attention.FusedQKV_0"].shard("bias", axis=0)
             sch[f"h.{i}.attn.attention.FusedQKV_0"].sync(backward=True)

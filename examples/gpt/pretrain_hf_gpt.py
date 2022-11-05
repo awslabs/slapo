@@ -68,8 +68,6 @@ def model_schedule(model, config):
     if args.fp16:
         print("Change model dtype to fp16")
         model.half()
-    # traced_graph = HFGPTTracer().trace(model, concrete_args=concrete_args)
-    # gm = fx.GraphModule(model, traced_graph)
 
     sch = ms.create_schedule(
         model,
@@ -146,22 +144,6 @@ def model_schedule(model, config):
 
         for op in ops:
             sch[op].replace(new_view)
-
-    # def fix_view_after_shard_using_fx(sch):
-    #     """A workaround. Should be removed and use fix_view_after_shard."""
-    #     import operator
-
-    #     cnt = 0
-    #     for node in sch.gm.graph.nodes:
-    #         if (node.op == "call_method" and
-    #             node.target == "view" and
-    #             len(node.args) == 2 and
-    #             node.args[0].target == "contiguous" and
-    #             isinstance(node.args[1], torch.fx.Node) and
-    #             node.args[1].target == operator.add):
-    #             node.args[1].args = (node.args[1].args[0], (-1,))
-    #             cnt += 1
-    #     print(f"Replaced {cnt} view ops")
 
     sch.trace_module()
     replace_qkv()

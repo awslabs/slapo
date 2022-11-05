@@ -40,7 +40,7 @@ class Schedule:
         # Parse world size and rank
         self.validate_config()
         self.world_size = world_size
-        self.rank = rank        
+        self.rank = rank
         assert rank < world_size, "Rank should be smaller than world size"
         if world_size != 1 and dist.GroupMember.WORLD is None:
             setup(rank, world_size)
@@ -73,9 +73,9 @@ class Schedule:
                     if n.op == "call_module" and n.target == node:
                         node = n
                         break
-                assert isinstance(
-                    node, fx.Node
-                ), "Cannot find target node with name {}".format(node)
+                assert isinstance(node, fx.Node), "Cannot find target node with name {}".format(
+                    node
+                )
                 return Operation(node.target, self.world_size, self.rank, node, self.gm)
             else:
                 return OperationList([node], self.gm)
@@ -189,9 +189,7 @@ class Schedule:
                 tmp_mod.append(name)
                 prev_path = curr_path
                 if name not in self._ops:
-                    new_ops[name] = Operation(
-                        name, self.world_size, self.rank, node, self.gm
-                    )
+                    new_ops[name] = Operation(name, self.world_size, self.rank, node, self.gm)
                 else:
                     new_ops[name] = self._ops[name]
             elif node.op == "call_function":
@@ -227,9 +225,7 @@ class Schedule:
 
 
 class Operation:
-    def __init__(
-        self, name: str, world_size: int, rank: int, node: fx.Node, gm: fx.GraphModule
-    ):
+    def __init__(self, name: str, world_size: int, rank: int, node: fx.Node, gm: fx.GraphModule):
         self.name = name
         self.spec = {}
         self.world_size = world_size
@@ -348,9 +344,7 @@ class OperationList:
                 )
             with self.gm.graph.inserting_after(new_node):
                 for i, sublst in enumerate(self.op_lst):
-                    getitem = self.gm.graph.call_function(
-                        operator.getitem, (new_node, i)
-                    )
+                    getitem = self.gm.graph.call_function(operator.getitem, (new_node, i))
                     for node in reversed(sublst):
                         # hardcoded
                         if node.op == "call_module" and "dense" in node.target:
@@ -415,9 +409,7 @@ def create_schedule(
     rank: int = 0,
     **kwargs: Dict[str, Any],
 ):
-    return Schedule(
-        model, optimizer=optimizer, world_size=world_size, rank=rank, **kwargs
-    )
+    return Schedule(model, optimizer=optimizer, world_size=world_size, rank=rank, **kwargs)
 
 
 def build(sch: Schedule):

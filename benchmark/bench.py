@@ -222,8 +222,10 @@ def megatron_log(exp, log_filename):
         exp.error_code = 2
         return exp
 
+    param_per_gpu = query("parameters on \(tensor, pipeline\) model parallel rank \(0, 0\)")
     exp.samples_per_sec = query("global batch size") / iter_time * 1e3
     exp.gpu_mem = query("max allocated") / 1e3
+    print(f"per GPU params\t\t: {param_per_gpu / 1e6:.2f}M")
     print(
         f"Breakdown(ms)\t\t: total {iter_time:.2f}, forward {query('forward-compute'):.2f}, "
         f"backward {query('backward-compute'):.2f}, "

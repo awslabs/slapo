@@ -31,7 +31,7 @@ concrete_args = {
 # replace_xformer_attention(sch)
 
 sch = ms.create_schedule(
-    bert, optimizer, config={"tracer": "huggingface", "concrete_args": concrete_args}
+    bert, optimizer, tracer="huggingface", concrete_args=concrete_args
 )
 # replace_layernorm(sch)
 # replace_gelu(sch)

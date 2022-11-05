@@ -58,14 +58,13 @@ def model_schedule(model, config):
         model.half()
     sch = ms.create_schedule(
         model,
-        None,
-        world_size,
-        rank,
-        config={"tracer": "huggingface", "concrete_args": concrete_args},
+        world_size=world_size,
+        rank=rank,
+        tracer="huggingface",
+        concrete_args=concrete_args,
     )
-    replace_qkv(
-        sch, config.hidden_size, config.num_attention_heads, config.num_hidden_layers
-    )
+
+    replace_qkv(sch, config.hidden_size, config.num_attention_heads, config.num_hidden_layers)
     if world_size > 1:
         shard_params(sch, config, fused_qkv=True)
 
@@ -187,9 +186,7 @@ def forward_step(data_iterator, model):
 
     # Get the batch.
     timers("batch-generator").start()
-    tokens, types, sentence_order, loss_mask, lm_labels, padding_mask = get_batch(
-        data_iterator
-    )
+    tokens, types, sentence_order, loss_mask, lm_labels, padding_mask = get_batch(data_iterator)
     timers("batch-generator").stop()
 
     if not args.bert_binary_head:

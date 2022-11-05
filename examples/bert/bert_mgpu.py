@@ -34,7 +34,8 @@ def train(rank, args):
         optimizer,
         args.world_size,
         rank,
-        config={"tracer": "huggingface", "concrete_args": concrete_args},
+        tracer="huggingface",
+        concrete_args=concrete_args,
     )
 
     if args.world_size > 1:

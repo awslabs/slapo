@@ -48,11 +48,10 @@ def model_schedule(model, config):
     sig = inspect.signature(model.forward)
     concrete_args = {p.name: p.default for p in sig.parameters.values() if p.name not in input_names}
 
-    # FIXME: Let "create_schedule" accept a custom tracer.
     class HFGPTTracer(fx.HFTracer):
 
-        def __init__(self) -> None:
-            super(HFGPTTracer, self).__init__()
+        def __init__(self, **config) -> None:
+            super().__init__()
 
         def trace(self, *args, **kwargs):
             graph = super().trace(*args, **kwargs)
@@ -69,11 +68,13 @@ def model_schedule(model, config):
     if args.fp16:
         print("Change model dtype to fp16")
         model.half()
-    traced_graph = HFGPTTracer().trace(model, concrete_args=concrete_args)
-    gm = fx.GraphModule(model, traced_graph)
 
-    # FIXME: Let optimizer be an optional argument. Now simplify pass "0".
-    sch = ms.create_schedule(gm, 0, dist.get_world_size(), dist.get_rank())
+    sch = ms.create_schedule(
+        model,
+        world_size=dist.get_world_size(),
+        rank=dist.get_rank(),
+        tracer=HFGPTTracer,
+        concrete_args=concrete_args)
 
     def replace_qkv():
         print("Replace HF QKV Linear with FusedQKV")
@@ -125,73 +126,59 @@ def model_schedule(model, config):
             assert op_lst, "Cannot find QKV pattern"
             sch[op_lst].replace(FusedQKV, hidden_size=hidden_size, num_heads=num_heads)
 
+
     def fix_view_after_shard():
+        # fix number of heads
         import operator
+        ops = sch.find_method(lambda node:
+            node.op == "call_method" and
+            node.target == "view" and
+            len(node.args) == 2 and
+            node.args[0].target == "contiguous" and
+            isinstance(node.args[1], torch.fx.Node) and
+            node.args[1].target == operator.add)
 
-        class ViewPattern(ms.Pattern):
-            def __init__(self):
-                super().__init__()
+        def new_view(tensor, old_shape):
+            new_shape = old_shape[:-1] + (-1,)
+            return tensor.view(new_shape)
 
-            @staticmethod
-            def func(x: torch.Tensor) -> torch.Tensor:
-                return x
-
-            def starting_point(self, node):
-                """Looking for view ops from the GPT self attention pattern:
-                tensor = tensor.permute(0, 2, 1, 3).contiguous()
-                new_shape = tensor.size()[:-2] + (num_heads * attn_head_size,)
-                tensor.view(new_shape)
-
-                So we look for the pattern: view(contiguous, shape1 + shape2)
-                """
-                return (node.op == "call_method" and
-                        node.target == "view" and
-                        len(node.args) == 2 and
-                        node.args[0].target == "contiguous" and
-                        isinstance(node.args[1], torch.fx.Node) and
-                        node.args[1].target == operator.add)
-
-        class NewView(torch.nn.Module):
-            def __init__(self):
-                super().__init__()
-
-            def forward(self, tensor, old_shape):
-                new_shape = old_shape[:-1] + (-1,)
-                return tensor.view(new_shape)
-
-        op_lst = sch.find(ViewPattern())
-        assert op_lst, "Cannot find View pattern"
-        for op in op_lst:
-            # FIXME: Broken. "replace" API now cannot replace "call_method" with "call_module",
-            # but fx actually allows it.
-            sch[op].replace(NewView)
-        print(f"Replaced {len(op_lst)} view ops")
-
-    def fix_view_after_shard_using_fx(sch):
-        """A workaround. Should be removed and use fix_view_after_shard."""
-        import operator
-
-        cnt = 0
-        for node in sch.gm.graph.nodes:
-            if (node.op == "call_method" and
-                node.target == "view" and
-                len(node.args) == 2 and
-                node.args[0].target == "contiguous" and
-                isinstance(node.args[1], torch.fx.Node) and
-                node.args[1].target == operator.add):
-                node.args[1].args = (node.args[1].args[0], (-1,))
-                cnt += 1
-        print(f"Replaced {cnt} view ops")
+        for op in ops:
+            sch[op].replace(new_view)
 
     sch.trace_module()
     replace_qkv()
     sch.trace_module()
 
-    # Sharding. Assuming QKV is fused.
+    # Sharding.
     if dist.get_world_size() > 1:
+        # Embedding
+        sch["wte"].shard("weight", axis=0)
+        # Build the mask
+        vocab_start_index = sch.rank * config.vocab_size // sch.world_size
+        vocab_end_index = (sch.rank + 1) * config.vocab_size // sch.world_size
+
+        def fw_pre_hook(_input):
+            # Mask the input
+            input_mask = (_input[0] < vocab_start_index) | (_input[0] >= vocab_end_index)
+            masked_input = _input[0].clone() - vocab_start_index
+            masked_input[input_mask] = 0
+            return masked_input
+
+        sch["wte"].hook("fw_pre", fw_pre_hook)
+
+        def fw_post_hook(_input, output):
+            # Mask the output embedding
+            input_mask = (_input[0] < vocab_start_index) | (_input[0] >= vocab_end_index)
+            output[input_mask, :] = 0.0
+            # Reduce across all the model parallel GPUs
+            dist.all_reduce(output, op=dist.ReduceOp.SUM)
+            return output
+
+        sch["wte"].hook("fw_post", fw_post_hook)
+
         sch.trace_module()
         for i in range(config.num_layers):
-            # Attention
+            # Attention. Assuming QKV is fused.
             sch[f"h.{i}.attn.attention.FusedQKV_0"].shard("weight", axis=0)
             sch[f"h.{i}.attn.attention.FusedQKV_0"].shard("bias", axis=0)
             sch[f"h.{i}.attn.attention.FusedQKV_0"].sync(backward=True)
@@ -205,9 +192,8 @@ def model_schedule(model, config):
             sch[f"h.{i}.mlp.c_proj"].sync()
             sch[f"h.{i}.mlp.c_fc"].sync(backward=True)
 
-        # sch.trace_module()
-        # fix_view_after_shard()
-        fix_view_after_shard_using_fx(sch)
+        sch.trace_module()
+        fix_view_after_shard()
 
 
     model, _ = ms.build(sch)

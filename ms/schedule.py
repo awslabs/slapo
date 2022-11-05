@@ -1,5 +1,6 @@
-from typing import Dict, List
+from abc import ABC, abstractmethod
 from types import FunctionType
+from typing import Any, Dict, List, Union
 import os
 import re
 import operator
@@ -14,37 +15,39 @@ from .trace import trace
 from .utils import _parent_name, _get_unique_module_name
 
 
-class Pattern:
+class Pattern(ABC):
     def __init__(self):
         pass
 
+    @abstractmethod
     def starting_point(self, name, node):
-        raise RuntimeError("Not implemented")
+        raise NotImplementedError
 
 
 class Schedule:
     def __init__(
         self,
-        mod: nn.Module,
+        mod: Union[nn.Module, fx.GraphModule],
         optimizer: torch.optim.Optimizer = None,
         world_size: int = 1,
         rank: int = 0,
-        config: Dict = {},
+        **kwargs: Dict[str, Any],
     ):
-        self.config = config
-        # check validity
-        for key in self.config.keys():
-            if key not in ["tracer", "leaf_modules", "concrete_args"]:
-                raise RuntimeError("Unknown config key {}".format(key))
-        if isinstance(mod, fx.GraphModule):
-            self.gm = mod
-        else:
-            self.gm = trace(mod, config)
+        # Parse configs
+        self.config = kwargs
+        print(self.config)
+
+        # Parse world size and rank
+        self.validate_config()
         self.world_size = world_size
         self.rank = rank
         assert rank < world_size, "Rank should be smaller than world size"
         if world_size != 1 and dist.GroupMember.WORLD is None:
             setup(rank, world_size)
+
+        # Trace the model if needed
+        self.gm = mod if isinstance(mod, fx.GraphModule) else trace(mod, **self.config)
+
         self._modules = None
         self._ops = {}
         self._func_ops = {}
@@ -70,12 +73,17 @@ class Schedule:
                     if n.op == "call_module" and n.target == node:
                         node = n
                         break
-                assert isinstance(
-                    node, fx.Node
-                ), "Cannot find target node with name {}".format(node)
+                assert isinstance(node, fx.Node), "Cannot find target node with name {}".format(
+                    node
+                )
                 return Operation(node.target, self.world_size, self.rank, node, self.gm)
             else:
                 return OperationList([node], self.gm)
+
+    def validate_config(self):
+        for key in self.config:
+            if key not in ["tracer", "leaf_modules", "concrete_args"]:
+                raise RuntimeError(f"Unknown config {key}")
 
     def find_module(self, pattern):
         """
@@ -111,39 +119,41 @@ class Schedule:
         return res
 
     def find(self, pattern):
+        if not isinstance(pattern, Pattern):
+            return []
+
         res = []
-        if isinstance(pattern, Pattern):
-            for node in self.gm.graph.nodes:
-                if pattern.starting_point(node):
-                    subgraph = [node]
-                    matched = True
+        for node in self.gm.graph.nodes:
+            if pattern.starting_point(node):
+                subgraph = [node]
+                matched = True
 
-                    def DFS(curr, target):
-                        nonlocal matched
-                        for cusr, tusr in zip(curr.users, target.users):
-                            if tusr.target == "output":
-                                return True
-                            if cusr.target != tusr.target:
-                                matched = False
-                                return False
-                            if cusr not in subgraph:
-                                subgraph.append(cusr)
-                            DFS(cusr, tusr)
-                        return True
+                def DFS(curr, target):
+                    nonlocal matched
+                    for cusr, tusr in zip(curr.users, target.users):
+                        if tusr.target == "output":
+                            return True
+                        if cusr.target != tusr.target:
+                            matched = False
+                            return False
+                        if cusr not in subgraph:
+                            subgraph.append(cusr)
+                        DFS(cusr, tusr)
+                    return True
 
-                    class Test(nn.Module):
-                        def __init__(self):
-                            super(Test, self).__init__()
+                class Test(nn.Module):
+                    def __init__(self):
+                        super(Test, self).__init__()
 
-                        def forward(self, x):
-                            return pattern.func(x)
+                    def forward(self, x):
+                        return pattern.func(x)
 
-                    mod = fx.symbolic_trace(Test())
-                    target_node = list(mod.graph.nodes)[0]
-                    curr_node = node
-                    DFS(curr_node, target_node)
-                    if matched:
-                        res.append(subgraph)
+                mod = fx.symbolic_trace(Test())
+                target_node = list(mod.graph.nodes)[0]
+                curr_node = node
+                DFS(curr_node, target_node)
+                if matched:
+                    res.append(subgraph)
         return res
 
     def retrace(self, leaf_modules):
@@ -152,7 +162,7 @@ class Schedule:
         self.gm.recompile()
         self.config["tracer"] = "pytorch"
         self.config["leaf_modules"] = leaf_modules
-        self.gm = trace(self.gm, self.config)
+        self.gm = trace(self.gm, **self.config)
 
     def trace_module(self):
         # List of [List of Operation names]
@@ -179,9 +189,7 @@ class Schedule:
                 tmp_mod.append(name)
                 prev_path = curr_path
                 if name not in self._ops:
-                    new_ops[name] = Operation(
-                        name, self.world_size, self.rank, node, self.gm
-                    )
+                    new_ops[name] = Operation(name, self.world_size, self.rank, node, self.gm)
                 else:
                     new_ops[name] = self._ops[name]
             elif node.op == "call_function":
@@ -217,9 +225,7 @@ class Schedule:
 
 
 class Operation:
-    def __init__(
-        self, name: str, world_size: int, rank: int, node: fx.Node, gm: fx.GraphModule
-    ):
+    def __init__(self, name: str, world_size: int, rank: int, node: fx.Node, gm: fx.GraphModule):
         self.name = name
         self.spec = {}
         self.world_size = world_size
@@ -338,9 +344,7 @@ class OperationList:
                 )
             with self.gm.graph.inserting_after(new_node):
                 for i, sublst in enumerate(self.op_lst):
-                    getitem = self.gm.graph.call_function(
-                        operator.getitem, (new_node, i)
-                    )
+                    getitem = self.gm.graph.call_function(operator.getitem, (new_node, i))
                     for node in reversed(sublst):
                         # hardcoded
                         if node.op == "call_module" and "dense" in node.target:
@@ -403,11 +407,9 @@ def create_schedule(
     optimizer: torch.optim.Optimizer = None,
     world_size: int = 1,
     rank: int = 0,
-    config: Dict = {},
+    **kwargs: Dict[str, Any],
 ):
-    return Schedule(
-        model, optimizer=optimizer, world_size=world_size, rank=rank, config=config
-    )
+    return Schedule(model, optimizer=optimizer, world_size=world_size, rank=rank, **kwargs)
 
 
 def build(sch: Schedule):

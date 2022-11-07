@@ -199,6 +199,21 @@ class OperationList:
         self.world_size = world_size
         self.rank = rank
 
+    def subschedule(self):
+        # hierachical schedule support
+        assert len(self.op_lst) == 1
+        node = self.op_lst[0]
+        return create_schedule(
+            self.named_modules[node.target],
+            world_size=self.world_size,
+            rank=self.rank,
+            tracer="pytorch",
+        )
+
+    def compose(self, subsch):
+        mod, _ = build(subsch)
+        self.replace(mod)
+
     def shard(self, param_name: str, axis: int):
         assert len(self.op_lst) == 1
         node = self.op_lst[0]

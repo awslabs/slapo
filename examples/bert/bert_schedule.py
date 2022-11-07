@@ -130,20 +130,11 @@ def shard_params(sch, config, fused_qkv=False, prefix=""):
             sch[prefix+"encoder.layer.{}.attention.self.key".format(i)].sync(backward=True)
             sch[prefix+"encoder.layer.{}.attention.self.value".format(i)].sync(backward=True)
         else:
-            sch_fusedqkv = ms.create_schedule(
-                sch.get_module(prefix+"encoder.layer.{}.attention.self.FusedQKV_0".format(i)),
-                world_size=sch.world_size,
-                rank=sch.rank,
-                tracer="pytorch"
-            )
+            sch_fusedqkv = sch[prefix+"encoder.layer.{}.attention.self.FusedQKV_0".format(i)].subschedule()
             sch_fusedqkv["fused_linear"].shard("weight", axis=0)
             sch_fusedqkv["fused_linear"].shard("bias", axis=0)
             sch_fusedqkv["fused_linear"].sync(backward=True)
-            opt_fusedqkv, _ = ms.build(sch_fusedqkv)
-            sch[prefix+"encoder.layer.{}.attention.self.FusedQKV_0".format(i)].replace(opt_fusedqkv)
-            # sch[prefix+"encoder.layer.{}.attention.self.FusedQKV_0".format(i)].shard("weight", axis=0)
-            # sch[prefix+"encoder.layer.{}.attention.self.FusedQKV_0".format(i)].shard("bias", axis=0)
-            # sch[prefix+"encoder.layer.{}.attention.self.FusedQKV_0".format(i)].sync(backward=True)
+            sch[prefix+"encoder.layer.{}.attention.self.FusedQKV_0".format(i)].compose(sch_fusedqkv)
 
         sch[prefix+"encoder.layer.{}.attention.output.dense".format(i)].shard("weight", axis=1)
         sch[prefix+"encoder.layer.{}.attention.output.dense".format(i)].sync()

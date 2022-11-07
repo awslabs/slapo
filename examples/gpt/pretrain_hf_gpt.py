@@ -180,17 +180,11 @@ def model_schedule(model, config):
 
         for i in range(config.num_layers):
             # Attention. Assuming QKV is fused.
-            sch_fusedqkv = ms.create_schedule(
-                sch.get_module(f"h.{i}.attn.attention.FusedQKV_0".format(i)),
-                world_size=sch.world_size,
-                rank=sch.rank,
-                tracer="pytorch"
-            )
+            sch_fusedqkv = sch[f"h.{i}.attn.attention.FusedQKV_0"].subschedule()
             sch_fusedqkv["fused_linear"].shard("weight", axis=0)
             sch_fusedqkv["fused_linear"].shard("bias", axis=0)
             sch_fusedqkv["fused_linear"].sync(backward=True)
-            opt_fusedqkv, _ = ms.build(sch_fusedqkv)
-            sch[f"h.{i}.attn.attention.FusedQKV_0"].replace(opt_fusedqkv)
+            sch[f"h.{i}.attn.attention.FusedQKV_0"].compose(sch_fusedqkv)
             sch[f"h.{i}.attn.attention.out_proj"].shard("weight", axis=1)
             sch[f"h.{i}.attn.attention.out_proj"].sync()
 

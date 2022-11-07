@@ -22,11 +22,9 @@ concrete_args = {
 # sch = ms.create_schedule(
 #     bert,
 #     optimizer,
-#     config={
-#         "tracer": "huggingface",
-#         "leaf_modules": ["BertSelfAttention"],
-#         "concrete_args": concrete_args,
-#     },
+#     tracer="huggingface",
+#     leaf_modules=["BertSelfAttention"],
+#     concrete_args=concrete_args,
 # )
 # replace_xformer_attention(sch)
 

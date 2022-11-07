@@ -38,8 +38,9 @@ def train(rank, args):
         concrete_args=concrete_args,
     )
 
+    replace_qkv(sch, bert_config.hidden_size, bert_config.num_attention_heads, bert_config.num_hidden_layers)
     if args.world_size > 1:
-        shard_params(sch, bert_config, prefix="bert")
+        shard_params(sch, bert_config, fused_qkv=True, prefix="bert")
 
     report_memory(rank)
     device = "cuda:{}".format(rank)

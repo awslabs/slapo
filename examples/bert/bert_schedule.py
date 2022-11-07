@@ -49,13 +49,17 @@ def replace_qkv(sch, hidden_size, num_heads, num_layers):
 
         def transpose_for_scores(self, x):
             new_x_shape = x.size()[:-1] + (self.num_heads // sch.world_size, self.head_size, 3)
-            x = x.view(*new_x_shape)
+            x = x.view(new_x_shape)
             return x.permute(0, 2, 1, 3, 4)
 
         def forward(self, hidden_states):  # [8, 512, 768]
             qkv = self.fused_linear(hidden_states)
             transposed_qkv = self.transpose_for_scores(qkv)
-            return [torch.squeeze(t) for t in torch.split(transposed_qkv, 1, dim=-1)]
+            q, k, v = torch.split(transposed_qkv, 1, dim=-1)
+            q = torch.squeeze(q)
+            k = torch.squeeze(k)
+            v = torch.squeeze(v)
+            return [q, k, v]
 
     class QKV_Pattern(ms.Pattern):
         def __init__(self, layer_num):
@@ -126,10 +130,20 @@ def shard_params(sch, config, fused_qkv=False, prefix=""):
             sch[prefix+"encoder.layer.{}.attention.self.key".format(i)].sync(backward=True)
             sch[prefix+"encoder.layer.{}.attention.self.value".format(i)].sync(backward=True)
         else:
-            # FIXME: the fused_linear is currently hardcoded in the schedule
-            sch[prefix+"encoder.layer.{}.attention.self.FusedQKV_0".format(i)].shard("weight", axis=0)
-            sch[prefix+"encoder.layer.{}.attention.self.FusedQKV_0".format(i)].shard("bias", axis=0)
-            sch[prefix+"encoder.layer.{}.attention.self.FusedQKV_0".format(i)].sync(backward=True)
+            sch_fusedqkv = ms.create_schedule(
+                sch.get_module(prefix+"encoder.layer.{}.attention.self.FusedQKV_0".format(i)),
+                world_size=sch.world_size,
+                rank=sch.rank,
+                tracer="pytorch"
+            )
+            sch_fusedqkv["fused_linear"].shard("weight", axis=0)
+            sch_fusedqkv["fused_linear"].shard("bias", axis=0)
+            sch_fusedqkv["fused_linear"].sync(backward=True)
+            opt_fusedqkv, _ = ms.build(sch_fusedqkv)
+            sch[prefix+"encoder.layer.{}.attention.self.FusedQKV_0".format(i)].replace(opt_fusedqkv)
+            # sch[prefix+"encoder.layer.{}.attention.self.FusedQKV_0".format(i)].shard("weight", axis=0)
+            # sch[prefix+"encoder.layer.{}.attention.self.FusedQKV_0".format(i)].shard("bias", axis=0)
+            # sch[prefix+"encoder.layer.{}.attention.self.FusedQKV_0".format(i)].sync(backward=True)
 
         sch[prefix+"encoder.layer.{}.attention.output.dense".format(i)].shard("weight", axis=1)
         sch[prefix+"encoder.layer.{}.attention.output.dense".format(i)].sync()

@@ -159,46 +159,6 @@ class Schedule:
         self.config["leaf_modules"] = leaf_modules
         self.gm = trace(self.gm, **self.config)
 
-    # def trace_module(self):
-    #     # List of [List of Operation names]
-    #     self._modules = []
-    #     new_ops = {}
-    #     new_funcs = {}
-    #     if isinstance(self.gm, fx.GraphModule):
-    #         # Recompile fx module
-    #         self.gm.graph.lint()  # Does some checks to make sure the Graph is well-formed.
-    #         self.gm.recompile()
-    #     prev_path = ""
-    #     for node in self.gm.graph.nodes:
-    #         if node.op == "call_module":
-    #             name = node.target
-    #             name = re.sub(r".([0-9]+).", r"_\1.", name)  # for nn.Sequential
-    #             curr_path = name.rsplit(".", 1)[0]
-    #             prefix = os.path.commonprefix([prev_path + ".", curr_path + "."])
-    #             tmp_mod = self._modules
-    #             for i in range(name.count(".")):
-    #                 if len(tmp_mod) == 0 or i >= prefix.count("."):
-    #                     tmp_mod.append([])
-    #                 tmp_mod = tmp_mod[-1]
-    #             name = node.target
-    #             tmp_mod.append(name)
-    #             prev_path = curr_path
-    #             if name not in self._ops:
-    #                 new_ops[name] = Operation(
-    #                     name, self.world_size, self.rank, node, self.gm
-    #                 )
-    #             else:
-    #                 new_ops[name] = self._ops[name]
-    #         elif node.op == "call_function":
-    #             name = node.target.__name__
-    #             op_inst = Operation(name, self.world_size, self.rank, node, self.gm)
-    #             if name in new_funcs:
-    #                 new_funcs[name].append(op_inst)
-    #             else:
-    #                 new_funcs[name] = [op_inst]
-    #     self._ops = new_ops
-    #     self._func_ops = new_funcs
-
     @property
     def ops(self):
         raise RuntimeError("Please directly use `find` method to get requested ops")
@@ -240,17 +200,18 @@ class OperationList:
         self.rank = rank
 
     def shard(self, param_name: str, axis: int):
-        # axis after transpose
-        mod = self.named_modules[self.node.target]
-        if not isinstance(mod, nn.Linear) and not isinstance(mod, nn.Embedding):
-            mod = mod.fused_linear
+        assert len(self.op_lst) == 1
+        node = self.op_lst[0]
+        mod = self.named_modules[node.target]
         param = mod.get_parameter(param_name)
         sharded_size = param.shape[axis] // self.world_size
         new_param = param.detach().split(sharded_size, dim=axis)[self.rank]
         mod.register_parameter(param_name, nn.Parameter(new_param))
 
     def hook(self, mode, func):
-        mod = self.named_modules[self.node.target]
+        assert len(self.op_lst) == 1
+        node = self.op_lst[0]
+        mod = self.named_modules[node.target]
 
         if mode == "fw_pre":
 
@@ -264,12 +225,6 @@ class OperationList:
                 return func(_input, output)
 
             mod.register_forward_hook(fw_post_hook)
-        # elif mode == "bw_pre":
-
-        #     def bw_pre_hook(_module, _input):
-        #         return func(_input)
-
-        #     mod.register_backward_pre_hook(bw_pre_hook)
         elif mode == "fw_post":
 
             def bw_post_hook(_module, _input, output):
@@ -280,10 +235,9 @@ class OperationList:
             raise RuntimeError("Mode {} is not supported".format())
 
     def sync(self, axis: int = 1, backward=False):
-        # axis after transpose
-        mod = self.named_modules[self.node.target]
-        if not isinstance(mod, nn.Linear) and not isinstance(mod, nn.Embedding):
-            mod = mod.fused_linear
+        assert len(self.op_lst) == 1
+        node = self.op_lst[0]
+        mod = self.named_modules[node.target]
 
         if not backward:
 
@@ -309,6 +263,11 @@ class OperationList:
 
     def replace_module(self, nn_mod: nn.Module, *args, **kwargs):
         node = self.op_lst[0]
+        if isinstance(nn_mod, fx.GraphModule):
+            assert len(self.op_lst) == 1
+            parent_name, name = _parent_name(node.target)
+            self.named_modules[parent_name].add_module(name, nn_mod)
+            return
         if len(kwargs) == 0 and isinstance(node, fx.Node) and node.op == "call_module":
             curr_mod = self.named_modules[node.target]
             init_arg_names = list(inspect.signature(nn_mod.__init__).parameters)[1:]
@@ -345,7 +304,7 @@ class OperationList:
                         operator.getitem, (new_node, i)
                     )
                     for node in reversed(sublst):
-                        # hardcoded
+                        # FIXME: hardcoded
                         if node.op == "call_module" and "dense" in node.target:
                             with self.gm.graph.inserting_after(getitem):
                                 new_getitem = self.gm.graph.call_function(

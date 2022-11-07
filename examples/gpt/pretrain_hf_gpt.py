@@ -92,13 +92,17 @@ def model_schedule(model, config):
 
             def transpose_for_scores(self, x):
                 new_x_shape = x.size()[:-1] + (self.num_heads // dist.get_world_size(), self.head_size, 3)
-                x = x.view(*new_x_shape)
+                x = x.view(new_x_shape)
                 return x.permute(0, 2, 1, 3, 4)
 
             def forward(self, hidden_states): # [8, 512, 768]
                 qkv = self.fused_linear(hidden_states)
                 transposed_qkv = self.transpose_for_scores(qkv)
-                return [torch.squeeze(t) for t in torch.split(transposed_qkv, 1, dim=-1)]
+                q, k, v = torch.split(transposed_qkv, 1, dim=-1)
+                q = torch.squeeze(q)
+                k = torch.squeeze(k)
+                v = torch.squeeze(v)
+                return [q, k, v]
 
         class QKVPattern(ms.Pattern):
             
@@ -145,9 +149,7 @@ def model_schedule(model, config):
         for op in ops:
             sch[op].replace(new_view)
 
-    sch.trace_module()
     replace_qkv()
-    sch.trace_module()
 
     # Sharding.
     if dist.get_world_size() > 1:
@@ -176,12 +178,19 @@ def model_schedule(model, config):
 
         sch["wte"].hook("fw_post", fw_post_hook)
 
-        sch.trace_module()
         for i in range(config.num_layers):
             # Attention. Assuming QKV is fused.
-            sch[f"h.{i}.attn.attention.FusedQKV_0"].shard("weight", axis=0)
-            sch[f"h.{i}.attn.attention.FusedQKV_0"].shard("bias", axis=0)
-            sch[f"h.{i}.attn.attention.FusedQKV_0"].sync(backward=True)
+            sch_fusedqkv = ms.create_schedule(
+                sch.get_module(f"h.{i}.attn.attention.FusedQKV_0".format(i)),
+                world_size=sch.world_size,
+                rank=sch.rank,
+                tracer="pytorch"
+            )
+            sch_fusedqkv["fused_linear"].shard("weight", axis=0)
+            sch_fusedqkv["fused_linear"].shard("bias", axis=0)
+            sch_fusedqkv["fused_linear"].sync(backward=True)
+            opt_fusedqkv, _ = ms.build(sch_fusedqkv)
+            sch[f"h.{i}.attn.attention.FusedQKV_0"].replace(opt_fusedqkv)
             sch[f"h.{i}.attn.attention.out_proj"].shard("weight", axis=1)
             sch[f"h.{i}.attn.attention.out_proj"].sync()
 
@@ -192,7 +201,6 @@ def model_schedule(model, config):
             sch[f"h.{i}.mlp.c_proj"].sync()
             sch[f"h.{i}.mlp.c_fc"].sync(backward=True)
 
-        sch.trace_module()
         fix_view_after_shard()
 
 

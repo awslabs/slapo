@@ -85,6 +85,9 @@ class Schedule:
             if key not in ["tracer", "leaf_modules", "concrete_args"]:
                 raise RuntimeError(f"Unknown config {key}")
 
+    def get_module(self, name):
+        return dict(self.gm.named_modules())[name]
+
     def find_module(self, pattern):
         """
         pattern: Lambda function

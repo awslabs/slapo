@@ -57,28 +57,20 @@ class Schedule:
         # should make sure the op list is up-to-date
         if isinstance(node_or_lst, List):
             lst = node_or_lst
-            return OperationList(lst, self.gm)
-            if isinstance(lst[0], List):
-                return OperationList(lst, self.gm)
-            else:
-                if isinstance(lst[0], str):
-                    lst = [self._ops[op] for op in name]
-                    return OperationList(lst, self.gm)
-                else:
-                    return OperationList(lst, self.gm)
+            return OperationList(lst, self.gm, self.world_size, self.rank)
         else:
-            node = node_or_lst
-            if isinstance(node, str):
-                for n in self.gm.graph.nodes:
-                    if n.op == "call_module" and n.target == node:
-                        node = n
+            node_or_str = node_or_lst
+            if isinstance(node_or_str, str):
+                node_name = node_or_str
+                for node in self.gm.graph.nodes:
+                    if node.op == "call_module" and node.target == node_name:
                         break
-                assert isinstance(node, fx.Node), "Cannot find target node with name {}".format(
-                    node
-                )
-                return Operation(node.target, self.world_size, self.rank, node, self.gm)
+                assert isinstance(
+                    node, fx.Node
+                ), "Cannot find target node with name {}".format(node)
             else:
-                return OperationList([node], self.gm)
+                node = node_or_str
+            return OperationList([node], self.gm, self.world_size, self.rank)
 
     def validate_config(self):
         for key in self.config:
@@ -167,56 +159,61 @@ class Schedule:
         self.config["leaf_modules"] = leaf_modules
         self.gm = trace(self.gm, **self.config)
 
-    def trace_module(self):
-        # List of [List of Operation names]
-        self._modules = []
-        new_ops = {}
-        new_funcs = {}
-        if isinstance(self.gm, fx.GraphModule):
-            # Recompile fx module
-            self.gm.graph.lint()  # Does some checks to make sure the Graph is well-formed.
-            self.gm.recompile()
-        prev_path = ""
-        for node in self.gm.graph.nodes:
-            if node.op == "call_module":
-                name = node.target
-                name = re.sub(r".([0-9]+).", r"_\1.", name)  # for nn.Sequential
-                curr_path = name.rsplit(".", 1)[0]
-                prefix = os.path.commonprefix([prev_path + ".", curr_path + "."])
-                tmp_mod = self._modules
-                for i in range(name.count(".")):
-                    if len(tmp_mod) == 0 or i >= prefix.count("."):
-                        tmp_mod.append([])
-                    tmp_mod = tmp_mod[-1]
-                name = node.target
-                tmp_mod.append(name)
-                prev_path = curr_path
-                if name not in self._ops:
-                    new_ops[name] = Operation(name, self.world_size, self.rank, node, self.gm)
-                else:
-                    new_ops[name] = self._ops[name]
-            elif node.op == "call_function":
-                name = node.target.__name__
-                op_inst = Operation(name, self.world_size, self.rank, node, self.gm)
-                if name in new_funcs:
-                    new_funcs[name].append(op_inst)
-                else:
-                    new_funcs[name] = [op_inst]
-        self._ops = new_ops
-        self._func_ops = new_funcs
+    # def trace_module(self):
+    #     # List of [List of Operation names]
+    #     self._modules = []
+    #     new_ops = {}
+    #     new_funcs = {}
+    #     if isinstance(self.gm, fx.GraphModule):
+    #         # Recompile fx module
+    #         self.gm.graph.lint()  # Does some checks to make sure the Graph is well-formed.
+    #         self.gm.recompile()
+    #     prev_path = ""
+    #     for node in self.gm.graph.nodes:
+    #         if node.op == "call_module":
+    #             name = node.target
+    #             name = re.sub(r".([0-9]+).", r"_\1.", name)  # for nn.Sequential
+    #             curr_path = name.rsplit(".", 1)[0]
+    #             prefix = os.path.commonprefix([prev_path + ".", curr_path + "."])
+    #             tmp_mod = self._modules
+    #             for i in range(name.count(".")):
+    #                 if len(tmp_mod) == 0 or i >= prefix.count("."):
+    #                     tmp_mod.append([])
+    #                 tmp_mod = tmp_mod[-1]
+    #             name = node.target
+    #             tmp_mod.append(name)
+    #             prev_path = curr_path
+    #             if name not in self._ops:
+    #                 new_ops[name] = Operation(
+    #                     name, self.world_size, self.rank, node, self.gm
+    #                 )
+    #             else:
+    #                 new_ops[name] = self._ops[name]
+    #         elif node.op == "call_function":
+    #             name = node.target.__name__
+    #             op_inst = Operation(name, self.world_size, self.rank, node, self.gm)
+    #             if name in new_funcs:
+    #                 new_funcs[name].append(op_inst)
+    #             else:
+    #                 new_funcs[name] = [op_inst]
+    #     self._ops = new_ops
+    #     self._func_ops = new_funcs
 
     @property
     def ops(self):
+        raise RuntimeError("Please directly use `find` method to get requested ops")
         self.trace_module()
         return self._ops
 
     @property
     def func_ops(self):
+        raise RuntimeError("Please directly use `find` method to get requested ops")
         self.trace_module()
         return list(self._func_ops.keys())
 
     @property
     def modules(self):
+        raise RuntimeError("Please directly use `find` method to get requested ops")
         # require re-tracing every time
         # to make sure the ops are up-to-date
         self.trace_module()
@@ -224,19 +221,23 @@ class Schedule:
 
     @property
     def forward_ops(self):
+        raise RuntimeError("Please directly use `find` method to get requested ops")
         return list(self.ops.keys())
 
 
-class Operation:
-    def __init__(self, name: str, world_size: int, rank: int, node: fx.Node, gm: fx.GraphModule):
-        self.name = name
-        self.spec = {}
-        self.world_size = world_size
-        self.rank = rank
-        # preserve parent graph module used for transformation
-        self.node = node
+class OperationList:
+    def __init__(
+        self,
+        op_lst: List[fx.Node],
+        gm: fx.GraphModule,
+        world_size: int = 1,
+        rank: int = 0,
+    ):
+        self.op_lst = op_lst
         self.gm = gm
         self.named_modules = dict(self.gm.named_modules())
+        self.world_size = world_size
+        self.rank = rank
 
     def shard(self, param_name: str, axis: int):
         # axis after transpose
@@ -299,13 +300,6 @@ class Operation:
 
             mod.register_full_backward_hook(hook_func)
 
-
-class OperationList:
-    def __init__(self, op_lst: List[Operation], gm: fx.GraphModule):
-        self.op_lst = op_lst
-        self.gm = gm
-        self.named_modules = dict(self.gm.named_modules())
-
     def replace_function(self, func):
         node = self.op_lst[0]
         with self.gm.graph.inserting_after(node):
@@ -347,7 +341,9 @@ class OperationList:
                 )
             with self.gm.graph.inserting_after(new_node):
                 for i, sublst in enumerate(self.op_lst):
-                    getitem = self.gm.graph.call_function(operator.getitem, (new_node, i))
+                    getitem = self.gm.graph.call_function(
+                        operator.getitem, (new_node, i)
+                    )
                     for node in reversed(sublst):
                         # hardcoded
                         if node.op == "call_module" and "dense" in node.target:
@@ -369,42 +365,6 @@ class OperationList:
             self.replace_function(func_or_mod)
 
 
-class FunctionOpList:
-    def __init__(self, name: str, func_lst: List[Operation], gm: fx.GraphModule):
-        self.name = name
-        self.func_lst = func_lst
-        self.gm = gm
-        self.named_modules = {}
-        for name, mod in self.gm.named_modules():
-            self.named_modules[name] = mod
-
-    def replace(self, func: torch.autograd.Function):
-        for op in self.func_lst:
-            node = op.node
-            with self.gm.graph.inserting_after(node):
-                new_node = self.gm.graph.call_function(func, node.args, node.kwargs)
-                node.replace_all_uses_with(new_node)
-            # remove the old node from the graph
-            self.gm.graph.erase_node(node)
-
-    def replace_module(self, mod: nn.Module, *args, **kwargs):
-        num = 0
-        for op in self.func_lst:
-            node = op.node
-            with self.gm.graph.inserting_after(node):
-                instance = mod(self.named_modules[node.args[0].target].out_features)
-                if kwargs["half"]:
-                    instance = instance.half()
-                self.named_modules[node.args[0].target].bias = None
-                new_name = self.name + "_{}".format(num)
-                num += 1
-                self.gm.add_submodule(new_name, instance)
-                new_node = self.gm.graph.call_module(new_name, node.args, node.kwargs)
-                node.replace_all_uses_with(new_node)
-            # remove the old node from the graph
-            self.gm.graph.erase_node(node)
-
-
 def create_schedule(
     model: nn.Module,
     optimizer: torch.optim.Optimizer = None,
@@ -412,7 +372,9 @@ def create_schedule(
     rank: int = 0,
     **kwargs: Dict[str, Any],
 ):
-    return Schedule(model, optimizer=optimizer, world_size=world_size, rank=rank, **kwargs)
+    return Schedule(
+        model, optimizer=optimizer, world_size=world_size, rank=rank, **kwargs
+    )
 
 
 def build(sch: Schedule):

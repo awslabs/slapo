@@ -5,7 +5,7 @@ A DSL for large model training with decoupled model execution from definition. I
 
 ## Requirements
 * [PyTorch](https://pytorch.org/) >= 1.13
-* [Transformers](https://github.com/huggingface/transformers) == 4.23.0
+* [Transformers](https://github.com/huggingface/transformers) == 4.25.0.dev0
 * [Megatron-LM](https://github.com/NVIDIA/Megatron-LM)
 
 
@@ -55,3 +55,8 @@ We require the following changes to make our library work for Huggingface's mode
     * https://github.com/chhzh123/model-schedule/blob/master/benchmark/megatron_patch
 * Update timing script for Huggingface's trainer
     * https://github.com/chhzh123/model-schedule/blob/master/benchmark/transfomers_patch
+
+
+## `torch.fx` Limitation
+* Cannot support Proxy viewed as `*args` or `**kwargs`: `x = x.view(*new_x_shape)`
+* Cannot use control flow like `for`: `[torch.squeeze(t) for t in torch.split(transposed_qkv, 1, dim=-1)]`

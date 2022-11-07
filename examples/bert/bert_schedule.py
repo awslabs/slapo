@@ -36,8 +36,11 @@ def replace_xformer_attention(sch, config):
         sch[op].replace(BertSelfAttentionXFormer, config=config)
 
 
-def replace_qkv(sch, hidden_size, num_heads, num_layers):
+def replace_qkv(sch, bert_config):
     print("Replace HF QKV Dense with FusedQKV")
+    hidden_size = bert_config.hidden_size
+    num_heads = bert_config.num_attention_heads
+    num_layers = bert_config.num_hidden_layers
 
     class FusedQKV(nn.Module):
         def __init__(self, hidden_size, num_heads) -> None:

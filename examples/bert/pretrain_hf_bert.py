@@ -64,7 +64,7 @@ def model_schedule(model, config):
         concrete_args=concrete_args,
     )
 
-    replace_qkv(sch, config.hidden_size, config.num_attention_heads, config.num_hidden_layers)
+    replace_qkv(sch, config)
     if world_size > 1:
         shard_params(sch, config, fused_qkv=True)
 

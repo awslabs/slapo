@@ -33,7 +33,7 @@ sch = ms.create_schedule(
 )
 # replace_layernorm(sch)
 # replace_gelu(sch)
-replace_qkv(sch, bert_config.hidden_size, bert_config.num_attention_heads, bert_config.num_hidden_layers)
+replace_qkv(sch, bert_config)
 # print(gm.graph)
 
 device = "cuda:0"

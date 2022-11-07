@@ -33,15 +33,7 @@ Please refer to [`examples/model-schedule-demo.ipynb`](examples/model-schedule-d
 
 ## Datasets
 ```bash
-# BERT
-wget -nc https://s3.amazonaws.com/models.huggingface.co/bert/bert-large-uncased-vocab.txt
-wget -nc https://github.com/mli/transformers-benchmarks/raw/main/data/bert-sample_text_sentence.bin
-wget -nc https://github.com/mli/transformers-benchmarks/raw/main/data/bert-sample_text_sentence.idx
-# GPT2
-wget -nc https://s3.amazonaws.com/models.huggingface.co/bert/gpt2-vocab.json
-wget -nc https://s3.amazonaws.com/models.huggingface.co/bert/gpt2-merges.txt    
-wget -nc https://github.com/mli/transformers-benchmarks/raw/main/data/gpt2-sample_text_document.bin
-wget -nc https://github.com/mli/transformers-benchmarks/raw/main/data/gpt2-sample_text_document.idx
+./benchmark/download_benchmark_dataset.sh
 ```
 
 
@@ -53,3 +45,13 @@ python3 bench.py megatron --model bert-large-uncased --gpus pow2 --error-stop
 python3 bench.py hf ../examples/gpt/pretrain_hf_gpt.py --model EleutherAI/gpt-neo-1.3B --gpus 2,4,8 --seq-len 1024 --batch-size "n//2" --error-stop
 python3 bench.py megatron --model EleutherAI/gpt-neo-1.3B --gpus 2,4,8 --seq-len 1024 --batch-size "n//2" --error-stop --disable-fuse-kernels
 ```
+
+
+## Patches
+We require the following changes to make our library work for Huggingface's models:
+* Add `getattr` to HF fx tracer due to upstream API changes
+    * https://github.com/huggingface/transformers/pull/19233
+* AttributeError: ‘BertWithLMHead’ object has no attribute ‘set_input_tensor’
+    * https://github.com/chhzh123/model-schedule/blob/master/benchmark/megatron_patch
+* Update timing script for Huggingface's trainer
+    * https://github.com/chhzh123/model-schedule/blob/master/benchmark/transfomers_patch

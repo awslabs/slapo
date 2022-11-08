@@ -199,7 +199,7 @@ class OperationList:
         self.world_size = world_size
         self.rank = rank
 
-    def subschedule(self):
+    def subschedule(self, **kwargs: Dict[str, Any]):
         # hierachical schedule support
         assert len(self.op_lst) == 1
         node = self.op_lst[0]
@@ -207,7 +207,7 @@ class OperationList:
             self.named_modules[node.target],
             world_size=self.world_size,
             rank=self.rank,
-            tracer="pytorch",
+            **kwargs,
         )
 
     def compose(self, subsch):

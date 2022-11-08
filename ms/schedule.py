@@ -219,6 +219,7 @@ class OperationList:
         node = self.op_lst[0]
         mod = self.named_modules[node.target]
         param = mod.get_parameter(param_name)
+        assert axis < len(param.shape)
         sharded_size = param.shape[axis] // self.world_size
         new_param = param.detach().split(sharded_size, dim=axis)[self.rank]
         mod.register_parameter(param_name, nn.Parameter(new_param))
@@ -275,14 +276,16 @@ class OperationList:
             new_node = self.gm.graph.call_function(func, node.args, node.kwargs)
             node.replace_all_uses_with(new_node)
         self.gm.graph.erase_node(node)
+        return new_node
 
     def replace_module(self, nn_mod: nn.Module, *args, **kwargs):
         node = self.op_lst[0]
         if isinstance(nn_mod, fx.GraphModule):
             assert len(self.op_lst) == 1
             parent_name, name = _parent_name(node.target)
-            self.named_modules[parent_name].add_module(name, nn_mod)
-            return
+            self.named_modules[parent_name].add_module(name+"_opt", nn_mod)
+            node.target = node.target + "_opt"
+            return node
         if len(kwargs) == 0 and isinstance(node, fx.Node) and node.op == "call_module":
             curr_mod = self.named_modules[node.target]
             init_arg_names = list(inspect.signature(nn_mod.__init__).parameters)[1:]
@@ -329,12 +332,13 @@ class OperationList:
                             if node.users not in sublst:
                                 node.replace_all_uses_with(getitem)
                         self.gm.graph.erase_node(node)
+        return new_node
 
     def replace(self, func_or_mod, *args, **kwargs):
         if not isinstance(func_or_mod, FunctionType):
-            self.replace_module(func_or_mod, *args, **kwargs)
+            return self.replace_module(func_or_mod, *args, **kwargs)
         else:
-            self.replace_function(func_or_mod)
+            return self.replace_function(func_or_mod)
 
 
 def create_schedule(

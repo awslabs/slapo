@@ -33,15 +33,17 @@ from megatron.model.gpt_model import post_language_model_processing
 def model_schedule(model, config):
     import ms
     import inspect
-    import torch
     import transformers
     import transformers.utils.fx as fx
     import torch.distributed as dist
     import torch.nn as nn
+    from gpt_schedule import replace_qkv, shard_word_embedding, shard_qkv, shard_mlp, remove_cast
 
     print("Using model schedule to optimize")
     print("World size: {}, rank: {}".format(dist.get_world_size(), dist.get_rank()))
 
+    is_gpt2 = "GPT2" in config.architectures[0]
+    assert not is_gpt2, "GPT-2 schedule is not working"
     args = get_args()
     input_names = list(model.dummy_inputs.keys())
     input_names += ["attention_mask", "position_ids"]
@@ -58,8 +60,8 @@ def model_schedule(model, config):
             return graph
 
         def is_leaf_module(self, m: nn.Module, module_qualified_name: str) -> bool:
-            # Note that we currently cannot shard Conv1D, so HF gpt2 series models are not
-            # supported yet.
+            # HF GPT-2 uses a custom Conv1D module that transposes weights.
+            # This is mainly due to legacy reasons.
             if isinstance(m, transformers.pytorch_utils.Conv1D):
                 return True
             return ((not self._stateless_mod_instanciation_depends_on_proxies(m)) and
@@ -75,128 +77,22 @@ def model_schedule(model, config):
         rank=dist.get_rank(),
         tracer=HFGPTTracer,
         concrete_args=concrete_args)
+    remove_cast(sch)
 
-    def replace_qkv():
-        print("Replace HF QKV Linear with FusedQKV")
-        num_heads = config.num_heads
-        hidden_size = config.hidden_size
-
-        class FusedQKV(nn.Module):
-            
-            def __init__(self, hidden_size, num_heads) -> None:
-                super(FusedQKV, self).__init__()
-                self.hidden_size = hidden_size
-                self.num_heads = num_heads
-                self.head_size = hidden_size // num_heads
-                self.fused_linear = nn.Linear(hidden_size, num_heads * self.head_size * 3)
-
-            def transpose_for_scores(self, x):
-                new_x_shape = x.size()[:-1] + (self.num_heads // dist.get_world_size(), self.head_size, 3)
-                x = x.view(new_x_shape)
-                return x.permute(0, 2, 1, 3, 4)
-
-            def forward(self, hidden_states): # [8, 512, 768]
-                qkv = self.fused_linear(hidden_states)
-                transposed_qkv = self.transpose_for_scores(qkv)
-                q, k, v = torch.split(transposed_qkv, 1, dim=-1)
-                q = torch.squeeze(q)
-                k = torch.squeeze(k)
-                v = torch.squeeze(v)
-                return [q, k, v]
-
-        class QKVPattern(ms.Pattern):
-            
-            def __init__(self, layer_num):
-                super(QKVPattern, self).__init__()
-                self.layer_num = layer_num
-
-            @staticmethod
-            def func(x: torch.Tensor) -> torch.Tensor:
-                new_x_shape = x.size()[:-1] + (num_heads, hidden_size)
-                x = x.view(new_x_shape)
-                return x.permute(0, 2, 1, 3)
-
-            def starting_point(self, node):
-                if node.op != "call_module":
-                    return False
-                name = node.target
-                if f"h.{self.layer_num}." in name and "attention" in name:
-                    if "k_proj" in name or "q_proj" in name or "v_proj" in name:
-                        return True
-                return False
-
-        for i in range(config.num_layers):
-            op_lst = sch.find(QKVPattern(i))
-            assert op_lst, "Cannot find QKV pattern"
-            sch[op_lst].replace(FusedQKV, hidden_size=hidden_size, num_heads=num_heads)
-
-
-    def fix_view_after_shard():
-        # fix number of heads
-        import operator
-        ops = sch.find_method(lambda node:
-            node.op == "call_method" and
-            node.target == "view" and
-            len(node.args) == 2 and
-            node.args[0].target == "contiguous" and
-            isinstance(node.args[1], torch.fx.Node) and
-            node.args[1].target == operator.add)
-
-        def new_view(tensor, old_shape):
-            new_shape = old_shape[:-1] + (-1,)
-            return tensor.view(new_shape)
-
-        for op in ops:
-            sch[op].replace(new_view)
-
-    replace_qkv()
+    n_layer, n_head, hidden_size, vocab_size = (
+        config.num_layers,
+        config.num_heads,
+        config.hidden_size,
+        config.vocab_size
+    )
+    replace_qkv(sch, n_layer, n_head, hidden_size)
+    attn_path, qkv_name, out_proj_name = "h.N.attn.attention", "FusedQKV_0", "out_proj"
 
     # Sharding.
     if dist.get_world_size() > 1:
-        # Embedding
-        sch["wte"].shard("weight", axis=0)
-        # Build the mask
-        vocab_start_index = sch.rank * config.vocab_size // sch.world_size
-        vocab_end_index = (sch.rank + 1) * config.vocab_size // sch.world_size
-
-        def fw_pre_hook(_input):
-            # Mask the input
-            input_mask = (_input[0] < vocab_start_index) | (_input[0] >= vocab_end_index)
-            masked_input = _input[0].clone() - vocab_start_index
-            masked_input[input_mask] = 0
-            return masked_input
-
-        sch["wte"].hook("fw_pre", fw_pre_hook)
-
-        def fw_post_hook(_input, output):
-            # Mask the output embedding
-            input_mask = (_input[0] < vocab_start_index) | (_input[0] >= vocab_end_index)
-            output[input_mask, :] = 0.0
-            # Reduce across all the model parallel GPUs
-            dist.all_reduce(output, op=dist.ReduceOp.SUM)
-            return output
-
-        sch["wte"].hook("fw_post", fw_post_hook)
-
-        for i in range(config.num_layers):
-            # Attention. Assuming QKV is fused.
-            sch_fusedqkv = sch[f"h.{i}.attn.attention.FusedQKV_0"].subschedule()
-            sch_fusedqkv["fused_linear"].shard("weight", axis=0)
-            sch_fusedqkv["fused_linear"].shard("bias", axis=0)
-            sch_fusedqkv["fused_linear"].sync(backward=True)
-            sch[f"h.{i}.attn.attention.FusedQKV_0"].compose(sch_fusedqkv)
-            sch[f"h.{i}.attn.attention.out_proj"].shard("weight", axis=1)
-            sch[f"h.{i}.attn.attention.out_proj"].sync()
-
-            # MLP
-            sch[f"h.{i}.mlp.c_fc"].shard("weight", axis=0)
-            sch[f"h.{i}.mlp.c_fc"].shard("bias", axis=0)
-            sch[f"h.{i}.mlp.c_proj"].shard("weight", axis=1)
-            sch[f"h.{i}.mlp.c_proj"].sync()
-            sch[f"h.{i}.mlp.c_fc"].sync(backward=True)
-
-        fix_view_after_shard()
-
+        shard_word_embedding(sch, vocab_size)
+        shard_qkv(sch, n_layer, attn_path, qkv_name, out_proj_name)
+        shard_mlp(sch, n_layer)
 
     model, _ = ms.build(sch)
     if args.fp16:
@@ -217,13 +113,13 @@ def model_provider(pre_process=True, post_process=True):
     print_rank_0(f'Building HF {model_name} ...')
     config = AutoConfig.from_pretrained(model_name)
     config.vocab_size = args.padded_vocab_size
-    hidden_size = config.hidden_size
     print(config)
     
-    class GPTNeoWithLMHead(torch.nn.Module):
+    class GPTWithLMHead(torch.nn.Module):
         def __init__(self, config):
             super().__init__()
-            self.gpt = model_schedule(GPTNeoModel(config), config)
+            orig_model = GPTNeoModel(config)
+            self.gpt = model_schedule(orig_model, config)
 
         def forward(
             self,
@@ -234,16 +130,6 @@ def model_provider(pre_process=True, post_process=True):
             token_type_ids = None,            
         ):
             assert token_type_ids is None, "Not traced"
-            batch_size = input_ids.shape[0]
-            seq_length = input_ids.shape[1]
-            # The shape of attention_mask is (1, 1, seq_length, seq_length) while the 3rd dim
-            # is broadcast. The required shape for HF GPT is (batch, 1, 1, seq_length).
-            # (1, 1, S, S) -> (1, 1, S, 1)
-            attention_mask = attention_mask[..., -1:]
-            # (1, 1, S, 1) -> (1, 1, 1, S)
-            attention_mask = attention_mask.reshape((1, 1, 1, seq_length))
-            # (1, 1, 1, S) -> (B, 1, 1, S)
-            attention_mask = attention_mask.repeat(batch_size, 1, 1, 1)
             output = self.gpt(input_ids=input_ids, attention_mask=attention_mask,
                               position_ids=position_ids)
             lm_output = output["last_hidden_state"].transpose(0, 1).contiguous()
@@ -253,7 +139,7 @@ def model_provider(pre_process=True, post_process=True):
                 args.fp16_lm_cross_entropy)
             return output_tensor
 
-    model = GPTNeoWithLMHead(config)
+    model = GPTWithLMHead(config)
     return model
 
 def get_batch(data_iterator):
@@ -284,6 +170,17 @@ def get_batch(data_iterator):
         args.reset_position_ids,
         args.reset_attention_mask,
         args.eod_mask_loss)
+
+    batch_size = tokens.shape[0]
+    seq_length = tokens.shape[1]
+    # The shape of attention_mask is (1, 1, seq_length, seq_length) while the 3rd dim
+    # is broadcast. The required shape for HF GPT is (batch, 1, 1, seq_length).
+    # (1, 1, S, S) -> (1, 1, S, 1)
+    attention_mask = attention_mask[..., -1:]
+    # (1, 1, S, 1) -> (1, 1, 1, S)
+    attention_mask = attention_mask.reshape((1, 1, 1, seq_length))
+    # (1, 1, 1, S) -> (B, 1, 1, S)
+    attention_mask = attention_mask.repeat(batch_size, 1, 1, 1)
 
     return tokens, labels, loss_mask, attention_mask, position_ids
 

@@ -223,6 +223,12 @@ class OperationList:
         sharded_size = param.shape[axis] // self.world_size
         new_param = param.detach().split(sharded_size, dim=axis)[self.rank]
         mod.register_parameter(param_name, nn.Parameter(new_param))
+        # update nn.Linear arguments
+        if isinstance(mod, nn.Linear):
+            if axis == 0:
+                mod.out_features = sharded_size
+            else:  # axis == 1
+                mod.in_features = sharded_size
 
     def hook(self, mode, func):
         assert len(self.op_lst) == 1
@@ -283,7 +289,7 @@ class OperationList:
         if isinstance(nn_mod, fx.GraphModule):
             assert len(self.op_lst) == 1
             parent_name, name = _parent_name(node.target)
-            self.named_modules[parent_name].add_module(name+"_opt", nn_mod)
+            self.named_modules[parent_name].add_module(name + "_opt", nn_mod)
             node.target = node.target + "_opt"
             return node
         if len(kwargs) == 0 and isinstance(node, fx.Node) and node.op == "call_module":

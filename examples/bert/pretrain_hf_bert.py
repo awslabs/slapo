@@ -56,17 +56,33 @@ def model_schedule(model, config):
     if args.fp16:
         print("Change model dtype to fp16")
         model.half()
-    sch = ms.create_schedule(
-        model,
-        world_size=world_size,
-        rank=rank,
-        tracer="huggingface",
-        concrete_args=concrete_args,
-    )
 
-    replace_qkv(sch, config)
-    if world_size > 1:
-        shard_params(sch, config, fused_qkv=True)
+    if "flashattn" in args:
+        sch = ms.create_schedule(
+            model,
+            None,
+            world_size=world_size,
+            rank=rank,
+            tracer="huggingface",
+            leaf_modules=["BertSelfAttention"],
+            concrete_args=concrete_args,
+        )
+
+        replace_xformer_attention(sch, config)
+        if args.world_size > 1:
+            shard_params(sch, config, fused_qkv=None, prefix="")
+    else:
+        sch = ms.create_schedule(
+            model,
+            world_size=world_size,
+            rank=rank,
+            tracer="huggingface",
+            concrete_args=concrete_args,
+        )
+
+        replace_qkv(sch, config)
+        if world_size > 1:
+            shard_params(sch, config, fused_qkv=True)
 
     model, _ = ms.build(sch)
     if args.fp16:

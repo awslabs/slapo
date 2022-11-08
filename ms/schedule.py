@@ -352,6 +352,7 @@ def create_schedule(
 
 
 def build(sch: Schedule):
+    sch.gm.graph.eliminate_dead_code()
     sch.gm.delete_all_unused_submodules()
     sch.gm.graph.lint()  # Does some checks to make sure the Graph is well-formed.
     sch.gm.recompile()

@@ -19,29 +19,27 @@ concrete_args = {
     p.name: p.default for p in sig.parameters.values() if p.name not in input_names
 }
 
-# sch = ms.create_schedule(
-#     bert,
-#     optimizer,
-#     tracer="huggingface",
-#     leaf_modules=["BertSelfAttention"],
-#     concrete_args=concrete_args,
-# )
-# replace_xformer_attention(sch)
-
 sch = ms.create_schedule(
-    bert, optimizer, tracer="huggingface", concrete_args=concrete_args
+    bert,
+    optimizer,
+    tracer="huggingface",
+    leaf_modules=["BertSelfAttention"],
+    concrete_args=concrete_args,
 )
-# replace_layernorm(sch)
-# replace_gelu(sch)
-replace_qkv(sch, bert_config)
+replace_xformer_attention(sch, bert_config)
+
+# sch = ms.create_schedule(
+#     bert, optimizer, tracer="huggingface", concrete_args=concrete_args
+# )
+# # replace_layernorm(sch)
+# # replace_gelu(sch)
+# replace_qkv(sch, bert_config)
 # print(gm.graph)
 
 device = "cuda:0"
 model, optimizer = ms.build(sch)
 model.half()
-model.cuda()
-# print(sch.gm)
-# print(sch.gm.graph)
+model.to(device)
 
 bs = 8
 seq_length = 512

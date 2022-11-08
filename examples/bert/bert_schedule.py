@@ -31,9 +31,69 @@ def replace_xformer_attention(sch, config):
     print("Replace HF BertSelfAttention with xformer Attention")
     from ms.op import BertSelfAttentionXFormer
 
-    ops = sch.find_module(lambda node: ".attention.self" in node.target)
-    for op in ops:
-        sch[op].replace(BertSelfAttentionXFormer, config=config)
+    # Need to remove useless code first
+    sch.gm.graph.eliminate_dead_code()
+    ops = sch.find_module(lambda node: ".attention.self" in node.target and "self." not in node.target)
+    for _, op in enumerate(ops):
+        new_op = sch[op].replace(BertSelfAttentionXFormer, config=config)
+
+        parent_name = op.target.rsplit(".", 1)[0]
+        sch_xformer = sch[f"{parent_name}.BertSelfAttentionXFormer_0"].subschedule(leaf_modules=["MemoryEfficientAttention"], concrete_args={"head_mask": None, "encoder_hidden_states": None, "encoder_attention_mask": None, "past_key_value": None, "output_attentions": None})
+
+        hidden_size = config.hidden_size
+        num_heads = config.num_attention_heads
+
+        class FusedQKV(nn.Module):
+            def __init__(self, hidden_size, num_heads) -> None:
+                super(FusedQKV, self).__init__()
+                self.hidden_size = hidden_size
+                self.num_heads = num_heads
+                self.head_size = hidden_size // num_heads
+                self.fused_linear = nn.Linear(hidden_size, num_heads * self.head_size * 3)
+
+            def reshape_for_scores(self, x):
+                new_x_shape = x.size()[:-1] + (self.num_heads // sch.world_size, self.head_size, 3)
+                x = x.view(new_x_shape)
+                return x.contiguous()
+
+            def forward(self, hidden_states):
+                qkv = self.fused_linear(hidden_states)
+                reshaped_qkv = self.reshape_for_scores(qkv)
+                q, k, v = torch.split(reshaped_qkv, 1, dim=-1)
+                q = torch.squeeze(q)
+                k = torch.squeeze(k)
+                v = torch.squeeze(v)
+                return [q, k, v]
+
+        class QKV_Pattern(ms.Pattern):
+            def __init__(self):
+                super(QKV_Pattern, self).__init__()
+
+            @staticmethod
+            def func(x: torch.Tensor) -> torch.Tensor:
+                new_x_shape = x.size()[:-1] + (num_heads, hidden_size)
+                x = x.view(new_x_shape)
+                return x
+
+            def starting_point(self, node):
+                if node.op != "call_module":
+                    return False
+                name = node.target
+                if "query" in name or "key" in name or "value" in name:
+                    return True
+                return False
+
+        op_lst = sch_xformer.find(QKV_Pattern())
+        assert len(op_lst) != 0
+        sch_xformer[op_lst].replace(FusedQKV, hidden_size=hidden_size, num_heads=num_heads)
+        if sch.world_size > 1:
+            sch_fusedqkv = sch_xformer["FusedQKV_0"].subschedule()
+            sch_fusedqkv["fused_linear"].shard("weight", axis=0)
+            sch_fusedqkv["fused_linear"].shard("bias", axis=0)
+            sch_fusedqkv["fused_linear"].sync(backward=True)
+            sch_xformer["FusedQKV_0"].compose(sch_fusedqkv)
+            fix_number_of_heads(sch_xformer)
+        sch[new_op].compose(sch_xformer)
 
 
 def replace_qkv(sch, bert_config):
@@ -88,6 +148,20 @@ def replace_qkv(sch, bert_config):
         op_lst = sch.find(QKV_Pattern(i))
         sch[op_lst].replace(FusedQKV, hidden_size=hidden_size, num_heads=num_heads)
 
+def fix_number_of_heads(sch):
+    import operator
+    ops = sch.find_method(lambda node:
+        node.target == "view" and # args[0] is self
+        isinstance(node.args[1], fx.Node) and
+        node.args[1].op == "call_function" and
+        node.args[1].target == operator.add)
+
+    def new_view(tensor, old_shape):
+        new_shape = old_shape[:-1] + (-1,)
+        return tensor.view(new_shape)
+
+    for op in ops:
+        sch[op].replace(new_view)
 
 def shard_params(sch, config, fused_qkv=False, prefix=""):
     prefix = "" if prefix == "" else prefix + "."
@@ -122,7 +196,9 @@ def shard_params(sch, config, fused_qkv=False, prefix=""):
         sch[prefix+"encoder.layer.{}.intermediate.dense".format(i)].sync(backward=True)
 
         # Attention
-        if not fused_qkv:
+        if fused_qkv == None: # Done sharding in previous opt
+            pass
+        elif fused_qkv == False:
             sch[prefix+"encoder.layer.{}.attention.self.query".format(i)].shard("weight", axis=0)
             sch[prefix+"encoder.layer.{}.attention.self.key".format(i)].shard("weight", axis=0)
             sch[prefix+"encoder.layer.{}.attention.self.value".format(i)].shard("weight", axis=0)
@@ -142,17 +218,4 @@ def shard_params(sch, config, fused_qkv=False, prefix=""):
         sch[prefix+"encoder.layer.{}.attention.output.dense".format(i)].shard("weight", axis=1)
         sch[prefix+"encoder.layer.{}.attention.output.dense".format(i)].sync()
 
-    # fix number of heads
-    import operator
-    ops = sch.find_method(lambda node:
-        node.target == "view" and # args[0] is self
-        isinstance(node.args[1], fx.Node) and
-        node.args[1].op == "call_function" and
-        node.args[1].target == operator.add)
-
-    def new_view(tensor, old_shape):
-        new_shape = old_shape[:-1] + (-1,)
-        return tensor.view(new_shape)
-
-    for op in ops:
-        sch[op].replace(new_view)
+    fix_number_of_heads(sch)

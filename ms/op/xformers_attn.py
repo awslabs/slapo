@@ -160,9 +160,9 @@ class BertSelfAttentionXFormer(nn.Module):
         )
 
         context_layer = self.attn_op(
-            query_layer,
-            key_layer,
-            value_layer,
+            query_layer.contiguous(),
+            key_layer.contiguous(),
+            value_layer.contiguous(),
             attention_mask,
             p=self.attention_probs_dropout_prob,
         )

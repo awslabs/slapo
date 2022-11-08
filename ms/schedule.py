@@ -298,10 +298,9 @@ class OperationList:
             node = self.op_lst[0]
             parent_name, _ = _parent_name(node.target)
             self.named_modules[parent_name].add_module(name, instance)
+            name = parent_name + "." + name if parent_name != "" else name
             with self.gm.graph.inserting_after(node):
-                new_node = self.gm.graph.call_module(
-                    parent_name + "." + name, node.args, node.kwargs
-                )
+                new_node = self.gm.graph.call_module(name, node.args, node.kwargs)
                 node.replace_all_uses_with(new_node)
             self.gm.graph.erase_node(node)
         else:
@@ -309,10 +308,9 @@ class OperationList:
             node = self.op_lst[0][0]
             parent_name, _ = _parent_name(node.target)
             self.named_modules[parent_name].add_module(name, instance)
+            name = parent_name + "." + name if parent_name != "" else name
             with self.gm.graph.inserting_before(node):
-                new_node = self.gm.graph.call_module(
-                    parent_name + "." + name, node.args, node.kwargs
-                )
+                new_node = self.gm.graph.call_module(name, node.args, node.kwargs)
             with self.gm.graph.inserting_after(new_node):
                 for i, sublst in enumerate(self.op_lst):
                     getitem = self.gm.graph.call_function(

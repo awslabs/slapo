@@ -61,6 +61,123 @@ def replace_qkv(sch, num_layers, num_heads, hidden_size):
     print(f"Replace {cnt} QKV patterns")
 
 
+def replace_attention(sch, config, attn_path="h.N.attn.attention"):
+    # https://github.com/huggingface/transformers/blob/344e2664d450eaa9167ce31f7d1fc0f0fe3b10af/src/transformers/models/bert/modeling_bert.py#L243
+    # https://github.com/comaniac/epoi/blob/main/epoi/ops/xformers_attn.py#L45
+    import re
+    from ms.op import GenericSelfAttention
+
+    def find_dropout_prob(config_or_mod):
+        """A helper function to find the dropout probability
+        of GPT models. config_or_mod could either be a model config, or an attention module.
+        This function supports GPT-2, GPT-Neo and GPT-J implementations.
+        """
+        if hasattr(config_or_mod, "attention_dropout"):
+            attn_pdrop = config_or_mod.attention_dropout
+        elif hasattr(config_or_mod, "attn_pdrop"):
+            attn_pdrop = config_or_mod.attn_pdrop
+        elif hasattr(config_or_mod, "attn_dropout"):
+            attn_pdrop = config_or_mod.attn_dropout
+        else:
+            raise ValueError("Cannot find attention dropout probability")
+
+        if hasattr(config_or_mod, "resid_pdrop"):
+            resid_pdrop = config_or_mod.resid_pdrop
+        elif hasattr(config_or_mod, "resid_dropout"):
+            resid_pdrop = config_or_mod.resid_dropout
+        elif hasattr(config_or_mod, "resid_dropout"):
+            resid_pdrop = config_or_mod.resid_dropout
+        else:
+            raise ValueError("Cannot find resid_pdrop or resid_dropout in config.")
+
+        attn_pdrop = attn_pdrop.p if hasattr(attn_pdrop, "p") else attn_pdrop
+        resid_pdrop = resid_pdrop.p if hasattr(resid_pdrop, "p") else resid_pdrop
+
+        return attn_pdrop, resid_pdrop
+
+    # Need to remove useless code first. TODO: Apply this pass implicitly.
+    sch.gm.graph.eliminate_dead_code()
+
+    # Generate arguments for xformer attention.
+    attn_pdrop, resid_pdrop = find_dropout_prob(config)
+    new_args = {
+        "hidden_size": config.hidden_size,
+        "num_attention_heads": config.num_attention_heads,
+        "is_decoder": True,
+        "attn_pdrop": attn_pdrop,
+        "resid_pdrop": resid_pdrop,
+        "attn_op_name": "cutlass",
+        "fused_qkv": False,  # Fuse later.
+    }
+
+    attn_pat = attn_path.replace("N", "\d+")
+    ops = sch.find_module(lambda node: bool(re.search(attn_pat, node.target)))
+    for op in ops:
+        new_op = sch[op].replace(GenericSelfAttention, **new_args)
+        sch_xformer = sch[new_op].subschedule(
+            leaf_modules=["MemoryEfficientAttention"],
+            concrete_args={
+                "layer_past": None,
+                "use_cache": False,
+            },
+        )
+        hidden_size = config.hidden_size
+        num_heads = config.num_attention_heads
+
+        class FusedQKV(nn.Module):
+            def __init__(self, hidden_size, num_heads) -> None:
+                super().__init__()
+                self.hidden_size = hidden_size
+                self.num_heads = num_heads
+                self.head_size = hidden_size // num_heads
+                self.fused_linear = nn.Linear(hidden_size, self.num_heads * self.head_size * 3)
+
+            def reshape_for_scores(self, x):
+                new_x_shape = x.size()[:-1] + (self.num_heads // sch.world_size, self.head_size, 3)
+                x = x.view(new_x_shape)
+                return x.contiguous()
+
+            def forward(self, hidden_states):
+                qkv = self.fused_linear(hidden_states)
+                reshaped_qkv = self.reshape_for_scores(qkv)
+                q, k, v = torch.split(reshaped_qkv, 1, dim=-1)
+                q = torch.squeeze(q).contiguous()
+                k = torch.squeeze(k).contiguous()
+                v = torch.squeeze(v).contiguous()
+                return [q, k, v]
+
+        class QKVPattern(ms.Pattern):
+            def __init__(self):
+                super().__init__()
+
+            @staticmethod
+            def func(x: torch.Tensor) -> torch.Tensor:
+                new_x_shape = x.size()[:-1] + (num_heads, hidden_size)
+                x = x.view(new_x_shape)
+                return x
+
+            def starting_point(self, node):
+                if node.op != "call_module":
+                    return False
+                name = node.target
+                return "query" in name or "key" in name or "value" in name
+
+        op_lst = sch_xformer.find(QKVPattern())
+        assert len(op_lst) != 0
+        sch_xformer[op_lst].replace(FusedQKV, hidden_size=hidden_size, num_heads=num_heads)
+        if sch.world_size > 1:
+            sch_fusedqkv = sch_xformer["FusedQKV_0"].subschedule()
+            sch_fusedqkv["fused_linear"].shard("weight", axis=0)
+            sch_fusedqkv["fused_linear"].shard("bias", axis=0)
+            sch_fusedqkv["fused_linear"].sync(backward=True)
+            sch_xformer["FusedQKV_0"].compose(sch_fusedqkv)
+            sch_xformer["out_proj"].shard("weight", axis=1)
+            sch_xformer["out_proj"].sync()
+
+        sch[new_op].compose(sch_xformer)
+    print(f"Replace {len(ops)} attention patterns")
+
+
 def remove_cast(sch):
     """Remove .to(torch.float32) in GPT-Neo attention to align
     HF and Megatron GPT-2 behavior.
@@ -108,7 +225,7 @@ def shard_qkv(
     sch,
     num_layers,
     path="h.N.attn.attention",
-    qkv_name="FusedQKV",
+    qkv_name="FusedQKV_0",
     out_proj_name="out_proj",
     transpose_weights=False,
 ):
@@ -138,7 +255,7 @@ def shard_qkv(
         prefix = path.replace("N", str(i))
         # TODO: Implicitly call create_schedule and replace.
         sch_fusedqkv = ms.create_schedule(
-            sch.get_module(f"{prefix}.FusedQKV_0"),
+            sch.get_module(f"{prefix}.{qkv_name}"),
             world_size=sch.world_size,
             rank=sch.rank,
             tracer="pytorch",
@@ -147,7 +264,7 @@ def shard_qkv(
         sch_fusedqkv["fused_linear"].shard("bias", axis=0)
         sch_fusedqkv["fused_linear"].sync(backward=True)
         opt_fusedqkv, _ = ms.build(sch_fusedqkv)
-        sch[f"{prefix}.FusedQKV_0"].replace(opt_fusedqkv)
+        sch[f"{prefix}.{qkv_name}"].replace(opt_fusedqkv)
 
         sch[f"{prefix}.{out_proj_name}"].shard("weight", axis=axes[1])
         sch[f"{prefix}.{out_proj_name}"].sync()

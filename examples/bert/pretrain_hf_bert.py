@@ -44,6 +44,7 @@ def model_schedule(model, config):
     print("World size: {}, rank: {}".format(dist.get_world_size(), dist.get_rank()))
 
     args = get_args()
+    disable_flash_attn = bool(int(os.environ.get("DISABLE_FLASH_ATTN", "0")))
     input_names = list(model.dummy_inputs.keys())
     input_names += ["attention_mask", "token_type_ids"]
     sig = inspect.signature(model.forward)
@@ -57,7 +58,7 @@ def model_schedule(model, config):
         print("Change model dtype to fp16")
         model.half()
 
-    if "flashattn" in args:
+    if not disable_flash_attn:
         sch = ms.create_schedule(
             model,
             None,

@@ -30,14 +30,18 @@ from megatron.utils import get_ltor_masks_and_position_ids
 from megatron.utils import average_losses_across_data_parallel_group
 from megatron.model.gpt_model import post_language_model_processing
 
-def model_schedule(model, config):
+def model_schedule(model, config, flash_attn=True):
     import ms
     import inspect
-    import transformers
-    import transformers.utils.fx as fx
     import torch.distributed as dist
-    import torch.nn as nn
-    from gpt_schedule import replace_qkv, shard_word_embedding, shard_qkv, shard_mlp, remove_cast
+    from gpt_schedule import (
+        replace_qkv,
+        shard_word_embedding,
+        shard_qkv,
+        shard_mlp,
+        remove_cast,
+        replace_attention,
+    )
 
     print("Using model schedule to optimize")
     print("World size: {}, rank: {}".format(dist.get_world_size(), dist.get_rank()))
@@ -45,53 +49,46 @@ def model_schedule(model, config):
     is_gpt2 = "GPT2" in config.architectures[0]
     assert not is_gpt2, "GPT-2 schedule is not working"
     args = get_args()
+    disable_flash_attn = bool(int(os.environ.get("DISABLE_FLASH_ATTN", "0")))
     input_names = list(model.dummy_inputs.keys())
     input_names += ["attention_mask", "position_ids"]
     sig = inspect.signature(model.forward)
     concrete_args = {p.name: p.default for p in sig.parameters.values() if p.name not in input_names}
 
-    class HFGPTTracer(fx.HFTracer):
-
-        def __init__(self, **config) -> None:
-            super().__init__()
-
-        def trace(self, *args, **kwargs):
-            graph = super().trace(*args, **kwargs)
-            return graph
-
-        def is_leaf_module(self, m: nn.Module, module_qualified_name: str) -> bool:
-            # HF GPT-2 uses a custom Conv1D module that transposes weights.
-            # This is mainly due to legacy reasons.
-            if isinstance(m, transformers.pytorch_utils.Conv1D):
-                return True
-            return ((not self._stateless_mod_instanciation_depends_on_proxies(m)) and
-                    super().is_leaf_module(m, module_qualified_name))
-
     if args.fp16:
         print("Change model dtype to fp16")
         model.half()
 
+    leaf_modules = ["Conv1D"]
+    if not disable_flash_attn:
+        leaf_modules += ["GPTNeoSelfAttention", "GPT2Attention", "GPTJAttention"]
     sch = ms.create_schedule(
         model,
         world_size=dist.get_world_size(),
         rank=dist.get_rank(),
-        tracer=HFGPTTracer,
+        tracer="huggingface",
+        leaf_modules=leaf_modules,
         concrete_args=concrete_args)
-    remove_cast(sch)
 
+    # Deal with attention.
+    attn_path, out_proj_name = "h.N.attn.attention", "out_proj"
     n_layer, n_head, hidden_size, vocab_size = (
         config.num_layers,
         config.num_heads,
         config.hidden_size,
         config.vocab_size
     )
-    replace_qkv(sch, n_layer, n_head, hidden_size)
-    attn_path, qkv_name, out_proj_name = "h.N.attn.attention", "FusedQKV_0", "out_proj"
-
+    if not disable_flash_attn:
+        replace_attention(sch, config, attn_path) 
+    else:
+        remove_cast(sch)
+        replace_qkv(sch, n_layer, n_head, hidden_size)
+        if sch.world_size > 1:
+            shard_qkv(sch, n_layer, attn_path, out_proj_name=out_proj_name)
+        
     # Sharding.
-    if dist.get_world_size() > 1:
+    if sch.world_size > 1:
         shard_word_embedding(sch, vocab_size)
-        shard_qkv(sch, n_layer, attn_path, qkv_name, out_proj_name)
         shard_mlp(sch, n_layer)
 
     model, _ = ms.build(sch)

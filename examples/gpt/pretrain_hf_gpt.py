@@ -30,12 +30,13 @@ from megatron.utils import get_ltor_masks_and_position_ids
 from megatron.utils import average_losses_across_data_parallel_group
 from megatron.model.gpt_model import post_language_model_processing
 
-def model_schedule(model, config, flash_attn=True):
+def model_schedule(model, config):
     import ms
     import inspect
     import torch.distributed as dist
     from gpt_schedule import (
         replace_qkv,
+        replace_softmax,
         shard_word_embedding,
         shard_qkv,
         shard_mlp,
@@ -82,6 +83,7 @@ def model_schedule(model, config, flash_attn=True):
         replace_attention(sch, config, attn_path) 
     else:
         remove_cast(sch)
+        #replace_softmax(sch)
         replace_qkv(sch, n_layer, n_head, hidden_size)
         if sch.world_size > 1:
             shard_qkv(sch, n_layer, attn_path, out_proj_name=out_proj_name)
@@ -168,6 +170,7 @@ def get_batch(data_iterator):
         args.reset_attention_mask,
         args.eod_mask_loss)
 
+    # TODO: This may not be necessary for GPT-Neo.
     batch_size = tokens.shape[0]
     seq_length = tokens.shape[1]
     # The shape of attention_mask is (1, 1, seq_length, seq_length) while the 3rd dim

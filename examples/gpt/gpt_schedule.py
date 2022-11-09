@@ -178,6 +178,56 @@ def replace_attention(sch, config, attn_path="h.N.attn.attention"):
     print(f"Replace {len(ops)} attention patterns")
 
 
+def replace_softmax(sch):
+    print("Replace HF Softmax with Megatron FusedScaleMaskSoftmax")
+    from megatron.model.fused_softmax import FusedScaleMaskSoftmax
+    from megatron.model.enums import AttnMaskType
+    from megatron.model.utils import attention_mask_func
+    import operator
+
+    class SoftmaxPattern(ms.Pattern):
+        """
+        %truediv: attention_scores
+        %mul_1: attention_masks
+        %add_7 = call_function[target=operator.add](args = (%truediv, %mul_1), ...)
+        %softmax = call_function[target=torch.nn.functional.softmax](args = (%add_7,), ...)
+        FIXME: GPT-Neo processes attention mask in the beginning of the model,
+        so this pattern should also cover it:
+
+        attention_mask = attention_mask.view(batch_size, -1)
+        attention_mask = attention_mask[:, None, None, :]
+        attention_mask = attention_mask.to(dtype=self.dtype)
+        attention_mask = (1.0 - attention_mask) * torch.finfo(self.dtype).min
+        ...
+        attn_weight = attn_weight + attention_mask
+        attn_weight = softmax(attn_weight)
+        """
+
+        def __init__(self):
+            super().__init__()
+
+        @staticmethod
+        def func(x: torch.Tensor) -> torch.Tensor:
+            return nn.functional.softmax(x)
+
+        def starting_point(self, node):
+            return node.op == "call_function" and node.target == operator.add
+
+    config = {
+        "input_in_fp16": True,
+        "input_in_bf16": False,
+        "attn_mask_type": AttnMaskType.padding,
+        "scaled_masked_softmax_fusion": True,
+        "mask_func": attention_mask_func,
+        "softmax_in_fp32": True,
+        "scale": None,
+    }
+    ops = sch.find(SoftmaxPattern())
+    for op in ops:
+        sch[op].replace(FusedScaleMaskSoftmax, **config)
+    print(f"Replace {len(ops)} softmax ops")
+
+
 def remove_cast(sch):
     """Remove .to(torch.float32) in GPT-Neo attention to align
     HF and Megatron GPT-2 behavior.

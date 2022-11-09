@@ -342,8 +342,9 @@ class OperationList:
                 node.replace_all_uses_with(new_node)
             self.gm.graph.erase_node(node)
         else:
-            assert isinstance(self.op_lst[0], List)
-            node = self.op_lst[0][0]
+            node = self.op_lst[0]
+            if isinstance(node, List):
+                node = node[0]
             if node.op == "call_module":
                 parent_name, _ = _parent_name(node.target)
             else:
@@ -357,6 +358,7 @@ class OperationList:
                     getitem = self.gm.graph.call_function(
                         operator.getitem, (new_node, i)
                     )
+                    sublst = [sublst] if not isinstance(sublst, List) else sublst
                     for node in reversed(sublst):
                         # FIXME: hardcoded
                         if node.op == "call_module" and "dense" in node.target:

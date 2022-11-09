@@ -323,7 +323,10 @@ class OperationList:
         name = _get_unique_module_name(self.gm, name)
         if len(self.op_lst) == 1:
             node = self.op_lst[0]
-            parent_name, _ = _parent_name(node.target)
+            if node.op == "call_module":
+                parent_name, _ = _parent_name(node.target)
+            else:
+                parent_name = ""
             self.named_modules[parent_name].add_module(name, instance)
             name = parent_name + "." + name if parent_name != "" else name
             with self.gm.graph.inserting_after(node):
@@ -333,7 +336,10 @@ class OperationList:
         else:
             assert isinstance(self.op_lst[0], List)
             node = self.op_lst[0][0]
-            parent_name, _ = _parent_name(node.target)
+            if node.op == "call_module":
+                parent_name, _ = _parent_name(node.target)
+            else:
+                parent_name = ""
             self.named_modules[parent_name].add_module(name, instance)
             name = parent_name + "." + name if parent_name != "" else name
             with self.gm.graph.inserting_before(node):

@@ -11,6 +11,7 @@ from bert_schedule import (
     replace_xformer_attention,
     replace_qkv,
     shard_params,
+    checkpointing,
 )
 from ms.utils import report_memory
 
@@ -29,18 +30,32 @@ def train(rank, args):
         p.name: p.default for p in sig.parameters.values() if p.name not in input_names
     }
 
-    sch = ms.create_schedule(
-        bert,
-        optimizer,
-        args.world_size,
-        rank,
-        tracer="huggingface",
-        concrete_args=concrete_args,
-    )
+    if not args.checkpoint:
+        sch = ms.create_schedule(
+            bert,
+            optimizer,
+            args.world_size,
+            rank,
+            tracer="huggingface",
+            concrete_args=concrete_args,
+        )
 
-    replace_qkv(sch, bert_config)
-    if args.world_size > 1:
-        shard_params(sch, bert_config, fused_qkv=True, prefix="bert")
+        replace_qkv(sch, bert_config)
+        if args.world_size > 1:
+            shard_params(sch, bert_config, fused_qkv=True, prefix="bert")
+
+    else:
+        print("Use gradient checkpoint")
+        sch = ms.create_schedule(
+            bert,
+            optimizer,
+            args.world_size,
+            rank,
+            tracer="huggingface",
+            leaf_modules=["BertLayer"],
+            concrete_args=concrete_args,
+        )
+        checkpointing(sch, bert_config, prefix="bert")
 
     report_memory(rank)
     device = "cuda:{}".format(rank)
@@ -95,6 +110,9 @@ if __name__ == "__main__":
     # This is passed in via cmd
     parser.add_argument("--world_size", type=int, default=n_gpus)
     parser.add_argument("--iter_nums", type=int, default=10)
+    parser.add_argument(
+        "--checkpoint", action="store_true", help="Enable gradient checkpointing"
+    )
     args = parser.parse_args()
     # The main entry point is called directly without using subprocess
     ms.execute(train, args)

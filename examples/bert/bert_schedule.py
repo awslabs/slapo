@@ -219,3 +219,8 @@ def shard_params(sch, config, fused_qkv=False, prefix=""):
         sch[prefix+"encoder.layer.{}.attention.output.dense".format(i)].sync()
 
     fix_number_of_heads(sch)
+
+def checkpointing(sch, config, prefix=""):
+    prefix = "" if prefix == "" else prefix + "."
+    for i in range(config.num_hidden_layers):
+        sch[prefix+"encoder.layer.{}".format(i)].checkpoint()

@@ -22,7 +22,7 @@ class Exp:
     optim: str = "adamw_hf"  # Optimization method
     grad_ckpt: bool = False  # save memory with an extra forward
     grad_accum: int = 1  # accumulate gradients for better performance
-    steps: int = 20  # number of parameter updates
+    steps: int = 40  # number of parameter updates
 
     ## Multi-GPUs
     gpus: str = "0"  # GPUs to use. "0,1" means use GPU 0 and 1
@@ -57,10 +57,7 @@ class Exp:
     def print_results(self):
         print("Total samples / second\t: %.1f" % self.samples_per_sec)
         print("Per GPU memory (GB)\t: %.1f" % self.gpu_mem)
-        print(
-            "Per GPU TFLOPs\t\t: %.1f"
-            % (self.samples_per_sec * self.tflops / self.num_gpus)
-        )
+        print("Per GPU TFLOPs\t\t: %.1f" % (self.samples_per_sec * self.tflops / self.num_gpus))
 
 
 def parse_args():
@@ -105,6 +102,11 @@ def parse_args():
         "script_file",
         type=str,
         help="Megatron script file to run the HuggingFace model",
+    )
+    hf_parser.add_argument(
+        "--disable-flash-attn",
+        action="store_true",
+        help="Do not replace Attention with FlashAttention in HuggingFace model",
     )
     mt_parser = subprasers.add_parser(
         "megatron",
@@ -152,9 +154,7 @@ def compare(exps, fig_name):
             ([e.gpu_mem for e in exps], "per GPU memory (GB)"),
         )
     ):
-        bar = ax[i].barh(
-            x, y, align="center", height=0.6, color=plt.get_cmap("Set1")(x)
-        )
+        bar = ax[i].barh(x, y, align="center", height=0.6, color=plt.get_cmap("Set1")(x))
         ax[i].bar_label(bar, fmt="%.2f", label_type="center")
         ax[i].invert_yaxis()
         ax[i].set_xlabel(l)
@@ -210,17 +210,28 @@ def megatron_log(exp, log_filename):
     with open(log_filename) as f:
         text = f.read()
     # Find the last number after the key, returns 0 if not exists
-    query = lambda key: float(next(iter(reversed(re.findall(key + ": +([\d\.]+)", text))), 0))
+    def query(key, last_only=True):
+        values = re.findall(key + ": +([\d\.]+)", text)
+        if not values:
+            return None
+        if last_only:
+            return float(values[-1])
+        return [float(v) for v in values]
+
     if "CUDA out of memory" in text:
         print("Out of GPU memory, try a smaller batch size")
         exp.error_code = 1
         return exp
 
-    iter_time = query("elapsed time per iteration \(ms\)")
-    if iter_time == 0:
+    iter_times = query("elapsed time per iteration \(ms\)", last_only=False)
+    if not iter_times:
         print(f'Failed. Check "{log_filename}" to find error')
         exp.error_code = 2
         return exp
+
+    # 1. Every 5 steps, Megatron reports the average iteration time of the past 5 steps.
+    # 2. We remove the first value (of the first 5 steps) as the warmup.
+    iter_time = (sum(iter_times[1:]) * 5) / (exp.steps - 5)
 
     param_per_gpu = query("parameters on \(tensor, pipeline\) model parallel rank \(0, 0\)")
     exp.samples_per_sec = query("global batch size") / iter_time * 1e3
@@ -258,8 +269,11 @@ def run_megatron(exp, args):
     if exp.fp16:
         cmd += " --fp16"
 
-    if exp.kwargs is not None and "flags" in exp.kwargs:
-        cmd += " " + " ".join(exp.kwargs["flags"])
+    if exp.kwargs is not None:
+        if "flags" in exp.kwargs:
+            cmd += " " + " ".join(exp.kwargs["flags"])
+        if "env" in exp.kwargs:
+            cmd = f"{' '.join(exp.kwargs['env'])} {cmd}"
 
     cmd += " > log.txt 2>&1"
     print(cmd)
@@ -286,7 +300,7 @@ def main():
     n_gpus = parse_gpus(args.gpus)
     get_batch_size = eval(f"lambda n: {args.batch_sizes}", {"math": math})
 
-    # Deal with Megatron model args.
+    # Deal with configurations.
     kwargs = {}
     if hasattr(args, "disable_fuse_kernels") and args.disable_fuse_kernels:
         kwargs = {
@@ -298,6 +312,9 @@ def main():
             ]
         }
         memo = "no_fuse"
+    elif hasattr(args, "disable_flash_attn") and args.disable_flash_attn:
+        kwargs = {"env": ["DISABLE_FLASH_ATTN=1"]}
+        memo = "no_flash_attn"
 
     results = []
     for n_gpu in n_gpus:

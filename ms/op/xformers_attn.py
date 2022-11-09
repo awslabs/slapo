@@ -45,11 +45,39 @@ def pt_attention(q, k, v, attn_bias, p=0.0):
 
 
 class MemoryEfficientAttention(nn.Module):
-    def __init__(self, op):
-        super(MemoryEfficientAttention, self).__init__()
+    def __init__(self, op, num_attention_heads, lower_triangular_mask=False):
+        super().__init__()
         self.op = op
+        self.num_attention_heads = num_attention_heads
+        self.lower_triangular_mask = lower_triangular_mask
+
+    @staticmethod
+    def layout_attention_mask(mask, num_attention_heads):
+        # mask = mask[:,:,0,:]
+        # # (B, 1, 1, S) -> (B, S)
+        # mask = mask.squeeze()
+        # # (B, S) -> (B, 1, S)
+        # mask = mask.reshape((mask.shape[0], 1, mask.shape[1]))
+        # # (B, 1, S) -> (B x H, S, S)
+        # mask = mask.repeat(num_attention_heads, mask.shape[2], 1)
+        # (B, 1, S, S) -> (B x H, S, S)
+        mask = mask.repeat(num_attention_heads, 1, 1, 1).squeeze()
+        return mask
 
     def forward(self, q, k, v, m, p):
+        if self.lower_triangular_mask:
+            # Now we always apply casual mask for decoders, but we should also take
+            # input attention mask into consideration.
+            seq_len = q.shape[1]
+            m = xformers.ops.LowerTriangularMask(
+                [1, seq_len, seq_len], dtype=q.dtype, device="cuda"
+            )
+        else:
+            # The required attention mask shape is [batch_size x #heads, seq_length, seq_length];
+            # while the input shape is [batch_size, 1, 1, seq_length].
+            # In other words, we need to broadcast other dimensions manually.
+            m = self.layout_attention_mask(m, self.num_attention_heads)
+
         return xformers.ops.memory_efficient_attention(q, k, v, m, p, op=self.op)
 
 
@@ -100,7 +128,7 @@ class BertSelfAttentionXFormer(nn.Module):
             else:
                 raise ValueError(f"Unknown attn_op_name {attn_op_name}")
 
-            self.attn_op = MemoryEfficientAttention(op)
+            self.attn_op = MemoryEfficientAttention(op, self.num_attention_heads, False)
 
     def reshape_for_scores(self, x: torch.Tensor) -> torch.Tensor:
         """Copy from transpose_for_scores but without the transpose"""
@@ -110,19 +138,6 @@ class BertSelfAttentionXFormer(nn.Module):
         )
         x = x.view(new_x_shape)
         return x
-
-    @staticmethod
-    def layout_attention_mask(mask, num_attention_heads):
-        # mask = mask[:,:,0,:]
-        # # (B, 1, 1, S) -> (B, S)
-        # mask = mask.squeeze()
-        # # (B, S) -> (B, 1, S)
-        # mask = mask.reshape((mask.shape[0], 1, mask.shape[1]))
-        # # (B, 1, S) -> (B x H, S, S)
-        # mask = mask.repeat(num_attention_heads, mask.shape[2], 1)
-        # (B, 1, S, S) -> (B x H, S, S)
-        mask = mask.repeat(num_attention_heads, 1, 1, 1).squeeze()
-        return mask
 
     def forward(
         self,
@@ -152,13 +167,6 @@ class BertSelfAttentionXFormer(nn.Module):
         is_cross_attention = encoder_hidden_states is not None
         assert not is_cross_attention, "cross attention is not supported for now"
 
-        # The required attention mask shape is [batch_size x #heads, seq_length, seq_length];
-        # while the input shape is [batch_size, 1, 1, seq_length].
-        # In other words, we need to broadcast other dimensions manually.
-        attention_mask = self.layout_attention_mask(
-            attention_mask, self.num_attention_heads
-        )
-
         context_layer = self.attn_op(
             query_layer.contiguous(),
             key_layer.contiguous(),
@@ -176,269 +184,110 @@ class BertSelfAttentionXFormer(nn.Module):
         return outputs
 
 
-class GPT2Attention(nn.Module):
-    """FIXME: This is not working yet"""
+class GenericSelfAttention(nn.Module):
+    """A generic self attention module to use the xformers attention op.
+    Note that this module has limited supports to specialized processing, documetned as follows:
+    - Only support absolute positional embeddings.
+    - Do not support cross attention.
+    - Do not support head mask, encoder_attention_mask, and output attention.
+    """
 
     def __init__(
-        self, config, is_cross_attention=False, layer_idx=None, attn_op_name="native"
+        self,
+        hidden_size,
+        num_attention_heads,
+        is_decoder,
+        attn_pdrop=0.0,
+        resid_pdrop=0.0,
+        attn_op_name="cutlass",
+        fused_qkv=False,
     ):
         super().__init__()
-
-        max_positions = config.max_position_embeddings
-        self.register_buffer(
-            "bias",
-            torch.tril(
-                torch.ones((max_positions, max_positions), dtype=torch.uint8)
-            ).view(1, 1, max_positions, max_positions),
-        )
-        self.register_buffer("masked_bias", torch.tensor(-1e4))
-
-        self.embed_dim = config.hidden_size
-        self.num_heads = config.num_attention_heads
-        self.head_dim = self.embed_dim // self.num_heads
-        self.split_size = self.embed_dim
-        if self.head_dim * self.num_heads != self.embed_dim:
+        if hidden_size % num_attention_heads != 0:
             raise ValueError(
-                f"`embed_dim` must be divisible by num_heads (got `embed_dim`: {self.embed_dim} and `num_heads`:"
-                f" {self.num_heads})."
+                f"The hidden size ({hidden_size}) is not a multiple "
+                f"of the number of attention heads ({num_attention_heads})"
             )
 
-        self.scale_attn_weights = config.scale_attn_weights
-        self.is_cross_attention = is_cross_attention
-        assert config.scale_attn_weights, "scale_attn_weights must be True"
-        assert not is_cross_attention, "cross attention is not supported for now"
+        self.hidden_size = hidden_size
+        self.num_attention_heads = num_attention_heads
+        self.attention_head_size = int(hidden_size / num_attention_heads)
+        self.all_head_size = self.num_attention_heads * self.attention_head_size
 
-        # Layer-wise attention scaling, reordering, and upcasting
-        self.scale_attn_by_inverse_layer_idx = config.scale_attn_by_inverse_layer_idx
-        self.layer_idx = layer_idx
-        self.reorder_and_upcast_attn = config.reorder_and_upcast_attn
-        assert (
-            not self.scale_attn_by_inverse_layer_idx
-        ), "scale_attn_by_inverse_layer_idx is not supported for now"
-        assert (
-            not self.reorder_and_upcast_attn
-        ), "reorder_and_upcast_attn is not supported for now"
+        self.fused_qkv = fused_qkv
+        if fused_qkv:
+            self.qkv = nn.Linear(hidden_size, 3 * self.all_head_size)
+        else:
+            self.query = nn.Linear(hidden_size, self.all_head_size)
+            self.key = nn.Linear(hidden_size, self.all_head_size)
+            self.value = nn.Linear(hidden_size, self.all_head_size)
 
-        self.c_attn = Conv1D(3 * self.embed_dim, self.embed_dim)
-        self.c_proj = Conv1D(self.embed_dim, self.embed_dim)
+        self.is_decoder = is_decoder
+        self.attn_pdrop = attn_pdrop
 
-        self.attn_pdrop = config.attn_pdrop
-        self.resid_drop = config.resid_pdrop
-        self.attn_dropout = nn.Dropout(config.attn_pdrop)
-        self.resid_dropout = nn.Dropout(config.resid_pdrop)
+        if self.is_decoder:
+            self.out_proj = nn.Linear(hidden_size, hidden_size)
+            self.resid_dropout = nn.Dropout(resid_pdrop)
 
-        self.pruned_heads = set()
+        assert xformers is not None, "xformers is not installed"
+        if attn_op_name is None:
+            self.attn_op = pt_attention
+        else:
+            if attn_op_name == "vanilla":
+                op = xformers.ops.MemoryEfficientAttentionOp
+            elif attn_op_name == "cutlass":
+                op = xformers.ops.MemoryEfficientAttentionCutlassOp
+            elif attn_op_name == "triton":
+                op = xformers.ops.MemoryEfficientAttentionFlashAttentionOp
+            else:
+                raise ValueError(f"Unknown attn_op_name {attn_op_name}")
 
-    def prune_heads(self, heads):
-        if len(heads) == 0:
-            return
-        heads, index = find_pruneable_heads_and_indices(
-            heads, self.num_heads, self.head_dim, self.pruned_heads
-        )
-        index_attn = torch.cat(
-            [index, index + self.split_size, index + (2 * self.split_size)]
-        )
+            self.attn_op = MemoryEfficientAttention(op, self.num_attention_heads, is_decoder)
 
-        # Prune conv1d layers
-        self.c_attn = prune_conv1d_layer(self.c_attn, index_attn, dim=1)
-        self.c_proj = prune_conv1d_layer(self.c_proj, index, dim=0)
-
-        # Update hyper params
-        self.split_size = (self.split_size // self.num_heads) * (
-            self.num_heads - len(heads)
-        )
-        self.num_heads = self.num_heads - len(heads)
-        self.pruned_heads = self.pruned_heads.union(heads)
-
-    def _attn(self, query, key, value, attention_mask=None, head_mask=None):
-        attn_weights = torch.matmul(query, key.transpose(-1, -2))
-
-        if self.scale_attn_weights:
-            attn_weights = attn_weights / torch.tensor(
-                value.size(-1) ** 0.5,
-                dtype=attn_weights.dtype,
-                device=attn_weights.device,
-            )
-
-        # Layer-wise attention scaling
-        if self.scale_attn_by_inverse_layer_idx:
-            attn_weights = attn_weights / float(self.layer_idx + 1)
-
-        if not self.is_cross_attention:
-            # if only "normal" attention layer implements causal mask
-            query_length, key_length = query.size(-2), key.size(-2)
-            causal_mask = self.bias[
-                :, :, key_length - query_length : key_length, :key_length
-            ].to(torch.bool)
-            mask_value = torch.finfo(attn_weights.dtype).min
-            # Need to be a tensor, otherwise we get error: `RuntimeError: expected scalar type float but found double`.
-            # Need to be on the same device, otherwise `RuntimeError: ..., x and y to be on the same device`
-            mask_value = torch.tensor(mask_value, dtype=attn_weights.dtype).to(
-                attn_weights.device
-            )
-            attn_weights = torch.where(causal_mask, attn_weights, mask_value)
-
-        if attention_mask is not None:
-            # Apply the attention mask
-            attn_weights = attn_weights + attention_mask
-
-        attn_weights = nn.functional.softmax(attn_weights, dim=-1)
-
-        # Downcast (if necessary) back to V's dtype (if in mixed-precision) -- No-Op otherwise
-        attn_weights = attn_weights.type(value.dtype)
-        attn_weights = self.attn_dropout(attn_weights)
-
-        # Mask heads if we want to
-        if head_mask is not None:
-            attn_weights = attn_weights * head_mask
-
-        attn_output = torch.matmul(attn_weights, value)
-
-        return attn_output, attn_weights
-
-    def _upcast_and_reordered_attn(
-        self, query, key, value, attention_mask=None, head_mask=None
-    ):
-        # Use `torch.baddbmm` (a bit more efficient w/ alpha param for scaling -- from Megatron-LM)
-        bsz, num_heads, q_seq_len, dk = query.size()
-        _, _, k_seq_len, _ = key.size()
-
-        # Preallocate attn_weights for `baddbmm`
-        attn_weights = torch.empty(
-            bsz * num_heads,
-            q_seq_len,
-            k_seq_len,
-            dtype=torch.float32,
-            device=query.device,
-        )
-
-        # Compute Scale Factor
-        scale_factor = 1.0
-        if self.scale_attn_weights:
-            scale_factor /= float(value.size(-1)) ** 0.5
-
-        if self.scale_attn_by_inverse_layer_idx:
-            scale_factor /= float(self.layer_idx + 1)
-
-        # Upcast (turn off autocast) and reorder (Scale K by 1 / root(dk))
-        with autocast(enabled=False):
-            q, k = query.reshape(-1, q_seq_len, dk), key.transpose(-1, -2).reshape(
-                -1, dk, k_seq_len
-            )
-            attn_weights = torch.baddbmm(
-                attn_weights, q.float(), k.float(), beta=0, alpha=scale_factor
-            )
-            attn_weights = attn_weights.reshape(bsz, num_heads, q_seq_len, k_seq_len)
-
-        if not self.is_cross_attention:
-            # if only "normal" attention layer implements causal mask
-            query_length, key_length = query.size(-2), key.size(-2)
-            causal_mask = self.bias[
-                :, :, key_length - query_length : key_length, :key_length
-            ].bool()
-            mask_value = torch.finfo(attn_weights.dtype).min
-            # Need to be a tensor, otherwise we get error: `RuntimeError: expected scalar type float but found double`.
-            # Need to be on the same device, otherwise `RuntimeError: ..., x and y to be on the same device`
-            mask_value = torch.tensor(mask_value, dtype=attn_weights.dtype).to(
-                attn_weights.device
-            )
-            attn_weights = torch.where(causal_mask, attn_weights, mask_value)
-
-        if attention_mask is not None:
-            # Apply the attention mask
-            attn_weights = attn_weights + attention_mask
-
-        attn_weights = nn.functional.softmax(attn_weights, dim=-1)
-
-        # Downcast (if necessary) back to V's dtype (if in mixed-precision) -- No-Op if otherwise
-        if attn_weights.dtype != torch.float32:
-            raise RuntimeError(
-                "Error with upcasting, attn_weights does not have dtype torch.float32"
-            )
-        attn_weights = attn_weights.type(value.dtype)
-        attn_weights = self.attn_dropout(attn_weights)
-
-        # Mask heads if we want to
-        if head_mask is not None:
-            attn_weights = attn_weights * head_mask
-
-        attn_output = torch.matmul(attn_weights, value)
-
-        return attn_output, attn_weights
-
-    def _split_heads(self, tensor, num_heads, attn_head_size):
-        """
-        Splits hidden_size dim into attn_head_size and num_heads
-        """
-        new_shape = tensor.size()[:-1] + (num_heads, attn_head_size)
-        tensor = tensor.view(new_shape)
-        return tensor  # (batch, seq_length, head, head_features)
-
-    def _merge_heads(self, tensor, num_heads, attn_head_size):
-        """
-        Merges attn_head_size dim and num_attn_heads dim into hidden_size
-        """
-        tensor = tensor.permute(0, 2, 1, 3).contiguous()
-        new_shape = tensor.size()[:-2] + (num_heads * attn_head_size,)
-        return tensor.view(new_shape)
+    def reshape_for_scores(self, x: torch.Tensor) -> torch.Tensor:
+        """Copy from transpose_for_scores but without the transpose"""
+        new_x_shape = x.size()[:-1] + (self.num_attention_heads, self.attention_head_size)
+        x = x.view(new_x_shape)
+        return x
 
     def forward(
         self,
-        hidden_states: Optional[Tuple[torch.FloatTensor]],
-        layer_past: Optional[Tuple[torch.Tensor]] = None,
+        hidden_states: torch.Tensor,
         attention_mask: Optional[torch.FloatTensor] = None,
-        head_mask: Optional[torch.FloatTensor] = None,
-        encoder_hidden_states: Optional[torch.Tensor] = None,
-        encoder_attention_mask: Optional[torch.FloatTensor] = None,
-        use_cache: Optional[bool] = False,
-        output_attentions: Optional[bool] = False,
-    ) -> Tuple[Union[torch.Tensor, Tuple[torch.Tensor]], ...]:
-        if encoder_hidden_states is not None:
-            if not hasattr(self, "q_attn"):
-                raise ValueError(
-                    "If class is used as cross attention, the weights `q_attn` have to be defined. "
-                    "Please make sure to instantiate class with `GPT2Attention(..., is_cross_attention=True)`."
-                )
-
-            query = self.q_attn(hidden_states)
-            key, value = self.c_attn(encoder_hidden_states).split(
-                self.split_size, dim=2
+        layer_past: Optional[Tuple[Tuple[torch.FloatTensor]]] = None,
+        use_cache: bool = False,
+        **kwargs,
+    ) -> Tuple[torch.Tensor]:
+        if self.fused_qkv:
+            query_layer, key_layer, value_layer = self.qkv(hidden_states).split(
+                self.hidden_size, dim=2
             )
-            attention_mask = encoder_attention_mask
         else:
-            query, key, value = self.c_attn(hidden_states).split(self.split_size, dim=2)
-
-        query = self._split_heads(query, self.num_heads, self.head_dim)
-        key = self._split_heads(key, self.num_heads, self.head_dim)
-        value = self._split_heads(value, self.num_heads, self.head_dim)
+            query_layer = self.query(hidden_states)
+            key_layer = self.key(hidden_states)
+            value_layer = self.value(hidden_states)
+        query_layer = self.reshape_for_scores(query_layer)
+        key_layer = self.reshape_for_scores(key_layer)
+        value_layer = self.reshape_for_scores(value_layer)
 
         if layer_past is not None:
             past_key, past_value = layer_past
-            key = torch.cat((past_key, key), dim=-2)
-            value = torch.cat((past_value, value), dim=-2)
+            key_layer = torch.cat((past_key, key_layer), dim=-2)
+            value_layer = torch.cat((past_value, value_layer), dim=-2)
 
-        if use_cache is True:
-            present = (key, value)
+        context_layer = self.attn_op(
+            query_layer, key_layer, value_layer, attention_mask, p=self.attn_pdrop
+        )
+        context_layer = context_layer.contiguous()
+        new_context_layer_shape = context_layer.size()[:-2] + (-1,)
+        context_layer = context_layer.view(new_context_layer_shape)
+
+        if self.is_decoder:
+            context_layer = self.out_proj(context_layer)
+            context_layer = self.resid_dropout(context_layer)
+
+        if use_cache:
+            outputs = (context_layer, (key_layer, value_layer))
         else:
-            present = None
-
-        if self.reorder_and_upcast_attn:
-            attn_output, attn_weights = self._upcast_and_reordered_attn(
-                query, key, value, attention_mask, head_mask
-            )
-        else:
-            assert head_mask is None, "head_mask is not supported for now"
-            attn_output = pt_attention(query, key, value, attention_mask)
-            attn_weights = None
-            # attn_output, attn_weights = self._attn(query, key, value, attention_mask, head_mask)
-
-        attn_output = self._merge_heads(attn_output, self.num_heads, self.head_dim)
-        attn_output = self.c_proj(attn_output)
-        attn_output = self.resid_dropout(attn_output)
-
-        outputs = (attn_output, present)
-        if output_attentions:
-            assert attn_weights is not None, "output attention is not supported for now"
-            outputs += (attn_weights,)
-
-        return outputs  # a, present, (attentions)
+            outputs = (context_layer, None)
+        return outputs

@@ -55,7 +55,7 @@ def train(rank, args):
     optimizer = torch.optim.SGD(model.parameters(), lr=0.002)
 
     # Create a default schedule
-    sch = ms.create_schedule(model, optimizer, args.world_size, rank)
+    sch = ms.create_schedule(model, optimizer, args.world_size, rank, leaf_modules=["MLP"])
 
     # Get sub-modules
     # mod = sch.modules
@@ -80,10 +80,11 @@ def train(rank, args):
         sch["mlp.dense_2"].sync()
         sch["mlp.dense_1"].sync(backward=True)
 
-    # sch["mlp.dense_1"].checkpoint()
+    sch["mlp"].checkpoint()
     report_memory(rank)
     # Apply schedule and regenerate module
     opt_model, optimizer = ms.build(sch)
+    print(sch.gm)
     opt_model.cuda(rank)
     report_memory(rank)
 
@@ -91,6 +92,7 @@ def train(rank, args):
     torch.manual_seed(8899)
     local_inp = torch.rand((2048, 1024), requires_grad=True).cuda(rank)
     opt_inp = local_inp.detach().clone()
+    opt_inp.requires_grad = True
     print(local_inp)
     print(opt_inp)
     local_model.cuda(rank)

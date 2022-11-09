@@ -289,10 +289,18 @@ class OperationList:
         else:
             raise RuntimeError("Not supported")
 
-        def func(*args):
-            return checkpoint.checkpoint(exe, *args)
+        class CheckPointWrapper(nn.Module):
+            def __init__(self) -> None:
+                super(CheckPointWrapper, self).__init__()
+                for i, (name, param) in enumerate(exe.named_parameters()):
+                    name = name.rsplit(".", maxsplit=1)[-1] + "_" + str(i)
+                    self.register_parameter(name, param)
+                self.register_module("top", dict(exe.named_modules())[""])
 
-        self.replace_function(func)
+            def forward(self, *args, **kwargs):
+                return checkpoint.checkpoint(exe, *args, **kwargs)
+
+        return self.replace_module(CheckPointWrapper)
 
     def replace_function(self, func):
         node = self.op_lst[0]

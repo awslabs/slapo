@@ -9,6 +9,7 @@ import torch
 import torch.nn as nn
 import torch.fx as fx
 import torch.distributed as dist
+import torch.utils.checkpoint as checkpoint
 
 from .env import setup
 from .trace import trace
@@ -62,10 +63,12 @@ class Schedule:
             node_or_str = node_or_lst
             if isinstance(node_or_str, str):
                 node_name = node_or_str
+                is_found = False
                 for node in self.gm.graph.nodes:
                     if node.op == "call_module" and node.target == node_name:
+                        is_found = True
                         break
-                assert isinstance(
+                assert is_found and isinstance(
                     node, fx.Node
                 ), "Cannot find target node with name {}".format(node)
             else:
@@ -275,6 +278,21 @@ class OperationList:
                 dist.all_reduce(output[0].contiguous(), op=dist.ReduceOp.SUM)
 
             mod.register_full_backward_hook(hook_func)
+
+    def checkpoint(self):
+        assert len(self.op_lst) == 1
+        node = self.op_lst[0]
+        if node.op == "call_function":
+            exe = node.op
+        elif node.op == "call_module":
+            exe = self.named_modules[node.target]
+        else:
+            raise RuntimeError("Not supported")
+
+        def func(*args):
+            return checkpoint.checkpoint(exe, *args)
+
+        self.replace_function(func)
 
     def replace_function(self, func):
         node = self.op_lst[0]

@@ -58,27 +58,29 @@ def train(rank, args):
     sch = ms.create_schedule(model, optimizer, args.world_size, rank)
 
     # Get sub-modules
-    mod = sch.modules
-    print(mod)
+    # mod = sch.modules
+    # print(mod)
 
     # Access a specific op.
     # Each "forward" function is a "basic block" that includes a sequence of
     # operators to be executed. It could be in torch.fx IR and should be in ANF.
-    ops = sch.forward_ops
-    print(ops)
+    # ops = sch.forward_ops
+    # print(ops)
     # >>> [dense_1, activation, dense_2]
 
     # Partition parameters (notice the weights are transposed!)
-    # column sharding for dense_1
-    sch[ops[0]].shard("weight", axis=0)
-    sch[ops[0]].shard("bias", axis=0)
-    # row sharding for dense_2
-    sch[ops[2]].shard("weight", axis=1)
+    if sch.world_size > 1:
+        # column sharding for dense_1
+        sch["mlp.dense_1"].shard("weight", axis=0)
+        sch["mlp.dense_1"].shard("bias", axis=0)
+        # row sharding for dense_2
+        sch["mlp.dense_2"].shard("weight", axis=1)
 
-    # aggreate results
-    sch[ops[2]].sync()
-    sch[ops[0]].sync(backward=True)
+        # aggreate results
+        sch["mlp.dense_2"].sync()
+        sch["mlp.dense_1"].sync(backward=True)
 
+    # sch["mlp.dense_1"].checkpoint()
     report_memory(rank)
     # Apply schedule and regenerate module
     opt_model, optimizer = ms.build(sch)

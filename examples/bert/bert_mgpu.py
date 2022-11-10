@@ -57,11 +57,25 @@ def train(rank, args):
         )
         checkpointing(sch, bert_config, prefix="bert")
 
+    if args.pipeline:
+        print("Use pipeline parallelism")
+        sch = ms.create_schedule(
+            bert,
+            optimizer,
+            args.world_size,
+            rank,
+            tracer="huggingface",
+            leaf_modules=["BertLayer"],
+            concrete_args=concrete_args,
+        )
+        sch["bert.encoder.layer.12"].partition()
+
     report_memory(rank)
     device = "cuda:{}".format(rank)
     model, optimizer = ms.build(sch)
     model.half()
     model.cuda()
+    print(model)
     report_memory(rank)
 
     bs = 8
@@ -112,6 +126,9 @@ if __name__ == "__main__":
     parser.add_argument("--iter_nums", type=int, default=10)
     parser.add_argument(
         "--checkpoint", action="store_true", help="Enable gradient checkpointing"
+    )
+    parser.add_argument(
+        "--pipeline", action="store_true", help="Enable pipeline parallelism"
     )
     args = parser.parse_args()
     # The main entry point is called directly without using subprocess

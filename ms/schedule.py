@@ -8,6 +8,7 @@ import inspect
 import torch
 import torch.nn as nn
 import torch.fx as fx
+from torch.fx.passes.split_module import split_module
 import torch.distributed as dist
 import torch.utils.checkpoint as checkpoint
 
@@ -48,6 +49,10 @@ class Schedule:
 
         # Trace the model if needed
         self.gm = mod if isinstance(mod, fx.GraphModule) else trace(mod, **self.config)
+        self.gm.graph.eliminate_dead_code()
+        self.gm.delete_all_unused_submodules()
+        self.gm.graph.lint()
+        self.gm.recompile()
 
         self._modules = None
         self._ops = {}
@@ -279,6 +284,12 @@ class OperationList:
 
             mod.register_full_backward_hook(hook_func)
 
+    def partition(self):
+        # used for pipeline parallelism
+        assert len(self.op_lst) == 1
+        node = self.op_lst[0]
+        node.meta["partition"] = True
+
     def checkpoint(self):
         assert len(self.op_lst) == 1
         node = self.op_lst[0]
@@ -393,6 +404,24 @@ def create_schedule(
     )
 
 
+def generate_pipeline_partition(sch):
+    partition_cnt = 0
+    for node in sch.gm.graph.nodes:
+        if "partition" not in node.meta:
+            node.meta["partition"] = partition_cnt
+        else:
+            node.meta["partition"] = partition_cnt
+            partition_cnt += 1
+    if partition_cnt != 0:
+
+        def mod_partition(node: fx.Node):
+            return node.meta["partition"]
+
+        return split_module(sch.gm, None, mod_partition)
+    else:
+        return sch.gm
+
+
 def build(sch: Schedule):
     sch.gm.graph.eliminate_dead_code()
     sch.gm.delete_all_unused_submodules()
@@ -400,6 +429,7 @@ def build(sch: Schedule):
     for name in dict(sch.gm.named_buffers()):
         if "tensor_constant" in name:
             sch.gm.__delattr__(name)
+    sch.gm = generate_pipeline_partition(sch)
     sch.gm.graph.lint()  # Does some checks to make sure the Graph is well-formed.
     sch.gm.recompile()
     return sch.gm, sch.optimizer

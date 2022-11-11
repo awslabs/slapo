@@ -207,11 +207,15 @@ def replace_softmax(sch):
             super().__init__()
 
         @staticmethod
-        def func(x: torch.Tensor) -> torch.Tensor:
-            return nn.functional.softmax(x)
+        def func(attn_weights: torch.Tensor, causal_mask: torch.Tensor, attention_mask: torch.Tensor) -> torch.Tensor:
+            mask_value = torch.finfo(attn_weights.dtype).min
+            mask_value = torch.tensor(mask_value, dtype=attn_weights.dtype).to(attn_weights.device)
+            attn_weights = torch.where(causal_mask, attn_weights, mask_value)
+            attn_weights = attn_weights + attention_mask
+            return nn.functional.softmax(attn_weights)
 
         def starting_point(self, node):
-            return node.op == "call_function" and node.target == operator.add
+            return node.op == "call_function" and node.target == operator.getitem and node.args[0].op == "get_attr" and "h." in node.args[0].target and ".attn.attention.bias" in node.args[0].target
 
     config = {
         "input_in_fp16": True,
@@ -223,6 +227,8 @@ def replace_softmax(sch):
         "scale": None,
     }
     ops = sch.find(SoftmaxPattern())
+    print(ops)
+    sys.exit()
     for op in ops:
         sch[op].replace(FusedScaleMaskSoftmax, **config)
     print(f"Replace {len(ops)} softmax ops")

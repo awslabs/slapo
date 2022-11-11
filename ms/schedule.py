@@ -125,6 +125,23 @@ class Schedule:
         if not isinstance(pattern, Pattern):
             return []
 
+        # FIXME: Find a safer way to do it
+        sig = inspect.signature(pattern.func)
+        param_str = ", ".join(sig.parameters.keys())
+        class_builder = exec("""
+class SubgraphWrapper(nn.Module):
+    def __init__(self, pattern):
+        super(SubgraphWrapper, self).__init__()
+        self.pattern = pattern
+
+    def forward(self, {0}):
+        return self.pattern.func({0})
+""".format(param_str), globals())
+
+        # SubgraphWrapper.__signature__ = inspect.signature(pattern.func)
+        mod = fx.symbolic_trace(SubgraphWrapper(pattern))
+        print(mod.graph)
+
         res = []
         for node in self.gm.graph.nodes:
             if pattern.starting_point(node):
@@ -144,15 +161,9 @@ class Schedule:
                         DFS(cusr, tusr)
                     return True
 
-                class Test(nn.Module):
-                    def __init__(self):
-                        super(Test, self).__init__()
-
-                    def forward(self, x):
-                        return pattern.func(x)
-
-                mod = fx.symbolic_trace(Test())
-                target_node = list(mod.graph.nodes)[0]
+                for target_node in list(mod.graph.nodes):
+                    if target_node.op != "placeholder":
+                        break
                 curr_node = node
                 DFS(curr_node, target_node)
                 if matched:

@@ -1,6 +1,7 @@
+import re
+
 import torch
 import torch.nn as nn
-import torch.fx as fx
 import torch.distributed as dist
 import ms
 
@@ -64,7 +65,6 @@ def replace_qkv(sch, num_layers, num_heads, hidden_size):
 def replace_attention(sch, config, attn_path="h.N.attn.attention"):
     # https://github.com/huggingface/transformers/blob/344e2664d450eaa9167ce31f7d1fc0f0fe3b10af/src/transformers/models/bert/modeling_bert.py#L243
     # https://github.com/comaniac/epoi/blob/main/epoi/ops/xformers_attn.py#L45
-    import re
     from ms.op import GenericSelfAttention
 
     def find_dropout_prob(config_or_mod):
@@ -245,6 +245,9 @@ def remove_cast(sch):
 
 
 def shard_word_embedding(sch, vocab_size, word_embed_name="wte"):
+    if sch.world_size == 1:
+        return
+
     # Embedding
     sch[word_embed_name].shard("weight", axis=0)
     # Build the mask
@@ -321,14 +324,63 @@ def shard_qkv(
     fix_shape_after_shard()
 
 
-def shard_mlp(
-    sch, num_layers, path="h.N.mlp", fc_names=["c_fc", "c_proj"], transpose_weights=False
+def replace_and_shard_mlp(
+    sch, config, path="h.N.mlp", fc_names=["c_fc", "c_proj"], transpose_weights=False
 ):
-    axes = [1, 0] if transpose_weights else [0, 1]
-    for i in range(num_layers):
-        prefix = path.replace("N", str(i))
-        sch[f"{prefix}.{fc_names[0]}"].shard("weight", axis=axes[0])
-        sch[f"{prefix}.{fc_names[0]}"].shard("bias", axis=0)
-        sch[f"{prefix}.{fc_names[0]}"].sync(backward=True)
-        sch[f"{prefix}.{fc_names[1]}"].shard("weight", axis=axes[1])
-        sch[f"{prefix}.{fc_names[1]}"].sync()
+    from ms.op import FusedBiasAct
+
+    # Need to remove useless code first. TODO: Apply this pass implicitly.
+    sch.gm.graph.eliminate_dead_code()
+
+    act = config.activation_function
+    if FusedBiasAct.check_act_type(act):
+
+        class FusedMLP(nn.Module):
+            """A wrapper MLP to make use of fused bias+new_gelu."""
+
+            def __init__(self, hidden_size, intermediate_size, resid_pdrop):
+                super().__init__()
+                self.fc_in = nn.Linear(hidden_size, intermediate_size, bias=False)
+                self.act = FusedBiasAct(intermediate_size, act=act, prev_weight=self.fc_in.weight)
+                self.fc_out = nn.Linear(intermediate_size, hidden_size)
+                self.dropout = nn.Dropout(resid_pdrop)
+
+            def forward(self, hidden_states):
+                hidden_states = self.fc_in(hidden_states)
+                hidden_states = self.act(hidden_states)
+                hidden_states = self.fc_out(hidden_states)
+                hidden_states = self.dropout(hidden_states)
+                return hidden_states
+
+        inner_dim = (
+            config.intermediate_size
+            if config.intermediate_size is not None
+            else 4 * config.hidden_size
+        )
+        new_args = {
+            "hidden_size": config.hidden_size,
+            "intermediate_size": inner_dim,
+            "resid_pdrop": config.resid_dropout,
+        }
+
+        path = path.replace("N", "\d+")
+        ops = sch.find_module(lambda node: bool(re.search(path, node.target)))
+        for op in ops:
+            new_op = sch[op].replace(FusedMLP, **new_args)
+            sch_mlp = sch[new_op].subschedule(leaf_modules=["FusedBiasAct"])
+            if sch.world_size > 1:
+                sch_mlp["fc_in"].shard("weight", axis=0)
+                sch_mlp["act"].shard("bias", axis=0)
+                sch_mlp["fc_in"].sync(backward=True)
+                sch_mlp["fc_out"].shard("weight", axis=1)
+                sch_mlp["fc_out"].sync()
+            sch[new_op].compose(sch_mlp)
+    elif sch.world_size > 1:
+        axes = [1, 0] if transpose_weights else [0, 1]
+        for i in range(config.num_layers):
+            prefix = path.replace("N", str(i))
+            sch[f"{prefix}.{fc_names[0]}"].shard("weight", axis=axes[0])
+            sch[f"{prefix}.{fc_names[0]}"].shard("bias", axis=0)
+            sch[f"{prefix}.{fc_names[0]}"].sync(backward=True)
+            sch[f"{prefix}.{fc_names[1]}"].shard("weight", axis=axes[1])
+            sch[f"{prefix}.{fc_names[1]}"].sync()

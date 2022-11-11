@@ -14,8 +14,9 @@
 # limitations under the License.
 
 # https://github.com/NVIDIA/Megatron-LM/blob/master/megatron/model/fused_bias_gelu.py
-
+import math
 import torch
+from functorch.compile import memory_efficient_fusion
 
 
 ###### BIAS GELU FUSION/ NO AUTOGRAD ################
@@ -41,13 +42,13 @@ def bias_gelu_back(g, bias, y):
     x = bias + y
     tanh_out = torch.tanh(0.79788456 * x * (1 + 0.044715 * x * x))
     # sqrt(2/pi) * 3 * 0.044715 -> 0.1070322243
-    ff = 0.5 * x * (
-        (1 - tanh_out * tanh_out) * (0.79788456 + 0.1070322243 * x * x)
-    ) + 0.5 * (1 + tanh_out)
+    ff = 0.5 * x * ((1 - tanh_out * tanh_out) * (0.79788456 + 0.1070322243 * x * x)) + 0.5 * (
+        1 + tanh_out
+    )
     return ff * g
 
 
-class GeLUFunction(torch.autograd.Function):
+class BiasGeLUFunction(torch.autograd.Function):
     @staticmethod
     # bias is an optional argument
     def forward(ctx, input, bias):
@@ -61,24 +62,48 @@ class GeLUFunction(torch.autograd.Function):
         return tmp, tmp
 
 
-bias_gelu_impl = GeLUFunction.apply
+def bias_new_gelu(input, bias):
+    """Bias + new GELU activation function copied from HuggingFace transformers."""
+    input = input + bias
+    return (
+        0.5
+        * input
+        * (1.0 + torch.tanh(math.sqrt(2.0 / math.pi) * (input + 0.044715 * torch.pow(input, 3.0))))
+    )
 
 
-class BiasGeLU(torch.nn.Module):
+class FusedBiasAct(torch.nn.Module):
+    def __init__(self, size, act, device=None, dtype=None, prev_weight=None, fused=True, aot=True):
+        factory_kwargs = {"device": device, "dtype": dtype}
+        super().__init__()
+        self.bias = torch.nn.Parameter(torch.empty(size, **factory_kwargs))
+        self.fused = fused
+        self.reset_parameters(prev_weight)
 
-    __constants__ = ["size"]
-    size: int
+        if act == "gelu":
+            self.func = BiasGeLUFunction.apply
+        elif act == "gelu_new":
+            if self.fused:
+                if aot:
+                    self.func = memory_efficient_fusion(bias_new_gelu)
+                else:
+                    self.func = torch.jit.script(bias_new_gelu)
+            else:
+                self.func = bias_new_gelu
+        else:
+            raise ValueError(f"Unsupported activation {act}")
 
-    def __init__(self, size: int):
-        super(BiasGeLU, self).__init__()
-        self.size = size
-        self.bias = torch.nn.Parameter(torch.empty(size))
+    @staticmethod
+    def check_act_type(act):
+        return act in ["gelu", "gelu_new"]
 
-    def forward(self, input: torch.Tensor) -> torch.Tensor:
-        return bias_gelu_impl(input, self.bias)
+    def reset_parameters(self, prev_weight=None):
+        range = (0, 1)
+        if prev_weight is not None and len(prev_weight.shape) > 1:
+            fan_in, _ = torch.nn.init._calculate_fan_in_and_fan_out(prev_weight)
+            bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
+            range = (-bound, bound)
+        torch.nn.init.uniform_(self.bias, *range)
 
-    def reset_parameter(self) -> None:
-        pass
-
-    def extra_repr(self) -> str:
-        return "size={}".format(self.size)
+    def forward(self, input):
+        return self.func(input, self.bias)

@@ -320,11 +320,10 @@ def main():
     for n_gpu in n_gpus:
         gpus = ",".join([str(e) for e in range(n_gpu)])
         batch_size = get_batch_size(n_gpu)
-        canoncialized_memo = f" {memo}" if memo else ""
         results.append(
             run_megatron(
                 Exp(
-                    f"BS{batch_size}{canoncialized_memo} ({n_gpu} GPU)",
+                    f"BS{batch_size} ({n_gpu} GPU)",
                     args.model,
                     batch_size,
                     args.seq_len,

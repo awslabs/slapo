@@ -31,7 +31,7 @@ class Top(nn.Module):
         self.mlp = MLP()
 
     def forward(self, x):
-        return self.mlp(x)
+        return self.mlp(x).mean()
 
 
 def _weight_override(module_dst, module_src):
@@ -80,47 +80,82 @@ def train(rank, args):
         sch["mlp.dense_2"].sync()
         sch["mlp.dense_1"].sync(backward=True)
 
-    sch["mlp"].checkpoint()
-    report_memory(rank)
-    # Apply schedule and regenerate module
-    opt_model, optimizer = ms.build(sch)
-    print(sch.gm)
-    opt_model.cuda(rank)
-    report_memory(rank)
+    if args.checkpoint:
+        sch["mlp"].checkpoint()
 
-    # test correctness
-    torch.manual_seed(8899)
-    local_inp = torch.rand((2048, 1024), requires_grad=True).cuda(rank)
-    opt_inp = local_inp.detach().clone()
-    opt_inp.requires_grad = True
-    print(local_inp)
-    print(opt_inp)
-    local_model.cuda(rank)
-    output = local_model(local_inp)
-    opt_output = opt_model(opt_inp)
-    assert torch.allclose(output, opt_output, atol=1e-3, rtol=1e-6)
-    print("Pass fw!")
-    output.mean().backward()
-    opt_output.mean().backward()
-    # print(local_inp.grad)
-    # print(opt_inp.grad)
-    # assert torch.allclose(local_inp.grad, opt_inp.grad)
-    # assert torch.allclose(local_model.mlp.dense_1.weight.grad, opt_model.mlp.dense_1.weight.grad)
-    # assert torch.allclose(local_model.mlp.dense_1.bias.grad, opt_model.mlp.dense_1.bias.grad)
-    # assert torch.allclose(local_model.mlp.dense_2.weight.grad, opt_model.mlp.dense_2.weight.grad)
-    print("Pass bw!")
-    sys.exit()
+    if args.deepspeed:
+        ds_config_dict = {
+            "train_micro_batch_size_per_gpu": 1,
+            "optimizer": {
+                "type": "AdamW",
+                "params": {
+                    "lr": 0.0001
+                }
+            },
+        }
+        import deepspeed
+        import deepspeed.pipe as pipe
+        from deepspeed.utils import RepeatingLoader
+        # init deepspeed inference engine
+        deepspeed.init_distributed(distributed_port=8898)
+        # pmodel = pipe.PipelineModule([named_modules["submod_0"], named_modules["submod_1"]], num_stages=2)
+        pmodel = pipe.PipelineModule([model], num_stages=1)
+        ds_model, optimizer, _, _ = deepspeed.initialize(
+            args=args,
+            model=pmodel,
+            config=ds_config_dict,
+            model_parameters=[p for p in model.parameters()],
+        )
+        opt_inp = torch.rand((2048, 1024), requires_grad=True).cuda(rank)
+        if ds_model.is_first_stage() or ds_model.is_last_stage():
+            loader = RepeatingLoader([opt_inp])
+            data_iter = iter(loader)
+        else:
+            data_iter = None
 
-    # Perform a num of iterations of forward/backward
-    # and optimizations for the sharded module.
-    for i in range(args.iter_nums):
-        start_time = time.time()
-        inp = torch.rand(16, 32).cuda(rank)
-        output = opt_model(inp)
-        output.sum().backward()
-        optimizer.step()
-        elapsed_time = time.time() - start_time
-        print(f"Finish step {i}, time: {elapsed_time:.10f}s")
+        baseline = ds_model.train_batch(data_iter=data_iter)
+        print("Pass")
+    else:
+        report_memory(rank)
+        # Apply schedule and regenerate module
+        opt_model, optimizer = ms.build(sch)
+        print(sch.gm)
+        opt_model.cuda(rank)
+        report_memory(rank)
+
+        # test correctness
+        torch.manual_seed(8899)
+        local_inp = torch.rand((2048, 1024), requires_grad=True).cuda(rank)
+        opt_inp = local_inp.detach().clone()
+        opt_inp.requires_grad = True
+        print(local_inp)
+        print(opt_inp)
+        local_model.cuda(rank)
+        output = local_model(local_inp)
+        opt_output = opt_model(opt_inp)
+        assert torch.allclose(output, opt_output, atol=1e-3, rtol=1e-6)
+        print("Pass fw!")
+        output.backward()
+        opt_output.backward()
+        # print(local_inp.grad)
+        # print(opt_inp.grad)
+        # assert torch.allclose(local_inp.grad, opt_inp.grad)
+        # assert torch.allclose(local_model.mlp.dense_1.weight.grad, opt_model.mlp.dense_1.weight.grad)
+        # assert torch.allclose(local_model.mlp.dense_1.bias.grad, opt_model.mlp.dense_1.bias.grad)
+        # assert torch.allclose(local_model.mlp.dense_2.weight.grad, opt_model.mlp.dense_2.weight.grad)
+        print("Pass bw!")
+        sys.exit()
+
+        # Perform a num of iterations of forward/backward
+        # and optimizations for the sharded module.
+        for i in range(args.iter_nums):
+            start_time = time.time()
+            inp = torch.rand(16, 32).cuda(rank)
+            output = opt_model(inp)
+            output.sum().backward()
+            optimizer.step()
+            elapsed_time = time.time() - start_time
+            print(f"Finish step {i}, time: {elapsed_time:.10f}s")
 
 
 if __name__ == "__main__":
@@ -129,6 +164,12 @@ if __name__ == "__main__":
     # This is passed in via cmd
     parser.add_argument("--world_size", type=int, default=n_gpus)
     parser.add_argument("--iter_nums", type=int, default=5)
+    parser.add_argument(
+        "--checkpoint", action="store_true", help="Enable gradient checkpointing"
+    )
+    parser.add_argument(
+        "--deepspeed", action="store_true", help="Use deepspeed for pipeline parallelism"
+    )
     args = parser.parse_args()
     # The main entry point is called directly without using subprocess
     ms.execute(train, args)

@@ -39,7 +39,7 @@ def model_schedule(model, config):
         replace_softmax,
         shard_word_embedding,
         shard_qkv,
-        shard_mlp,
+        replace_and_shard_mlp,
         remove_cast,
         replace_attention,
     )
@@ -60,7 +60,7 @@ def model_schedule(model, config):
         print("Change model dtype to fp16")
         model.half()
 
-    leaf_modules = ["Conv1D"]
+    leaf_modules = ["Conv1D", "GPTNeoMLP"]
     if not disable_flash_attn:
         leaf_modules += ["GPTNeoSelfAttention", "GPT2Attention", "GPTJAttention"]
     sch = ms.create_schedule(
@@ -87,11 +87,12 @@ def model_schedule(model, config):
         replace_qkv(sch, n_layer, n_head, hidden_size)
         if sch.world_size > 1:
             shard_qkv(sch, n_layer, attn_path, out_proj_name=out_proj_name)
-        
-    # Sharding.
-    if sch.world_size > 1:
-        shard_word_embedding(sch, vocab_size)
-        shard_mlp(sch, n_layer)
+
+    # Deal with MLP.
+    replace_and_shard_mlp(sch, config)
+
+    # Deal with embedding.
+    shard_word_embedding(sch, vocab_size)
 
     model, _ = ms.build(sch)
     if args.fp16:

@@ -231,17 +231,24 @@ def megatron_log(exp, log_filename):
 
     # 1. Every 5 steps, Megatron reports the average iteration time of the past 5 steps.
     # 2. We remove the first value (of the first 5 steps) as the warmup.
-    iter_time = (sum(iter_times[1:]) * 5) / (exp.steps - 5)
+    avg_time = lambda times: (sum(times[1:]) * 5) / (exp.steps - 5)
+
+    iter_time = avg_time(iter_times)
+    forward_compute_time = avg_time(query('forward-compute', last_only=False))
+    backward_compute_time = avg_time(query('backward-compute', last_only=False))
+    backward_param_all_reduce_time = avg_time(query('backward-params-all-reduce', last_only=False))
+    optimizer_time = avg_time(query('optimizer', last_only=False))
+
 
     param_per_gpu = query("parameters on \(tensor, pipeline\) model parallel rank \(0, 0\)")
     exp.samples_per_sec = query("global batch size") / iter_time * 1e3
     exp.gpu_mem = query("max allocated") / 1e3
     print(f"per GPU params\t\t: {param_per_gpu / 1e6:.2f}M")
     print(
-        f"Breakdown(ms)\t\t: total {iter_time:.2f}, forward {query('forward-compute'):.2f}, "
-        f"backward {query('backward-compute'):.2f}, "
-        f"backward-params-all-reduce {query('backward-params-all-reduce'):.2f}, "
-        f"optimizer {query('optimizer'):.2f}"
+        f"Breakdown(ms)\t\t: total {iter_time:.2f}, forward {forward_compute_time:.2f}, "
+        f"backward {backward_compute_time:.2f}, "
+        f"backward-params-all-reduce {backward_param_all_reduce_time:.2f}, "
+        f"optimizer {optimizer_time:.2f}"
     )
     exp.error_code = 0
     return exp

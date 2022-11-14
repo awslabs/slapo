@@ -45,7 +45,12 @@ class Schedule:
         self.rank = rank
         assert rank < world_size, "Rank should be smaller than world size"
         if world_size != 1 and dist.GroupMember.WORLD is None:
-            setup(rank, world_size)
+            if "deepspeed" in self.config:
+                print("Use deepspeed to initialize")
+                import deepspeed
+                deepspeed.init_distributed(dist_backend="nccl")
+            else:
+                setup(rank, world_size)
 
         # Trace the model if needed
         self.gm = mod if isinstance(mod, fx.GraphModule) else trace(mod, **self.config)
@@ -82,7 +87,7 @@ class Schedule:
 
     def validate_config(self):
         for key in self.config:
-            if key not in ["tracer", "leaf_modules", "concrete_args"]:
+            if key not in ["tracer", "leaf_modules", "concrete_args", "deepspeed"]:
                 raise RuntimeError(f"Unknown config {key}")
 
     def get_module(self, name):

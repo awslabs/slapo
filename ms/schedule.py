@@ -244,12 +244,15 @@ class OperationList:
         # hierachical schedule support
         assert len(self.op_lst) == 1
         _, node = self.op_lst[0]
-        return create_schedule(
+        new_sch = create_schedule(
             getattr(self.gm, node.target),
             world_size=self.world_size,
             rank=self.rank,
             **kwargs,
         )
+        # replace old module in case the gm is newly generated
+        self.gm.register_module(node.target, new_sch.gm)
+        return new_sch
 
     def compose(self, subsch):
         mod, _ = build(subsch)

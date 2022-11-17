@@ -337,12 +337,19 @@ class OperationList:
         node.meta["partition"] = True
 
     def checkpoint(self):
+        warnings.warn(
+            "You are using checkpointing. Please make sure all the other primitives have been applied."
+        )
         assert len(self.op_lst) == 1
         name, node = self.op_lst[0]
         if node.op == "call_function":
             exe = node.op
         elif node.op == "call_module":
-            exe = self.named_modules[f"{name}.{node.target}"]
+            attr_itr = self.gm
+            atoms = node.target.split(".")
+            for atom in atoms:
+                attr_itr = getattr(attr_itr, atom)
+            exe = attr_itr
         else:
             raise RuntimeError("Not supported")
 
@@ -357,7 +364,7 @@ class OperationList:
             def forward(self, *args, **kwargs):
                 return checkpoint.checkpoint(exe, *args, **kwargs)
 
-        return self.replace_module(CheckPointWrapper)
+        return self.replace(CheckPointWrapper)
 
     def replace_function(self, func):
         assert len(self.op_lst) == 1
@@ -369,11 +376,12 @@ class OperationList:
         return new_node
 
     def replace_module(self, nn_mod: nn.Module, *args, **kwargs):
-        if isinstance(nn_mod, fx.GraphModule):
+        if isinstance(nn_mod, (nn.Module, fx.GraphModule)):
             assert len(self.op_lst) == 1
             self.gm.add_module(node.target + "_opt", nn_mod)
             node.target = node.target + "_opt"
             return node
+        node = self.op_lst[0]
         if len(kwargs) == 0 and isinstance(node, fx.Node) and node.op == "call_module":
             init_arg_names = list(inspect.signature(nn_mod.__init__).parameters)[1:]
             init_kwargs = {}
@@ -387,7 +395,7 @@ class OperationList:
         try:  # try to generate fx.GraphModule
             instance = trace(instance)
         except:
-            warnings.warn(f"Cannot trace module {nn_mod.__class__.__name__}")
+            warnings.warn(f"Cannot trace module {instance.__class__.__name__}")
         if len(self.op_lst) == 1:
             _, node = self.op_lst[0]
             self.gm.add_module(name, instance)

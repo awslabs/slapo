@@ -42,6 +42,7 @@ def model_schedule(model, config):
         replace_and_shard_mlp,
         remove_cast,
         replace_attention,
+        checkpoint
     )
 
     print("Using model schedule to optimize")
@@ -94,6 +95,10 @@ def model_schedule(model, config):
     # Deal with embedding.
     shard_word_embedding(sch, vocab_size)
 
+    # Gradient checkpointing
+    if args.recompute_method is not None:
+        checkpoint(sch, config)
+
     model, _ = ms.build(sch)
     if args.fp16:
         model.half()
@@ -121,6 +126,7 @@ def model_provider(pre_process=True, post_process=True):
             super().__init__()
             orig_model = GPTNeoModel(config)
             self.gpt = model_schedule(orig_model, config)
+            print(self.gpt)
 
         def forward(
             self,

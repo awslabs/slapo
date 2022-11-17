@@ -393,3 +393,8 @@ def replace_and_shard_mlp(
             sch[f"{prefix}.{fc_names[0]}"].sync(backward=True)
             sch[f"{prefix}.{fc_names[1]}"].shard("weight", axis=axes[1])
             sch[f"{prefix}.{fc_names[1]}"].sync()
+
+
+def checkpoint(sch, config, path="h.N"):
+    for i in range(config.num_layers):
+        sch[path.replace("N", str(i))].checkpoint()

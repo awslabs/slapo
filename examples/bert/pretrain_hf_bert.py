@@ -38,7 +38,7 @@ def model_schedule(model, config):
     import ms
     import inspect
     import torch.distributed as dist
-    from bert_schedule import replace_qkv, shard_params, replace_xformer_attention
+    from bert_schedule import replace_qkv, shard_params, replace_xformer_attention, checkpoint
 
     print("Using model schedule to optimize")
     print("World size: {}, rank: {}".format(dist.get_world_size(), dist.get_rank()))
@@ -58,32 +58,24 @@ def model_schedule(model, config):
         print("Change model dtype to fp16")
         model.half()
 
+    sch = ms.create_schedule(
+        model,
+        world_size=world_size,
+        rank=rank,
+        tracer="huggingface",
+        concrete_args=concrete_args,
+    )
     if not disable_flash_attn:
-        sch = ms.create_schedule(
-            model,
-            None,
-            world_size=world_size,
-            rank=rank,
-            tracer="huggingface",
-            leaf_modules=["BertSelfAttention"],
-            concrete_args=concrete_args,
-        )
-
         replace_xformer_attention(sch, config)
         if args.world_size > 1:
             shard_params(sch, config, fused_qkv=None, prefix="")
     else:
-        sch = ms.create_schedule(
-            model,
-            world_size=world_size,
-            rank=rank,
-            tracer="huggingface",
-            concrete_args=concrete_args,
-        )
-
         replace_qkv(sch, config)
         if world_size > 1:
             shard_params(sch, config, fused_qkv=True)
+
+    if args.recompute_method is not None:
+        checkpoint(sch, config)
 
     model, _ = ms.build(sch)
     if args.fp16:
@@ -204,7 +196,9 @@ def forward_step(data_iterator, model):
 
     # Get the batch.
     timers("batch-generator").start()
-    tokens, types, sentence_order, loss_mask, lm_labels, padding_mask = get_batch(data_iterator)
+    tokens, types, sentence_order, loss_mask, lm_labels, padding_mask = get_batch(
+        data_iterator
+    )
     timers("batch-generator").stop()
 
     if not args.bert_binary_head:

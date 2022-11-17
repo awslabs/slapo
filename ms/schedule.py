@@ -365,7 +365,11 @@ class OperationList:
                 self.register_module("top", dict(exe.named_modules())[""])
 
             def forward(self, *args, **kwargs):
-                return checkpoint.checkpoint(exe, *args, **kwargs)
+                new_args = [arg for arg in args]
+                for value in kwargs.values():
+                    new_args += [value]
+                # Note: checkpoint cannot accept kwargs
+                return checkpoint.checkpoint(exe, *new_args)
 
         return self.replace(CheckPointWrapper)
 

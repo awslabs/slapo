@@ -90,6 +90,11 @@ def parse_args():
         help="An expression with `n` as GPU number to to calculate batch size. `math` can be used."
         "Default: 8 * int(math.log2(n) + 1)",
     )
+    common_parser.add_argument(
+        "--gradient-checkpoint",
+        action="store_true",
+        help="Gradient checkpointing. Default: False",
+    )
 
     parser = argparse.ArgumentParser()
     subprasers = parser.add_subparsers(dest="impl", help="Model implementation (hf or megatron)")
@@ -164,7 +169,7 @@ def compare(exps, fig_name):
             ax[i].set_yticklabels([])
 
     plt.title(fig_name)
-    file_name = fig_name.replace(" ", "-").replace("/", "-")
+    file_name = fig_name.replace(" ", "-").replace("/", "-").replace("|", "-")
     plt.savefig(f"{file_name}.png", format="png", dpi=200, bbox_inches="tight")
     print(f"Result saved to {file_name}.png")
     plt.show()
@@ -271,6 +276,8 @@ def run_megatron(exp, args):
 --seq-length {exp.seq_len} --max-position-embeddings {exp.seq_len} \
 --train-iters {exp.steps} {' '.join(data_args)} \
 --data-impl mmap --lr 0.00015 --log-interval 5"""
+    if exp.grad_ckpt:
+        cmd += " --checkpoint-activations"
     if exp.bf16:
         cmd += " --bf16"
     if exp.fp16:
@@ -318,10 +325,12 @@ def main():
                 "--no-masked-softmax-fusion",
             ]
         }
-        memo = "no_fuse"
-    elif hasattr(args, "disable_flash_attn") and args.disable_flash_attn:
+        memo += "|no_fuse"
+    if hasattr(args, "disable_flash_attn") and args.disable_flash_attn:
         kwargs = {"env": ["DISABLE_FLASH_ATTN=1"]}
-        memo = "no_flash_attn"
+        memo += "|no_flash_attn"
+    if args.gradient_checkpoint:
+        memo += "|grad_ckpt"
 
     results = []
     for n_gpu in n_gpus:
@@ -334,6 +343,7 @@ def main():
                     args.model,
                     batch_size,
                     args.seq_len,
+                    grad_ckpt=args.gradient_checkpoint,
                     fp16=args.dtype == "fp16",
                     gpus=gpus,
                     tensor_para=n_gpu,
@@ -345,8 +355,7 @@ def main():
         if results[-1].error_code == 2 and args.error_stop:
             print("Stop benchmarking due to error")
             break
-    canoncialized_memo = f"-{memo}" if memo else ""
-    compare(results, f"{title}{canoncialized_memo}")
+    compare(results, f"{title}{memo}")
 
 
 if __name__ == "__main__":

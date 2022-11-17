@@ -5,7 +5,6 @@ import torch.nn as nn
 import torch.distributed as dist
 import ms
 
-
 def replace_qkv(sch, num_layers, num_heads, hidden_size):
     class FusedQKV(nn.Module):
         def __init__(self, hidden_size, num_heads) -> None:
@@ -112,7 +111,7 @@ def replace_attention(sch, config, attn_path="h.N.attn.attention"):
 
     attn_pat = attn_path.replace("N", "\d+")
     ops = sch.find_module(lambda node: bool(re.search(attn_pat, node.target)))
-    for op in ops:
+    for _, op in enumerate(ops):
         new_op = sch[op].replace(GenericSelfAttention, **new_args)
         sch_xformer = sch[new_op].subschedule(
             leaf_modules=["MemoryEfficientAttention"],

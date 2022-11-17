@@ -16,6 +16,7 @@ from .env import setup
 from .trace import trace
 from .utils import _parent_name, _get_unique_module_name
 
+COMM_CUDA_STREAM = torch.cuda.Stream()
 
 class Pattern(ABC):
     def __init__(self):
@@ -280,7 +281,11 @@ class OperationList:
         else:
             raise RuntimeError("Mode {} is not supported".format())
 
-    def sync(self, axis: int = 1, backward=False):
+    def sync(self, backward=False, comm_overlap=False, blocking=False):
+        """Communication overlapping requires users to make sure the correctness.
+        Specifically, the blocking=True has to be specified in the right place against
+        the data dependency; otherwise the result will be incorrect.
+        """
         assert len(self.op_lst) == 1
         node = self.op_lst[0]
         mod = self.named_modules[node.target]
@@ -296,7 +301,16 @@ class OperationList:
         else:
 
             def hook_func(_module, _input, output):
+                stream_ctx = None
+                if comm_overlap:
+                    COMM_CUDA_STREAM.wait_stream(torch.cuda.default_stream())
+                    stream_ctx = torch.cuda.stream(COMM_CUDA_STREAM)
+                    stream_ctx.__enter__()
                 dist.all_reduce(output[0].contiguous(), op=dist.ReduceOp.SUM)
+                if comm_overlap:
+                    stream_ctx.__exit__(None, None, None)
+                    if blocking:
+                        COMM_CUDA_STREAM.synchronize()
 
             mod.register_full_backward_hook(hook_func)
 
@@ -382,9 +396,7 @@ class OperationList:
                 new_node = self.gm.graph.call_module(name, node.args, node.kwargs)
             with self.gm.graph.inserting_after(new_node):
                 for i, sublst in enumerate(self.op_lst):
-                    getitem = self.gm.graph.call_function(
-                        operator.getitem, (new_node, i)
-                    )
+                    getitem = self.gm.graph.call_function(operator.getitem, (new_node, i))
                     sublst = [sublst] if not isinstance(sublst, List) else sublst
                     for node in reversed(sublst):
                         # FIXME: hardcoded
@@ -415,9 +427,7 @@ def create_schedule(
     rank: int = 0,
     **kwargs: Dict[str, Any],
 ):
-    return Schedule(
-        model, optimizer=optimizer, world_size=world_size, rank=rank, **kwargs
-    )
+    return Schedule(model, optimizer=optimizer, world_size=world_size, rank=rank, **kwargs)
 
 
 def generate_pipeline_partition(sch):

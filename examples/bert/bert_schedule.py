@@ -4,7 +4,6 @@ import torch.fx as fx
 import torch.distributed as dist
 import ms
 
-
 def replace_layernorm(sch):
     print("Replace LayerNorm with FusedLayerNorm")
     from apex.normalization.fused_layer_norm import FusedLayerNorm
@@ -196,9 +195,9 @@ def shard_params(sch, config, fused_qkv=False, prefix=""):
         sch[prefix+"encoder.layer.{}.intermediate.dense".format(i)].sync(backward=True)
 
         # Attention
-        if fused_qkv == None: # Done sharding in previous opt
+        if fused_qkv is None: # Done sharding in previous opt
             pass
-        elif fused_qkv == False:
+        elif not fused_qkv:
             sch[prefix+"encoder.layer.{}.attention.self.query".format(i)].shard("weight", axis=0)
             sch[prefix+"encoder.layer.{}.attention.self.key".format(i)].shard("weight", axis=0)
             sch[prefix+"encoder.layer.{}.attention.self.value".format(i)].shard("weight", axis=0)

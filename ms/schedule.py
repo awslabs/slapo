@@ -392,10 +392,7 @@ class OperationList:
             instance = nn_mod(*args, **kwargs)
         name = instance._get_name().split(".")[-1]
         name = _get_unique_module_name(self.gm, name)
-        try:  # try to generate fx.GraphModule
-            instance = trace(instance)
-        except:
-            warnings.warn(f"Cannot trace module {instance.__class__.__name__}")
+        instance = trace(instance)
         if len(self.op_lst) == 1:
             _, node = self.op_lst[0]
             self.gm.add_module(name, instance)

@@ -114,14 +114,23 @@ def trace_submodule(root: nn.Module, tracer_class, **kwargs):
         else:
             leaf_modules.append(key)
     tracer = tracer_class(leaf_modules=leaf_modules)
+    is_tracing_failed = False
     if tracer.name == "huggingface":
         concrete_args, dummy_inputs = generate_hf_tracer_inputs(root, kwargs)
-        root_graph = tracer.trace(
-            root, concrete_args=concrete_args, dummy_inputs=dummy_inputs
-        )
+        try:
+            root_graph = tracer.trace(
+                root, concrete_args=concrete_args, dummy_inputs=dummy_inputs
+            )
+        except:
+            warnings.warn(f"Cannot trace module {root.__class__.__name__}")
+            is_tracing_failed = True
     else:
         concrete_args = kwargs.get("concrete_args", {})
-        root_graph = tracer.trace(root, concrete_args=concrete_args)
+        try:
+            root_graph = tracer.trace(root, concrete_args=concrete_args)
+        except:
+            warnings.warn(f"Cannot trace module {root.__class__.__name__}")
+            is_tracing_failed = True
     # trace submodules
     submods = {}
     for name, submod in named_children.items():
@@ -144,14 +153,17 @@ def trace_submodule(root: nn.Module, tracer_class, **kwargs):
             else:
                 gm_submod = trace_submodule(submod, tracer_class, **kwargs)
                 submods[name] = gm_submod
-    if tracer.name == "huggingface":
-        root_graph = fix_hf_module(root, root_graph, submods)
-    final_gm = fx.GraphModule(submods, root_graph)
-    # remove redundant code
-    final_gm.graph.eliminate_dead_code()
-    final_gm.delete_all_unused_submodules()
-    final_gm.graph.lint()
-    final_gm.recompile()
+    if not is_tracing_failed:
+        if tracer.name == "huggingface":
+            root_graph = fix_hf_module(root, root_graph, submods)
+        final_gm = fx.GraphModule(submods, root_graph)
+        # remove redundant code
+        final_gm.graph.eliminate_dead_code()
+        final_gm.delete_all_unused_submodules()
+        final_gm.graph.lint()
+        final_gm.recompile()
+    else:
+        final_gm = root
     return final_gm
 
 

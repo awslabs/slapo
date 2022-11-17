@@ -1,5 +1,4 @@
 import time
-import inspect
 from transformers import BertLMHeadModel, AutoConfig
 import numpy as np
 import torch
@@ -12,32 +11,20 @@ bert = BertLMHeadModel(bert_config)
 optimizer = torch.optim.AdamW(bert.parameters(), lr=0.001)
 bert.half()
 
-input_names = list(bert.dummy_inputs.keys())
-input_names += ["attention_mask", "labels"]
-sig = inspect.signature(bert.forward)
-concrete_args = {
-    p.name: p.default for p in sig.parameters.values() if p.name not in input_names
-}
-
 sch = ms.create_schedule(
     bert,
     optimizer,
-    tracer="huggingface",
-    leaf_modules=["BertSelfAttention"],
-    concrete_args=concrete_args,
+    tracer="huggingface"
 )
 replace_xformer_attention(sch, bert_config)
 
-# sch = ms.create_schedule(
-#     bert, optimizer, tracer="huggingface", concrete_args=concrete_args
-# )
-# # replace_layernorm(sch)
-# # replace_gelu(sch)
+# replace_layernorm(sch)
+# replace_gelu(sch)
 # replace_qkv(sch, bert_config)
-# print(gm.graph)
 
 device = "cuda:0"
 model, optimizer = ms.build(sch)
+print(model)
 model.half()
 model.to(device)
 

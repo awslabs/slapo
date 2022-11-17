@@ -10,6 +10,19 @@ from torch.testing._internal.distributed._shard.sharded_tensor._test_ops_common 
 from ms.utils import report_memory
 
 
+# class FusedOp(nn.Module):
+#     def __init__(self, dim: int = 1024):
+#         super().__init__()
+#         intermediate_dim = dim * 2
+#         self.linear = nn.Linear(dim, intermediate_dim)
+#         self.relu = nn.ReLU()
+
+#     def forward(self, x):
+#         x = self.linear(x)
+#         x = self.relu(x)
+#         return x
+
+
 class MLP(nn.Module):
     def __init__(self, dim: int = 1024):
         super().__init__()
@@ -31,7 +44,7 @@ class Top(nn.Module):
         self.mlp = MLP()
 
     def forward(self, x):
-        return self.mlp(x).mean()
+        return self.mlp(x)
 
 
 def _weight_override(module_dst, module_src):
@@ -55,7 +68,7 @@ def train(rank, args):
     optimizer = torch.optim.SGD(model.parameters(), lr=0.002)
 
     # Create a default schedule
-    sch = ms.create_schedule(model, optimizer, args.world_size, rank, leaf_modules=["MLP"])
+    sch = ms.create_schedule(model, optimizer, args.world_size, rank)
 
     # Get sub-modules
     # mod = sch.modules
@@ -86,16 +99,12 @@ def train(rank, args):
     if args.deepspeed:
         ds_config_dict = {
             "train_micro_batch_size_per_gpu": 1,
-            "optimizer": {
-                "type": "AdamW",
-                "params": {
-                    "lr": 0.0001
-                }
-            },
+            "optimizer": {"type": "AdamW", "params": {"lr": 0.0001}},
         }
         import deepspeed
         import deepspeed.pipe as pipe
         from deepspeed.utils import RepeatingLoader
+
         # init deepspeed inference engine
         deepspeed.init_distributed(distributed_port=8898)
         # pmodel = pipe.PipelineModule([named_modules["submod_0"], named_modules["submod_1"]], num_stages=2)
@@ -128,15 +137,13 @@ def train(rank, args):
         local_inp = torch.rand((2048, 1024), requires_grad=True).cuda(rank)
         opt_inp = local_inp.detach().clone()
         opt_inp.requires_grad = True
-        print(local_inp)
-        print(opt_inp)
         local_model.cuda(rank)
         output = local_model(local_inp)
         opt_output = opt_model(opt_inp)
         assert torch.allclose(output, opt_output, atol=1e-3, rtol=1e-6)
         print("Pass fw!")
-        output.backward()
-        opt_output.backward()
+        output.mean().backward()
+        opt_output.mean().backward()
         # print(local_inp.grad)
         # print(opt_inp.grad)
         # assert torch.allclose(local_inp.grad, opt_inp.grad)
@@ -168,7 +175,9 @@ if __name__ == "__main__":
         "--checkpoint", action="store_true", help="Enable gradient checkpointing"
     )
     parser.add_argument(
-        "--deepspeed", action="store_true", help="Use deepspeed for pipeline parallelism"
+        "--deepspeed",
+        action="store_true",
+        help="Use deepspeed for pipeline parallelism",
     )
     args = parser.parse_args()
     # The main entry point is called directly without using subprocess

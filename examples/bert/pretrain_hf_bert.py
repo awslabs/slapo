@@ -112,6 +112,7 @@ def model_provider(pre_process=True, post_process=True):
             self.bert = model_schedule(
                 BertModel(config, add_pooling_layer=add_pooling_layer), config
             )
+            print(self.bert)
             init_method = init_method_normal(args.init_method_std)
             self.binary_head = torch.nn.Linear(args.hidden_size, 2)
             self.lm_head = BertLMHead(

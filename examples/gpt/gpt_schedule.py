@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.distributed as dist
 import ms
 
+
 def replace_qkv(sch, num_layers, num_heads, hidden_size):
     class FusedQKV(nn.Module):
         def __init__(self, hidden_size, num_heads) -> None:
@@ -43,14 +44,13 @@ def replace_qkv(sch, num_layers, num_heads, hidden_size):
             x = x.view(new_x_shape)
             return x.permute(0, 2, 1, 3)
 
-        def starting_point(self, node):
-            if node.op != "call_module":
-                return False
-            name = node.target
-            if f"h.{self.layer_num}." in name and "attention" in name:
-                if "k_proj" in name or "q_proj" in name or "v_proj" in name:
-                    return True
-            return False
+        def starting_point(self, parent_name, node):
+            return (
+                node.op == "call_module"
+                and f"h.{self.layer_num}." in parent_name
+                and "attention" in parent_name
+                and any(t in node.target for t in ["k_proj", "q_proj", "v_proj"])
+            )
 
     cnt = 0
     for i in range(num_layers):
@@ -94,9 +94,6 @@ def replace_attention(sch, config, attn_path="h.N.attn.attention"):
 
         return attn_pdrop, resid_pdrop
 
-    # Need to remove useless code first. TODO: Apply this pass implicitly.
-    sch.gm.graph.eliminate_dead_code()
-
     # Generate arguments for xformer attention.
     attn_pdrop, resid_pdrop = find_dropout_prob(config)
     new_args = {
@@ -110,10 +107,11 @@ def replace_attention(sch, config, attn_path="h.N.attn.attention"):
     }
 
     attn_pat = attn_path.replace("N", "\d+")
-    ops = sch.find_module(lambda node: bool(re.search(attn_pat, node.target)))
-    for _, op in enumerate(ops):
+    ops = sch.find_module(lambda name: bool(re.search(attn_pat, name)) and "attention." not in name)
+    for i, op in enumerate(ops):
+        parent_name = op[0]
         new_op = sch[op].replace(GenericSelfAttention, **new_args)
-        sch_xformer = sch[new_op].subschedule(
+        sch_xformer = sch[f"{parent_name}.GenericSelfAttention_0"].subschedule(
             leaf_modules=["MemoryEfficientAttention"],
             concrete_args={
                 "layer_past": None,
@@ -129,10 +127,16 @@ def replace_attention(sch, config, attn_path="h.N.attn.attention"):
                 self.hidden_size = hidden_size
                 self.num_heads = num_heads
                 self.head_size = hidden_size // num_heads
-                self.fused_linear = nn.Linear(hidden_size, self.num_heads * self.head_size * 3)
+                self.fused_linear = nn.Linear(
+                    hidden_size, self.num_heads * self.head_size * 3
+                )
 
             def reshape_for_scores(self, x):
-                new_x_shape = x.size()[:-1] + (self.num_heads // sch.world_size, self.head_size, 3)
+                new_x_shape = x.size()[:-1] + (
+                    self.num_heads // sch.world_size,
+                    self.head_size,
+                    3,
+                )
                 x = x.view(new_x_shape)
                 return x.contiguous()
 
@@ -155,25 +159,24 @@ def replace_attention(sch, config, attn_path="h.N.attn.attention"):
                 x = x.view(new_x_shape)
                 return x
 
-            def starting_point(self, node):
-                if node.op != "call_module":
-                    return False
-                name = node.target
-                return "query" in name or "key" in name or "value" in name
+            def starting_point(self, parent_name, node):
+                return node.op == "call_module" and any(
+                    t in node.target for t in ["query", "key", "value"]
+                )
 
         op_lst = sch_xformer.find(QKVPattern())
         assert len(op_lst) != 0
-        sch_xformer[op_lst].replace(FusedQKV, hidden_size=hidden_size, num_heads=num_heads)
+        sch_xformer[op_lst].replace(
+            FusedQKV, hidden_size=hidden_size, num_heads=num_heads
+        )
         if sch.world_size > 1:
             sch_fusedqkv = sch_xformer["FusedQKV_0"].subschedule()
             sch_fusedqkv["fused_linear"].shard("weight", axis=0)
             sch_fusedqkv["fused_linear"].shard("bias", axis=0)
             sch_fusedqkv["fused_linear"].sync(backward=True)
-            sch_xformer["FusedQKV_0"].compose(sch_fusedqkv)
             sch_xformer["out_proj"].shard("weight", axis=1)
             sch_xformer["out_proj"].sync()
 
-        sch[new_op].compose(sch_xformer)
     print(f"Replace {len(ops)} attention patterns")
 
 
@@ -206,15 +209,27 @@ def replace_softmax(sch):
             super().__init__()
 
         @staticmethod
-        def func(attn_weights: torch.Tensor, causal_mask: torch.Tensor, attention_mask: torch.Tensor) -> torch.Tensor:
+        def func(
+            attn_weights: torch.Tensor,
+            causal_mask: torch.Tensor,
+            attention_mask: torch.Tensor,
+        ) -> torch.Tensor:
             mask_value = torch.finfo(attn_weights.dtype).min
-            mask_value = torch.tensor(mask_value, dtype=attn_weights.dtype).to(attn_weights.device)
+            mask_value = torch.tensor(mask_value, dtype=attn_weights.dtype).to(
+                attn_weights.device
+            )
             attn_weights = torch.where(causal_mask, attn_weights, mask_value)
             attn_weights = attn_weights + attention_mask
             return nn.functional.softmax(attn_weights)
 
         def starting_point(self, node):
-            return node.op == "call_function" and node.target == operator.getitem and node.args[0].op == "get_attr" and "h." in node.args[0].target and ".attn.attention.bias" in node.args[0].target
+            return (
+                node.op == "call_function"
+                and node.target == operator.getitem
+                and node.args[0].op == "get_attr"
+                and "h." in node.args[0].target
+                and ".attn.attention.bias" in node.args[0].target
+            )
 
     config = {
         "input_in_fp16": True,
@@ -238,8 +253,7 @@ def remove_cast(sch):
     HF and Megatron GPT-2 behavior.
     """
     ops = sch.find_method(
-        lambda node: node.op == "call_method"
-        and node.target == "to"
+        lambda node: node.target == "to"
         and len(node.args) == 2
         and node.args[1] == torch.float32
     )
@@ -292,8 +306,7 @@ def shard_qkv(
         import operator
 
         ops = sch.find_method(
-            lambda node: node.op == "call_method"
-            and node.target == "view"
+            lambda node: node.target == "view"
             and len(node.args) == 2
             and node.args[0].target == "contiguous"
             and isinstance(node.args[1], torch.fx.Node)
@@ -311,18 +324,10 @@ def shard_qkv(
     axes = [1, 0] if transpose_weights else [0, 1]
     for i in range(num_layers):
         prefix = path.replace("N", str(i))
-        # TODO: Implicitly call create_schedule and replace.
-        sch_fusedqkv = ms.create_schedule(
-            sch.get_module(f"{prefix}.{qkv_name}"),
-            world_size=sch.world_size,
-            rank=sch.rank,
-            tracer="pytorch",
-        )
+        sch_fusedqkv = sch[f"{prefix}.{qkv_name}"].subschedule()
         sch_fusedqkv["fused_linear"].shard("weight", axis=axes[0])
         sch_fusedqkv["fused_linear"].shard("bias", axis=0)
         sch_fusedqkv["fused_linear"].sync(backward=True)
-        opt_fusedqkv, _ = ms.build(sch_fusedqkv)
-        sch[f"{prefix}.{qkv_name}"].replace(opt_fusedqkv)
 
         sch[f"{prefix}.{out_proj_name}"].shard("weight", axis=axes[1])
         sch[f"{prefix}.{out_proj_name}"].sync()
@@ -334,9 +339,6 @@ def replace_and_shard_mlp(
 ):
     from ms.op import FusedBiasAct
 
-    # Need to remove useless code first. TODO: Apply this pass implicitly.
-    sch.gm.graph.eliminate_dead_code()
-
     act = config.activation_function
     if FusedBiasAct.check_act_type(act):
 
@@ -346,7 +348,9 @@ def replace_and_shard_mlp(
             def __init__(self, hidden_size, intermediate_size, resid_pdrop):
                 super().__init__()
                 self.fc_in = nn.Linear(hidden_size, intermediate_size, bias=False)
-                self.act = FusedBiasAct(intermediate_size, act=act, prev_weight=self.fc_in.weight)
+                self.act = FusedBiasAct(
+                    intermediate_size, act=act, prev_weight=self.fc_in.weight
+                )
                 self.fc_out = nn.Linear(intermediate_size, hidden_size)
                 self.dropout = nn.Dropout(resid_pdrop)
 
@@ -369,17 +373,17 @@ def replace_and_shard_mlp(
         }
 
         path = path.replace("N", "\d+")
-        ops = sch.find_module(lambda node: bool(re.search(path, node.target)))
+        ops = sch.find_module(lambda name: bool(re.search(path, name)) and "mlp." not in name)
         for op in ops:
+            parent_name = op[0]
             new_op = sch[op].replace(FusedMLP, **new_args)
-            sch_mlp = sch[new_op].subschedule(leaf_modules=["FusedBiasAct"])
+            sch_mlp = sch[f"{parent_name}.FusedMLP_0"].subschedule(leaf_modules=["FusedBiasAct"])
             if sch.world_size > 1:
                 sch_mlp["fc_in"].shard("weight", axis=0)
                 sch_mlp["act"].shard("bias", axis=0)
                 sch_mlp["fc_in"].sync(backward=True)
                 sch_mlp["fc_out"].shard("weight", axis=1)
                 sch_mlp["fc_out"].sync()
-            sch[new_op].compose(sch_mlp)
     elif sch.world_size > 1:
         axes = [1, 0] if transpose_weights else [0, 1]
         for i in range(config.num_layers):

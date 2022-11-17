@@ -113,6 +113,7 @@ def model_provider(pre_process=True, post_process=True):
     print_rank_0(f'Building HF {model_name} ...')
     config = AutoConfig.from_pretrained(model_name)
     config.vocab_size = args.padded_vocab_size
+    config.use_cache = False
     print(config)
     
     class GPTWithLMHead(torch.nn.Module):

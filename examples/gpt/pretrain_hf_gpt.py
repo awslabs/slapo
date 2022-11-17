@@ -52,7 +52,7 @@ def model_schedule(model, config):
     args = get_args()
     disable_flash_attn = bool(int(os.environ.get("DISABLE_FLASH_ATTN", "0")))
     input_names = list(model.dummy_inputs.keys())
-    input_names += ["attention_mask", "position_ids"]
+    input_names += ["attention_mask", "position_ids", "token_type_ids"]
     sig = inspect.signature(model.forward)
     concrete_args = {p.name: p.default for p in sig.parameters.values() if p.name not in input_names}
 

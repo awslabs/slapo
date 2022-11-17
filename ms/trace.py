@@ -177,24 +177,13 @@ def trace(model: nn.Module, **kwargs: Dict[str, Any]):
             else:
                 concrete_args = kwargs["concrete_args"]
             dummy_inputs = {}
-            if "token_type_ids" not in concrete_args:  # placeholder
-                dummy_inputs["input_ids"] = torch.zeros(
-                    batch_size, seq_length, dtype=torch.long
-                )
-                dummy_inputs["position_ids"] = torch.zeros((1,))
-                dummy_inputs["attention_mask"] = torch.ones(batch_size, seq_length)
-                dummy_inputs["labels"] = torch.zeros(
-                    batch_size, seq_length, dtype=torch.long
-                )
-                dummy_inputs["token_type_ids"] = torch.zeros((1,))
-            else:
-                dummy_inputs["input_ids"] = torch.zeros(
-                    batch_size, seq_length, dtype=torch.long
-                )
-                dummy_inputs["attention_mask"] = torch.ones(batch_size, seq_length)
-                dummy_inputs["labels"] = torch.zeros(
-                    batch_size, seq_length, dtype=torch.long
-                )
+            dummy_inputs["input_ids"] = torch.zeros(
+                batch_size, seq_length, dtype=torch.long
+            )
+            dummy_inputs["attention_mask"] = torch.ones(batch_size, seq_length)
+            dummy_inputs["labels"] = torch.zeros(
+                batch_size, seq_length, dtype=torch.long
+            )
 
             class TracerWrapper(HFTracer):
                 def __init__(self, **config: Dict[str, Any]) -> None:

@@ -462,8 +462,20 @@ def create_schedule(
 
 
 def generate_pipeline_partition(sch):
+    # check validity, should make sure all the partition points are at the same level
+    mod_has_partition_point = None
+    for name, mod in sch.gm.named_modules():
+        if isinstance(mod, fx.GraphModule):
+            for node in mod.graph.nodes:
+                if "partition" in node.meta:
+                    if mod_has_partition_point is None:
+                        mod_has_partition_point = mod
+                        break
+                    else:
+                        raise RuntimeError("Partition points are not at the same level")
+    assert mod_has_partition_point is not None
     partition_cnt = 0
-    for node in sch.gm.graph.nodes:
+    for node in mod_has_partition_point.graph.nodes:
         if "partition" not in node.meta:
             node.meta["partition"] = partition_cnt
         else:
@@ -474,9 +486,9 @@ def generate_pipeline_partition(sch):
         def mod_partition(node: fx.Node):
             return node.meta["partition"]
 
-        return split_module(sch.gm, None, mod_partition)
+        return split_module(mod_has_partition_point, None, mod_partition)
     else:
-        return sch.gm
+        return mod_has_partition_point
 
 
 def build(sch: Schedule):

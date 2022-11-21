@@ -62,16 +62,12 @@ def train(rank, args):
         "input_ids": torch.zeros(
             bs, seq_length, dtype=torch.long, device=device
         ).random_(bert.config.vocab_size),
-        "attention_mask": torch.ones(bs, seq_length, device=device),
+        "attention_mask": torch.ones(bs, seq_length, dtype=torch.long, device=device),
+        "token_type_ids": torch.ones(bs, seq_length, dtype=torch.long, device=device),
         "labels": torch.zeros(bs, seq_length, dtype=torch.long, device=device).random_(
             bert.config.vocab_size
         ),
     }
-    bert_input_dict["token_type_ids"] = torch.tensor(
-        [0 if i <= 100 else 1 for i in range(len(bert_input_dict["input_ids"]))],
-        dtype=torch.long,
-        device=device,
-    )
 
     fw_time = []
     bw_time = []
@@ -81,8 +77,8 @@ def train(rank, args):
         output = model(
             bert_input_dict["input_ids"].cuda(rank),
             bert_input_dict["attention_mask"].cuda(rank),
-            bert_input_dict["labels"].cuda(rank),
             bert_input_dict["token_type_ids"].cuda(rank),
+            bert_input_dict["labels"].cuda(rank),
         )
         mid_time = time.time()
         output["logits"].mean().backward()

@@ -62,57 +62,19 @@ def replace_qkv(sch, num_layers, num_heads, hidden_size):
 
 
 def replace_attention(sch, config, attn_path="h.N.attn.attention"):
-    # https://github.com/huggingface/transformers/blob/344e2664d450eaa9167ce31f7d1fc0f0fe3b10af/src/transformers/models/bert/modeling_bert.py#L243
-    # https://github.com/comaniac/epoi/blob/main/epoi/ops/xformers_attn.py#L45
-    from ms.op import GenericSelfAttention
+    from epoi.inject.policy.gpt import InjectHFGPTAttentionPolicy
+    from epoi.ops.xformers_attn import GenericSelfAttention
 
-    def find_dropout_prob(config_or_mod):
-        """A helper function to find the dropout probability
-        of GPT models. config_or_mod could either be a model config, or an attention module.
-        This function supports GPT-2, GPT-Neo and GPT-J implementations.
-        """
-        if hasattr(config_or_mod, "attention_dropout"):
-            attn_pdrop = config_or_mod.attention_dropout
-        elif hasattr(config_or_mod, "attn_pdrop"):
-            attn_pdrop = config_or_mod.attn_pdrop
-        elif hasattr(config_or_mod, "attn_dropout"):
-            attn_pdrop = config_or_mod.attn_dropout
-        else:
-            raise ValueError("Cannot find attention dropout probability")
-
-        if hasattr(config_or_mod, "resid_pdrop"):
-            resid_pdrop = config_or_mod.resid_pdrop
-        elif hasattr(config_or_mod, "resid_dropout"):
-            resid_pdrop = config_or_mod.resid_dropout
-        elif hasattr(config_or_mod, "resid_dropout"):
-            resid_pdrop = config_or_mod.resid_dropout
-        else:
-            raise ValueError("Cannot find resid_pdrop or resid_dropout in config.")
-
-        attn_pdrop = attn_pdrop.p if hasattr(attn_pdrop, "p") else attn_pdrop
-        resid_pdrop = resid_pdrop.p if hasattr(resid_pdrop, "p") else resid_pdrop
-
-        return attn_pdrop, resid_pdrop
-
-    # Generate arguments for xformer attention.
-    attn_pdrop, resid_pdrop = find_dropout_prob(config)
-    new_args = {
-        "hidden_size": config.hidden_size,
-        "num_attention_heads": config.num_attention_heads,
-        "is_decoder": True,
-        "attn_pdrop": attn_pdrop,
-        "resid_pdrop": resid_pdrop,
-        "attn_op_name": "cutlass",
-        "fused_qkv": False,  # Fuse later.
-    }
-
+    kwargs = InjectHFGPTAttentionPolicy.gen_init_config_from_config(config)
     attn_pat = attn_path.replace("N", "\d+")
-    ops = sch.find_module(lambda name: bool(re.search(attn_pat, name)) and "attention." not in name)
-    for i, op in enumerate(ops):
+    ops = sch.find_module(
+        lambda name: bool(re.search(attn_pat, name)) and "attention." not in name
+    )
+    for op in ops:
         parent_name = op[0]
-        new_op = sch[op].replace(GenericSelfAttention, **new_args)
+        sch[op].replace(GenericSelfAttention, **kwargs)
         sch_xformer = sch[f"{parent_name}.GenericSelfAttention_0"].subschedule(
-            leaf_modules=["MemoryEfficientAttention"],
+            leaf_modules=["MemoryEfficientAttentionOp"],
             concrete_args={
                 "layer_past": None,
                 "use_cache": False,
@@ -159,7 +121,7 @@ def replace_attention(sch, config, attn_path="h.N.attn.attention"):
                 x = x.view(new_x_shape)
                 return x
 
-            def starting_point(self, parent_name, node):
+            def starting_point(self, _, node):
                 return node.op == "call_module" and any(
                     t in node.target for t in ["query", "key", "value"]
                 )
@@ -170,10 +132,9 @@ def replace_attention(sch, config, attn_path="h.N.attn.attention"):
             FusedQKV, hidden_size=hidden_size, num_heads=num_heads
         )
         if sch.world_size > 1:
-            sch_fusedqkv = sch_xformer["FusedQKV_0"].subschedule()
-            sch_fusedqkv["fused_linear"].shard("weight", axis=0)
-            sch_fusedqkv["fused_linear"].shard("bias", axis=0)
-            sch_fusedqkv["fused_linear"].sync(backward=True)
+            sch_xformer["FusedQKV_0.fused_linear"].shard("weight", axis=0)
+            sch_xformer["FusedQKV_0.fused_linear"].shard("bias", axis=0)
+            sch_xformer["FusedQKV_0.fused_linear"].sync(backward=True)
             sch_xformer["out_proj"].shard("weight", axis=1)
             sch_xformer["out_proj"].sync()
 
@@ -337,47 +298,25 @@ def shard_qkv(
 def replace_and_shard_mlp(
     sch, config, path="h.N.mlp", fc_names=["c_fc", "c_proj"], transpose_weights=False
 ):
-    from ms.op import FusedBiasAct
+    from epoi.inject.policy.gpt import InjectHFGPTMLPPolicy
 
-    act = config.activation_function
-    if FusedBiasAct.check_act_type(act):
-
-        class FusedMLP(nn.Module):
-            """A wrapper MLP to make use of fused bias+new_gelu."""
-
-            def __init__(self, hidden_size, intermediate_size, resid_pdrop):
-                super().__init__()
-                self.fc_in = nn.Linear(hidden_size, intermediate_size, bias=False)
-                self.act = FusedBiasAct(
-                    intermediate_size, act=act, prev_weight=self.fc_in.weight
-                )
-                self.fc_out = nn.Linear(intermediate_size, hidden_size)
-                self.dropout = nn.Dropout(resid_pdrop)
-
-            def forward(self, hidden_states):
-                hidden_states = self.fc_in(hidden_states)
-                hidden_states = self.act(hidden_states)
-                hidden_states = self.fc_out(hidden_states)
-                hidden_states = self.dropout(hidden_states)
-                return hidden_states
-
+    if config.activation_function in ["gelu", "gelu_new"]:
         inner_dim = (
             config.intermediate_size
             if config.intermediate_size is not None
             else 4 * config.hidden_size
         )
-        new_args = {
-            "hidden_size": config.hidden_size,
-            "intermediate_size": inner_dim,
-            "resid_pdrop": config.resid_dropout,
-        }
-
+        kwargs = InjectHFGPTMLPPolicy.gen_init_config_from_config(inner_dim, config)
         path = path.replace("N", "\d+")
-        ops = sch.find_module(lambda name: bool(re.search(path, name)) and "mlp." not in name)
+        ops = sch.find_module(
+            lambda name: bool(re.search(path, name)) and "mlp." not in name
+        )
         for op in ops:
             parent_name = op[0]
-            new_op = sch[op].replace(FusedMLP, **new_args)
-            sch_mlp = sch[f"{parent_name}.FusedMLP_0"].subschedule(leaf_modules=["FusedBiasAct"])
+            sch[op].replace(InjectHFGPTMLPPolicy.inject_module(), **kwargs)
+            sch_mlp = sch[f"{parent_name}.FusedMLP_0"].subschedule(
+                leaf_modules=["FusedBiasGELU", "FusedBiasNewGELU"]
+            )
             if sch.world_size > 1:
                 sch_mlp["fc_in"].shard("weight", axis=0)
                 sch_mlp["act"].shard("bias", axis=0)

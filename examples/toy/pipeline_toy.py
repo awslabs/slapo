@@ -9,6 +9,9 @@ from torch.testing._internal.distributed._shard.sharded_tensor._test_ops_common 
 )
 from ms.utils import report_memory
 
+import deepspeed
+from deepspeed.utils import RepeatingLoader
+
 
 class MLP(nn.Module):
     def __init__(self, dim: int = 1024):
@@ -49,6 +52,9 @@ def train(args):
     rank = args.local_rank
     print(f"Running basic MLP example on rank {rank}.")
 
+    print("Use deepspeed to initialize")
+    deepspeed.init_distributed(dist_backend="nccl")
+
     # === Model execution schedule ===
     model = Top()
     # local_model = Top()
@@ -62,32 +68,13 @@ def train(args):
     # Cannot be used with pipeline parallelism
 
     sch["mlp.activation"].partition()
-    opt_model, _ = ms.build(sch)
-    print(sch.gm.submod_0)
-    print(sch.gm.submod_1)
     ds_config_dict = {
         "train_batch_size": 1,
         "train_micro_batch_size_per_gpu": 1,
         "optimizer": {"type": "AdamW", "params": {"lr": 0.0001}},
     }
-    import deepspeed
-    import deepspeed.pipe as pipe
-    from deepspeed.utils import RepeatingLoader
-
-    # init deepspeed inference engine
-    # deepspeed.init_distributed(distributed_port=8898)
-    pmodel = pipe.PipelineModule(
-        [opt_model.submod_0, opt_model.submod_1],
-        num_stages=2,
-        partition_method="uniform",
-        loss_fn=torch.nn.CrossEntropyLoss(),
-    )
-    # pmodel = pipe.PipelineModule([model], num_stages=1)
-    ds_model, optimizer, _, _ = deepspeed.initialize(
-        args=args,
-        model=pmodel,
-        config=ds_config_dict,
-        model_parameters=[p for p in pmodel.parameters() if p.requires_grad],
+    ds_model, optimizer = ms.build(
+        sch, target="deepspeed", ds_config=ds_config_dict, loss_fn=nn.CrossEntropyLoss()
     )
     opt_inp = torch.rand((2048, 1024), requires_grad=True).cuda(rank)
     label = torch.zeros((1,)).cuda(rank)

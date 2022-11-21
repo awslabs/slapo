@@ -30,6 +30,7 @@ Please refer to [`examples/model-schedule-demo.ipynb`](examples/model-schedule-d
 | Kernel Injection | `s[op].replace(OldModule, NewModule)` |
 | Forward/Backward Hook | `s[op].hook("fw_pre", hook)` |
 | Gradient Checkpointing | `s[op].checkpoint()` |
+| Pipeline Partition | `s[op].partition()` |
 
 
 ## Datasets

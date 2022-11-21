@@ -11,12 +11,13 @@ from bert_schedule import (
     replace_xformer_attention,
     replace_qkv,
     shard_params,
-    checkpointing,
+    checkpoint,
 )
 from ms.utils import report_memory
-
+from ms.env import setup
 
 def train(rank, args):
+    setup(rank, args.world_size)
     # https://huggingface.co/bert-large-uncased/blob/main/config.json
     bert_config = AutoConfig.from_pretrained("bert-large-uncased")
     bert = BertLMHeadModel(bert_config)
@@ -55,20 +56,7 @@ def train(rank, args):
             leaf_modules=["BertLayer"],
             concrete_args=concrete_args,
         )
-        checkpointing(sch, bert_config, prefix="bert")
-
-    if args.pipeline:
-        print("Use pipeline parallelism")
-        sch = ms.create_schedule(
-            bert,
-            optimizer,
-            args.world_size,
-            rank,
-            tracer="huggingface",
-            leaf_modules=["BertLayer"],
-            concrete_args=concrete_args,
-        )
-        sch["bert.encoder.layer.12"].partition()
+        checkpoint(sch, bert_config, prefix="bert")
 
     report_memory(rank)
     device = "cuda:{}".format(rank)
@@ -126,9 +114,6 @@ if __name__ == "__main__":
     parser.add_argument("--iter_nums", type=int, default=10)
     parser.add_argument(
         "--checkpoint", action="store_true", help="Enable gradient checkpointing"
-    )
-    parser.add_argument(
-        "--pipeline", action="store_true", help="Enable pipeline parallelism"
     )
     args = parser.parse_args()
     # The main entry point is called directly without using subprocess

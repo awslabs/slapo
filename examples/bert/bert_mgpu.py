@@ -16,6 +16,7 @@ from bert_schedule import (
 from ms.utils import report_memory
 from ms.env import setup
 
+
 def train(rank, args):
     setup(rank, args.world_size)
     # https://huggingface.co/bert-large-uncased/blob/main/config.json
@@ -25,37 +26,27 @@ def train(rank, args):
     bert.half()
 
     input_names = list(bert.dummy_inputs.keys())
-    input_names += ["attention_mask", "labels"]
+    input_names += ["attention_mask", "token_type_ids"]
     sig = inspect.signature(bert.forward)
     concrete_args = {
         p.name: p.default for p in sig.parameters.values() if p.name not in input_names
     }
 
+    sch = ms.create_schedule(
+        bert,
+        optimizer,
+        args.world_size,
+        rank,
+        tracer="huggingface",
+        concrete_args=concrete_args,
+    )
     if not args.checkpoint:
-        sch = ms.create_schedule(
-            bert,
-            optimizer,
-            args.world_size,
-            rank,
-            tracer="huggingface",
-            concrete_args=concrete_args,
-        )
-
         replace_qkv(sch, bert_config)
         if args.world_size > 1:
             shard_params(sch, bert_config, fused_qkv=True, prefix="bert")
 
     else:
         print("Use gradient checkpoint")
-        sch = ms.create_schedule(
-            bert,
-            optimizer,
-            args.world_size,
-            rank,
-            tracer="huggingface",
-            leaf_modules=["BertLayer"],
-            concrete_args=concrete_args,
-        )
         checkpoint(sch, bert_config, prefix="bert")
 
     report_memory(rank)
@@ -63,7 +54,6 @@ def train(rank, args):
     model, optimizer = ms.build(sch)
     model.half()
     model.cuda()
-    print(model)
     report_memory(rank)
 
     bs = 8
@@ -72,11 +62,16 @@ def train(rank, args):
         "input_ids": torch.zeros(
             bs, seq_length, dtype=torch.long, device=device
         ).random_(bert.config.vocab_size),
+        "attention_mask": torch.ones(bs, seq_length, device=device),
         "labels": torch.zeros(bs, seq_length, dtype=torch.long, device=device).random_(
             bert.config.vocab_size
         ),
-        "attention_mask": torch.ones(bs, seq_length, device=device),
     }
+    bert_input_dict["token_type_ids"] = torch.tensor(
+        [0 if i <= 100 else 1 for i in range(len(bert_input_dict["input_ids"]))],
+        dtype=torch.long,
+        device=device,
+    )
 
     fw_time = []
     bw_time = []
@@ -87,6 +82,7 @@ def train(rank, args):
             bert_input_dict["input_ids"].cuda(rank),
             bert_input_dict["attention_mask"].cuda(rank),
             bert_input_dict["labels"].cuda(rank),
+            bert_input_dict["token_type_ids"].cuda(rank),
         )
         mid_time = time.time()
         output["logits"].mean().backward()

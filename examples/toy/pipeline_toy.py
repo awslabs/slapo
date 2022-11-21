@@ -51,57 +51,37 @@ def train(args):
 
     # === Model execution schedule ===
     model = Top()
-    local_model = Top()
-    _weight_override(local_model, model)
+    # local_model = Top()
+    # _weight_override(local_model, model)
     optimizer = torch.optim.SGD(model.parameters(), lr=0.002)
 
     # Create a default schedule
     sch = ms.create_schedule(model, optimizer, args.world_size, rank, deepspeed=True)
 
-    # Get sub-modules
-    # mod = sch.modules
-    # print(mod)
-
-    # Access a specific op.
-    # Each "forward" function is a "basic block" that includes a sequence of
-    # operators to be executed. It could be in torch.fx IR and should be in ANF.
-    # ops = sch.forward_ops
-    # print(ops)
-    # >>> [dense_1, activation, dense_2]
-
-    # Partition parameters (notice the weights are transposed!)
-    if sch.world_size > 1:
-        # column sharding for dense_1
-        sch["mlp.dense_1"].shard("weight", axis=0)
-        sch["mlp.dense_1"].shard("bias", axis=0)
-        # row sharding for dense_2
-        sch["mlp.dense_2"].shard("weight", axis=1)
-
-        # aggreate results
-        sch["mlp.dense_2"].sync()
-        sch["mlp.dense_1"].sync(backward=True)
+    # Partition parameters
+    # Cannot be used with pipeline parallelism
 
     sch["mlp.activation"].partition()
     opt_model, _ = ms.build(sch)
-    print(sch.gm)
+    print(sch.gm.submod_0)
+    print(sch.gm.submod_1)
     ds_config_dict = {
+        "train_batch_size": 1,
         "train_micro_batch_size_per_gpu": 1,
-        "optimizer": {
-            "type": "AdamW",
-            "params": {
-                "lr": 0.0001
-            }
-        },
+        "optimizer": {"type": "AdamW", "params": {"lr": 0.0001}},
     }
     import deepspeed
     import deepspeed.pipe as pipe
     from deepspeed.utils import RepeatingLoader
+
     # init deepspeed inference engine
     # deepspeed.init_distributed(distributed_port=8898)
-    named_modules = dict(opt_model.named_modules())
-    # os.environ["LOCAL_RANK"] = str(rank)
-    # pmodel = pipe.PipelineModule([named_modules["submod_0"], named_modules["submod_1"]], num_stages=2, partition_method='uniform')
-    pmodel = pipe.PipelineModule([model.mlp.dense_1, model.mlp.dense_2], num_stages=2, partition_method='uniform')
+    pmodel = pipe.PipelineModule(
+        [opt_model.submod_0, opt_model.submod_1],
+        num_stages=2,
+        partition_method="uniform",
+        loss_fn=torch.nn.CrossEntropyLoss(),
+    )
     # pmodel = pipe.PipelineModule([model], num_stages=1)
     ds_model, optimizer, _, _ = deepspeed.initialize(
         args=args,
@@ -110,13 +90,11 @@ def train(args):
         model_parameters=[p for p in pmodel.parameters() if p.requires_grad],
     )
     opt_inp = torch.rand((2048, 1024), requires_grad=True).cuda(rank)
-    if ds_model.is_first_stage() or ds_model.is_last_stage():
-        loader = RepeatingLoader([opt_inp])
-        data_iter = iter(loader)
-    else:
-        data_iter = None
+    label = torch.zeros((1,)).cuda(rank)
+    loader = RepeatingLoader([opt_inp, label])
+    data_iter = iter(loader)
 
-    baseline = ds_model.train_batch(data_iter=data_iter)
+    loss = ds_model.train_batch(data_iter=data_iter)
     print("Pass")
 
 

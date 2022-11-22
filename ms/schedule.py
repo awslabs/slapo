@@ -390,7 +390,7 @@ class OperationList:
             instance = nn_mod(*args, **kwargs)
         name = instance._get_name().split(".")[-1]
         name = _get_unique_module_name(self.gm, name)
-        instance = trace(instance)
+        instance = trace(instance, silent=True) # Silent trace for replacement.
         if len(self.op_lst) == 1:
             _, node = self.op_lst[0]
             self.gm.add_module(name, instance)

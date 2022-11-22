@@ -4,6 +4,7 @@ import torch.fx as fx
 import torch.distributed as dist
 import ms
 
+
 def replace_layernorm(sch):
     print("Replace LayerNorm with FusedLayerNorm")
     from apex.normalization.fused_layer_norm import FusedLayerNorm
@@ -13,38 +14,26 @@ def replace_layernorm(sch):
         sch[op].replace(FusedLayerNorm)
 
 
-def replace_gelu(sch):
-    # https://github.com/NVIDIA/Megatron-LM/blob/master/megatron/model/fused_bias_gelu.py
-    print("Replace GeLU with FusedBiasGeLU")
-    from ms.op import FusedBiasAct
-
-    raise RuntimeError("Not correct! Should fuse with previous linear bias!")
-    ops = sch.find_function(lambda node: "gelu" in str(node.target))
-    for op in ops:
-        sch[op].replace(FusedBiasAct, size=512, act="gelu")
-
-
 def replace_xformer_attention(sch, config):
     # https://github.com/huggingface/transformers/blob/344e2664d450eaa9167ce31f7d1fc0f0fe3b10af/src/transformers/models/bert/modeling_bert.py#L243
     # https://github.com/comaniac/epoi/blob/main/epoi/ops/xformers_attn.py#L45
     print("Replace HF BertSelfAttention with xformer Attention")
-    from ms.op import BertSelfAttentionXFormer
+    from epoi.inject.policy.bert import InjectHFBertSelfAttentionPolicy
+    from epoi.ops.xformers_attn import GenericSelfAttention
 
+    kwargs = InjectHFBertSelfAttentionPolicy.gen_init_config_from_config(config)
     ops = sch.find_module(
         lambda name: ".attention.self_m" in name and "self_m." not in name
     )
     for _, op in enumerate(ops):
-        new_op = sch[op].replace(BertSelfAttentionXFormer, config=config)
+        sch[op].replace(GenericSelfAttention, **kwargs)
 
         parent_name = op[0]
-        sch_xformer = sch[f"{parent_name}.BertSelfAttentionXFormer_0"].subschedule(
-            leaf_modules=["MemoryEfficientAttention"],
+        sch_xformer = sch[f"{parent_name}.GenericSelfAttention_0"].subschedule(
+            leaf_modules=["MemoryEfficientAttentionOp"],
             concrete_args={
-                "head_mask": None,
-                "encoder_hidden_states": None,
-                "encoder_attention_mask": None,
-                "past_key_value": None,
-                "output_attentions": None,
+                "layer_past": None,
+                "use_cache": False,
             },
         )
 
@@ -89,7 +78,7 @@ def replace_xformer_attention(sch, config):
                 x = x.view(new_x_shape)
                 return x
 
-            def starting_point(self, parent_name, node):
+            def starting_point(self, _, node):
                 return node.op == "call_module" and any(
                     t in node.target for t in ["query", "key", "value"]
                 )
@@ -178,6 +167,25 @@ def fix_number_of_heads(sch):
 
     for op in ops:
         sch[op].replace(new_view)
+
+    # EPOI attention module uses repeat to process attention mask to
+    # align xformer attention mask shape:
+    # (B, 1, 1, S) -repeat->  (B, H, S, S) -reshape-> (B x H, S, S),
+    # so we need to replace "repeat" wit the sharded H.
+    ops = sch.find_method(
+        lambda node: node.target == "repeat"
+        and len(node.args) == 5  # args[0] is self
+        and node.args[1] == 1
+        and node.args[-1] == 1
+    )
+
+    def new_repeat(tensor, *old_args):
+        assert len(old_args) == 4
+        new_args = (old_args[0],) + (old_args[1] // sch.world_size,) + old_args[2:]
+        return tensor.repeat(*new_args)
+
+    for op in ops:
+        sch[op].replace(new_repeat)
 
 
 def shard_params(sch, config, fused_qkv=False, prefix=""):

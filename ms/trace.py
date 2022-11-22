@@ -106,6 +106,7 @@ def trace_submodule(root: nn.Module, tracer_class, **kwargs):
     # generate top graph module
     named_children = dict(root.named_children())
     leaf_modules = kwargs.get("leaf_modules", [])
+    silent = kwargs.get("silent", False)
     for key, leaf_mod in named_children.items():
         if isinstance(leaf_mod, nn.ModuleList):
             leaf_modules += [
@@ -122,14 +123,16 @@ def trace_submodule(root: nn.Module, tracer_class, **kwargs):
                 root, concrete_args=concrete_args, dummy_inputs=dummy_inputs
             )
         except:
-            warnings.warn(f"Cannot trace module {root.__class__.__name__}")
+            if not silent:
+                warnings.warn(f"Cannot trace module {root.__class__.__name__}")
             is_tracing_failed = True
     else:
         concrete_args = kwargs.get("concrete_args", {})
         try:
             root_graph = tracer.trace(root, concrete_args=concrete_args)
         except:
-            warnings.warn(f"Cannot trace module {root.__class__.__name__}")
+            if not silent:
+                warnings.warn(f"Cannot trace module {root.__class__.__name__}")
             is_tracing_failed = True
     # trace submodules
     submods = {}
@@ -170,7 +173,9 @@ def trace_submodule(root: nn.Module, tracer_class, **kwargs):
 def trace(model: nn.Module, **kwargs: Dict[str, Any]):
     """Traces a model to a GraphModule."""
     tracer_cls_name = kwargs.get("tracer", "pytorch")
-    warnings.warn(f"Tracer: {tracer_cls_name} Model: {model.__class__.__name__}")
+    silent = kwargs.get("silent", False)
+    if not silent:
+        warnings.warn(f"Tracer: {tracer_cls_name} Model: {model.__class__.__name__}")
     if isinstance(tracer_cls_name, str):
         if tracer_cls_name == "huggingface":
             from transformers.utils.fx import HFTracer

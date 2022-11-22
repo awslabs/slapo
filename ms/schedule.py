@@ -493,13 +493,20 @@ def generate_pipeline_partition(sch):
                     self.mod = mod
                     self.last = last
 
-                def forward(self, inputs):
-                    if not isinstance(inputs, tuple):
-                        inputs = (inputs,)
-                    results = self.mod(*inputs)
-                    if not self.last and not isinstance(results, tuple):
-                        results = (results,)
-                    return results
+                def forward(self, *args, **kwargs):
+                    # unpack inputs
+                    if len(args) == 1 and isinstance(args[0], tuple):
+                        new_args = [arg for arg in args[0]]
+                    else:
+                        new_args = [arg for arg in args]
+                    for value in kwargs.values():
+                        new_args += [value]
+                    # forward pass
+                    outputs = self.mod(*new_args)
+                    # pack outputs
+                    if not self.last and not isinstance(outputs, tuple):
+                        outputs = (outputs,)
+                    return outputs
 
             res_partition.append(SubmodWrapper(partition, i == len(named_children) - 1))
         return res_partition
@@ -518,7 +525,7 @@ def build(sch: Schedule, target=None, **kwargs):
             sch.gm.__delattr__(name)
     opt_model = generate_pipeline_partition(sch)
     if target == "deepspeed":
-        assert "ds_config" in kwargs
+        assert "config" in kwargs
         assert "loss_fn" in kwargs
         import deepspeed
         import deepspeed.pipe as pipe
@@ -531,7 +538,7 @@ def build(sch: Schedule, target=None, **kwargs):
         )
         opt_model, optimizer, _, _ = deepspeed.initialize(
             model=pmodel,
-            config=kwargs["ds_config"],
+            config=kwargs["config"],
             model_parameters=[p for p in pmodel.parameters() if p.requires_grad],
         )
         sch.optimizer = optimizer

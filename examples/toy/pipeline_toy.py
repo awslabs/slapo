@@ -74,7 +74,7 @@ def train(args):
         "optimizer": {"type": "AdamW", "params": {"lr": 0.0001}},
     }
     ds_model, optimizer = ms.build(
-        sch, target="deepspeed", ds_config=ds_config_dict, loss_fn=nn.CrossEntropyLoss()
+        sch, target="deepspeed", config=ds_config_dict, loss_fn=nn.CrossEntropyLoss()
     )
     opt_inp = torch.rand((2048, 1024), requires_grad=True).cuda(rank)
     label = torch.zeros((1,)).cuda(rank)

@@ -14,13 +14,18 @@ class Exp:
     name: str  # Experiment name
     model: str  # huggingface model name
     batch_size: int  # batch size per GPU
-    seq_len: int = None  # input sequence length
+    seq_len: int  # input sequence length
+    seq_len_dec: int  # Decoder sequence length. Encoder-decoder model only.
 
     ## Improve speed / reduce memory
     bf16: bool = False  # Faster, less memory. Recommend if GPU supports
     fp16: bool = False  # Faster, less memory, but need to scale loos.
     optim: str = "adamw_hf"  # Optimization method
-    grad_ckpt: bool = False  # save memory with an extra forward
+    grad_ckpt: str = ""  # Empty means no checkpointing; otherwise:
+    # Megatron: "full" or "selective".
+    # HF w. schedule: a floating point indicating
+    # the checkpointing ratio. For example, 0.5 means
+    # to checkpoint a half of layers.
     grad_accum: int = 1  # accumulate gradients for better performance
     steps: int = 40  # number of parameter updates
 
@@ -41,23 +46,74 @@ class Exp:
         self.hidden_size = get("hidden_size", "n_embd", "d_model")
         self.vocab_size = get("vocab_size")
         self.num_heads = get("num_attention_heads", "n_head")
-        if self.seq_len is None:
-            self.seq_len = get("max_position_embeddings", "n_ctx")
-        n, h, s, v = self.num_layers, self.hidden_size, self.seq_len, self.vocab_size
-        att, ffn, embed = (
-            4 * h * s**2 + 8 * s * h**2,
-            16 * s * h**2,
-            2 * s * h * v,
-        )
-        forward = n * (att + ffn) + embed
-        # TFLOPs to train one example
-        self.tflops = (4 * forward if self.grad_ckpt else 3 * forward) / 1e12
+        if self.seq_len_dec == 0:
+            # Encoder or decoder only models.
+            n, h, s, v = (
+                self.num_layers,
+                self.hidden_size,
+                self.seq_len,
+                self.vocab_size,
+            )
+            att, ffn, embed = (
+                4 * h * s**2 + 8 * s * h**2,
+                16 * s * h**2,
+                2 * s * h * v,
+            )
+            forward = n * (att + ffn) + embed
+            # TFLOPs to train one example. Note that we use model TFLOPS instead of
+            # hardware TFLOPS, so having checkpoints or not does not matter.
+            self.tflops = 3 * forward / 1e12
+        else:
+            # Encoder-decoder models.
+            self.num_decoder_layers = get('num_decoder_layers')
+            self.d_kv = get("d_kv")
+            self.d_ff = get("d_ff")
+
+            h, s_e, s_d, v = (
+                self.hidden_size,
+                self.seq_len,
+                self.seq_len_dec,
+                self.vocab_size,
+            )
+
+            # If not specified in HF config, num_decoder_layers are the same as num_layers.
+            l_e, l_d = self.num_layers, self.num_decoder_layers
+
+            # Calculate TFLOPS of T5.
+            gated = False  # HF/Megatron T5 don't gate by default.
+
+            # Note that we use model TFLOPS instead of
+            # hardware TFLOPS, so having checkpoints or not does not matter.
+            c = 3  # 4 if self.grad_ckpt else 3
+
+            enc_flops = 1 + s_e / 6 / h
+            if gated:
+                enc_flops += 1 / 3 + 1 / 6 / h
+            enc_flops *= c * l_e * 24 * s_e * h**2
+
+            dec_flops = (
+                1
+                + 1 / 6
+                + s_e / 6 / s_d
+                + s_d / 6 / h
+                + s_e / 6 / h
+                + v / 4 / c / l_d / h
+            )
+            if gated:
+                dec_flops += 1 / 3 + 1 / 6 / h
+            dec_flops *= 24 * c * s_d * l_d * h**2
+
+            # TFLOPs to train one example
+            self.tflops = (enc_flops + dec_flops) / 1e12
         self.launcher = f"torchrun --nproc_per_node {self.num_gpus}"
 
     def print_results(self):
         print("Total samples / second\t: %.1f" % self.samples_per_sec)
         print("Per GPU memory (GB)\t: %.1f" % self.gpu_mem)
-        print("Per GPU TFLOPs\t\t: %.1f" % (self.samples_per_sec * self.tflops / self.num_gpus))
+        print(
+            "Per GPU TFLOPs\t\t: %.1f"
+            % (self.samples_per_sec * self.tflops / self.num_gpus)
+        )
 
 
 def parse_args():
@@ -70,6 +126,12 @@ def parse_args():
     )
     common_parser.add_argument(
         "--seq-len", type=int, default=512, help="Sequence length. Default: 512"
+    )
+    common_parser.add_argument(
+        "--seq-len-dec",
+        type=int,
+        default=0,
+        help="Decoder sequence length. Only used by encoder-decoder models. Default: 0",
     )
     common_parser.add_argument(
         "--dtype", type=str, default="fp16", help="Model dtype. Default: fp16"
@@ -92,12 +154,17 @@ def parse_args():
     )
     common_parser.add_argument(
         "--gradient-checkpoint",
-        action="store_true",
-        help="Gradient checkpointing. Default: False",
+        type=str,
+        default="",
+        help="Gradient checkpointing. Empty means no checkpointing; otherwise: "
+        "Megatron: 'full' or 'selective'. HF w. schedule: a floating point indicating "
+        "the checkpointing ratio. For example, 0.5 means to checkpoint a half of layers.",
     )
 
     parser = argparse.ArgumentParser()
-    subprasers = parser.add_subparsers(dest="impl", help="Model implementation (hf or megatron)")
+    subprasers = parser.add_subparsers(
+        dest="impl", help="Model implementation (hf or megatron)"
+    )
     hf_parser = subprasers.add_parser(
         "hf",
         parents=[common_parser],
@@ -159,7 +226,9 @@ def compare(exps, fig_name):
             ([e.gpu_mem for e in exps], "per GPU memory (GB)"),
         )
     ):
-        bar = ax[i].barh(x, y, align="center", height=0.6, color=plt.get_cmap("Set1")(x))
+        bar = ax[i].barh(
+            x, y, align="center", height=0.6, color=plt.get_cmap("Set1")(x)
+        )
         ax[i].bar_label(bar, fmt="%.2f", label_type="center")
         ax[i].invert_yaxis()
         ax[i].set_xlabel(l)
@@ -175,7 +244,7 @@ def compare(exps, fig_name):
     plt.show()
 
 
-def megatron_bert_cmd(script_file=None):
+def megatron_bert_cmd(exp, script_file=None):
     if script_file is None:
         import megatron
 
@@ -184,11 +253,16 @@ def megatron_bert_cmd(script_file=None):
 
     return (
         script_file,
-        ["--data-path bert-sample_text_sentence", "--vocab-file bert-large-uncased-vocab.txt"],
+        [
+            f"--seq-length {exp.seq_len}",
+            f"--max-position-embeddings {exp.seq_len}",
+            "--data-path bert-sample_text_sentence",
+            "--vocab-file bert-large-uncased-vocab.txt",
+        ],
     )
 
 
-def megatron_gpt_cmd(script_file=None):
+def megatron_gpt_cmd(exp, script_file=None):
     if script_file is None:
         import megatron
 
@@ -198,6 +272,8 @@ def megatron_gpt_cmd(script_file=None):
     return (
         script_file,
         [
+            f"--seq-length {exp.seq_len}",
+            f"--max-position-embeddings {exp.seq_len}",
             "--data-path gpt2-sample_text_document",
             "--vocab-file gpt2-vocab.json",
             "--merge-file gpt2-merges.txt",
@@ -205,9 +281,33 @@ def megatron_gpt_cmd(script_file=None):
     )
 
 
+def megatron_t5_cmd(exp, script_file=None):
+    if script_file is None:
+        import megatron
+
+        path = megatron.__path__[0]
+        script_file = f"{path}/../pretrain_t5.py"
+
+    assert hasattr(exp, "d_kv") and hasattr(exp, "d_ff")
+    return (
+        script_file,
+        [
+            f"--encoder-seq-length {exp.seq_len}",
+            f"--decoder-seq-length {exp.seq_len_dec}",
+            f"--max-position-embeddings {exp.seq_len}",
+            f"--kv-channels {exp.d_kv}",
+            f"--ffn-hidden-size {exp.d_ff}",
+            "--data-path bert-sample_text_sentence",
+            "--vocab-file bert-large-uncased-vocab.txt",
+            "--vocab-extra-ids 100",
+        ],
+    )
+
+
 MEGATRON_COMMAND_BY_MODEL = {
     "bert": megatron_bert_cmd,
     "gpt": megatron_gpt_cmd,
+    "t5": megatron_t5_cmd,
 }
 
 
@@ -239,13 +339,16 @@ def megatron_log(exp, log_filename):
     avg_time = lambda times: (sum(times[1:]) * 5) / (exp.steps - 5)
 
     iter_time = avg_time(iter_times)
-    forward_compute_time = avg_time(query('forward-compute', last_only=False))
-    backward_compute_time = avg_time(query('backward-compute', last_only=False))
-    backward_param_all_reduce_time = avg_time(query('backward-params-all-reduce', last_only=False))
-    optimizer_time = avg_time(query('optimizer', last_only=False))
+    forward_compute_time = avg_time(query("forward-compute", last_only=False))
+    backward_compute_time = avg_time(query("backward-compute", last_only=False))
+    backward_param_all_reduce_time = avg_time(
+        query("backward-params-all-reduce", last_only=False)
+    )
+    optimizer_time = avg_time(query("optimizer", last_only=False))
 
-
-    param_per_gpu = query("parameters on \(tensor, pipeline\) model parallel rank \(0, 0\)")
+    param_per_gpu = query(
+        "parameters on \(tensor, pipeline\) model parallel rank \(0, 0\)"
+    )
     exp.samples_per_sec = query("global batch size") / iter_time * 1e3
     exp.gpu_mem = query("max allocated") / 1e3
     print(f"per GPU params\t\t: {param_per_gpu / 1e6:.2f}M")
@@ -263,7 +366,7 @@ def run_megatron(exp, args):
     script_file = args.script_file if args.impl == "hf" else None
     for model_key, gen in MEGATRON_COMMAND_BY_MODEL.items():
         if model_key in exp.model:
-            script_file, data_args = gen(script_file)
+            script_file, data_args = gen(exp, script_file)
             break
     else:
         raise ValueError(f"Unsupported model {exp.model}")
@@ -273,11 +376,17 @@ def run_megatron(exp, args):
 --num-attention-heads {exp.num_heads} \
 --tensor-model-parallel-size {exp.tensor_para} \
 --micro-batch-size {exp.batch_size} \
---seq-length {exp.seq_len} --max-position-embeddings {exp.seq_len} \
 --train-iters {exp.steps} {' '.join(data_args)} \
---data-impl mmap --lr 0.00015 --log-interval 5"""
+--data-impl mmap --lr 0.00015 --log-interval 5 --eval-iters 1"""
     if exp.grad_ckpt:
-        cmd += " --checkpoint-activations"
+        if args.impl == "hf":
+            # Gradient checkpoint ratio for HF schedule is passed via environment variable.
+            grad_ckpt = "full"
+        else:
+            if exp.grad_ckpt == "full":
+                cmd += f" --recompute-method uniform"
+            grad_ckpt = exp.grad_ckpt
+        cmd += f" --recompute-granularity {grad_ckpt}"
     if exp.bf16:
         cmd += " --bf16"
     if exp.fp16:
@@ -330,7 +439,7 @@ def main():
         kwargs = {"env": ["DISABLE_FLASH_ATTN=1"]}
         memo += "|no_flash_attn"
     if args.gradient_checkpoint:
-        memo += "|grad_ckpt"
+        memo += f"|grad_ckpt {args.gradient_checkpoint}"
 
     results = []
     for n_gpu in n_gpus:
@@ -343,6 +452,7 @@ def main():
                     args.model,
                     batch_size,
                     args.seq_len,
+                    args.seq_len_dec,
                     grad_ckpt=args.gradient_checkpoint,
                     fp16=args.dtype == "fp16",
                     gpus=gpus,

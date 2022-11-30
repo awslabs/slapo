@@ -81,11 +81,15 @@ def model_schedule(model, config):
         config.vocab_size,
     )
     if not disable_flash_attn:
-        replace_attention(sch, config, attn_path)
+        cnt = replace_attention(sch, config, attn_path)
+        print_rank_0(f"Replace {cnt} attention patterns")
     else:
-        remove_cast(sch)
-        # replace_softmax(sch)
-        replace_qkv(sch, n_layer, n_head, hidden_size)
+        cnt = remove_cast(sch)
+        print_rank_0(f"Remove {cnt} .to(torch.float32) ops")
+        # cnt = replace_softmax(sch)
+        # print_rank_0(f"Replace {cnt} softmax ops")
+        cnt = replace_qkv(sch, n_layer, n_head, hidden_size)
+        print_rank_0(f"Replace {cnt} QKV patterns")
         if sch.world_size > 1:
             shard_qkv(sch, n_layer, attn_path, out_proj_name=out_proj_name)
 
@@ -96,8 +100,12 @@ def model_schedule(model, config):
     shard_word_embedding(sch, vocab_size)
 
     # Gradient checkpointing
-    if args.recompute_method is not None:
-        checkpoint(sch, config)
+    if args.recompute_granularity is not None:
+        ckpt_ratio = float(os.environ.get("ckpt_ratio", 1.0))
+        n_ckpt = checkpoint(
+            sch, config, ckpt_ratio=ckpt_ratio
+        )
+        print_rank_0(f"Checkpointing {n_ckpt} layers")
 
     model, _ = ms.build(sch)
     if args.fp16:
@@ -121,14 +129,14 @@ def model_provider(pre_process=True, post_process=True):
     config = AutoConfig.from_pretrained(model_name)
     config.vocab_size = args.padded_vocab_size
     config.use_cache = False
-    print(config)
-
+    print_rank_0(config)
+    
     class GPTWithLMHead(torch.nn.Module):
         def __init__(self, config):
             super().__init__()
             orig_model = GPTNeoModel(config)
             self.gpt = model_schedule(orig_model, config)
-            print(self.gpt)
+            print_rank_0(self.gpt)
 
         def forward(
             self,

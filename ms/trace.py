@@ -145,9 +145,9 @@ def trace_submodule(root: nn.Module, tracer_class, is_top: bool = False, **kwarg
             root_graph = tracer.trace(
                 root, concrete_args=concrete_args, dummy_inputs=dummy_inputs
             )
-        except:
+        except Exception as err:
             if not silent:
-                warnings.warn(f"Cannot trace module {root.__class__.__name__}")
+                warnings.warn(f"Cannot trace module {root.__class__.__name__}: {err}")
             is_tracing_failed = True
     else:
         concrete_args = kwargs.get("concrete_args", {})

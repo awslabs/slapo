@@ -45,7 +45,7 @@ def model_schedule(model, config):
         checkpoint,
     )
 
-    print("Using model schedule to optimize")
+    print_rank_0("Optimize model with a schedule")
     print("World size: {}, rank: {}".format(dist.get_world_size(), dist.get_rank()))
 
     args = get_args()
@@ -60,7 +60,7 @@ def model_schedule(model, config):
     world_size = dist.get_world_size()
     rank = dist.get_rank()
     if args.fp16:
-        print("Change model dtype to fp16")
+        print_rank_0("Change model dtype to fp16")
         model.half()
 
     sch = ms.create_schedule(
@@ -71,16 +71,22 @@ def model_schedule(model, config):
         concrete_args=concrete_args,
     )
     if not disable_flash_attn:
+        print_rank_0("Replace HF BertSelfAttention with xformer Attention")
         replace_xformer_attention(sch, config)
         if args.world_size > 1:
             shard_params(sch, config, fused_qkv=None, prefix="")
     else:
+        print_rank_0("Replace HF QKV Dense with FusedQKV")
         replace_qkv(sch, config)
         if world_size > 1:
             shard_params(sch, config, fused_qkv=True)
 
-    if args.recompute_method is not None:
-        checkpoint(sch, config)
+    if args.recompute_granularity is not None:
+        ckpt_ratio = float(os.environ.get("ckpt_ratio", 1.0))
+        n_ckpt = checkpoint(
+            sch, config, ckpt_ratio=ckpt_ratio
+        )
+        print_rank_0(f"Checkpointing {n_ckpt} layers")
 
     model, _ = ms.build(sch)
     if args.fp16:
@@ -101,7 +107,7 @@ def model_provider(pre_process=True, post_process=True):
     config = AutoConfig.from_pretrained(model_name)
     config.vocab_size = args.padded_vocab_size
     config.type_vocab_size = 2 if args.bert_binary_head else 0
-    print(config)
+    print_rank_0(config)
 
     class BertWithLMHead(torch.nn.Module):
         def __init__(self, config, add_pooling_layer):
@@ -109,7 +115,6 @@ def model_provider(pre_process=True, post_process=True):
             self.bert = model_schedule(
                 BertModel(config, add_pooling_layer=add_pooling_layer), config
             )
-            print(self.bert)
             init_method = init_method_normal(args.init_method_std)
             self.binary_head = torch.nn.Linear(args.hidden_size, 2)
             self.lm_head = BertLMHead(

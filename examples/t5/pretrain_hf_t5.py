@@ -104,7 +104,6 @@ def model_provider(pre_process=True, post_process=True,
     model_name = os.environ.get("MODEL_NAME", None)
     if model_name is None:
         raise RuntimeError(f"'MODEL_NAME' not found in environment")
-
     print_rank_0(f'Building HF {model_name} ...')
     config = AutoConfig.from_pretrained(model_name)
     config.vocab_size = args.padded_vocab_size
@@ -201,7 +200,6 @@ def get_batch(data_iterator):
         # (B, 1, S, 1) -> (B, 1, S)
         mask = mask.squeeze(-1)
         return mask
-
     enc_mask = post_process_mask(tokens_enc.shape[1], enc_mask)
     dec_mask = post_process_mask(tokens_dec.shape[1], dec_mask)
 

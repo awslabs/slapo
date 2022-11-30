@@ -58,7 +58,7 @@ def replace_qkv(sch, num_layers, num_heads, hidden_size):
         assert op_lst, "Cannot find QKV pattern"
         sch[op_lst].replace(FusedQKV, hidden_size=hidden_size, num_heads=num_heads)
         cnt += 1
-    print(f"Replace {cnt} QKV patterns")
+    return cnt
 
 
 def replace_attention(sch, config, attn_path="h.N.attn.attention"):
@@ -138,11 +138,10 @@ def replace_attention(sch, config, attn_path="h.N.attn.attention"):
             sch_xformer["out_proj"].shard("weight", axis=1)
             sch_xformer["out_proj"].sync()
 
-    print(f"Replace {len(ops)} attention patterns")
+    return len(ops)
 
 
 def replace_softmax(sch):
-    print("Replace HF Softmax with Megatron FusedScaleMaskSoftmax")
     from megatron.model.fused_softmax import FusedScaleMaskSoftmax
     from megatron.model.enums import AttnMaskType
     from megatron.model.utils import attention_mask_func
@@ -206,7 +205,7 @@ def replace_softmax(sch):
     sys.exit()
     for op in ops:
         sch[op].replace(FusedScaleMaskSoftmax, **config)
-    print(f"Replace {len(ops)} softmax ops")
+    return len(ops)
 
 
 def remove_cast(sch):
@@ -221,7 +220,7 @@ def remove_cast(sch):
 
     for op in ops:
         sch[op].replace(lambda x, *args: x)
-    print(f"Remove {len(ops)} .to(torch.float32) ops")
+    return len(ops)
 
 
 def shard_word_embedding(sch, vocab_size, word_embed_name="wte"):
@@ -280,7 +279,6 @@ def shard_qkv(
 
         for op in ops:
             sch[op].replace(new_view)
-        print(f"Fix {len(ops)} view ops after sharding")
 
     axes = [1, 0] if transpose_weights else [0, 1]
     for i in range(num_layers):
@@ -334,6 +332,11 @@ def replace_and_shard_mlp(
             sch[f"{prefix}.{fc_names[1]}"].sync()
 
 
-def checkpoint(sch, config, path="h.N"):
-    for i in range(config.num_layers):
+def checkpoint(sch, config, path="h.N", ckpt_ratio=1.0):
+    if ckpt_ratio == 0.0:
+        return
+
+    n_ckpt = int(config.num_hidden_layers * ckpt_ratio)
+    for i in range(n_ckpt):
         sch[path.replace("N", str(i))].checkpoint()
+    return n_ckpt

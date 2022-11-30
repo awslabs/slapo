@@ -6,7 +6,6 @@ import ms
 
 
 def replace_layernorm(sch):
-    print("Replace LayerNorm with FusedLayerNorm")
     from apex.normalization.fused_layer_norm import FusedLayerNorm
 
     ops = sch.find_module(lambda name: name == "LayerNorm")
@@ -17,7 +16,6 @@ def replace_layernorm(sch):
 def replace_xformer_attention(sch, config):
     # https://github.com/huggingface/transformers/blob/344e2664d450eaa9167ce31f7d1fc0f0fe3b10af/src/transformers/models/bert/modeling_bert.py#L243
     # https://github.com/comaniac/epoi/blob/main/epoi/ops/xformers_attn.py#L45
-    print("Replace HF BertSelfAttention with xformer Attention")
     from epoi.inject.policy.bert import InjectHFBertSelfAttentionPolicy
     from epoi.ops.xformers_attn import GenericSelfAttention
 
@@ -97,7 +95,6 @@ def replace_xformer_attention(sch, config):
 
 
 def replace_qkv(sch, bert_config):
-    print("Replace HF QKV Dense with FusedQKV")
     hidden_size = bert_config.hidden_size
     num_heads = bert_config.num_attention_heads
     num_layers = bert_config.num_hidden_layers
@@ -256,7 +253,12 @@ def shard_params(sch, config, fused_qkv=False, prefix=""):
     fix_number_of_heads(sch)
 
 
-def checkpoint(sch, config, prefix=""):
+def checkpoint(sch, config, prefix="", ckpt_ratio=1.0):
+    if ckpt_ratio == 0.0:
+        return
     prefix = "" if prefix == "" else prefix + "."
-    for i in range(config.num_hidden_layers):
+
+    n_ckpt = int(config.num_hidden_layers * ckpt_ratio)
+    for i in range(n_ckpt):
         sch[prefix + f"encoder.layer.{i}"].checkpoint()
+    return n_ckpt

@@ -421,66 +421,221 @@ def create_schedule(
 
 def generate_pipeline_partition(sch):
     # check validity, should make sure all the partition points are at the same level
-    mod_has_partition_point = None
-    for name, mod in sch.gm.named_modules():
+    mod_has_partition_point = (None, None)  # (name, mod)
+    named_modules = sch.gm.named_modules()
+    for name, mod in named_modules:
         if isinstance(mod, fx.GraphModule):
             for node in mod.graph.nodes:
                 if "partition" in node.meta:
-                    if mod_has_partition_point is None:
-                        mod_has_partition_point = mod
+                    if mod_has_partition_point[0] is None:
+                        name = name.rsplit(".", 1)[-1]
+                        mod_has_partition_point = (name, mod)
                         break
                     else:
                         raise RuntimeError("Partition points are not at the same level")
-    if mod_has_partition_point is None:
+    if mod_has_partition_point[0] is None:
         sch.gm.graph.lint()
         sch.gm.recompile()
         return sch.gm
-    partition_cnt = 0
-    for node in mod_has_partition_point.graph.nodes:
-        if "partition" not in node.meta:
-            node.meta["partition"] = partition_cnt
-        else:
-            node.meta["partition"] = partition_cnt
-            partition_cnt += 1
-    if partition_cnt != 0:
 
-        def mod_partition(node: fx.Node):
-            return node.meta["partition"]
+    # get parent modules
+    child2parent = {}
 
-        sch.gm = split_module(mod_has_partition_point, None, mod_partition)
-        sch.gm.graph.lint()
-        sch.gm.recompile()
-        res_partition = []
-        named_children = dict(sch.gm.named_children())
-        for i, (_, partition) in enumerate(named_children.items()):
+    def traverse_children(root, parent_name):
+        for name, mod in root.named_children():
+            child2parent[name] = parent_name
+            traverse_children(mod, name)
 
-            class SubmodWrapper(nn.Module):
-                def __init__(self, mod: fx.GraphModule, last: bool = False):
-                    super(SubmodWrapper, self).__init__()
-                    self.mod = mod
-                    self.last = last
+    traverse_children(sch.gm, "")
+    child2parent[""] = None
 
-                def forward(self, *args, **kwargs):
-                    # unpack inputs
-                    if len(args) == 1 and isinstance(args[0], tuple):
-                        new_args = [arg for arg in args[0]]
-                    else:
-                        new_args = [arg for arg in args]
-                    for value in kwargs.values():
-                        new_args += [value]
-                    # forward pass
-                    outputs = self.mod(*new_args)
-                    # pack outputs
-                    if not self.last and not isinstance(outputs, tuple):
-                        outputs = (outputs,)
-                    return outputs
+    def propagate_partition(child_name, child_mod):
+        # assign partitions to each node
+        partition_cnt = 0
+        for node in child_mod.graph.nodes:
+            if "partition" not in node.meta:
+                node.meta["partition"] = partition_cnt
+            else:
+                node.meta["partition"] = partition_cnt
+                partition_cnt += 1
+        assert partition_cnt > 0
+        # partition submodule
+        childmod_after_split = split_module(
+            child_mod, None, lambda node: node.meta["partition"]
+        )
+        if child_name == "":
+            return childmod_after_split
+        # propagate partitions to the parent graph
+        placeholders = []
+        for node in childmod_after_split.graph.nodes:
+            if node.op == "placeholder":
+                placeholders.append(node)
+        # get target call node in parent graph
+        target_call_node = None
+        parent_name = child2parent[child_name]
+        parent_mod = sch.gm.get_submodule(parent_name)
+        for node in parent_mod.graph.nodes:
+            if node.op == "call_module" and node.target == child_name:
+                target_call_node = node
+                break
+        assert target_call_node is not None
+        # create mapping from placeholder in subgraph to arguments in parent graph
+        ph2arg = {}
+        for i, arg in enumerate(target_call_node.args):
+            ph2arg[placeholders[i].name] = arg
+        for i, (_, kwarg) in enumerate(
+            target_call_node.kwargs.items(), len(target_call_node.args)
+        ):
+            ph2arg[placeholders[i].name] = kwarg
+        # register partitioned submodules to parent module
+        for name, child in childmod_after_split.named_children():
+            parent_mod.add_module(name, child)
+        # replace call_module in parent graph with several call submodules
+        new_node = target_call_node
+        last_call_mod_node = None
+        output_node = None
+        for child_node in childmod_after_split.graph.nodes:
+            if child_node.op == "call_module":
+                new_args = fx.map_arg(child_node.args, lambda node: ph2arg[node.name])
+                new_kwargs = fx.map_arg(
+                    child_node.kwargs, lambda node: ph2arg[node.name]
+                )
+                with parent_mod.graph.inserting_after(new_node):
+                    new_node = parent_mod.graph.call_module(
+                        child_node.target, new_args, new_kwargs
+                    )
+                    # specify new partition points
+                    new_node.meta["partition"] = True
+                # add current node to mapping
+                ph2arg[child_node.name] = new_node
+                last_call_mod_node = new_node
+            elif child_node.op == "call_function":
+                new_args = fx.map_arg(child_node.args, lambda node: ph2arg[node.name])
+                new_kwargs = fx.map_arg(
+                    child_node.kwargs, lambda node: ph2arg[node.name]
+                )
+                with parent_mod.graph.inserting_after(new_node):
+                    new_node = parent_mod.graph.call_function(
+                        child_node.target, new_args, new_kwargs
+                    )
+                # add current node to mapping
+                ph2arg[child_node.name] = new_node
+            elif child_node.op == "output":
+                output_node = child_node
+        assert last_call_mod_node is not None
+        target_call_node.replace_all_uses_with(last_call_mod_node)
+        last_call_mod_node.meta.pop("partition")
+        # fix output
+        if len(output_node.args) > 1 or len(output_node.kwargs) > 0:
+            raise RuntimeError("Multiple output arguments not supported yet!")
+        elif len(output_node.args) == 1 and (
+            isinstance(output_node.args[0], tuple)
+            or isinstance(output_node.args[0], dict)
+        ):
+            if isinstance(output_node.args[0], tuple):
+                raise RuntimeError("Tuple return not supported yet!")
+            ret_dict = output_node.args[0]
+            ph2arg[None] = None
+            users_to_replace = []
+            for user in last_call_mod_node.users:
+                if user.op == "call_method" and user.target == "get":
+                    value = ret_dict.get(user.args[1], user.args[2])
+                    users_to_replace.append(
+                        (
+                            user,
+                            ph2arg[value.name if isinstance(value, fx.Node) else None],
+                        )
+                    )
+                elif user.op == "call_function" and user.target == operator.getitem:
+                    users_to_replace.append((user, ph2arg[ret_dict[user.args[1]].name]))
+            for user, target in users_to_replace:
+                user.replace_all_uses_with(target)
+        # recompile
+        parent_mod.graph.erase_node(target_call_node)
+        parent_mod.delete_all_unused_submodules()
+        parent_mod.graph.eliminate_dead_code()
+        parent_mod.graph.lint()
+        parent_mod.recompile()
+        childmod_after_split.delete_all_unused_submodules()
+        childmod_after_split.graph.eliminate_dead_code()
+        childmod_after_split.graph.lint()
+        childmod_after_split.recompile()
+        return propagate_partition(parent_name, parent_mod)
 
-            res_partition.append(SubmodWrapper(partition, i == len(named_children) - 1))
-        return res_partition
-    else:
-        sch.gm.graph.lint()
-        sch.gm.recompile()
-        return sch.gm
+    sch.gm = propagate_partition(*mod_has_partition_point)
+    res_partition = []
+    named_children = dict(sch.gm.named_children())
+    for i, (_, partition) in enumerate(named_children.items()):
+
+        class SubmodWrapper(nn.Module):
+            def __init__(self, mod: fx.GraphModule, stage_id: int, total_stages: int):
+                super(SubmodWrapper, self).__init__()
+                self.mod = mod
+                self.stage_id = stage_id
+                self.total_stages = total_stages
+                self.last = self.stage_id == self.total_stages - 1
+
+            def forward(self, *args, **kwargs):
+                if len(args) == 1 and isinstance(args[0], tuple):
+                    args = args[0]
+                # unpack inputs
+                new_args = []
+                if self.stage_id == 0:
+                    for arg in args:
+                        assert not isinstance(arg, dict)
+                        if isinstance(arg, tuple):
+                            new_args.extend([item for item in arg])
+                        else:
+                            new_args.append(arg)
+                else:
+                    args, metadata = args[:-1], args[-1]
+                    assert len(args) == len(metadata)
+                    # restore nested structure from metadata
+                    prev_level = 0
+                    lst = new_args
+                    for arg, curr_level in zip(args, metadata):
+                        if curr_level > prev_level:
+                            lst = [arg]
+                        elif curr_level == prev_level:
+                            lst.append(arg)
+                        else:
+                            new_args.append(lst)
+                            new_args.append(arg)
+                            lst = new_args
+                        prev_level = curr_level
+                for value in kwargs.values():
+                    new_args += [value]
+                # forward pass
+                outputs = self.mod(*new_args)
+                # pack outputs
+                if self.last:
+                    new_outputs = outputs
+                else:
+                    new_outputs = []
+                    metadata = []  # used for storing nested levels
+
+                    def flatten(outputs, level):
+                        assert level < 2, "Not supported nested level >= 2 yet"
+                        for output in outputs:
+                            if isinstance(output, tuple):
+                                flatten(output, level + 1)
+                            elif isinstance(output, dict):
+                                flatten(output.values(), level + 1)
+                            else:
+                                new_outputs.append(output)
+                                metadata.append(level)
+
+                    flatten(outputs, 0)
+                    new_outputs.append(
+                        torch.tensor(
+                            metadata, dtype=torch.long, device=new_outputs[0].device
+                        )
+                    )
+                new_outputs = tuple(new_outputs)
+                return new_outputs
+
+        res_partition.append(SubmodWrapper(partition, i, len(named_children)))
+    return res_partition
 
 
 def build(sch: Schedule, target=None, **kwargs):

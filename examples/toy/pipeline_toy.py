@@ -74,11 +74,12 @@ def train(args):
         "optimizer": {"type": "AdamW", "params": {"lr": 0.0001}},
     }
     ds_model, optimizer = ms.build(
-        sch, target="deepspeed", config=ds_config_dict, loss_fn=nn.CrossEntropyLoss()
+        sch, target="deepspeed", config=ds_config_dict, loss_fn=None
     )
+    print(sch.gm)
     opt_inp = torch.rand((2048, 1024), requires_grad=True).cuda(rank)
     label = torch.zeros((1,)).cuda(rank)
-    loader = RepeatingLoader([opt_inp, label])
+    loader = RepeatingLoader([((opt_inp,), label)])
     data_iter = iter(loader)
 
     loss = ds_model.train_batch(data_iter=data_iter)

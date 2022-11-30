@@ -30,6 +30,7 @@ from megatron.utils import get_ltor_masks_and_position_ids
 from megatron.utils import average_losses_across_data_parallel_group
 from megatron.model.gpt_model import post_language_model_processing
 
+
 def model_schedule(model, config):
     import ms
     import inspect
@@ -42,7 +43,7 @@ def model_schedule(model, config):
         replace_and_shard_mlp,
         remove_cast,
         replace_attention,
-        checkpoint
+        checkpoint,
     )
 
     print("Using model schedule to optimize")
@@ -55,22 +56,21 @@ def model_schedule(model, config):
     input_names = list(model.dummy_inputs.keys())
     input_names += ["attention_mask", "position_ids", "token_type_ids"]
     sig = inspect.signature(model.forward)
-    concrete_args = {p.name: p.default for p in sig.parameters.values() if p.name not in input_names}
+    concrete_args = {
+        p.name: p.default for p in sig.parameters.values() if p.name not in input_names
+    }
 
     if args.fp16:
         print("Change model dtype to fp16")
         model.half()
 
-    leaf_modules = ["Conv1D", "GPTNeoMLP"]
-    if not disable_flash_attn:
-        leaf_modules += ["GPTNeoSelfAttention", "GPT2Attention", "GPTJAttention"]
     sch = ms.create_schedule(
         model,
         world_size=dist.get_world_size(),
         rank=dist.get_rank(),
         tracer="huggingface",
-        leaf_modules=leaf_modules,
-        concrete_args=concrete_args)
+        concrete_args=concrete_args,
+    )
 
     # Deal with attention.
     attn_path, out_proj_name = "h.N.attn.attention", "out_proj"
@@ -78,13 +78,13 @@ def model_schedule(model, config):
         config.num_layers,
         config.num_heads,
         config.hidden_size,
-        config.vocab_size
+        config.vocab_size,
     )
     if not disable_flash_attn:
-        replace_attention(sch, config, attn_path) 
+        replace_attention(sch, config, attn_path)
     else:
         remove_cast(sch)
-        #replace_softmax(sch)
+        # replace_softmax(sch)
         replace_qkv(sch, n_layer, n_head, hidden_size)
         if sch.world_size > 1:
             shard_qkv(sch, n_layer, attn_path, out_proj_name=out_proj_name)
@@ -105,22 +105,24 @@ def model_schedule(model, config):
     model.cuda()
     return model
 
+
 def model_provider(pre_process=True, post_process=True):
     """Build the model."""
     from transformers import AutoConfig, GPTNeoModel
+
     args = get_args()
     model_name = os.environ.get("MODEL_NAME", None)
     if model_name is None:
         raise RuntimeError(f"'MODEL_NAME' not found in environment")
     if "gpt-neo" not in model_name:
         raise RuntimeError(f"Only gpt-neo is supported for now, got {model_name}")
-    
-    print_rank_0(f'Building HF {model_name} ...')
+
+    print_rank_0(f"Building HF {model_name} ...")
     config = AutoConfig.from_pretrained(model_name)
     config.vocab_size = args.padded_vocab_size
     config.use_cache = False
     print(config)
-    
+
     class GPTWithLMHead(torch.nn.Module):
         def __init__(self, config):
             super().__init__()
@@ -130,24 +132,28 @@ def model_provider(pre_process=True, post_process=True):
 
         def forward(
             self,
-            input_ids = None,
-            position_ids = None,
-            attention_mask = None,
-            labels = None,
-            token_type_ids = None,            
+            input_ids=None,
+            position_ids=None,
+            attention_mask=None,
+            labels=None,
+            token_type_ids=None,
         ):
             assert token_type_ids is None, "Not traced"
-            output = self.gpt(input_ids=input_ids, attention_mask=attention_mask,
-                              position_ids=position_ids)
+            output = self.gpt(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                position_ids=position_ids,
+            )
             lm_output = output["last_hidden_state"].transpose(0, 1).contiguous()
 
             output_tensor = post_language_model_processing(
-                lm_output, labels, self.gpt.wte.weight, True,
-                args.fp16_lm_cross_entropy)
+                lm_output, labels, self.gpt.wte.weight, True, args.fp16_lm_cross_entropy
+            )
             return output_tensor
 
     model = GPTWithLMHead(config)
     return model
+
 
 def get_batch(data_iterator):
     """Generate a batch"""
@@ -155,7 +161,7 @@ def get_batch(data_iterator):
     tokenizer = get_tokenizer()
 
     # Items and their type.
-    keys = ['text']
+    keys = ["text"]
     datatype = torch.int64
 
     # Broadcast data.
@@ -166,7 +172,7 @@ def get_batch(data_iterator):
     data_b = mpu.broadcast_data(keys, data, datatype)
 
     # Unpack.
-    tokens_ = data_b['text'].long()
+    tokens_ = data_b["text"].long()
     labels = tokens_[:, 1:].contiguous()
     tokens = tokens_[:, :-1].contiguous()
 
@@ -176,7 +182,8 @@ def get_batch(data_iterator):
         tokenizer.eod,
         args.reset_position_ids,
         args.reset_attention_mask,
-        args.eod_mask_loss)
+        args.eod_mask_loss,
+    )
 
     # TODO: This may not be necessary for GPT-Neo.
     batch_size = tokens.shape[0]
@@ -192,6 +199,7 @@ def get_batch(data_iterator):
 
     return tokens, labels, loss_mask, attention_mask, position_ids
 
+
 def loss_func(loss_mask, output_tensor):
     losses = output_tensor.float()
     loss_mask = loss_mask.view(-1).float()
@@ -200,7 +208,7 @@ def loss_func(loss_mask, output_tensor):
     # Reduce loss for logging.
     averaged_loss = average_losses_across_data_parallel_group([loss])
 
-    return loss, {'lm loss': averaged_loss[0]}
+    return loss, {"lm loss": averaged_loss[0]}
 
 
 def forward_step(data_iterator, model):
@@ -209,13 +217,11 @@ def forward_step(data_iterator, model):
     timers = get_timers()
 
     # Get the batch.
-    timers('batch-generator').start()
-    tokens, labels, loss_mask, attention_mask, position_ids = get_batch(
-        data_iterator)
-    timers('batch-generator').stop()
+    timers("batch-generator").start()
+    tokens, labels, loss_mask, attention_mask, position_ids = get_batch(data_iterator)
+    timers("batch-generator").stop()
 
-    output_tensor = model(tokens, position_ids, attention_mask,
-                          labels=labels)
+    output_tensor = model(tokens, position_ids, attention_mask, labels=labels)
 
     return output_tensor, partial(loss_func, loss_mask)
 
@@ -224,8 +230,7 @@ def train_valid_test_datasets_provider(train_val_test_num_samples):
     """Build train, valid, and test datasets."""
     args = get_args()
 
-    print_rank_0('> building train, validation, and test datasets '
-                 'for GPT ...')
+    print_rank_0("> building train, validation, and test datasets " "for GPT ...")
     train_ds, valid_ds, test_ds = build_train_valid_test_datasets(
         data_prefix=args.data_path,
         data_impl=args.data_impl,
@@ -233,7 +238,8 @@ def train_valid_test_datasets_provider(train_val_test_num_samples):
         train_valid_test_num_samples=train_val_test_num_samples,
         seq_length=args.seq_length,
         seed=args.seed,
-        skip_warmup=(not args.mmap_warmup))
+        skip_warmup=(not args.mmap_warmup),
+    )
     print_rank_0("> finished creating GPT datasets ...")
 
     return train_ds, valid_ds, test_ds
@@ -241,6 +247,10 @@ def train_valid_test_datasets_provider(train_val_test_num_samples):
 
 if __name__ == "__main__":
 
-    pretrain(train_valid_test_datasets_provider, model_provider,
-             ModelType.encoder_or_decoder,
-             forward_step, args_defaults={'tokenizer_type': 'GPT2BPETokenizer'})
+    pretrain(
+        train_valid_test_datasets_provider,
+        model_provider,
+        ModelType.encoder_or_decoder,
+        forward_step,
+        args_defaults={"tokenizer_type": "GPT2BPETokenizer"},
+    )

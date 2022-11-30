@@ -38,15 +38,20 @@ def model_schedule(model, config):
     import ms
     import inspect
     import torch.distributed as dist
-    from bert_schedule import replace_qkv, shard_params, replace_xformer_attention, checkpoint
+    from bert_schedule import (
+        replace_qkv,
+        shard_params,
+        replace_xformer_attention,
+        checkpoint,
+    )
 
     print("Using model schedule to optimize")
     print("World size: {}, rank: {}".format(dist.get_world_size(), dist.get_rank()))
 
     args = get_args()
     disable_flash_attn = bool(int(os.environ.get("DISABLE_FLASH_ATTN", "0")))
-    input_names = list(model.dummy_inputs.keys())
-    input_names += ["attention_mask", "token_type_ids"]
+    input_names = list(model.dummy_inputs.keys())  # only has "input_ids"
+    input_names += ["attention_mask", "token_type_ids"]  # "position_ids"
     sig = inspect.signature(model.forward)
     concrete_args = {
         p.name: p.default for p in sig.parameters.values() if p.name not in input_names
@@ -124,7 +129,13 @@ def model_provider(pre_process=True, post_process=True):
             labels=None,
         ):
             # Note: other arguments (e.g., head_mask) are not supported yet.
-            output = self.bert(input_ids, attention_mask, token_type_ids)
+            assert attention_mask is not None
+            assert token_type_ids is not None
+            output = self.bert(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                token_type_ids=token_type_ids,
+            )
             lm_output = output["last_hidden_state"].transpose(0, 1).contiguous()
             pooled_output = output["pooler_output"]
             output_tensor = post_language_model_processing(

@@ -54,7 +54,7 @@ def model_schedule(model, config):
     args = get_args()
     disable_flash_attn = bool(int(os.environ.get("DISABLE_FLASH_ATTN", "0")))
     input_names = list(model.dummy_inputs.keys())
-    input_names += ["attention_mask", "position_ids", "token_type_ids"]
+    input_names += ["attention_mask", "position_ids"]#, "token_type_ids"]
     sig = inspect.signature(model.forward)
     concrete_args = {
         p.name: p.default for p in sig.parameters.values() if p.name not in input_names
@@ -135,13 +135,14 @@ def model_provider(pre_process=True, post_process=True):
             input_ids=None,
             position_ids=None,
             attention_mask=None,
-            labels=None,
             token_type_ids=None,
+            labels=None,
         ):
             assert token_type_ids is None, "Not traced"
             output = self.gpt(
                 input_ids=input_ids,
                 attention_mask=attention_mask,
+                # token_type_ids=token_type_ids,
                 position_ids=position_ids,
             )
             lm_output = output["last_hidden_state"].transpose(0, 1).contiguous()

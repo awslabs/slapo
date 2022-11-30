@@ -80,29 +80,50 @@ def fix_hf_module(
     return root_graph
 
 
-def generate_hf_tracer_inputs(root: nn.Module, kwargs: Dict[str, Any]):
-    dummy_inputs = (
-        copy.copy(kwargs["dummy_inputs"]) if "dummy_inputs" in kwargs else None
-    )
-    sig = inspect.signature(root.forward)
-    concrete_args = {
-        p.name: p.default for p in sig.parameters.values() if p.name not in dummy_inputs
-    }
-    for arg in [
-        "input",
-        "hidden_states",
-        "input_tensor",
-        "sequence_output",
-        "position_ids",
-    ]:
-        if arg in concrete_args:
-            concrete_args.pop(arg)
-            # just a placeholder, shape and dtype doesn't matter
-            dummy_inputs[arg] = torch.zeros((1,), dtype=torch.float)
+def generate_hf_tracer_inputs(
+    root: nn.Module, tracer: fx.Tracer, is_top: bool, kwargs: Dict[str, Any]
+):
+    if is_top:
+        sig = inspect.signature(
+            root.forward if isinstance(root, torch.nn.Module) else root
+        )
+        assert "concrete_args" in kwargs
+        concrete_args = kwargs["concrete_args"]  # those are args having None value
+        input_names = sig.parameters.keys() - concrete_args.keys()
+        import random
+
+        batch_size = random.randint(10, 20)
+        sequence_length = random.randint(10, 20)
+        shape = (batch_size, sequence_length)
+        inputs = {}
+        for input_name in input_names:
+            inputs.update(tracer._generate_dummy_input(root, input_name, shape))
+        kwargs["dummy_inputs"] = inputs
+        dummy_inputs = copy.copy(inputs)
+    else:
+        sig = inspect.signature(root.forward)
+        dummy_inputs = (
+            copy.copy(kwargs["dummy_inputs"]) if "dummy_inputs" in kwargs else None
+        )
+        concrete_args = {
+            p.name: p.default
+            for p in sig.parameters.values()
+            if p.name not in dummy_inputs
+        }
+        for arg in [
+            "input",
+            "hidden_states",
+            "input_tensor",
+            "sequence_output",
+        ]:
+            if arg in concrete_args:
+                concrete_args.pop(arg)
+                # just a placeholder, shape and dtype don't matter
+                dummy_inputs[arg] = torch.zeros((1,), dtype=torch.float)
     return concrete_args, dummy_inputs
 
 
-def trace_submodule(root: nn.Module, tracer_class, **kwargs):
+def trace_submodule(root: nn.Module, tracer_class, is_top: bool = False, **kwargs):
     # generate top graph module
     named_children = dict(root.named_children())
     leaf_modules = kwargs.get("leaf_modules", [])
@@ -117,7 +138,9 @@ def trace_submodule(root: nn.Module, tracer_class, **kwargs):
     tracer = tracer_class(leaf_modules=leaf_modules)
     is_tracing_failed = False
     if tracer.name == "huggingface":
-        concrete_args, dummy_inputs = generate_hf_tracer_inputs(root, kwargs)
+        concrete_args, dummy_inputs = generate_hf_tracer_inputs(
+            root, tracer, is_top, kwargs
+        )
         try:
             root_graph = tracer.trace(
                 root, concrete_args=concrete_args, dummy_inputs=dummy_inputs
@@ -180,27 +203,10 @@ def trace(model: nn.Module, **kwargs: Dict[str, Any]):
         if tracer_cls_name == "huggingface":
             from transformers.utils.fx import HFTracer
 
-            batch_size = 512
-            seq_length = 8
-            if "concrete_args" not in kwargs:
-                input_names = list(model.dummy_inputs.keys())
-                input_names += ["attention_mask", "labels"]
-                sig = inspect.signature(model.forward)
-                concrete_args = {
-                    p.name: p.default
-                    for p in sig.parameters.values()
-                    if p.name not in input_names
-                }
-            else:
-                concrete_args = kwargs["concrete_args"]
-            dummy_inputs = {}
-            dummy_inputs["input_ids"] = torch.zeros(
-                batch_size, seq_length, dtype=torch.long
-            )
-            dummy_inputs["attention_mask"] = torch.ones(batch_size, seq_length)
-            dummy_inputs["labels"] = torch.zeros(
-                batch_size, seq_length, dtype=torch.long
-            )
+            assert (
+                "concrete_args" in kwargs
+            ), "Please provide concrete_args for HF tracer"
+            concrete_args = kwargs["concrete_args"]
 
             class TracerWrapper(HFTracer):
                 def __init__(self, **config: Dict[str, Any]) -> None:
@@ -293,8 +299,8 @@ def trace(model: nn.Module, **kwargs: Dict[str, Any]):
             top_gm = trace_submodule(
                 model,
                 TracerWrapper,
+                is_top=True,
                 concrete_args=concrete_args,
-                dummy_inputs=dummy_inputs,
             )
 
         elif tracer_cls_name == "pytorch":

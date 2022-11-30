@@ -178,39 +178,6 @@ class SubgraphWrapper(nn.Module):
                             res.append(subgraph)
         return res
 
-    def retrace(self, leaf_modules):
-        self.gm.delete_all_unused_submodules()
-        self.gm.graph.lint()
-        self.gm.recompile()
-        self.config["tracer"] = "pytorch"
-        self.config["leaf_modules"] = leaf_modules
-        self.gm = trace(self.gm, **self.config)
-
-    @property
-    def ops(self):
-        raise RuntimeError("Please directly use `find` method to get requested ops")
-        self.trace_module()
-        return self._ops
-
-    @property
-    def func_ops(self):
-        raise RuntimeError("Please directly use `find` method to get requested ops")
-        self.trace_module()
-        return list(self._func_ops.keys())
-
-    @property
-    def modules(self):
-        raise RuntimeError("Please directly use `find` method to get requested ops")
-        # require re-tracing every time
-        # to make sure the ops are up-to-date
-        self.trace_module()
-        return self._modules
-
-    @property
-    def forward_ops(self):
-        raise RuntimeError("Please directly use `find` method to get requested ops")
-        return list(self.ops.keys())
-
 
 class OperationList:
     def __init__(
@@ -390,7 +357,7 @@ class OperationList:
             instance = nn_mod(*args, **kwargs)
         name = instance._get_name().split(".")[-1]
         name = _get_unique_module_name(self.gm, name)
-        instance = trace(instance, silent=True) # Silent trace for replacement.
+        instance = trace(instance, silent=True)  # Silent trace for replacement.
         if len(self.op_lst) == 1:
             _, node = self.op_lst[0]
             self.gm.add_module(name, instance)

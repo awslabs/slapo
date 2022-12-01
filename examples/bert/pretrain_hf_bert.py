@@ -34,86 +34,29 @@ from megatron.utils import average_losses_across_data_parallel_group
 from megatron.model.utils import init_method_normal, get_linear_layer
 
 
-def model_schedule(model, config):
-    import ms
-    import inspect
-    import torch.distributed as dist
-    from bert_schedule import (
-        replace_qkv,
-        shard_params,
-        replace_xformer_attention,
-        checkpoint,
-    )
-
-    print_rank_0("Optimize model with a schedule")
-    print("World size: {}, rank: {}".format(dist.get_world_size(), dist.get_rank()))
-
-    args = get_args()
-    disable_flash_attn = bool(int(os.environ.get("DISABLE_FLASH_ATTN", "0")))
-    input_names = list(model.dummy_inputs.keys())  # only has "input_ids"
-    input_names += ["attention_mask", "token_type_ids"]  # "position_ids"
-    sig = inspect.signature(model.forward)
-    concrete_args = {
-        p.name: p.default for p in sig.parameters.values() if p.name not in input_names
-    }
-
-    world_size = dist.get_world_size()
-    rank = dist.get_rank()
-    if args.fp16:
-        print_rank_0("Change model dtype to fp16")
-        model.half()
-
-    sch = ms.create_schedule(
-        model,
-        world_size=world_size,
-        rank=rank,
-        tracer="huggingface",
-        concrete_args=concrete_args,
-    )
-    if not disable_flash_attn:
-        print_rank_0("Replace HF BertSelfAttention with xformer Attention")
-        replace_xformer_attention(sch, config)
-        if args.world_size > 1:
-            shard_params(sch, config, fused_qkv=None, prefix="")
-    else:
-        print_rank_0("Replace HF QKV Dense with FusedQKV")
-        replace_qkv(sch, config)
-        if world_size > 1:
-            shard_params(sch, config, fused_qkv=True)
-
-    if args.recompute_granularity is not None:
-        ckpt_ratio = float(os.environ.get("ckpt_ratio", 1.0))
-        n_ckpt = checkpoint(
-            sch, config, ckpt_ratio=ckpt_ratio
-        )
-        print_rank_0(f"Checkpointing {n_ckpt} layers")
-
-    model, _ = ms.build(sch)
-    if args.fp16:
-        model.half()
-    model.cuda()
-    return model
-
-
 def model_provider(pre_process=True, post_process=True):
-    from transformers import AutoConfig, BertModel
+    from bert_model import get_scheduled_bert
 
     args = get_args()
     model_name = os.environ.get("MODEL_NAME", None)
     if model_name is None:
         raise RuntimeError("'MODEL_NAME' not found in environment")
-
-    print_rank_0(f"Building HF {model_name} ...")
-    config = AutoConfig.from_pretrained(model_name)
-    config.vocab_size = args.padded_vocab_size
-    config.type_vocab_size = 2 if args.bert_binary_head else 0
-    print_rank_0(config)
+    disable_flash_attn = bool(int(os.environ.get("DISABLE_FLASH_ATTN", "0")))
+    ckpt_ratio = 0.0
+    if args.recompute_granularity is not None:
+        ckpt_ratio = float(os.environ.get("ckpt_ratio", 1.0))
 
     class BertWithLMHead(torch.nn.Module):
-        def __init__(self, config, add_pooling_layer):
+        def __init__(self, add_pooling_layer):
             super().__init__()
-            self.bert = model_schedule(
-                BertModel(config, add_pooling_layer=add_pooling_layer), config
+            self.bert = get_scheduled_bert(
+                model_name,
+                args.padded_vocab_size,
+                args.bert_binary_head,
+                add_pooling_layer,
+                disable_flash_attn,
+                args.fp16,
+                ckpt_ratio,
             )
             init_method = init_method_normal(args.init_method_std)
             self.binary_head = torch.nn.Linear(args.hidden_size, 2)
@@ -154,7 +97,7 @@ def model_provider(pre_process=True, post_process=True):
             )
             return output_tensor
 
-    model = BertWithLMHead(config, add_pooling_layer=args.bert_binary_head)
+    model = BertWithLMHead(add_pooling_layer=args.bert_binary_head)
     return model
 
 

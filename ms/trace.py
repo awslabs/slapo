@@ -12,6 +12,7 @@ from transformers.utils.fx import (
 )
 import warnings
 import operator
+import traceback
 
 
 def fix_hf_module(
@@ -110,11 +111,13 @@ def generate_hf_tracer_inputs(
             for p in sig.parameters.values()
             if p.name not in dummy_inputs
         }
+        # TODO: Fix hardcoding
         for arg in [
             "input",
             "hidden_states",
             "input_tensor",
             "sequence_output",
+            "key_value_states",
         ]:
             if arg in concrete_args:
                 concrete_args.pop(arg)
@@ -147,15 +150,17 @@ def trace_submodule(root: nn.Module, tracer_class, is_top: bool = False, **kwarg
             )
         except Exception as err:
             if not silent:
+                warnings.warn(traceback.format_exc())
                 warnings.warn(f"Cannot trace module {root.__class__.__name__}: {err}")
             is_tracing_failed = True
     else:
         concrete_args = kwargs.get("concrete_args", {})
         try:
             root_graph = tracer.trace(root, concrete_args=concrete_args)
-        except:
+        except Exception as err:
             if not silent:
-                warnings.warn(f"Cannot trace module {root.__class__.__name__}")
+                warnings.warn(traceback.format_exc())
+                warnings.warn(f"Cannot trace module {root.__class__.__name__}: {err}")
             is_tracing_failed = True
     # trace submodules
     submods = {}
@@ -201,18 +206,26 @@ def trace(model: nn.Module, **kwargs: Dict[str, Any]):
         warnings.warn(f"Tracer: {tracer_cls_name} Model: {model.__class__.__name__}")
     if isinstance(tracer_cls_name, str):
         if tracer_cls_name == "huggingface":
-            from transformers.utils.fx import HFTracer
+            from transformers.utils.fx import HFTracer, HFProxy
 
             assert (
                 "concrete_args" in kwargs
             ), "Please provide concrete_args for HF tracer"
             concrete_args = kwargs["concrete_args"]
 
+            class MSHFProxy(HFProxy):
+                def __bool__(self):
+                    # TODO: Fix data-dependent control flow
+                    return True
+
             class TracerWrapper(HFTracer):
                 def __init__(self, **config: Dict[str, Any]) -> None:
                     super(TracerWrapper, self).__init__()
                     self.name = "huggingface"
                     self.leaf_modules = config.get("leaf_modules", [])
+
+                def proxy(self, node):
+                    return MSHFProxy(node, self)
 
                 def create_proxy(
                     self,

@@ -82,7 +82,11 @@ def fix_hf_module(
 
 
 def generate_hf_tracer_inputs(
-    root: nn.Module, tracer: fx.Tracer, is_top: bool, kwargs: Dict[str, Any]
+    root: nn.Module,
+    tracer: fx.Tracer,
+    is_top: bool,
+    call_node: fx.Node,
+    kwargs: Dict[str, Any],
 ):
     if is_top:
         sig = inspect.signature(
@@ -102,31 +106,36 @@ def generate_hf_tracer_inputs(
         kwargs["dummy_inputs"] = inputs
         dummy_inputs = copy.copy(inputs)
     else:
+        assert call_node is not None
         sig = inspect.signature(root.forward)
-        dummy_inputs = (
-            copy.copy(kwargs["dummy_inputs"]) if "dummy_inputs" in kwargs else None
-        )
+        arg_names = list(sig.parameters.keys())
+        dummy_inputs = {}
+        for i, arg in enumerate(call_node.args):
+            if isinstance(arg, fx.Node):
+                # just a placeholder, shape and dtype don't matter
+                dummy_inputs[arg_names[i]] = torch.zeros((1,), dtype=torch.float)
+            else:
+                # ignore value=None
+                pass
+        for _, (key, arg) in enumerate(call_node.kwargs.items(), len(call_node.args)):
+            assert key in arg_names
+            if isinstance(arg, fx.Node):
+                dummy_inputs[key] = torch.zeros((1,), dtype=torch.float)
         concrete_args = {
             p.name: p.default
             for p in sig.parameters.values()
             if p.name not in dummy_inputs
         }
-        # TODO: Fix hardcoding
-        for arg in [
-            "input",
-            "hidden_states",
-            "input_tensor",
-            "sequence_output",
-            "key_value_states",
-        ]:
-            if arg in concrete_args:
-                concrete_args.pop(arg)
-                # just a placeholder, shape and dtype don't matter
-                dummy_inputs[arg] = torch.zeros((1,), dtype=torch.float)
     return concrete_args, dummy_inputs
 
 
-def trace_submodule(root: nn.Module, tracer_class, is_top: bool = False, **kwargs):
+def trace_submodule(
+    root: nn.Module,
+    tracer_class,
+    is_top: bool = False,
+    call_node: fx.Node = None,
+    **kwargs,
+):
     # generate top graph module
     named_children = dict(root.named_children())
     leaf_modules = kwargs.get("leaf_modules", [])
@@ -139,10 +148,9 @@ def trace_submodule(root: nn.Module, tracer_class, is_top: bool = False, **kwarg
         else:
             leaf_modules.append(key)
     tracer = tracer_class(leaf_modules=leaf_modules)
-    is_tracing_failed = False
     if tracer.name == "huggingface":
         concrete_args, dummy_inputs = generate_hf_tracer_inputs(
-            root, tracer, is_top, kwargs
+            root, tracer, is_top, call_node, kwargs
         )
         try:
             root_graph = tracer.trace(
@@ -152,7 +160,7 @@ def trace_submodule(root: nn.Module, tracer_class, is_top: bool = False, **kwarg
             if not silent:
                 warnings.warn(traceback.format_exc())
                 warnings.warn(f"Cannot trace module {root.__class__.__name__}: {err}")
-            is_tracing_failed = True
+            return root
     else:
         concrete_args = kwargs.get("concrete_args", {})
         try:
@@ -161,7 +169,11 @@ def trace_submodule(root: nn.Module, tracer_class, is_top: bool = False, **kwarg
             if not silent:
                 warnings.warn(traceback.format_exc())
                 warnings.warn(f"Cannot trace module {root.__class__.__name__}: {err}")
-            is_tracing_failed = True
+            return root
+    call_arg_map = {}
+    for node in root_graph.nodes:
+        if node.op == "call_module":
+            call_arg_map[node.target] = node
     # trace submodules
     submods = {}
     for name, submod in named_children.items():
@@ -179,22 +191,31 @@ def trace_submodule(root: nn.Module, tracer_class, is_top: bool = False, **kwarg
         else:
             if isinstance(submod, nn.Sequential) or isinstance(submod, nn.ModuleList):
                 for i, layer in enumerate(submod):
-                    gm_submod = trace_submodule(layer, tracer_class, **kwargs)
+                    gm_submod = trace_submodule(
+                        layer,
+                        tracer_class,
+                        is_top=False,
+                        call_node=call_arg_map[f"{name}.{i}"],
+                        **kwargs,
+                    )
                     submods[f"{name}.{i}"] = gm_submod
             else:
-                gm_submod = trace_submodule(submod, tracer_class, **kwargs)
+                gm_submod = trace_submodule(
+                    submod,
+                    tracer_class,
+                    is_top=False,
+                    call_node=call_arg_map[name],
+                    **kwargs,
+                )
                 submods[name] = gm_submod
-    if not is_tracing_failed:
-        if tracer.name == "huggingface":
-            root_graph = fix_hf_module(root, root_graph, submods)
-        final_gm = fx.GraphModule(submods, root_graph)
-        # remove redundant code
-        final_gm.graph.eliminate_dead_code()
-        final_gm.delete_all_unused_submodules()
-        final_gm.graph.lint()
-        final_gm.recompile()
-    else:
-        final_gm = root
+    if tracer.name == "huggingface":
+        root_graph = fix_hf_module(root, root_graph, submods)
+    final_gm = fx.GraphModule(submods, root_graph)
+    # remove redundant code
+    final_gm.graph.eliminate_dead_code()
+    final_gm.delete_all_unused_submodules()
+    final_gm.graph.lint()
+    final_gm.recompile()
     return final_gm
 
 
@@ -216,6 +237,8 @@ def trace(model: nn.Module, **kwargs: Dict[str, Any]):
             class MSHFProxy(HFProxy):
                 def __bool__(self):
                     # TODO: Fix data-dependent control flow
+                    if hasattr(self, "_metadata") and self._metadata is not None:
+                        return self._metadata
                     return True
 
             class TracerWrapper(HFTracer):
@@ -271,7 +294,7 @@ def trace(model: nn.Module, **kwargs: Dict[str, Any]):
                                 raise AttributeError(
                                     f"{self} does not have an attribute called orig_forward"
                                 )
-                            pass  # delete original code here
+                            return rv  # delete original code here
                         elif kind == "get_attr":
                             self._disable_module_getattr = True
                             try:

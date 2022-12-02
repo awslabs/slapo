@@ -13,6 +13,7 @@ from transformers.utils.fx import (
 import warnings
 import operator
 import traceback
+import random
 
 
 def fix_hf_module(
@@ -88,6 +89,11 @@ def generate_hf_tracer_inputs(
     call_node: fx.Node,
     kwargs: Dict[str, Any],
 ):
+    # generate random shape
+    batch_size = random.randint(10, 20)
+    sequence_length = random.randint(10, 20)
+    shape = [batch_size, sequence_length]
+    # generate concrete_args and dummy_inputs
     if is_top:
         sig = inspect.signature(
             root.forward if isinstance(root, torch.nn.Module) else root
@@ -95,11 +101,6 @@ def generate_hf_tracer_inputs(
         assert "concrete_args" in kwargs
         concrete_args = kwargs["concrete_args"]  # those are args having None value
         input_names = sig.parameters.keys() - concrete_args.keys()
-        import random
-
-        batch_size = random.randint(10, 20)
-        sequence_length = random.randint(10, 20)
-        shape = (batch_size, sequence_length)
         inputs = {}
         for input_name in input_names:
             inputs.update(tracer._generate_dummy_input(root, input_name, shape))
@@ -112,15 +113,15 @@ def generate_hf_tracer_inputs(
         dummy_inputs = {}
         for i, arg in enumerate(call_node.args):
             if isinstance(arg, fx.Node):
-                # just a placeholder, shape and dtype don't matter
-                dummy_inputs[arg_names[i]] = torch.zeros((1,), dtype=torch.float)
+                # FIXME: shape and dtype do affect the control flow branches
+                dummy_inputs[arg_names[i]] = torch.zeros(shape, dtype=torch.float32)
             else:
                 # ignore value=None
                 pass
         for _, (key, arg) in enumerate(call_node.kwargs.items(), len(call_node.args)):
             assert key in arg_names
             if isinstance(arg, fx.Node):
-                dummy_inputs[key] = torch.zeros((1,), dtype=torch.float)
+                dummy_inputs[key] = torch.zeros(shape, dtype=torch.float32)
         concrete_args = {
             p.name: p.default
             for p in sig.parameters.values()

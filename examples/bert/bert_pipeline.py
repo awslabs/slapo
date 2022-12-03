@@ -47,7 +47,9 @@ def train(args):
         checkpoint(sch, bert_config, prefix="")
 
     print("Use pipeline parallelism")
-    sch["encoder.layer.12"].partition()
+    sch["encoder.layer.5"].partition()
+    sch["encoder.layer.11"].partition()
+    sch["encoder.layer.17"].partition()
 
     report_memory(rank)
     device = "cuda:{}".format(rank)

@@ -563,6 +563,25 @@ def generate_pipeline_partition(sch):
         return propagate_partition(parent_name, parent_mod)
 
     sch.gm = propagate_partition(*mod_has_partition_point)
+    # analyze data dependency to resolve the "broadcasting" problem,
+    # i.e., the output of stage 0 will be broadcasted to stage 1,2,...
+    # TODO: Support general pattern
+    submod_args = []
+    num_args = []
+    for node in sch.gm.graph.nodes:
+        if node.op == "call_module" and "submod_" in node.target:
+            stage_num = int(node.target.split("_")[-1])
+            if stage_num > 0:
+                submod_args.append(node.args)
+                num_args.append(len(node.args))
+    assert (
+        len(set(num_args)) == 1
+    ), "Cannot support submod with different number of input arguments yet"
+    bypass_lst = []
+    for i in range(max(num_args)):
+        if len(submod_args) > 1 and len(set([args[i] for args in submod_args])) == 1:
+            bypass_lst.append((i, submod_args[0][i]))  # (idx, node)
+    # generate wrappers for pipelined modules
     res_partition = []
     named_children = dict(sch.gm.named_children())
     for i, (_, partition) in enumerate(named_children.items()):
@@ -605,8 +624,21 @@ def generate_pipeline_partition(sch):
                         prev_level = curr_level
                 for value in kwargs.values():
                     new_args += [value]
+                # check if arguments in bypass list
+                # TODO: actual argument position-based checking
+                if self.stage_id > 0:
+                    local_bypass = []
+                    for idx, _ in bypass_lst:
+                        warnings.warn(
+                            f"Bypass the {idx}-th argument in pipeline stage {self.stage_id}"
+                        )
+                        assert idx < len(new_args)
+                        local_bypass.append(new_args[idx])
                 # forward pass
                 outputs = self.mod(*new_args)
+                # add bypassed values to outputs
+                if self.stage_id > 0 and not self.last:
+                    outputs = [outputs] + local_bypass
                 # pack outputs
                 if self.last:
                     new_outputs = outputs
@@ -617,7 +649,7 @@ def generate_pipeline_partition(sch):
                     def flatten(outputs, level):
                         assert level < 2, "Not supported nested level >= 2 yet"
                         for output in outputs:
-                            if isinstance(output, tuple):
+                            if isinstance(output, (tuple, list)):
                                 flatten(output, level + 1)
                             elif isinstance(output, dict):
                                 flatten(output.values(), level + 1)

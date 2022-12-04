@@ -56,7 +56,7 @@ def fix_hf_module(
                 if key in target_args:
                     res_kwargs[key] = kwargs[key]
                     target_args.remove(key)
-            node.args = args[: len(target_args)]
+            node.args = tuple(args[: len(target_args)])
             node.kwargs = res_kwargs
     # FIXME: Dirty hack for getitem
     # https://github.com/huggingface/transformers/blob/main/src/transformers/models/bert/modeling_bert.py#L1021-L1033

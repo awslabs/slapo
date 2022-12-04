@@ -1,7 +1,7 @@
 import os
 import inspect
 import argparse
-from transformers import BertModel, AutoConfig
+from transformers import BertLMHeadModel, AutoConfig
 import torch
 import torch.nn as nn
 import ms
@@ -22,7 +22,7 @@ def train(args):
     deepspeed.init_distributed(dist_backend="nccl")
     # https://huggingface.co/bert-large-uncased/blob/main/config.json
     bert_config = AutoConfig.from_pretrained("bert-large-uncased")
-    bert = BertModel(bert_config)
+    bert = BertLMHeadModel(bert_config)
     optimizer = torch.optim.AdamW(bert.parameters(), lr=0.001)
     bert.half()
 
@@ -47,9 +47,13 @@ def train(args):
         checkpoint(sch, bert_config, prefix="")
 
     print("Use pipeline parallelism")
-    sch["encoder.layer.5"].partition()
-    sch["encoder.layer.11"].partition()
-    sch["encoder.layer.17"].partition()
+    sch["bert.encoder.layer.2"].partition()
+    sch["bert.encoder.layer.5"].partition()
+    sch["bert.encoder.layer.8"].partition()
+    sch["bert.encoder.layer.11"].partition()
+    sch["bert.encoder.layer.14"].partition()
+    sch["bert.encoder.layer.17"].partition()
+    sch["bert.encoder.layer.20"].partition()
 
     report_memory(rank)
     device = "cuda:{}".format(rank)
@@ -58,11 +62,17 @@ def train(args):
         "train_micro_batch_size_per_gpu": 1,
         "optimizer": {"type": "AdamW", "params": {"lr": 0.0001}},
     }
-    # criteria = nn.CrossEntropyLoss()
-    def loss_fn(outputs, label):
-        return outputs[0].mean()
-        # output = outputs[0].transpose(1, 2).contiguous()
-        # return criteria(output, label)
+
+    loss_fct = nn.CrossEntropyLoss()
+
+    def loss_fn(outputs, labels):
+        prediction_scores = outputs
+        shifted_prediction_scores = prediction_scores[:, :-1, :].contiguous()
+        labels = labels[:, 1:].contiguous()
+        lm_loss = loss_fct(
+            shifted_prediction_scores.view(-1, bert.config.vocab_size), labels.view(-1)
+        )
+        return lm_loss
 
     model, optimizer = ms.build(
         sch, target="deepspeed", config=ds_config_dict, loss_fn=loss_fn
@@ -77,7 +87,9 @@ def train(args):
         "input_ids": torch.zeros(
             bs, seq_length, dtype=torch.long, device=device
         ).random_(bert.config.vocab_size),
-        "attention_mask": torch.ones(bs, seq_length, dtype=torch.long, device=device),
+        "attention_mask": torch.ones(
+            bs, seq_length, dtype=torch.float16, device=device, requires_grad=True
+        ),
         "token_type_ids": torch.ones(bs, seq_length, dtype=torch.long, device=device),
         "labels": torch.zeros(bs, seq_length, dtype=torch.long, device=device).random_(
             bert.config.vocab_size

@@ -461,7 +461,10 @@ def generate_pipeline_partition(sch):
         assert partition_cnt > 0
         # partition submodule
         childmod_after_split = split_module(
-            child_mod, None, lambda node: node.meta["partition"]
+            child_mod,
+            None,
+            lambda node: node.meta["partition"],
+            keep_original_order=True,
         )
         if child_name == "":
             return childmod_after_split
@@ -563,24 +566,42 @@ def generate_pipeline_partition(sch):
         return propagate_partition(parent_name, parent_mod)
 
     sch.gm = propagate_partition(*mod_has_partition_point)
-    # analyze data dependency to resolve the "broadcasting" problem,
-    # i.e., the output of stage 0 will be broadcasted to stage 1,2,...
-    # TODO: Support general pattern
-    submod_args = []
-    num_args = []
+    # remap input args
+    # and analyze label bypassing
+    ph_idx = {}
+    fx_idx_to_normal_idx = {}
+    ph_bypass = {}  # stage id->arg name
+    id2call = {}
+    for i, node in enumerate(sch.gm.graph.nodes):
+        if node.op == "placeholder":
+            ph_idx[node.target] = i
+        elif node.op == "call_module" and "submod_" in node.target:
+            stage_id = int(node.target.split("_")[-1])
+            id2call[stage_id] = node
+            if stage_id == 0:
+                for j, arg in enumerate(node.args):
+                    fx_idx_to_normal_idx[j] = ph_idx[arg.target]
+            else:
+                for arg in node.args:
+                    if isinstance(arg, fx.Node) and arg.op == "placeholder":
+                        ph_bypass[stage_id] = arg.target
+    # analyze data dependency to find whether the variables need to
+    # be bypassed in the pipeline
+    var_use_stages = {}  # var name -> list of stage ids
     for node in sch.gm.graph.nodes:
         if node.op == "call_module" and "submod_" in node.target:
             stage_num = int(node.target.split("_")[-1])
-            if stage_num > 0:
-                submod_args.append(node.args)
-                num_args.append(len(node.args))
-    assert (
-        len(set(num_args)) == 1
-    ), "Cannot support submod with different number of input arguments yet"
-    bypass_lst = []
-    for i in range(max(num_args)):
-        if len(submod_args) > 1 and len(set([args[i] for args in submod_args])) == 1:
-            bypass_lst.append((i, submod_args[0][i]))  # (idx, node)
+            for arg in node.args:
+                if arg.name not in var_use_stages:
+                    var_use_stages[arg.name] = [stage_num]
+                else:
+                    var_use_stages[arg.name].append(stage_num)
+    bypass_vars = []
+    for var, stage_lst in var_use_stages.items():
+        if len(stage_lst) > 1:
+            # multiple usage, need to bypass
+            bypass_vars.append((var, stage_lst))
+    assert len(bypass_vars) <= 1
     # generate wrappers for pipelined modules
     res_partition = []
     named_children = dict(sch.gm.named_children())
@@ -595,50 +616,63 @@ def generate_pipeline_partition(sch):
                 self.last = self.stage_id == self.total_stages - 1
 
             def forward(self, *args, **kwargs):
-                if len(args) == 1 and isinstance(args[0], tuple):
+                # TODO: use kwargs to do mapping
+                if len(args) == 1 and isinstance(args[0], (list, tuple)):
                     args = args[0]
                 # unpack inputs
                 new_args = []
                 if self.stage_id == 0:
+                    unordered_args = []
                     for arg in args:
                         assert not isinstance(arg, dict)
                         if isinstance(arg, tuple):
-                            new_args.extend([item for item in arg])
+                            unordered_args.extend([item for item in arg])
                         else:
-                            new_args.append(arg)
+                            unordered_args.append(arg)
+                    # remap inputs
+                    # not sure why fx will changes the order of partitioned module's arguments
+                    for idx in range(len(unordered_args)):
+                        if idx in fx_idx_to_normal_idx:
+                            new_args.append(unordered_args[fx_idx_to_normal_idx[idx]])
                 else:
                     args, metadata = args[:-1], args[-1]
                     assert len(args) == len(metadata)
                     # restore nested structure from metadata
                     prev_level = 0
-                    lst = new_args
                     for arg, curr_level in zip(args, metadata):
-                        if curr_level > prev_level:
-                            lst = [arg]
-                        elif curr_level == prev_level:
-                            lst.append(arg)
-                        else:
-                            new_args.append(lst)
-                            new_args.append(arg)
-                            lst = new_args
+                        inner_lst = new_args
+                        for _ in range(curr_level):
+                            if curr_level > prev_level:
+                                inner_lst.append([])
+                            inner_lst = inner_lst[-1]
+                        inner_lst.append(arg)
                         prev_level = curr_level
+                    # FIXME: avoid dirty hack
+                    is_all_getitem = True
+                    for arg in id2call[self.stage_id].args:
+                        if arg.op != "call_function" or "getitem" not in arg.name:
+                            is_all_getitem = False
+                    if is_all_getitem:
+                        new_args = new_args[0]
                 for value in kwargs.values():
                     new_args += [value]
                 # check if arguments in bypass list
                 # TODO: actual argument position-based checking
                 if self.stage_id > 0:
-                    local_bypass = []
-                    for idx, _ in bypass_lst:
-                        warnings.warn(
-                            f"Bypass the {idx}-th argument in pipeline stage {self.stage_id}"
-                        )
-                        assert idx < len(new_args)
-                        local_bypass.append(new_args[idx])
+                    local_fork = []
+                    for var, stage_lst in bypass_vars:
+                        if self.stage_id in stage_lst:
+                            warnings.warn(
+                                f"Fork argument {var} in pipeline stage {self.stage_id}"
+                            )
+                            local_fork.append(new_args[-1])
                 # forward pass
                 outputs = self.mod(*new_args)
                 # add bypassed values to outputs
                 if self.stage_id > 0 and not self.last:
-                    outputs = [outputs] + local_bypass
+                    outputs = [outputs] + local_fork
+                elif self.stage_id == 0:
+                    outputs = [outputs]
                 # pack outputs
                 if self.last:
                     new_outputs = outputs
@@ -647,7 +681,6 @@ def generate_pipeline_partition(sch):
                     metadata = []  # used for storing nested levels
 
                     def flatten(outputs, level):
-                        assert level < 2, "Not supported nested level >= 2 yet"
                         for output in outputs:
                             if isinstance(output, (tuple, list)):
                                 flatten(output, level + 1)
@@ -663,7 +696,7 @@ def generate_pipeline_partition(sch):
                             metadata, dtype=torch.long, device=new_outputs[0].device
                         )
                     )
-                new_outputs = tuple(new_outputs)
+                    new_outputs = tuple(new_outputs)
                 return new_outputs
 
         res_partition.append(SubmodWrapper(partition, i, len(named_children)))

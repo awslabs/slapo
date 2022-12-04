@@ -1,3 +1,5 @@
+import copy
+
 import torch
 import torch.nn as nn
 import torch.fx as fx
@@ -140,7 +142,18 @@ def trace_submodule(
     # generate top graph module
     named_children = dict(root.named_children())
     leaf_modules = kwargs.get("leaf_modules", [])
+
+    # FIXME: Use _IS_IN_DEBUG_MODE.
     silent = kwargs.get("silent", False)
+
+    # Create a tracer with the original leaf modules. This is only used
+    # to judge whether a submodule is really a leaf or not.
+    tracer_with_orig_leaf = tracer_class(leaf_modules=leaf_modules)
+
+    # Add all children module (submodule) to be leaf module to prevent
+    # the tracer from tracing into them, because we will trace submodules
+    # separately to maintain the module hierarchy.
+    leaf_modules = copy.deepcopy(leaf_modules)
     for key, leaf_mod in named_children.items():
         if isinstance(leaf_mod, nn.ModuleList):
             leaf_modules += [
@@ -149,6 +162,7 @@ def trace_submodule(
         else:
             leaf_modules.append(key)
     tracer = tracer_class(leaf_modules=leaf_modules)
+
     if tracer.name == "huggingface":
         concrete_args, dummy_inputs = generate_hf_tracer_inputs(
             root, tracer, is_top, call_node, kwargs
@@ -175,23 +189,27 @@ def trace_submodule(
     for node in root_graph.nodes:
         if node.op == "call_module":
             call_arg_map[node.target] = node
-    # trace submodules
+
+    # Trace submodules
     submods = {}
     for name, submod in named_children.items():
-        if (
-            not isinstance(submod, nn.Sequential)
-            and not isinstance(submod, nn.ModuleList)
-            and (
-                submod.__module__.startswith("torch.nn")
-                or submod.__module__.startswith("torch.ao.nn")
-            )
-        ) or (type(submod).__name__ in kwargs.get("leaf_modules", [])):
-            # no need to trace into
-            gm_submod = submod
-            submods[name] = gm_submod
-        else:
-            if isinstance(submod, nn.Sequential) or isinstance(submod, nn.ModuleList):
-                for i, layer in enumerate(submod):
+        if isinstance(submod, nn.ModuleList):
+            # We assume ModuleList will be iteratively traversed in forward function.
+            # For example:
+            # In __init__: self.layers = nn.ModuleList([nn.Linear(10, 10) for _ in range(3)])
+            # In forwrad :
+            #     for layer in self.layers:
+            #         x = layer(x)
+            # In this case, fx IR will create a unique name for each layer,
+            # such as layer.0, layer.1, etc. We follow this convention to
+            # trace each layer in ModuleList to register the submodule name.
+            for i, layer in enumerate(submod):
+                module_qualified_name = tracer.path_of_module(layer)
+                if tracer_with_orig_leaf.is_leaf_module(
+                    layer, module_qualified_name
+                ):
+                    gm_submod = layer
+                else:
                     gm_submod = trace_submodule(
                         layer,
                         tracer_class,
@@ -199,7 +217,17 @@ def trace_submodule(
                         call_node=call_arg_map[f"{name}.{i}"],
                         **kwargs,
                     )
-                    submods[f"{name}.{i}"] = gm_submod
+                submods[f"{name}.{i}"] = gm_submod
+        else:
+            # For other submodules including nn.Sequential, we assume they are directly
+            # called in forward function. For example:
+            # In __init__: self.block = nn.Sequential(...)
+            # In forward : out = self.block(x)
+            # In this case, fx IR will create directly call the submodule such as block.
+            module_qualified_name = tracer.path_of_module(submod)
+            if tracer_with_orig_leaf.is_leaf_module(submod, module_qualified_name):
+                # If it is a real leaf module, stop tracing.
+                gm_submod = submod
             else:
                 gm_submod = trace_submodule(
                     submod,
@@ -208,7 +236,7 @@ def trace_submodule(
                     call_node=call_arg_map[name],
                     **kwargs,
                 )
-                submods[name] = gm_submod
+            submods[name] = gm_submod
     if tracer.name == "huggingface":
         root_graph = fix_hf_module(root, root_graph, submods)
     final_gm = fx.GraphModule(submods, root_graph)

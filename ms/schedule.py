@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from functools import partial
 from types import FunctionType
-from typing import Any, Dict, List, Union, Tuple
+from typing import Any, Dict, List, Union, Optional, Tuple
 import operator
 import inspect
 import torch
@@ -24,6 +26,48 @@ class Pattern(ABC):
     @abstractmethod
     def starting_point(self, parent_name, node):
         raise NotImplementedError
+
+
+class DictWithValidation(dict):
+    def __setitem__(self, key, value):
+        if key in self and self[key] != value:
+            raise KeyError(f"{key}:{value} conflicts exists value {self[key]}")
+        super().__setitem__(key, value)
+
+
+class _AllGatherForwardOutput(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, input, dim):
+        ctx.dim = dim
+        world_size = dist.get_world_size()
+        rank = dist.get_rank()
+        parts = [
+            torch.zeros(input.shape, dtype=input.dtype).cuda(rank)
+            for _ in range(world_size)
+        ]
+        dist.all_gather(parts, input)
+        ret = torch.cat(parts, dim=dim)
+        return ret
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        dim = ctx.dim
+        world_size = dist.get_world_size()
+        rank = dist.get_rank()
+        sharded_size = grad_output.shape[dim] // world_size
+        ret = grad_output.split(sharded_size, dim=dim)[rank]
+        return ret, None
+
+
+def all_gather_forward_output(input, dim):
+    return _AllGatherForwardOutput.apply(input, dim)
+
+
+@dataclass
+class ScheduleMetadata:
+    # FIXME: 1) A mechanism to let each primitive register their metadata.
+    # 2) Let each primitive derive metadata class.
+    shard: Dict[str, Any] = field(default_factory=lambda: DictWithValidation())
 
 
 class Schedule:
@@ -225,12 +269,59 @@ class OperationList:
         sharded_size = param.shape[axis] // self.world_size
         new_param = param.detach().split(sharded_size, dim=axis)[self.rank]
         mod.register_parameter(param_name, nn.Parameter(new_param))
-        # update nn.Linear arguments
+
+        # Add metadata for sync and check. FIXME: A validation mechanism to check this.
+        # 1. Whether the param is already sharded in different axis.
+        # 2. Whether the output syncing method is conflict.
+        if not hasattr(mod, "schedule_metadata"):
+            mod.schedule_metadata = ScheduleMetadata()
+        try:
+            mod.schedule_metadata.shard[param_name] = axis
+        except KeyError:
+            raise RuntimeError(
+                f"Parameter {param_name} in {mod} is already sharded along axis "
+                f"{mod.schedule_metadata.shard[param_name]}"
+            ) from None
+
+        def set_output_type(output_type, gather_axis=None):
+            try:
+                mod.schedule_metadata.shard["output_type"] = output_type
+            except KeyError:
+                raise RuntimeError(
+                    f"Output type of {mod} is already "
+                    f"{mod.schedule_metadata.shard['output_type']}, but "
+                    f"{output_type} is requested"
+                ) from None
+
+            if gather_axis is not None:
+                try:
+                    mod.schedule_metadata.shard["gather_axis"] = gather_axis
+                except KeyError:
+                    raise RuntimeError(
+                        f"Output of {mod} has to be gathered along axis "
+                        f"{mod.schedule_metadata.shard['gather_axis']}, but "
+                        f"{gather_axis} is requested"
+                    ) from None
+
+        # Update attributes. FIXME: Generalize to other ops.
         if isinstance(mod, nn.Linear):
             if axis == 0:
                 mod.out_features = sharded_size
+                # Note that the axis is the axis of the output
+                set_output_type("partition", gather_axis=1)
             else:  # axis == 1
                 mod.in_features = sharded_size
+                set_output_type("partial")
+        elif isinstance(mod, nn.Conv2d):
+            axes = [1, 0] if mod.transposed else [0, 1]
+            if axis == axes[0]:
+                mod.out_channels = sharded_size
+                set_output_type("partition", gather_axis=1)
+            elif axis == axes[1]:
+                mod.in_channels = sharded_size
+                set_output_type("partial")
+            else:
+                raise NotImplementedError
 
     def hook(self, mode, func):
         assert len(self.op_lst) == 1
@@ -249,7 +340,7 @@ class OperationList:
                 return func(_input, output)
 
             mod.register_forward_hook(fw_post_hook)
-        elif mode == "fw_post":
+        elif mode == "bw_post":
 
             def bw_post_hook(_module, _input, output):
                 return func(_input, output)
@@ -258,36 +349,61 @@ class OperationList:
         else:
             raise RuntimeError("Mode {} is not supported".format())
 
-    def sync(self, backward=False, comm_overlap=False, blocking=False):
-        """Communication overlapping requires users to make sure the correctness.
-        Specifically, the blocking=True has to be specified in the right place against
-        the data dependency; otherwise the result will be incorrect.
+    def sync(self, mode="backward"):
+        """There are several cases for sync based on two factors:
+        1) The original forward output is partitioned or partial sum.
+        2) The next module wants to take full or partitioned input.
+        Note that we ignore the case that the next module wants to take partial sum
+        input, because it is not benefitical to the performance.
+
+        Case 1: (replica x, shard_out w) -> partition output -> allgather
+                -> full output -> (replica x, shard_out w).
+            In this case, since forward uses all-gather to get a full output,
+            backward must have a split to match the shape, and
+            allreduce is also required for x.grad, so mode should be 'both'.
+        Case 2: (replica x, shard_out w) -> partition output -> (shard x, shard_in w).
+            In this case, backward still needs allrecuce, so mode should be 'backward'.
+        Case 3: (shard x, shard_in w) -> partial sum -> allreduce
+                -> (replica x, shard_out w).
+            In this case, backward does not need allreduce, so mode should be 'forward'.
         """
         assert len(self.op_lst) == 1
         _, node = self.op_lst[0]
         mod = getattr(self.gm, node.target)
+        assert hasattr(
+            mod, "schedule_metadata"
+        ), "Schedule metadata is missing in {mod}"
+        assert (
+            "output_type" in mod.schedule_metadata.shard
+        ), "output_type is missing in {mod}.schedule_metadata.shard"
+        output_type = mod.schedule_metadata.shard["output_type"]
 
-        if not backward:
+        if mode in ["forward", "both"]:
+            if output_type == "partition":
+                # Case 1
+                gather_axis = mod.schedule_metadata.shard["gather_axis"]
+                sync_fn = partial(all_gather_forward_output, dim=gather_axis)
+            elif output_type == "partial":
+                # Case 3
+                def sync_fn(output):
+                    dist.all_reduce(output, op=dist.ReduceOp.SUM)
+                    return output
+
+            else:
+                raise NotImplementedError
 
             def hook_func(_module, _input, output):
-                dist.all_reduce(output, op=dist.ReduceOp.SUM)
+                output = sync_fn(output)
                 return output
 
             mod.register_forward_hook(hook_func)
 
-        else:
+        if mode in ["backward", "both"]:
+            # Case 1, 2
 
             def hook_func(_module, _input, output):
-                stream_ctx = None
-                if comm_overlap:
-                    COMM_CUDA_STREAM.wait_stream(torch.cuda.default_stream())
-                    stream_ctx = torch.cuda.stream(COMM_CUDA_STREAM)
-                    stream_ctx.__enter__()
-                dist.all_reduce(output[0].contiguous(), op=dist.ReduceOp.SUM)
-                if comm_overlap:
-                    stream_ctx.__exit__(None, None, None)
-                    if blocking:
-                        COMM_CUDA_STREAM.synchronize()
+                # Allreduce dx.
+                dist.all_reduce(_input[0].contiguous(), op=dist.ReduceOp.SUM)
 
             mod.register_full_backward_hook(hook_func)
 

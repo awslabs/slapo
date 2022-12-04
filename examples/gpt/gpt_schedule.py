@@ -134,9 +134,9 @@ def replace_attention(sch, config, attn_path="h.N.attn.attention"):
         if sch.world_size > 1:
             sch_xformer["FusedQKV_0.fused_linear"].shard("weight", axis=0)
             sch_xformer["FusedQKV_0.fused_linear"].shard("bias", axis=0)
-            sch_xformer["FusedQKV_0.fused_linear"].sync(backward=True)
+            sch_xformer["FusedQKV_0.fused_linear"].sync(mode="backward")
             sch_xformer["out_proj"].shard("weight", axis=1)
-            sch_xformer["out_proj"].sync()
+            sch_xformer["out_proj"].sync(mode="forward")
 
     return len(ops)
 
@@ -286,10 +286,10 @@ def shard_qkv(
         sch_fusedqkv = sch[f"{prefix}.{qkv_name}"].subschedule()
         sch_fusedqkv["fused_linear"].shard("weight", axis=axes[0])
         sch_fusedqkv["fused_linear"].shard("bias", axis=0)
-        sch_fusedqkv["fused_linear"].sync(backward=True)
+        sch_fusedqkv["fused_linear"].sync(mode="backward")
 
         sch[f"{prefix}.{out_proj_name}"].shard("weight", axis=axes[1])
-        sch[f"{prefix}.{out_proj_name}"].sync()
+        sch[f"{prefix}.{out_proj_name}"].sync(mode="forward")
     fix_shape_after_shard()
 
 
@@ -318,18 +318,18 @@ def replace_and_shard_mlp(
             if sch.world_size > 1:
                 sch_mlp["fc_in"].shard("weight", axis=0)
                 sch_mlp["act"].shard("bias", axis=0)
-                sch_mlp["fc_in"].sync(backward=True)
+                sch_mlp["fc_in"].sync(mode="backward")
                 sch_mlp["fc_out"].shard("weight", axis=1)
-                sch_mlp["fc_out"].sync()
+                sch_mlp["fc_out"].sync(mode="forward")
     elif sch.world_size > 1:
         axes = [1, 0] if transpose_weights else [0, 1]
         for i in range(config.num_layers):
             prefix = path.replace("N", str(i))
             sch[f"{prefix}.{fc_names[0]}"].shard("weight", axis=axes[0])
             sch[f"{prefix}.{fc_names[0]}"].shard("bias", axis=0)
-            sch[f"{prefix}.{fc_names[0]}"].sync(backward=True)
+            sch[f"{prefix}.{fc_names[0]}"].sync(mode="backward")
             sch[f"{prefix}.{fc_names[1]}"].shard("weight", axis=axes[1])
-            sch[f"{prefix}.{fc_names[1]}"].sync()
+            sch[f"{prefix}.{fc_names[1]}"].sync(mode="forward")
 
 
 def checkpoint(sch, config, path="h.N", ckpt_ratio=1.0):

@@ -26,7 +26,7 @@ Please refer to [`examples/model-schedule-demo.ipynb`](examples/model-schedule-d
 | :--: | :-- |
 | Pattern matching | `s.find_module/function/method(pattern)` |
 | Parameter sharding | `s[op].shard(param, axis)` |
-| synchronization | `s[op].sync(backward=False/True)` |
+| synchronization | `s[op].sync(mode="forward/backward/both")` |
 | Kernel Injection | `s[op].replace(OldModule, NewModule)` |
 | Forward/Backward Hook | `s[op].hook("fw_pre", hook)` |
 | Gradient Checkpointing | `s[op].checkpoint()` |

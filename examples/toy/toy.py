@@ -90,8 +90,8 @@ def train(rank, args):
         sch["mlp.dense_2"].shard("weight", axis=1)
 
         # aggreate results
-        sch["mlp.dense_2"].sync()
-        sch["mlp.dense_1"].sync(backward=True)
+        sch["mlp.dense_2"].sync(mode="forward")
+        sch["mlp.dense_1"].sync(mode="backward")
 
     if args.checkpoint:
         sch["mlp"].checkpoint()

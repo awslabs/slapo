@@ -1,0 +1,35 @@
+{
+    "help": "250M config",
+    "train_batch_size": 8,
+    "train_micro_batch_size_per_gpu": 8,
+    "steps_per_print": 10,
+    "prescale_gradients": false,
+    "wideresnet_config": {
+        "width_per_group": 128,
+        "layers": [6, 8, 46, 6]
+    },
+    "zero_optimization": {
+        "stage": 3,
+        "overlap_comm": true,
+        "reduce_scatter": true,
+        "contiguous_gradients": false
+    },
+    "zero_allow_untested_optimizer": true,
+    "optimizer": {
+        "type": "Adam",
+        "params": {
+            "lr": 0.0001,
+            "weight_decay": 0.01,
+            "bias_correction": true,
+            "eps": 1e-06
+        }
+    },
+    "gradient_clipping": 1.0,
+    "wall_clock_breakdown": false,
+    "fp16": {
+        "enabled": false,
+        "loss_scale": 0,
+        "initial_scale_power": 20,
+        "loss_scale_window": 1000
+    }
+}

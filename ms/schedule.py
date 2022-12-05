@@ -111,11 +111,17 @@ class Schedule:
             node_or_str = node_or_lst
             if isinstance(node_or_str, str):
                 node_name = node_or_str
-                node = self.find_module(lambda name: name == node_name)[0]
+                if node_name != "":
+                    node = self.find_module(lambda name: name == node_name)[0]
+                else:
+                    node = ("", None)
             else:
                 node = node_or_str
                 assert isinstance(node, tuple)  # (parent_name, node)
-            mod = self.get_module(node[0])
+            if node[1] is None:
+                mod = self.gm
+            else:
+                mod = self.get_module(node[0])
             return OperationList([node], mod, self.world_size, self.rank)
 
     def validate_config(self):
@@ -326,7 +332,10 @@ class OperationList:
     def hook(self, mode, func):
         assert len(self.op_lst) == 1
         _, node = self.op_lst[0]
-        mod = getattr(self.gm, node.target)
+        if node is None:
+            mod = self.gm
+        else:
+            mod = getattr(self.gm, node.target)
 
         if mode == "fw_pre":
 

@@ -7,7 +7,6 @@ import torch
 import ms
 from bert_schedule import (
     replace_layernorm,
-    replace_gelu,
     replace_xformer_attention,
     replace_qkv,
     shard_params,
@@ -15,6 +14,7 @@ from bert_schedule import (
 )
 from ms.utils import report_memory
 from ms.env import setup
+import torch.distributed as dist
 
 
 def train(rank, args):
@@ -49,6 +49,14 @@ def train(rank, args):
         print("Use gradient checkpoint")
         checkpoint(sch, bert_config, prefix="bert")
 
+    if args.world_size > 1:
+        def broadcast_input(inputs):
+            for t in inputs:
+                dist.broadcast(t, src=0)
+            return inputs
+
+        sch[""].hook("fw_pre", broadcast_input)
+
     report_memory(rank)
     device = "cuda:{}".format(rank)
     model, optimizer = ms.build(sch)
@@ -78,7 +86,7 @@ def train(rank, args):
             bert_input_dict["input_ids"].cuda(rank),
             bert_input_dict["attention_mask"].cuda(rank),
             bert_input_dict["token_type_ids"].cuda(rank),
-            bert_input_dict["labels"].cuda(rank),
+            # bert_input_dict["labels"].cuda(rank),
         )
         mid_time = time.time()
         output["logits"].mean().backward()

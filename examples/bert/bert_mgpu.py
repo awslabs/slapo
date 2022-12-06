@@ -10,11 +10,12 @@ from bert_schedule import (
     replace_xformer_attention,
     replace_qkv,
     shard_params,
+    shard_loss,
+    broadcast_input,
     checkpoint,
 )
 from ms.utils import report_memory
 from ms.env import setup
-import torch.distributed as dist
 
 
 def train(rank, args):
@@ -26,7 +27,7 @@ def train(rank, args):
     bert.half()
 
     input_names = list(bert.dummy_inputs.keys())
-    input_names += ["attention_mask", "token_type_ids"]
+    input_names += ["attention_mask", "token_type_ids", "labels"]
     sig = inspect.signature(bert.forward)
     concrete_args = {
         p.name: p.default for p in sig.parameters.values() if p.name not in input_names
@@ -44,22 +45,20 @@ def train(rank, args):
         replace_qkv(sch, bert_config)
         if args.world_size > 1:
             shard_params(sch, bert_config, fused_qkv=True, prefix="bert")
+            if "labels" in input_names:
+                shard_loss(sch, bert_config)
 
     else:
         print("Use gradient checkpoint")
         checkpoint(sch, bert_config, prefix="bert")
 
     if args.world_size > 1:
-        def broadcast_input(inputs):
-            for t in inputs:
-                dist.broadcast(t, src=0)
-            return inputs
-
-        sch[""].hook("fw_pre", broadcast_input)
+        broadcast_input(sch)
 
     report_memory(rank)
     device = "cuda:{}".format(rank)
     model, optimizer = ms.build(sch)
+    print(model)
     model.half()
     model.cuda()
     report_memory(rank)
@@ -86,7 +85,7 @@ def train(rank, args):
             bert_input_dict["input_ids"].cuda(rank),
             bert_input_dict["attention_mask"].cuda(rank),
             bert_input_dict["token_type_ids"].cuda(rank),
-            # bert_input_dict["labels"].cuda(rank),
+            bert_input_dict["labels"].cuda(rank),
         )
         mid_time = time.time()
         output["logits"].mean().backward()

@@ -262,3 +262,18 @@ def checkpoint(sch, config, prefix="", ckpt_ratio=1.0):
     for i in range(n_ckpt):
         sch[prefix + f"encoder.layer.{i}"].checkpoint()
     return n_ckpt
+
+def broadcast_input(sch):
+    def broadcast_input(inputs):
+        for t in inputs:
+            dist.broadcast(t, src=0)
+        return inputs
+
+    sch[""].hook("fw_pre", broadcast_input)
+
+def shard_loss(sch, config):
+    # https://pytorch.org/docs/stable/generated/torch.nn.CrossEntropyLoss.html
+    # outputs: (N, C)
+    # labels: (C)
+    from ms.op.cross_entropy import ParallelCrossEntropy
+    sch["crossentropyloss_0"].replace(ParallelCrossEntropy)

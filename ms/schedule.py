@@ -16,8 +16,6 @@ from .trace import trace
 from .utils import _parent_name, _get_unique_module_name
 import warnings
 
-COMM_CUDA_STREAM = torch.cuda.Stream()
-
 
 class Pattern(ABC):
     def __init__(self):
@@ -75,8 +73,7 @@ class Schedule:
         self,
         mod: Union[nn.Module, fx.GraphModule],
         optimizer: torch.optim.Optimizer = None,
-        world_size: int = 1,
-        rank: int = 0,
+        group: dist.ProcessGroup = None,
         **kwargs: Dict[str, Any],
     ):
         # Parse configs
@@ -85,9 +82,13 @@ class Schedule:
 
         # Parse world size and rank
         self.validate_config()
-        self.world_size = world_size
-        self.rank = rank
-        assert rank < world_size, "Rank should be smaller than world size"
+
+        if group is None:
+            global_rank = dist.get_rank()
+            group = dist.new_group([global_rank])
+        self.group = group
+        self.world_size = dist.get_world_size(group)
+        self.rank = dist.get_rank(group)
 
         # Trace the model if needed
         self.gm = mod if isinstance(mod, fx.GraphModule) else trace(mod, **self.config)
@@ -106,7 +107,7 @@ class Schedule:
                 mod = self.get_module(lst[0][0][0])
             else:
                 mod = self.get_module(lst[0][0])
-            return OperationList(lst, mod, self.world_size, self.rank)
+            return OperationList(lst, mod, self.group)
         else:
             node_or_str = node_or_lst
             if isinstance(node_or_str, str):
@@ -122,7 +123,7 @@ class Schedule:
                 mod = self.gm
             else:
                 mod = self.get_module(node[0])
-            return OperationList([node], mod, self.world_size, self.rank)
+            return OperationList([node], mod, self.group)
 
     def validate_config(self):
         for key in self.config:
@@ -234,8 +235,7 @@ class OperationList:
         self,
         op_lst: List[Tuple[str, fx.Node]],
         gm: fx.GraphModule,
-        world_size: int = 1,
-        rank: int = 0,
+        group: dist.ProcessGroup,
     ):
         assert isinstance(op_lst, List) and len(op_lst) > 0
         self.op_lst = op_lst
@@ -245,8 +245,10 @@ class OperationList:
             parent_name, _ = self.op_lst[0]
         self.parent_name = parent_name
         self.gm = gm
-        self.world_size = world_size
-        self.rank = rank
+
+        self.group = group
+        self.world_size = dist.get_world_size(group)
+        self.rank = dist.get_rank(group)
 
     def subschedule(self, **kwargs: Dict[str, Any]):
         # hierachical schedule support
@@ -254,8 +256,7 @@ class OperationList:
         _, node = self.op_lst[0]
         new_sch = create_schedule(
             getattr(self.gm, node.target),
-            world_size=self.world_size,
-            rank=self.rank,
+            group=self.group,
             **kwargs,
         )
         # replace old module in case the gm is newly generated
@@ -395,7 +396,7 @@ class OperationList:
             elif output_type == "partial":
                 # Case 3
                 def sync_fn(output):
-                    dist.all_reduce(output, op=dist.ReduceOp.SUM)
+                    dist.all_reduce(output, op=dist.ReduceOp.SUM, group=self.group)
                     return output
 
             else:
@@ -412,7 +413,7 @@ class OperationList:
 
             def hook_func(_module, _input, output):
                 # Allreduce dx.
-                dist.all_reduce(_input[0].contiguous(), op=dist.ReduceOp.SUM)
+                dist.all_reduce(_input[0].contiguous(), op=dist.ReduceOp.SUM, group=self.group)
 
             mod.register_full_backward_hook(hook_func)
 
@@ -535,12 +536,11 @@ class OperationList:
 def create_schedule(
     model: nn.Module,
     optimizer: torch.optim.Optimizer = None,
-    world_size: int = 1,
-    rank: int = 0,
+    group: dist.ProcessGroup = None,
     **kwargs: Dict[str, Any],
 ):
     return Schedule(
-        model, optimizer=optimizer, world_size=world_size, rank=rank, **kwargs
+        model, optimizer=optimizer, group=group, **kwargs
     )
 
 
@@ -828,7 +828,7 @@ def generate_pipeline_partition(sch):
     return res_partition
 
 
-def build(sch: Schedule, target=None, **kwargs):
+def build(sch: Schedule, topology, target=None, **kwargs):
     sch.gm.graph.eliminate_dead_code()
     sch.gm.delete_all_unused_submodules()
     opt_model = generate_pipeline_partition(sch)
@@ -840,7 +840,7 @@ def build(sch: Schedule, target=None, **kwargs):
 
         pmodel = pipe.PipelineModule(
             opt_model,
-            num_stages=sch.world_size,
+            topology=topology,
             partition_method="uniform",
             loss_fn=kwargs["loss_fn"],
         )

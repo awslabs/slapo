@@ -208,7 +208,7 @@ def shard_params(sch, config, fused_qkv=False, prefix=""):
         input_mask = (_input[0] < vocab_start_index) | (_input[0] >= vocab_end_index)
         output[input_mask, :] = 0.0
         # Reduce across all the model parallel GPUs
-        dist.all_reduce(output, op=dist.ReduceOp.SUM)
+        dist.all_reduce(output, op=dist.ReduceOp.SUM, group=sch.group)
         return output
 
     sch[prefix + "embeddings.word_embeddings"].hook("fw_post", fw_post_hook)
@@ -263,13 +263,15 @@ def checkpoint(sch, config, prefix="", ckpt_ratio=1.0):
         sch[prefix + f"encoder.layer.{i}"].checkpoint()
     return n_ckpt
 
+
 def broadcast_input(sch):
     def broadcast_input(inputs):
         for t in inputs:
-            dist.broadcast(t, src=0)
+            dist.broadcast(t, src=0, group=sch.group)
         return inputs
 
     sch[""].hook("fw_pre", broadcast_input)
+
 
 def shard_loss(sch, config):
     # https://pytorch.org/docs/stable/generated/torch.nn.CrossEntropyLoss.html

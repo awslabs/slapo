@@ -4,6 +4,8 @@ import argparse
 from transformers import BertLMHeadModel, AutoConfig
 import torch
 import torch.nn as nn
+import torch.distributed as dist
+
 import ms
 from bert_schedule import (
     replace_layernorm,
@@ -11,19 +13,46 @@ from bert_schedule import (
     replace_qkv,
     shard_params,
     checkpoint,
+    broadcast_input
 )
 from ms.utils import report_memory
+from ms.op.cross_entropy import ParallelCrossEntropy
+
 import deepspeed
+from deepspeed.pipe import PipelineModule
 from deepspeed.utils import RepeatingLoader
+from deepspeed.runtime.pipe.topology import PipeModelDataParallelTopology
+
+_groups = []
+
+def create_dist_groups(num_pp, num_mp):
+    world_size = dist.get_world_size()
+    num_dp = world_size // (num_pp * num_mp)
+    topology = PipeModelDataParallelTopology(num_pp=num_pp, num_mp=num_mp, num_dp=num_dp)
+    model_groups = topology.get_axis_comm_lists('model')
+
+    global_rank = dist.get_rank()
+    group = None
+
+    for g in model_groups:
+        proc_group = dist.new_group(ranks=g)
+        _groups.append(proc_group)
+        if global_rank in g:
+            group = proc_group
+
+    return topology, group
 
 
 def train(args):
     print("Use deepspeed to initialize")
+    num_pp = 4
+    num_mp = 2
+    torch.cuda.set_device(args.local_rank)
     deepspeed.init_distributed(dist_backend="nccl")
+
     # https://huggingface.co/bert-large-uncased/blob/main/config.json
     bert_config = AutoConfig.from_pretrained("bert-large-uncased")
     bert = BertLMHeadModel(bert_config)
-    optimizer = torch.optim.AdamW(bert.parameters(), lr=0.001)
     bert.half()
 
     input_names = list(bert.dummy_inputs.keys())
@@ -33,52 +62,56 @@ def train(args):
         p.name: p.default for p in sig.parameters.values() if p.name not in input_names
     }
 
-    rank = int(os.environ["LOCAL_RANK"])
+    rank = args.local_rank
+    topology, group = create_dist_groups(num_pp, num_mp)
+
     sch = ms.create_schedule(
         bert,
-        optimizer,
-        args.world_size,
-        rank,
+        None,
+        group,
         tracer="huggingface",
         concrete_args=concrete_args,
     )
+
+    if num_mp > 1:
+        shard_params(sch, bert_config, prefix="bert")
+        broadcast_input(sch)
+
     if args.checkpoint:
         print("Use gradient checkpoint")
-        checkpoint(sch, bert_config, prefix="")
+        checkpoint(sch, bert_config, prefix="bert")
 
     print("Use pipeline parallelism")
-    sch["bert.encoder.layer.2"].partition()
     sch["bert.encoder.layer.5"].partition()
-    sch["bert.encoder.layer.8"].partition()
     sch["bert.encoder.layer.11"].partition()
-    sch["bert.encoder.layer.14"].partition()
     sch["bert.encoder.layer.17"].partition()
-    sch["bert.encoder.layer.20"].partition()
 
     report_memory(rank)
     device = "cuda:{}".format(rank)
     # https://github.com/microsoft/DeepSpeed/blob/ff427438651943ee473ab37547337f5f3d8c2279/tests/unit/model_parallelism/test_configurable_parallel_pp.py#L20
     ds_config_dict = {
+        "train_batch_size": 32,
         "train_micro_batch_size_per_gpu": 1,
         "optimizer": {"type": "AdamW", "params": {"lr": 0.0001}},
+        "fp16": {"enabled": True},
     }
 
-    loss_fct = nn.CrossEntropyLoss()
+    loss_fct = ParallelCrossEntropy(group=group)
 
     def loss_fn(outputs, labels):
         prediction_scores = outputs
         shifted_prediction_scores = prediction_scores[:, :-1, :].contiguous()
         labels = labels[:, 1:].contiguous()
         lm_loss = loss_fct(
-            shifted_prediction_scores.view(-1, bert.config.vocab_size), labels.view(-1)
+            shifted_prediction_scores, labels
         )
+        lm_loss = lm_loss.contiguous().mean()
         return lm_loss
 
     model, optimizer = ms.build(
-        sch, target="deepspeed", config=ds_config_dict, loss_fn=loss_fn
+        sch, topology=topology, target="deepspeed", config=ds_config_dict, loss_fn=loss_fn
     )
-    model.half()
-    model.cuda()
+
     report_memory(rank)
 
     bs = 8

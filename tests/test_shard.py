@@ -84,9 +84,7 @@ def test_linear():
 
     model = Model()
 
-    sch = ms.create_schedule(
-        copy.deepcopy(model), world_size=world_size, rank=rank, tracer="pytorch"
-    )
+    sch = ms.create_schedule(copy.deepcopy(model), tracer="pytorch")
     sch["linear1"].shard("weight", axis=0)
     sch["linear1"].shard("bias", axis=0)
     sch["linear1"].sync(mode="backward") # backward allreduce only
@@ -159,14 +157,10 @@ def test_conv():
             out = self.conv3(out)
             return out
 
-    world_size = dist.get_world_size()
     rank = dist.get_rank()
-
     model = Model()
 
-    sch = ms.create_schedule(
-        copy.deepcopy(model), world_size=world_size, rank=rank, tracer="pytorch"
-    )
+    sch = ms.create_schedule(copy.deepcopy(model), tracer="pytorch")
     # Layout of input/weight: (N, C, H, W), (O, I, H, W)
     sch["conv1"].shard("weight", axis=0)
     sch["conv1"].sync(mode="backward") # backward allreduce only

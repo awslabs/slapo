@@ -83,9 +83,7 @@ class Schedule:
         # Parse world size and rank
         self.validate_config()
 
-        if group is None:
-            global_rank = dist.get_rank()
-            group = dist.new_group([global_rank])
+        # When group=None, the default group that includes all devices will be used.
         self.group = group
         self.world_size = dist.get_world_size(group)
         self.rank = dist.get_rank(group)
@@ -413,7 +411,9 @@ class OperationList:
 
             def hook_func(_module, _input, output):
                 # Allreduce dx.
-                dist.all_reduce(_input[0].contiguous(), op=dist.ReduceOp.SUM, group=self.group)
+                dist.all_reduce(
+                    _input[0].contiguous(), op=dist.ReduceOp.SUM, group=self.group
+                )
 
             mod.register_full_backward_hook(hook_func)
 
@@ -539,9 +539,7 @@ def create_schedule(
     group: dist.ProcessGroup = None,
     **kwargs: Dict[str, Any],
 ):
-    return Schedule(
-        model, optimizer=optimizer, group=group, **kwargs
-    )
+    return Schedule(model, optimizer=optimizer, group=group, **kwargs)
 
 
 def generate_pipeline_partition(sch):
@@ -828,11 +826,12 @@ def generate_pipeline_partition(sch):
     return res_partition
 
 
-def build(sch: Schedule, topology, target=None, **kwargs):
+def build(sch: Schedule, topology=None, target=None, **kwargs):
     sch.gm.graph.eliminate_dead_code()
     sch.gm.delete_all_unused_submodules()
     opt_model = generate_pipeline_partition(sch)
     if target == "deepspeed":
+        assert topology is not None, "topology must be provided for deepspeed"
         assert "config" in kwargs
         assert "loss_fn" in kwargs
         import deepspeed

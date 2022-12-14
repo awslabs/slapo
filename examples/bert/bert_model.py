@@ -10,6 +10,7 @@ from bert_schedule import (
     checkpoint,
 )
 
+
 def model_schedule(model, config, disable_flash_attn=False, fp16=True, ckpt_ratio=0.0):
     def print_rank_0(message):
         """If distributed is initialized, print only on rank 0."""
@@ -30,28 +31,24 @@ def model_schedule(model, config, disable_flash_attn=False, fp16=True, ckpt_rati
         p.name: p.default for p in sig.parameters.values() if p.name not in input_names
     }
 
-    world_size = dist.get_world_size()
-    rank = dist.get_rank()
     if fp16:
         print_rank_0("Change model dtype to fp16")
         model.half()
 
     sch = ms.create_schedule(
         model,
-        world_size=world_size,
-        rank=rank,
         tracer="huggingface",
         concrete_args=concrete_args,
     )
     if not disable_flash_attn:
         print_rank_0("Replace HF BertSelfAttention with xformer Attention")
         replace_xformer_attention(sch, config)
-        if world_size > 1:
+        if sch.world_size > 1:
             shard_params(sch, config, fused_qkv=None, prefix="")
     else:
         print_rank_0("Replace HF QKV Dense with FusedQKV")
         replace_qkv(sch, config)
-        if world_size > 1:
+        if sch.world_size > 1:
             shard_params(sch, config, fused_qkv=True)
 
     if ckpt_ratio > 0.0:

@@ -36,8 +36,6 @@ def train(rank, args):
     sch = ms.create_schedule(
         bert,
         optimizer,
-        args.world_size,
-        rank,
         tracer="huggingface",
         concrete_args=concrete_args,
     )

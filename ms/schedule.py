@@ -35,30 +35,33 @@ class DictWithValidation(dict):
 
 class _AllGatherForwardOutput(torch.autograd.Function):
     @staticmethod
-    def forward(ctx, input, dim):
+    def forward(ctx, input, dim, group):
         ctx.dim = dim
-        world_size = dist.get_world_size()
-        rank = dist.get_rank()
+        ctx.group = group
+        world_size = dist.get_world_size(group)
+        rank = dist.get_rank(group)
         parts = [
             torch.zeros(input.shape, dtype=input.dtype).cuda(rank)
             for _ in range(world_size)
         ]
-        dist.all_gather(parts, input)
+        # dist.all_gather_into_tensor
+        dist.all_gather(parts, input, group=group)
         ret = torch.cat(parts, dim=dim)
         return ret
 
     @staticmethod
     def backward(ctx, grad_output):
         dim = ctx.dim
-        world_size = dist.get_world_size()
-        rank = dist.get_rank()
+        group = ctx.group
+        world_size = dist.get_world_size(group)
+        rank = dist.get_rank(group)
         sharded_size = grad_output.shape[dim] // world_size
         ret = grad_output.split(sharded_size, dim=dim)[rank]
         return ret, None
 
 
-def all_gather_forward_output(input, dim):
-    return _AllGatherForwardOutput.apply(input, dim)
+def all_gather_forward_output(input, dim, group):
+    return _AllGatherForwardOutput.apply(input, dim, group)
 
 
 @dataclass
@@ -390,7 +393,9 @@ class OperationList:
             if output_type == "partition":
                 # Case 1
                 gather_axis = mod.schedule_metadata.shard["gather_axis"]
-                sync_fn = partial(all_gather_forward_output, dim=gather_axis)
+                sync_fn = partial(
+                    all_gather_forward_output, dim=gather_axis, group=self.group
+                )
             elif output_type == "partial":
                 # Case 3
                 def sync_fn(output):

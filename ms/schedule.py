@@ -271,6 +271,7 @@ class OperationList:
     def shard(self, param_name: str, axis: int):
         assert len(self.op_lst) == 1
         _, node = self.op_lst[0]
+        assert node.op == "call_module"
         mod = getattr(self.gm, node.target)
         param = mod.get_parameter(param_name)
         assert axis < len(param.shape)
@@ -334,6 +335,7 @@ class OperationList:
     def hook(self, mode, func):
         assert len(self.op_lst) == 1
         _, node = self.op_lst[0]
+        assert node.op == "call_module"
         if node is None:
             mod = self.gm
         else:
@@ -380,6 +382,7 @@ class OperationList:
         """
         assert len(self.op_lst) == 1
         _, node = self.op_lst[0]
+        assert node.op == "call_module"
         mod = getattr(self.gm, node.target)
         assert hasattr(
             mod, "schedule_metadata"
@@ -466,6 +469,7 @@ class OperationList:
     def _replace_function(self, func):
         assert len(self.op_lst) == 1
         _, node = self.op_lst[0]
+        assert node.op == "call_function"
         with self.gm.graph.inserting_after(node):
             new_node = self.gm.graph.call_function(func, node.args, node.kwargs)
             node.replace_all_uses_with(new_node)

@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from functools import partial
 from types import FunctionType
-from typing import Any, Dict, List, Union, Optional, Tuple
+from typing import Any, Dict, List, Union, Optional, Tuple, Type
 import operator
 import inspect
 import torch
@@ -457,7 +457,7 @@ class OperationList:
 
         return self.replace(CheckPointWrapper)
 
-    def replace_function(self, func):
+    def _replace_function(self, func):
         assert len(self.op_lst) == 1
         _, node = self.op_lst[0]
         with self.gm.graph.inserting_after(node):
@@ -466,25 +466,35 @@ class OperationList:
         self.gm.graph.erase_node(node)
         return new_node
 
-    def replace_module(self, nn_mod: nn.Module, *args, **kwargs):
-        if isinstance(nn_mod, (nn.Module, fx.GraphModule)):
-            assert len(self.op_lst) == 1
-            self.gm.add_module(node.target + "_opt", nn_mod)
-            node.target = node.target + "_opt"
-            return node
-        node = self.op_lst[0]
-        if len(kwargs) == 0 and isinstance(node, fx.Node) and node.op == "call_module":
-            init_arg_names = list(inspect.signature(nn_mod.__init__).parameters)[1:]
-            init_kwargs = {}
-            for init_arg in init_arg_names:
-                init_kwargs[init_arg] = self.gm.__dict__[init_arg]
-            instance = nn_mod(*args, **init_kwargs)
-        else:
-            instance = nn_mod(*args, **kwargs)
+    def _replace_module(self, nn_mod: Type[nn.Module], *args, **kwargs):
+        """Do NOT use this API directly, call `.replace()` instead
+
+        Notice the `nn_mod` is a class constructor, which will be
+        instantiated in this function.
+        `args` and `kwargs` are used to initialize the module.
+
+        An example use case is shown below.
+
+        class NewMod(nn.Module):
+            def __init__(self, hidden_dim):
+                super(nn.Module, self).__init__()
+                self.hidden_dim = hidden_dim
+
+            def forward(self, x):
+                # ...
+
+        sch[xxx].replace(NewMod, hidden_dim=1024)
+        """
+        assert issubclass(
+            nn_mod, nn.Module
+        ), "Please pass in a class instead of a instance"
+        # instantiate module class
+        instance = nn_mod(*args, **kwargs)
         name = instance._get_name().split(".")[-1]
         name = _get_unique_module_name(self.gm, name)
         instance = trace(instance, silent=True)  # Silent trace for replacement.
         if len(self.op_lst) == 1:
+            # single module replacement
             _, node = self.op_lst[0]
             self.gm.add_module(name, instance)
             with self.gm.graph.inserting_after(node):
@@ -492,40 +502,60 @@ class OperationList:
                 node.replace_all_uses_with(new_node)
             self.gm.graph.erase_node(node)
         else:
+            # operator fusion
             node_or_lst = self.op_lst[0]
             if isinstance(node_or_lst, List):
+                # horizontal fusion, e.g.,
+                #     x
+                #   / | \
+                #  s0 s1 s2
+                #  v0 v1 v2
+                #  [[s0, v0], [s1, v1], [s2, v2]]
                 _, node = node_or_lst[0]
+                self.gm.add_module(name, instance)
+                with self.gm.graph.inserting_before(node):
+                    new_node = self.gm.graph.call_module(name, node.args, node.kwargs)
+                with self.gm.graph.inserting_after(new_node):
+                    for i, sublst in enumerate(self.op_lst):
+                        getitem = self.gm.graph.call_function(
+                            operator.getitem, (new_node, i)
+                        )
+                        sublst = [sublst] if not isinstance(sublst, List) else sublst
+                        for _, node in reversed(sublst):
+                            # FIXME: hardcoded
+                            if node.op == "call_module" and "dense" in node.target:
+                                assert False, "Should not get into this branch"
+                                with self.gm.graph.inserting_after(getitem):
+                                    new_getitem = self.gm.graph.call_function(
+                                        operator.getitem, (getitem, i)
+                                    )
+                                if node.users not in sublst:
+                                    node.replace_all_uses_with(new_getitem)
+                            else:
+                                if node.users not in sublst:
+                                    node.replace_all_uses_with(getitem)
+                            self.gm.graph.erase_node(node)
             else:
-                _, node = node_or_lst
-            self.gm.add_module(name, instance)
-            with self.gm.graph.inserting_before(node):
-                new_node = self.gm.graph.call_module(name, node.args, node.kwargs)
-            with self.gm.graph.inserting_after(new_node):
-                for i, sublst in enumerate(self.op_lst):
-                    getitem = self.gm.graph.call_function(
-                        operator.getitem, (new_node, i)
+                # vertical fusion, e.g.,
+                # s0->v0
+                # [s0, v0]
+                _, first_node = node_or_lst
+                self.gm.add_module(name, instance)
+                with self.gm.graph.inserting_before(first_node):
+                    new_node = self.gm.graph.call_module(
+                        name, first_node.args, first_node.kwargs
                     )
-                    sublst = [sublst] if not isinstance(sublst, List) else sublst
-                    for _, node in reversed(sublst):
-                        # FIXME: hardcoded
-                        if node.op == "call_module" and "dense" in node.target:
-                            with self.gm.graph.inserting_after(getitem):
-                                new_getitem = self.gm.graph.call_function(
-                                    operator.getitem, (getitem, i)
-                                )
-                            if node.users not in sublst:
-                                node.replace_all_uses_with(new_getitem)
-                        else:
-                            if node.users not in sublst:
-                                node.replace_all_uses_with(getitem)
-                        self.gm.graph.erase_node(node)
+                _, last_node = self.op_lst[-1]
+                last_node.replace_all_uses_with(new_node)
+                for _, node in reversed(self.op_lst):
+                    self.gm.graph.erase_node(node)
         return new_node
 
     def replace(self, func_or_mod, *args, **kwargs):
         if not isinstance(func_or_mod, FunctionType):
-            new_node = self.replace_module(func_or_mod, *args, **kwargs)
+            new_node = self._replace_module(func_or_mod, *args, **kwargs)
         else:
-            new_node = self.replace_function(func_or_mod)
+            new_node = self._replace_function(func_or_mod)
         self.gm.graph.eliminate_dead_code()
         self.gm.delete_all_unused_submodules()
         self.gm.graph.lint()

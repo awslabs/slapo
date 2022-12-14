@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from functools import partial
 from types import FunctionType
-from typing import Any, Dict, List, Union, Optional, Tuple, Type
+from typing import Any, Dict, List, Union, Tuple, Type
 import operator
 import inspect
 import torch
@@ -13,7 +13,7 @@ import torch.distributed as dist
 import torch.utils.checkpoint as checkpoint
 
 from .trace import trace
-from .utils import _parent_name, _get_unique_module_name
+from .utils import _get_unique_module_name
 import warnings
 
 
@@ -275,6 +275,8 @@ class OperationList:
         mod = getattr(self.gm, node.target)
         param = mod.get_parameter(param_name)
         assert axis < len(param.shape)
+        # TODO: Support arbitrary size sharding
+        assert param.shape[axis] % self.world_size == 0
         sharded_size = param.shape[axis] // self.world_size
         new_param = param.detach().split(sharded_size, dim=axis)[self.rank]
         mod.register_parameter(param_name, nn.Parameter(new_param))

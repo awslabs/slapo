@@ -433,9 +433,9 @@ class OperationList:
             "You are using checkpointing. Please make sure all the other primitives have been applied."
         )
         assert len(self.op_lst) == 1
-        name, node = self.op_lst[0]
+        _, node = self.op_lst[0]
         if node.op == "call_function":
-            exe = node.op
+            exe = node.target
         elif node.op == "call_module":
             attr_itr = self.gm
             atoms = node.target.split(".")
@@ -448,10 +448,11 @@ class OperationList:
         class CheckPointWrapper(nn.Module):
             def __init__(self) -> None:
                 super(CheckPointWrapper, self).__init__()
-                for i, (name, param) in enumerate(exe.named_parameters()):
-                    name = name.rsplit(".", maxsplit=1)[-1] + "_" + str(i)
-                    self.register_parameter(name, param)
-                self.register_module("top", dict(exe.named_modules())[""])
+                if isinstance(exe, nn.Module):
+                    for i, (name, param) in enumerate(exe.named_parameters()):
+                        name = name.rsplit(".", maxsplit=1)[-1] + "_" + str(i)
+                        self.register_parameter(name, param)
+                    self.register_module("top", dict(exe.named_modules())[""])
 
             def forward(self, *args, **kwargs):
                 new_args = [arg for arg in args]

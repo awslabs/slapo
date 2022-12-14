@@ -1,10 +1,13 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 import time
 import inspect
 import argparse
 from transformers import BertLMHeadModel, AutoConfig
 import numpy as np
 import torch
-import ms
+import slapo
 from bert_schedule import (
     replace_layernorm,
     replace_gelu,
@@ -12,7 +15,7 @@ from bert_schedule import (
     replace_qkv,
     shard_params,
 )
-from ms.utils import report_memory
+from slapo.utils import report_memory
 
 
 def train(rank, args):
@@ -29,11 +32,9 @@ def train(rank, args):
         p.name: p.default for p in sig.parameters.values() if p.name not in input_names
     }
 
-    sch = ms.create_schedule(
+    sch = slapo.create_schedule(
         bert,
         optimizer,
-        args.world_size,
-        rank,
         tracer="huggingface",
         leaf_modules=["BertSelfAttention"],
         concrete_args=concrete_args,
@@ -45,7 +46,7 @@ def train(rank, args):
 
     report_memory(rank)
     device = "cuda:{}".format(rank)
-    model, optimizer = ms.build(sch)
+    model, optimizer = slapo.build(sch)
     model.half()
     model.to(device)
     report_memory(rank)
@@ -98,4 +99,4 @@ if __name__ == "__main__":
     parser.add_argument("--iter_nums", type=int, default=10)
     args = parser.parse_args()
     # The main entry point is called directly without using subprocess
-    ms.execute(train, args)
+    slapo.execute(train, args)

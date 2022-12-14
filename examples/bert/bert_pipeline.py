@@ -1,3 +1,6 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 import os
 import inspect
 import argparse
@@ -6,7 +9,7 @@ import torch
 import torch.nn as nn
 import torch.distributed as dist
 
-import ms
+import slapo
 from bert_schedule import (
     replace_layernorm,
     replace_xformer_attention,
@@ -15,8 +18,8 @@ from bert_schedule import (
     checkpoint,
     broadcast_input
 )
-from ms.utils import report_memory
-from ms.op.cross_entropy import ParallelCrossEntropy
+from slapo.utils import report_memory
+from slapo.op.cross_entropy import ParallelCrossEntropy
 
 import deepspeed
 from deepspeed.pipe import PipelineModule
@@ -65,7 +68,7 @@ def train(args):
     rank = args.local_rank
     topology, group = create_dist_groups(num_pp, num_mp)
 
-    sch = ms.create_schedule(
+    sch = slapo.create_schedule(
         bert,
         None,
         group,
@@ -108,7 +111,7 @@ def train(args):
         lm_loss = lm_loss.contiguous().mean()
         return lm_loss
 
-    model, optimizer = ms.build(
+    model, optimizer = slapo.build(
         sch, topology=topology, target="deepspeed", config=ds_config_dict, loss_fn=loss_fn
     )
 

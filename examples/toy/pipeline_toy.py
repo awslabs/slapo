@@ -1,13 +1,14 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 import argparse
-import time
-import copy, os
 import torch
 import torch.nn as nn
-import ms, sys
+import slapo
 from torch.testing._internal.distributed._shard.sharded_tensor._test_ops_common import (
     clone_module_parameter,
 )
-from ms.utils import report_memory
+from slapo.utils import report_memory
 
 import deepspeed
 from deepspeed.utils import RepeatingLoader
@@ -62,7 +63,7 @@ def train(args):
     optimizer = torch.optim.SGD(model.parameters(), lr=0.002)
 
     # Create a default schedule
-    sch = ms.create_schedule(model, optimizer, args.world_size, rank, deepspeed=True)
+    sch = slapo.create_schedule(model, optimizer, args.world_size, rank, deepspeed=True)
 
     # Partition parameters
     # Cannot be used with pipeline parallelism
@@ -73,7 +74,7 @@ def train(args):
         "train_micro_batch_size_per_gpu": 1,
         "optimizer": {"type": "AdamW", "params": {"lr": 0.0001}},
     }
-    ds_model, optimizer = ms.build(
+    ds_model, optimizer = slapo.build(
         sch, target="deepspeed", config=ds_config_dict, loss_fn=None
     )
     print(sch.gm)

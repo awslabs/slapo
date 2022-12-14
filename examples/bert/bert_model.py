@@ -1,8 +1,11 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 """HuggingFace Bert with model schedule."""
 import inspect
 import torch.distributed as dist
 
-import ms
+import slapo
 from bert_schedule import (
     replace_qkv,
     shard_params,
@@ -35,7 +38,7 @@ def model_schedule(model, config, disable_flash_attn=False, fp16=True, ckpt_rati
         print_rank_0("Change model dtype to fp16")
         model.half()
 
-    sch = ms.create_schedule(
+    sch = slapo.create_schedule(
         model,
         tracer="huggingface",
         concrete_args=concrete_args,
@@ -55,7 +58,7 @@ def model_schedule(model, config, disable_flash_attn=False, fp16=True, ckpt_rati
         n_ckpt = checkpoint(sch, config, ckpt_ratio=ckpt_ratio)
         print_rank_0(f"Checkpointing {n_ckpt} layers")
 
-    model, _ = ms.build(sch)
+    model, _ = slapo.build(sch)
     if fp16:
         model.half()
     model.cuda()

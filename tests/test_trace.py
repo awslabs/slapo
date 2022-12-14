@@ -1,9 +1,12 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 import inspect
 import pytest
 
 import torch
 import torch.fx as fx
-import ms
+import slapo
 
 
 def generate_concrete_args(model, input_names):
@@ -22,7 +25,7 @@ def test_hf_bert():
     input_names = list(model.dummy_inputs.keys())  # only has "input_ids"
     input_names += ["attention_mask", "token_type_ids"]  # "position_ids"
     concrete_args = generate_concrete_args(model, input_names)
-    sch = ms.create_schedule(
+    sch = slapo.create_schedule(
         model,
         world_size=1,
         rank=0,
@@ -53,7 +56,7 @@ def test_hf_gpt_neo():
     input_names = list(model.dummy_inputs.keys())
     input_names += ["attention_mask", "position_ids"]
     concrete_args = generate_concrete_args(model, input_names)
-    sch = ms.create_schedule(
+    sch = slapo.create_schedule(
         model,
         world_size=1,
         rank=0,
@@ -76,7 +79,7 @@ def test_torchvision_wideresnet():
 
     model = ResNet(Bottleneck, [6, 8, 4, 6], width_per_group=128)
     concrete_args = generate_concrete_args(model, ["x"])
-    sch = ms.create_schedule(
+    sch = slapo.create_schedule(
         model,
         world_size=1,
         rank=0,

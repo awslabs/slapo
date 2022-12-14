@@ -1,18 +1,8 @@
 #!/usr/bin/env python
-# coding=utf-8
-# Copyright 2020 The HuggingFace Team All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+# Modifications Copyright 2020 The HuggingFace Team
+# See: https://github.com/huggingface/transformers/blob/main/examples/pytorch/language-modeling/run_mlm.py
 """
 Fine-tuning the library models for masked language modeling (BERT, ALBERT, RoBERTa...) on a text file or a dataset.
 
@@ -255,7 +245,7 @@ class DataTrainingArguments:
 
 
 def model_schedule(model):
-    import ms
+    import slapo
     import inspect
     import torch
     import transformers.utils.fx as fx
@@ -302,7 +292,7 @@ def model_schedule(model):
     # Placeholder. Not effective for now.
     optimizer = torch.optim.AdamW(model.parameters(), lr=0.001)
 
-    sch = ms.create_schedule(
+    sch = slapo.create_schedule(
         gm, optimizer, dist.get_world_size(), dist.get_rank()
     )  # , args.world_size, rank)
     # print(sch.forward_ops)
@@ -351,7 +341,7 @@ def model_schedule(model):
                     lst[0] = lst[0] // sch.world_size  # num of heads
                     node.args = (node.args[0], tuple(lst))
 
-    model, optimizer = ms.build(sch)
+    model, optimizer = slapo.build(sch)
     model.cuda()
     return model
 

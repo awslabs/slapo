@@ -1,13 +1,16 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 import argparse
 import time
 import copy
 import torch
 import torch.nn as nn
-import ms, sys
+import slapo, sys
 from torch.testing._internal.distributed._shard.sharded_tensor._test_ops_common import (
     clone_module_parameter,
 )
-from ms.utils import report_memory
+from slapo.utils import report_memory
 
 
 # class FusedOp(nn.Module):
@@ -68,7 +71,7 @@ def train(rank, args):
     optimizer = torch.optim.SGD(model.parameters(), lr=0.002)
 
     # Create a default schedule
-    sch = ms.create_schedule(model, optimizer, args.world_size, rank)
+    sch = slapo.create_schedule(model, optimizer, args.world_size, rank)
 
     # Get sub-modules
     # mod = sch.modules
@@ -127,7 +130,7 @@ def train(rank, args):
     else:
         report_memory(rank)
         # Apply schedule and regenerate module
-        opt_model, optimizer = ms.build(sch)
+        opt_model, optimizer = slapo.build(sch)
         print(sch.gm)
         opt_model.cuda(rank)
         report_memory(rank)
@@ -181,4 +184,4 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     # The main entry point is called directly without using subprocess
-    ms.execute(train, args)
+    slapo.execute(train, args)

@@ -1,8 +1,11 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 import time
 from transformers import BertLMHeadModel, AutoConfig
 import numpy as np
 import torch
-import ms
+import slapo
 from bert_schedule import replace_layernorm, replace_gelu, replace_xformer_attention, replace_qkv
 
 # https://huggingface.co/bert-large-uncased/blob/main/config.json
@@ -11,7 +14,7 @@ bert = BertLMHeadModel(bert_config)
 optimizer = torch.optim.AdamW(bert.parameters(), lr=0.001)
 bert.half()
 
-sch = ms.create_schedule(
+sch = slapo.create_schedule(
     bert,
     optimizer,
     tracer="huggingface"
@@ -23,7 +26,7 @@ replace_xformer_attention(sch, bert_config)
 # replace_qkv(sch, bert_config)
 
 device = "cuda:0"
-model, optimizer = ms.build(sch)
+model, optimizer = slapo.build(sch)
 print(model)
 model.half()
 model.to(device)
@@ -67,4 +70,4 @@ print(
     f"Average fw: {fw_avg*1000:.10f}ms, bw: {bw_avg*1000:.10f}ms, total: {total_avg*1000:.10f}ms"
 )
 
-# ms.profile(model, [bert_input_dict["input_ids"], bert_input_dict["attention_mask"], bert_input_dict["labels"]])
+# slapo.profile(model, [bert_input_dict["input_ids"], bert_input_dict["attention_mask"], bert_input_dict["labels"]])

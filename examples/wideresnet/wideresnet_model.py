@@ -1,9 +1,12 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 from torch.nn import Module
 from torchvision.models.resnet import ResNet, Bottleneck
 
 
 def model_schedule(model):
-    import ms
+    import slapo
     import inspect
     import torch.distributed as dist
 
@@ -21,7 +24,7 @@ def model_schedule(model):
         world_size = 1
         rank = 0
 
-    sch = ms.create_schedule(
+    sch = slapo.create_schedule(
         model,
         world_size=world_size,
         rank=rank,
@@ -29,7 +32,7 @@ def model_schedule(model):
         concrete_args=concrete_args,
     )
 
-    model, _ = ms.build(sch)
+    model, _ = slapo.build(sch)
     model.cuda()
     return model
 

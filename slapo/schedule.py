@@ -1,3 +1,6 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from functools import partial
@@ -337,7 +340,6 @@ class OperationList:
     def hook(self, mode, func):
         assert len(self.op_lst) == 1
         _, node = self.op_lst[0]
-        assert node.op == "call_module"
         if node is None:
             mod = self.gm
         else:
@@ -469,9 +471,12 @@ class OperationList:
         return self.replace(CheckPointWrapper)
 
     def _replace_function(self, func):
+        """Do NOT use this API directly, call `.replace()` instead
+
+        Use `func` to replace the original node
+        """
         assert len(self.op_lst) == 1
         _, node = self.op_lst[0]
-        assert node.op == "call_function"
         with self.gm.graph.inserting_after(node):
             new_node = self.gm.graph.call_function(func, node.args, node.kwargs)
             node.replace_all_uses_with(new_node)

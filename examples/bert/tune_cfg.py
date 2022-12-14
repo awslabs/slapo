@@ -1,5 +1,8 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 """The tuning configuration for Bert. Example usage (assuming you are under 'benchmark'):
-python3 -m ms.tune --config ../examples/bert/tune_cfg.py \
+python3 -m slapo.tune --config ../examples/bert/tune_cfg.py \
     --db bert-gpu8-seq512.json --error-stop symbol \
     bench.py hf ../examples/bert/pretrain_hf_bert.py --model bert-large-uncased --gpus 8 \
         --seq-len 512 --batch-size batch_size --gradient-checkpoint ckpt_ratio

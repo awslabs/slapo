@@ -1,8 +1,11 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 import torch
 import torch.nn as nn
 import torch.fx as fx
 import torch.distributed as dist
-import ms
+import slapo
 
 
 def replace_layernorm(sch):
@@ -66,7 +69,7 @@ def replace_xformer_attention(sch, config):
                 v = torch.squeeze(v)
                 return [q, k, v]
 
-        class QKV_Pattern(ms.Pattern):
+        class QKV_Pattern(slapo.Pattern):
             def __init__(self):
                 super(QKV_Pattern, self).__init__()
 
@@ -125,7 +128,7 @@ def replace_qkv(sch, bert_config):
             v = torch.squeeze(v)
             return [q, k, v]
 
-    class QKV_Pattern(ms.Pattern):
+    class QKV_Pattern(slapo.Pattern):
         def __init__(self, layer_num):
             super(QKV_Pattern, self).__init__()
             self.layer_num = layer_num
@@ -277,5 +280,5 @@ def shard_loss(sch, config):
     # https://pytorch.org/docs/stable/generated/torch.nn.CrossEntropyLoss.html
     # outputs: (N, C)
     # labels: (C)
-    from ms.op.cross_entropy import ParallelCrossEntropy
+    from slapo.op.cross_entropy import ParallelCrossEntropy
     sch["crossentropyloss_0"].replace(ParallelCrossEntropy)

@@ -1,3 +1,6 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 """
 Test sharding primitive. Note that this test has to be invoked by torchrun. For example:
 torchrun --nproc_per_node 2 -m pytest test_shard.py
@@ -8,7 +11,7 @@ import pytest
 import torch
 import torch.distributed as dist
 from torch.autograd import Variable
-import ms
+import slapo
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -84,13 +87,13 @@ def test_linear():
 
     model = Model()
 
-    sch = ms.create_schedule(copy.deepcopy(model), tracer="pytorch")
+    sch = slapo.create_schedule(copy.deepcopy(model), tracer="pytorch")
     sch["linear1"].shard("weight", axis=0)
     sch["linear1"].shard("bias", axis=0)
     sch["linear1"].sync(mode="backward") # backward allreduce only
     sch["linear2"].shard("weight", axis=1)
     sch["linear2"].sync(mode="forward") # forward allreduce only
-    sch_model, _ = ms.build(sch)
+    sch_model, _ = slapo.build(sch)
 
     sch_model.cuda(rank)
     data = torch.randn((10, 20), requires_grad=True).cuda(rank)
@@ -160,7 +163,7 @@ def test_conv():
     rank = dist.get_rank()
     model = Model()
 
-    sch = ms.create_schedule(copy.deepcopy(model), tracer="pytorch")
+    sch = slapo.create_schedule(copy.deepcopy(model), tracer="pytorch")
     # Layout of input/weight: (N, C, H, W), (O, I, H, W)
     sch["conv1"].shard("weight", axis=0)
     sch["conv1"].sync(mode="backward") # backward allreduce only
@@ -168,7 +171,7 @@ def test_conv():
     sch["conv2"].sync(mode="forward") # forward allreduce only
     sch["conv3"].shard("weight", axis=0)
     sch["conv3"].sync(mode="both") # forward allgather + backward split/allreduce
-    sch_model, _ = ms.build(sch)
+    sch_model, _ = slapo.build(sch)
 
     sch_model.cuda(rank)
     data = torch.randn((4, 64, 56, 56), requires_grad=True).cuda(rank)

@@ -1,9 +1,12 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 import re
 
 import torch
 import torch.nn as nn
 import torch.distributed as dist
-import ms
+import slapo
 
 
 def replace_qkv(sch, num_layers, num_heads, hidden_size):
@@ -33,7 +36,7 @@ def replace_qkv(sch, num_layers, num_heads, hidden_size):
             v = torch.squeeze(v)
             return [q, k, v]
 
-    class QKVPattern(ms.Pattern):
+    class QKVPattern(slapo.Pattern):
         def __init__(self, layer_num):
             super(QKVPattern, self).__init__()
             self.layer_num = layer_num
@@ -111,7 +114,7 @@ def replace_attention(sch, config, attn_path="h.N.attn.attention"):
                 v = torch.squeeze(v).contiguous()
                 return [q, k, v]
 
-        class QKVPattern(ms.Pattern):
+        class QKVPattern(slapo.Pattern):
             def __init__(self):
                 super().__init__()
 
@@ -147,7 +150,7 @@ def replace_softmax(sch):
     from megatron.model.utils import attention_mask_func
     import operator
 
-    class SoftmaxPattern(ms.Pattern):
+    class SoftmaxPattern(slapo.Pattern):
         """
         %truediv: attention_scores
         %mul_1: attention_masks

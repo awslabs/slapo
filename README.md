@@ -1,3 +1,6 @@
+<!--- Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved. -->
+<!--- SPDX-License-Identifier: Apache-2.0  -->
+
 # Slapo: Schedule LAnguage for Progressive Optimization
 
 A domain-specific language (DSL) for large model training with decoupled model execution from definition. It uses [torch.fx](https://pytorch.org/docs/stable/fx.html) as the IR.

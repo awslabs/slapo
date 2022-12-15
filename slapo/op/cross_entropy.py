@@ -1,19 +1,22 @@
-# https://github.com/NVIDIA/Megatron-LM/blob/main/megatron/core/tensor_parallel/cross_entropy.py
-# Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+# Modifications Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
+# See: https://github.com/NVIDIA/Megatron-LM/blob/main/megatron/core/tensor_parallel/cross_entropy.py
 
 import torch
 import torch.nn as nn
 import torch.distributed as dist
 
 
-def vocab_range_from_per_partition_vocab_size(per_partition_vocab_size, rank, world_size):
+def vocab_range_from_per_partition_vocab_size(
+    per_partition_vocab_size, rank, world_size
+):
     index_f = rank * per_partition_vocab_size
     index_l = index_f + per_partition_vocab_size
     return index_f, index_l
 
 
 class _VocabParallelCrossEntropy(torch.autograd.Function):
-
     @staticmethod
     def forward(ctx, vocab_parallel_logits, target, label_smoothing=0.0, group=None):
 
@@ -30,7 +33,8 @@ class _VocabParallelCrossEntropy(torch.autograd.Function):
         rank = dist.get_rank(group=group)
         world_size = dist.get_world_size(group=group)
         vocab_start_index, vocab_end_index = get_vocab_range(
-            partition_vocab_size, rank, world_size)
+            partition_vocab_size, rank, world_size
+        )
 
         # Create a mask of valid vocab ids (1 means it needs to be masked).
         target_mask = (target < vocab_start_index) | (target >= vocab_end_index)
@@ -42,8 +46,9 @@ class _VocabParallelCrossEntropy(torch.autograd.Function):
         # [*, partition-vocab-size] and target to a 1-D tensor of size [*].
         logits_2d = vocab_parallel_logits.view(-1, partition_vocab_size)
         masked_target_1d = masked_target.view(-1)
-        arange_1d = torch.arange(start=0, end=logits_2d.size()[0],
-                                 device=logits_2d.device)
+        arange_1d = torch.arange(
+            start=0, end=logits_2d.size()[0], device=logits_2d.device
+        )
         predicted_logits_1d = logits_2d[arange_1d, masked_target_1d]
         predicted_logits_1d = predicted_logits_1d.clone().contiguous()
         predicted_logits = predicted_logits_1d.view_as(target)
@@ -104,8 +109,7 @@ class _VocabParallelCrossEntropy(torch.autograd.Function):
         grad_2d = grad_input.view(-1, partition_vocab_size)
 
         # Add the gradient from matching classes.
-        arange_1d = torch.arange(start=0, end=grad_2d.size()[0],
-                                 device=grad_2d.device)
+        arange_1d = torch.arange(start=0, end=grad_2d.size()[0], device=grad_2d.device)
 
         softmax_update = 1.0 - target_mask.view(-1).float()
 
@@ -123,7 +127,9 @@ class _VocabParallelCrossEntropy(torch.autograd.Function):
         return grad_input, None, None, None
 
 
-def vocab_parallel_cross_entropy(vocab_parallel_logits, target, label_smoothing=0.0, group=None):
+def vocab_parallel_cross_entropy(
+    vocab_parallel_logits, target, label_smoothing=0.0, group=None
+):
     """
     Performs cross entropy loss when logits are split across tensor parallel ranks
     Arguments:
@@ -133,11 +139,12 @@ def vocab_parallel_cross_entropy(vocab_parallel_logits, target, label_smoothing=
         lobal_smoothing: smoothing factor, must be in range [0.0, 1.0)
                          default is no smoothing (=0.0)
     """
-    return _VocabParallelCrossEntropy.apply(vocab_parallel_logits, target, label_smoothing, group)
+    return _VocabParallelCrossEntropy.apply(
+        vocab_parallel_logits, target, label_smoothing, group
+    )
 
 
 class ParallelCrossEntropy(nn.Module):
-
     def __init__(self, group=None):
         super(ParallelCrossEntropy, self).__init__()
         self.group = group

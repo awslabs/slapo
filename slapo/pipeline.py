@@ -1,3 +1,5 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
 """Pipeline stage wrappers for supported frameworks."""
 import operator
 import warnings
@@ -146,6 +148,7 @@ def propagate_partition(sch, starting_stage_id=0, stop_at=None):
         keep_original_order=True,
     )
     if not sch.parent:
+        sch.replace(mod_after_split)
         return mod_after_split, curr_stage_id
 
     # Propagate partitions to the parent module.

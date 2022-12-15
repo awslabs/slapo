@@ -1,10 +1,20 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
-# Modification: Apache TVM. See https://github.com/apache/tvm/blob/main/tests/lint/add_asf_header.py
+# Modification: RAF. See https://github.com/awslabs/raf/blob/main/scripts/lint/add_license_header.py
 
 """Helper tool to add license header to files."""
 import os
 import sys
+import subprocess
+
+usage = """
+Usage: python3 scripts/lint/add_license_header.py <file1 file2 ...|all>
+Add license header to the target files. If file is "all", add license header
+to all git-tracked files.
+Examples:
+ - python3 scripts/lint/add_license_header.py slapo/schedule.py slapo/pipeline.py
+ - python3 scripts/lint/add_license_header.py all
+"""
 
 header_cstyle = """
 /*
@@ -70,6 +80,16 @@ FMT_MAP = {
 }
 
 
+def get_file_fmt(file_path):
+    """Get the file format, or None if the file format is not supported."""
+    suffix = file_path.split(".")[-1]
+    if suffix in FMT_MAP:
+        return FMT_MAP[suffix]
+    elif os.path.basename(file_path) == "gradle.properties":
+        return FMT_MAP["h"]
+    return None
+
+
 def has_license_header(lines):
     """Check if the file has the license header."""
     copyright = False
@@ -93,9 +113,9 @@ def add_header(file_path, header):
     lines = open(file_path).readlines()
     if has_license_header(lines):
         print("%s has license header...skipped" % file_path)
-        return
+        return False
 
-    print("%s miss license header...added" % file_path)
+    print("%s misses license header...added" % file_path)
     with open(file_path, "w") as outfile:
         # Insert the license at the second line if the first line has a special usage.
         insert_line_idx = 0
@@ -111,29 +131,40 @@ def add_header(file_path, header):
 
         # Wright the rest of the lines.
         outfile.write("".join(lines[insert_line_idx:]))
+    return True
 
 
 def main(args):
-    if len(args) != 2:
-        print("Usage: python add_license_header.py <file_list>")
+    if len(sys.argv) == 1:
+        sys.stderr.write(usage)
+        sys.stderr.flush()
+        sys.exit(-1)
 
-    for file_path in open(args[1]):
-        if file_path.startswith("---"):
-            continue
-        if file_path.find("File:") != -1:
-            file_path = file_path.split(":")[-1]
-        file_path = file_path.strip()
+    file_list = args[1:]
+    if len(file_list) == 1 and file_list[0] == "all":
+        cmd = ["git", "ls-tree", "--full-tree", "--name-only", "-r", "HEAD"]
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        (out, _) = proc.communicate()
+        assert proc.returncode == 0, f'{" ".join(cmd)} errored: {out}'
+        file_list = out.decode("utf-8").split("\n")
 
+    stats = {"added": 0, "skipped": 0, "unsupported": 0}
+    for file_path in file_list:
         if not file_path:
             continue
-
-        suffix = file_path.split(".")[-1]
-        if suffix in FMT_MAP:
-            add_header(file_path, FMT_MAP[suffix])
-        elif os.path.basename(file_path) == "gradle.properties":
-            add_header(file_path, FMT_MAP["h"])
+        fmt = get_file_fmt(file_path)
+        if fmt is None:
+            print("Unsupported file type: %s" % file_path)
+            stats["unsupported"] += 1
+        elif add_header(file_path, fmt):
+            stats["added"] += 1
         else:
-            print("Unrecognized file type: %s" % file_path)
+            stats["skipped"] += 1
+
+    print(
+        f"Added {stats['added']}\nSkipped {stats['skipped']}\n"
+        f"Unsupported {stats['unsupported']}"
+    )
 
 
 if __name__ == "__main__":

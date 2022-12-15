@@ -18,7 +18,7 @@ import torch.nn as nn
 import torch.utils.checkpoint as checkpoint
 
 from .pipeline import generate_pipeline_partition
-from .trace import trace as trace_module
+from .tracer import trace as trace_module
 from .utils import _get_unique_module_name
 
 

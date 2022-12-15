@@ -13,12 +13,14 @@ A domain-specific language (DSL) for large model training with decoupled model e
 
 
 ## Installation
-For quick development, we simply export the current project folder to the `PYTHONPATH`. We will provide `pip install` in the future.
+
+We currently only support installation from source. We will provide pip-wheel
+in the future.
 
 ```bash
 git clone https://github.com/chhzh123/model-schedule.git slapo
 cd slapo
-export PYTHONPATH=$(pwd):${PYTHONPATH}
+pip3 install -e ".[dev]"
 ```
 
 

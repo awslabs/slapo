@@ -1,6 +1,7 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+import re
 import inspect
 import operator
 from abc import ABC, abstractmethod
@@ -332,24 +333,7 @@ class Schedule:
     def get_module(self, name):
         return dict(self.mod.named_modules())[name]
 
-    def find_module(self, pattern):
-        """pattern: lambda name: ..."""
-        self.trace()
-
-        res = []
-        for parent_name, mod in self.mod.named_modules():
-            if isinstance(mod, fx.GraphModule):
-                for node in mod.graph.nodes:
-                    name = (
-                        f"{parent_name}.{node.target}"
-                        if parent_name != ""
-                        else node.target
-                    )
-                    if node.op == "call_module" and pattern(name):
-                        res.append((parent_name, node))
-        return res
-
-    def find_function(self, pattern):
+    def find_node(self, pattern):
         """pattern: lambda node: ..."""
         self.trace()
 
@@ -359,50 +343,37 @@ class Schedule:
                 continue
 
             for node in mod.graph.nodes:
-                if node.op == "call_function" and pattern(node):
+                if pattern(node):
                     res.append((name, node))
         return res
 
-    def find_method(self, pattern):
-        """pattern: lambda node: ..."""
-        self.trace()
-
-        res = []
-        for name, mod in self.mod.named_modules():
-            if not isinstance(mod, fx.GraphModule):
-                continue
-
-            for node in mod.graph.nodes:
-                if node.op == "call_method" and pattern(node):
-                    res.append((name, node))
-        return res
-
-    def find(self, pattern):
-        if not isinstance(pattern, Pattern):
-            return []
+    def find_subgraph(self, mod_name_pat, func_pattern=None):
+        assert isinstance(mod_name_pat, str)
+        assert isinstance(func_pattern, FunctionType)
 
         self.trace()
 
-        # FIXME: Find a safer way to do it
-        sig = inspect.signature(pattern.func)
-        param_str = ", ".join(sig.parameters.keys())
-        exec(
-            """
+        if func_pattern is not None:
+            # FIXME: Find a safer way to do it
+            sig = inspect.signature(func_pattern)
+            param_str = ", ".join(sig.parameters.keys())
+            exec(
+                """
 class SubgraphWrapper(nn.Module):
     def __init__(self, pattern):
         super(SubgraphWrapper, self).__init__()
         self.pattern = pattern
 
     def forward(self, {0}):
-        return self.pattern.func({0})
+        return self.pattern({0})
 """.format(
-                param_str
-            ),
-            globals(),
-        )
+                    param_str
+                ),
+                globals(),
+            )
 
-        # SubgraphWrapper.__signature__ = inspect.signature(pattern.func)
-        pattern_mod = fx.symbolic_trace(SubgraphWrapper(pattern))
+            # SubgraphWrapper.__signature__ = inspect.signature(func_pattern)
+            pattern_mod = fx.symbolic_trace(SubgraphWrapper(func_pattern))
 
         res = []
         for parent_name, submod in self.mod.named_modules():
@@ -410,7 +381,15 @@ class SubgraphWrapper(nn.Module):
                 continue
 
             for node in submod.graph.nodes:
-                if not pattern.starting_point(parent_name, node):
+                name = (
+                    f"{parent_name}.{node.target}" if parent_name != "" else node.target
+                )
+                if not isinstance(name, str) or not re.match(mod_name_pat, name):
+                    continue
+
+                if func_pattern is None:
+                    # only find module
+                    res.append((parent_name, node))
                     continue
 
                 subgraph = [(parent_name, node)]
@@ -438,7 +417,16 @@ class SubgraphWrapper(nn.Module):
                     res.append(subgraph)
         return res
 
+    def find(self, node_pattern, func_pattern=None):
+        if isinstance(node_pattern, str):
+            return self.find_subgraph(node_pattern, func_pattern=func_pattern)
+        elif isinstance(node_pattern, FunctionType):
+            return self.find_node(node_pattern)
+        else:
+            raise RuntimeError(f"Unrecognized pattern {node_pattern}")
+
     def replace_function(self, func, target_op):
+        """Do NOT directly call this function, use `.replace()` instead"""
         node = target_op
         with self.mod.graph.inserting_after(node):
             new_node = self.mod.graph.call_function(func, node.args, node.kwargs)
@@ -446,6 +434,7 @@ class SubgraphWrapper(nn.Module):
         self.mod.graph.erase_node(node)
 
     def replace_module(self, new_mod, subgraphs=None):
+        """Do NOT directly call this function, use `.replace()` instead"""
         if subgraphs is None:
             # If target_ops is None, replace the whole self module and the schedule.
             new_sch = create_schedule(

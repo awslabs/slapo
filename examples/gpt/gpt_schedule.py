@@ -55,26 +55,15 @@ def replace_qkv(sch, config, attn_path="h.N.attn.attention"):
             v = torch.squeeze(v)
             return [q, k, v]
 
-    class QKVPattern(Pattern):
-        def __init__(self, layer_num):
-            super().__init__()
-            self.layer_num = layer_num
-
-        @staticmethod
-        def func(x: torch.Tensor) -> torch.Tensor:
-            new_x_shape = x.size()[:-1] + (num_heads, hidden_size)
-            x = x.view(new_x_shape)
-            return x.permute(0, 2, 1, 3)
-
-        def starting_point(self, parent_name, node):
-            return node.op == "call_module" and any(
-                t in node.target for t in ["k_proj", "q_proj", "v_proj"]
-            )
+    def pattern(x: torch.Tensor) -> torch.Tensor:
+        new_x_shape = x.size()[:-1] + (num_heads, hidden_size)
+        x = x.view(new_x_shape)
+        return x.permute(0, 2, 1, 3)
 
     cnt = 0
     for idx in range(num_layers):
         sub_sch = sch[attn_path.replace("N", str(idx))]
-        subgraphs = sub_sch.find(QKVPattern(idx))
+        subgraphs = sub_sch.find("k_proj|q_proj|v_proj", pattern)
         assert subgraphs, "Cannot find QKV pattern"
         new_mod = FusedQKV(hidden_size, num_heads)
         sub_sch.replace(new_mod, subgraphs)
@@ -152,22 +141,12 @@ def replace_attention(sch, config, attn_path="h.N.attn.attention"):
                 v = torch.squeeze(v).contiguous()
                 return [q, k, v]
 
-        class QKVPattern(Pattern):
-            def __init__(self):
-                super().__init__()
+        def pattern(x: torch.Tensor) -> torch.Tensor:
+            new_x_shape = x.size()[:-1] + (num_heads, hidden_size)
+            x = x.view(new_x_shape)
+            return x
 
-            @staticmethod
-            def func(x: torch.Tensor) -> torch.Tensor:
-                new_x_shape = x.size()[:-1] + (num_heads, hidden_size)
-                x = x.view(new_x_shape)
-                return x
-
-            def starting_point(self, _, node):
-                return node.op == "call_module" and any(
-                    t in node.target for t in ["query", "key", "value"]
-                )
-
-        subgraphs = sub_sch["module"].find(QKVPattern())
+        subgraphs = sub_sch["module"].find("query|key|value", pattern)
         assert len(subgraphs) != 0
         new_fused_qkv = FusedQKV(hidden_size, num_heads)
         sub_sch["module"].replace(new_fused_qkv, subgraphs)
@@ -189,8 +168,10 @@ def remove_cast(sch, config, attn_path="h.N.attn.attention"):
     cnt = 0
     for idx in range(config.num_layers):
         sub_sch = sch[attn_path.replace("N", str(idx))]
-        ops = sub_sch.find_method(
-            lambda node: node.target == "to"
+        ops = sub_sch.find(
+            lambda node:
+            node.op == "call_method"
+            and node.target == "to"
             and len(node.args) == 2
             and node.args[1] == torch.float32
         )
@@ -245,7 +226,7 @@ def shard_qkv(
         import operator
 
         sub_sch = sch[path]
-        ops = sub_sch.find_method(
+        ops = sub_sch.find(
             lambda node: node.target == "view"
             and len(node.args) == 2
             and node.args[0].target == "contiguous"

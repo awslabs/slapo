@@ -32,8 +32,9 @@ def fix_attention_mask_shape(sch):
     # align xformer attention mask shape:
     # (B, 1, 1, S) -repeat->  (B, H, S, S) -reshape-> (B x H, S, S),
     # so we need to replace "repeat" wit the sharded H.
-    ops = sch.find_method(
-        lambda node: node.target == "repeat"
+    ops = sch.find(
+        lambda node: node.op == "call_method"
+        and node.target == "repeat"
         and len(node.args) == 5  # args[0] is self
         and node.args[1] == 1
         and node.args[-1] == 1
@@ -127,22 +128,12 @@ def replace_and_shard_attention(sch, config, attn_path="encoder.layer.N.attentio
                 v = torch.squeeze(v).contiguous()
                 return [q, k, v]
 
-        class QKVPattern(Pattern):
-            def __init__(self):
-                super().__init__()
+        def pattern(x: torch.Tensor) -> torch.Tensor:
+            new_x_shape = x.size()[:-1] + (num_heads, hidden_size)
+            x = x.view(new_x_shape)
+            return x
 
-            @staticmethod
-            def func(x: torch.Tensor) -> torch.Tensor:
-                new_x_shape = x.size()[:-1] + (num_heads, hidden_size)
-                x = x.view(new_x_shape)
-                return x
-
-            def starting_point(self, _, node):
-                return node.op == "call_module" and any(
-                    t in node.target for t in ["query", "key", "value"]
-                )
-
-        subgraphs = sub_sch["module"].find(QKVPattern())
+        subgraphs = sub_sch["module"].find("query|key|value", pattern)
         assert len(subgraphs) != 0
         new_fused_qkv = FusedQKV(hidden_size, num_heads)
         sub_sch["module"].replace(new_fused_qkv, subgraphs)

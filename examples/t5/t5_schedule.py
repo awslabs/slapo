@@ -106,21 +106,6 @@ def replace_and_shard_attention(sch, config, attn_path, cross_attn=False):
                     v = torch.squeeze(v).contiguous()
                     return [k, v]
 
-            class KVPattern(Pattern):
-                def __init__(self):
-                    super().__init__()
-
-                @staticmethod
-                def func(x: torch.Tensor) -> torch.Tensor:
-                    new_x_shape = x.size()[:-1] + (num_heads, hidden_size)
-                    x = x.view(new_x_shape)
-                    return x
-
-                def starting_point(self, _, node):
-                    return node.op == "call_module" and any(
-                        t in node.target for t in ["k", "v"]
-                    )
-
             class ShardableQ(nn.Module):
                 def __init__(self, hidden_size, num_heads) -> None:
                     super().__init__()
@@ -144,25 +129,17 @@ def replace_and_shard_attention(sch, config, attn_path, cross_attn=False):
                     states = self.reshape_for_scores(states)
                     return [states]
 
-            class QPattern(Pattern):
-                def __init__(self):
-                    super().__init__()
+            def pattern(x: torch.Tensor) -> torch.Tensor:
+                new_x_shape = x.size()[:-1] + (num_heads, hidden_size)
+                x = x.view(new_x_shape)
+                return x
 
-                @staticmethod
-                def func(x: torch.Tensor) -> torch.Tensor:
-                    new_x_shape = x.size()[:-1] + (num_heads, hidden_size)
-                    x = x.view(new_x_shape)
-                    return x
-
-                def starting_point(self, _, node):
-                    return node.op == "call_module" and node.target == "q"
-
-            subgraphs = sub_sch.find(KVPattern())
+            subgraphs = sub_sch.find("k|v", pattern)
             assert len(subgraphs) != 0
             new_fused_kv = FusedKV(hidden_size, num_heads)
             sub_sch.replace(new_fused_kv, subgraphs)
 
-            subgraphs = sub_sch.find(QPattern())
+            subgraphs = sub_sch.find("q", pattern)
             assert len(subgraphs) != 0
             new_q = ShardableQ(hidden_size, num_heads)
             sub_sch.replace(new_q, subgraphs)
@@ -204,22 +181,12 @@ def replace_and_shard_attention(sch, config, attn_path, cross_attn=False):
                     v = torch.squeeze(v).contiguous()
                     return [q, k, v]
 
-            class QKVPattern(Pattern):
-                def __init__(self):
-                    super().__init__()
+            def pattern(x: torch.Tensor) -> torch.Tensor:
+                new_x_shape = x.size()[:-1] + (num_heads, hidden_size)
+                x = x.view(new_x_shape)
+                return x
 
-                @staticmethod
-                def func(x: torch.Tensor) -> torch.Tensor:
-                    new_x_shape = x.size()[:-1] + (num_heads, hidden_size)
-                    x = x.view(new_x_shape)
-                    return x
-
-                def starting_point(self, _, node):
-                    return node.op == "call_module" and any(
-                        t in node.target for t in ["q", "k", "v"]
-                    )
-
-            subgraphs = sub_sch.find(QKVPattern())
+            subgraphs = sub_sch.find("q|k|v", pattern)
             assert len(subgraphs) != 0
             new_fused_qkv = FusedQKV(hidden_size, num_heads)
             sub_sch.replace(new_fused_qkv, subgraphs)

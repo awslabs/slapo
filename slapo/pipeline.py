@@ -183,6 +183,7 @@ def propagate_partition(sch, starting_stage_id=0, stop_at=None):
     # Replace call_module in parent graph with submodule calls (inline).
     new_node = target_call_node
     last_call_mod_node = None
+    last_node_except_output = None
     output_node = None
     for child_node in mod_after_split.graph.nodes:
         if child_node.op == "call_module":
@@ -208,9 +209,19 @@ def propagate_partition(sch, starting_stage_id=0, stop_at=None):
             ph2arg[child_node.name] = new_node
         elif child_node.op == "output":
             output_node = child_node
+            continue
+        elif child_node.op != "placeholder":
+            raise RuntimeError(
+                f"Cannot support {child_node.name} with op type {child_node.op} in the splitted module"
+            )
+        last_node_except_output = new_node
     assert last_call_mod_node is not None
+    assert last_node_except_output is not None
+    assert (
+        last_call_mod_node == last_node_except_output
+    ), f"The second last node is {last_node_except_output} with op type {last_node_except_output.op}, which is not call_module node in the splitted module"
 
-    target_call_node.replace_all_uses_with(last_call_mod_node)
+    target_call_node.replace_all_uses_with(last_node_except_output)
 
     # If the parent call node is also partitioned (see example),
     # we keep the partition of the last partition; otherwise
@@ -280,9 +291,7 @@ def generate_pipeline_partition(sch):
     # Identify the common ancestor of all pipeline cutting paths.
     common_ancestor_path = ""
     if len(sch.metadata.pipeline_cutting_paths) > 1:
-        path_tokens = [
-            path.split(".") for path in sch.metadata.pipeline_cutting_paths
-        ]
+        path_tokens = [path.split(".") for path in sch.metadata.pipeline_cutting_paths]
         for tokens in zip(*path_tokens):
             if len(list(set(tokens))) != 1:
                 break

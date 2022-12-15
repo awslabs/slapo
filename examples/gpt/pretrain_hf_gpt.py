@@ -23,11 +23,10 @@ from megatron.model.gpt_model import post_language_model_processing
 
 def model_schedule(model, config):
     import slapo
-    import inspect
     import torch.distributed as dist
     from gpt_schedule import (
+        trace_attention,
         replace_qkv,
-        replace_softmax,
         shard_word_embedding,
         shard_qkv,
         replace_and_shard_mlp,
@@ -43,51 +42,37 @@ def model_schedule(model, config):
     assert not is_gpt2, "GPT-2 schedule is not working"
     args = get_args()
     disable_flash_attn = bool(int(os.environ.get("DISABLE_FLASH_ATTN", "0")))
-    input_names = list(model.dummy_inputs.keys())
-    input_names += ["attention_mask", "position_ids"]#, "token_type_ids"]
-    sig = inspect.signature(model.forward)
-    concrete_args = {
-        p.name: p.default for p in sig.parameters.values() if p.name not in input_names
-    }
 
     if args.fp16:
         print("Change model dtype to fp16")
         model.half()
 
-    sch = slapo.create_schedule(
-        model,
-        world_size=dist.get_world_size(),
-        rank=dist.get_rank(),
-        tracer="huggingface",
-        concrete_args=concrete_args,
-    )
+    sch = slapo.create_schedule(model)
 
     # Deal with attention.
     attn_path, out_proj_name = "h.N.attn.attention", "out_proj"
-    n_layer, n_head, hidden_size, vocab_size = (
-        config.num_layers,
-        config.num_heads,
-        config.hidden_size,
-        config.vocab_size,
-    )
     if not disable_flash_attn:
         cnt = replace_attention(sch, config, attn_path)
         print_rank_0(f"Replace {cnt} attention patterns")
     else:
-        cnt = remove_cast(sch)
+        # FIXME: This path is not working because our tracer cannot trace GPTNeoAttention
+        # without tracing the whole model.
+        # Trace attention
+        cnt = trace_attention(sch, config, attn_path)
+        print_rank_0(f"Traced {cnt} attention layesr")
+        assert cnt > 0
+        cnt = remove_cast(sch, config, attn_path)
         print_rank_0(f"Remove {cnt} .to(torch.float32) ops")
-        # cnt = replace_softmax(sch)
-        # print_rank_0(f"Replace {cnt} softmax ops")
-        cnt = replace_qkv(sch, n_layer, n_head, hidden_size)
+        cnt = replace_qkv(sch, config, attn_path)
         print_rank_0(f"Replace {cnt} QKV patterns")
         if sch.world_size > 1:
-            shard_qkv(sch, n_layer, attn_path, out_proj_name=out_proj_name)
+            shard_qkv(sch, config, attn_path, out_proj_name=out_proj_name)
 
     # Deal with MLP.
     replace_and_shard_mlp(sch, config)
 
     # Deal with embedding.
-    shard_word_embedding(sch, vocab_size)
+    shard_word_embedding(sch, config.vocab_size)
 
     # Gradient checkpointing
     if args.recompute_granularity is not None:

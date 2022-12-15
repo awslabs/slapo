@@ -17,16 +17,44 @@ from megatron import get_timers
 from megatron import mpu
 from megatron.data.dataset_utils import build_train_valid_test_datasets
 from megatron.model import ModelType
-from megatron.model.module import MegatronModule
 from megatron.model.bert_model import post_language_model_processing, BertLMHead
 from megatron.training import pretrain
 from megatron.utils import average_losses_across_data_parallel_group
-from megatron.model.utils import init_method_normal, get_linear_layer
+from megatron.model.utils import init_method_normal
+
+def get_scheduled_bert(
+    model_name,
+    padded_vocab_size=None,
+    binary_head=False,
+    add_pooling_layer=True,
+    disable_flash_attn=False,
+    fp16=True,
+    ckpt_ratio=0.0,
+):
+    from transformers import AutoConfig, BertModel
+    import slapo
+    from bert_model import schedule_bert
+
+    config = AutoConfig.from_pretrained(model_name)
+    if padded_vocab_size is not None:
+        config.vocab_size = padded_vocab_size
+    config.type_vocab_size = 2 if binary_head else 0
+
+    sch = schedule_bert(
+        BertModel(config, add_pooling_layer=add_pooling_layer),
+        config,
+        disable_flash_attn=disable_flash_attn,
+        fp16=fp16,
+        ckpt_ratio=ckpt_ratio,
+    )
+    model, _ = slapo.build(sch)
+    if fp16:
+        model.half()
+    model.cuda()
+    return model
 
 
 def model_provider(pre_process=True, post_process=True):
-    from bert_model import get_scheduled_bert
-
     args = get_args()
     model_name = os.environ.get("MODEL_NAME", None)
     if model_name is None:

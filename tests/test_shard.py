@@ -13,7 +13,6 @@ import torch.distributed as dist
 from torch.autograd import Variable
 import slapo
 
-
 @pytest.fixture(scope="session", autouse=True)
 def init_dist(request):
     torch.manual_seed(9999)

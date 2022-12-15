@@ -1,23 +1,24 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+import inspect
+import operator
 from abc import ABC, abstractmethod
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from functools import partial
 from types import FunctionType
-from typing import Any, Dict, List, Union, Tuple, Type
-import operator
-import inspect
+from typing import Any, Dict, List, Optional
+
 import torch
-import torch.nn as nn
-import torch.fx as fx
-from torch.fx.passes.split_module import split_module
 import torch.distributed as dist
+import torch.fx as fx
+import torch.nn as nn
 import torch.utils.checkpoint as checkpoint
 
-from .trace import trace
+from .pipeline import generate_pipeline_partition
+from .trace import trace as trace_module
 from .utils import _get_unique_module_name
-import warnings
 
 
 class Pattern(ABC):
@@ -73,299 +74,182 @@ class ScheduleMetadata:
     # 2) Let each primitive derive metadata class.
     shard: Dict[str, Any] = field(default_factory=lambda: DictWithValidation())
 
+    # A set of paths to the modules that includes pipeline cutting annotations.
+    # Note that we use ordered set to keep the order of the modules.
+    pipeline_cutting_paths: Dict[str, Any] = field(
+        default_factory=lambda: OrderedDict()
+    )
+
+
+def register_primitive(need_dist=False, finalize=False):
+    """
+    Wrap a schedule primitive to annotate attributes:
+        finalize: Whether the primitive will finalize the schedule.
+        doc: TODO
+
+    TODO:
+    1. Record invoked primitives to be a tape for later replay.
+    2. Print primitive status.
+    """
+
+    def dectorator(func):
+        def wrapper(self, *args, **kwargs):
+            if need_dist and not dist.is_initialized():
+                raise RuntimeError(
+                    f"Schedule {func.__name__} requires distribution, "
+                    f"but torch.distributed is not initialized"
+                )
+            if self.finalized:
+                raise RuntimeError(
+                    f"Schedule for {self.path} is already finalized "
+                    f"and cannot apply {func.__name__}"
+                )
+            ret = func(self, *args, **kwargs)
+            self.finalized = finalize
+            return ret
+
+        return wrapper
+
+    return dectorator
+
 
 class Schedule:
     def __init__(
         self,
-        mod: Union[nn.Module, fx.GraphModule],
-        optimizer: torch.optim.Optimizer = None,
-        group: dist.ProcessGroup = None,
+        mod: nn.Module,
+        name: str = "",
+        path: str = "",
+        parent: Optional["Schedule"] = None,
+        group: Optional[dist.ProcessGroup] = None,
         **kwargs: Dict[str, Any],
     ):
-        # Parse configs
-        self.config = kwargs
-        print(self.config)
-
-        # Parse world size and rank
-        self.validate_config()
-
-        # When group=None, the default group that includes all devices will be used.
-        self.group = group
-        self.world_size = dist.get_world_size(group)
-        self.rank = dist.get_rank(group)
-
-        # Trace the model if needed
-        self.gm = mod if isinstance(mod, fx.GraphModule) else trace(mod, **self.config)
-
-        self._modules = None
-        self._ops = {}
-        self._func_ops = {}
-        self.optimizer = optimizer
-
-    def __getitem__(self, node_or_lst):
-        # should make sure the op list is up-to-date
-        if isinstance(node_or_lst, List):
-            lst = node_or_lst
-            if isinstance(lst[0], List):
-                # (parent_name, node)
-                mod = self.get_module(lst[0][0][0])
-            else:
-                mod = self.get_module(lst[0][0])
-            return OperationList(lst, mod, self.group)
+        if dist.is_initialized():
+            world_size = dist.get_world_size(group)
+            rank = dist.get_rank(group)
         else:
-            node_or_str = node_or_lst
-            if isinstance(node_or_str, str):
-                node_name = node_or_str
-                if node_name != "":
-                    node = self.find_module(lambda name: name == node_name)[0]
-                else:
-                    node = ("", None)
-            else:
-                node = node_or_str
-                assert isinstance(node, tuple)  # (parent_name, node)
-            if node[1] is None:
-                mod = self.gm
-            else:
-                mod = self.get_module(node[0])
-            return OperationList([node], mod, self.group)
-
-    def validate_config(self):
-        for key in self.config:
-            if key not in ["tracer", "leaf_modules", "concrete_args", "deepspeed"]:
-                raise RuntimeError(f"Unknown config {key}")
-
-    def get_module(self, name):
-        return dict(self.gm.named_modules())[name]
-
-    def find_module(self, pattern):
-        """
-        pattern: lambda name: ...
-        """
-        res = []
-        for parent_name, mod in self.gm.named_modules():
-            if isinstance(mod, fx.GraphModule):
-                for node in mod.graph.nodes:
-                    name = (
-                        f"{parent_name}.{node.target}"
-                        if parent_name != ""
-                        else node.target
-                    )
-                    if node.op == "call_module" and pattern(name):
-                        res.append((parent_name, node))
-        return res
-
-    def find_function(self, pattern):
-        """
-        pattern: lambda node: ...
-        """
-        res = []
-        for name, mod in self.gm.named_modules():
-            if isinstance(mod, fx.GraphModule):
-                for node in mod.graph.nodes:
-                    if node.op == "call_function" and pattern(node):
-                        res.append((name, node))
-        return res
-
-    def find_method(self, pattern):
-        """
-        pattern: lambda node: ...
-        """
-        res = []
-        for name, mod in self.gm.named_modules():
-            if isinstance(mod, fx.GraphModule):
-                for node in mod.graph.nodes:
-                    if node.op == "call_method" and pattern(node):
-                        res.append((name, node))
-        return res
-
-    def find(self, pattern):
-        if not isinstance(pattern, Pattern):
-            return []
-
-        # FIXME: Find a safer way to do it
-        sig = inspect.signature(pattern.func)
-        param_str = ", ".join(sig.parameters.keys())
-        class_builder = exec(
-            """
-class SubgraphWrapper(nn.Module):
-    def __init__(self, pattern):
-        super(SubgraphWrapper, self).__init__()
-        self.pattern = pattern
-
-    def forward(self, {0}):
-        return self.pattern.func({0})
-""".format(
-                param_str
-            ),
-            globals(),
-        )
-
-        # SubgraphWrapper.__signature__ = inspect.signature(pattern.func)
-        mod = fx.symbolic_trace(SubgraphWrapper(pattern))
-
-        res = []
-        for parent_name, submod in self.gm.named_modules():
-            if isinstance(submod, fx.GraphModule):
-                for node in submod.graph.nodes:
-                    if pattern.starting_point(parent_name, node):
-                        subgraph = [(parent_name, node)]
-                        matched = True
-
-                        def DFS(curr, target):
-                            nonlocal matched
-                            for cusr, tusr in zip(curr.users, target.users):
-                                if tusr.target == "output":
-                                    return True
-                                if cusr.target != tusr.target:
-                                    matched = False
-                                    return False
-                                if cusr not in subgraph:
-                                    subgraph.append((parent_name, cusr))
-                                DFS(cusr, tusr)
-                            return True
-
-                        for target_node in list(mod.graph.nodes):
-                            if target_node.op == "placeholder":
-                                break
-                        curr_node = node
-                        DFS(curr_node, target_node)
-                        if matched:
-                            res.append(subgraph)
-        return res
-
-
-class OperationList:
-    def __init__(
-        self,
-        op_lst: List[Tuple[str, fx.Node]],
-        gm: fx.GraphModule,
-        group: dist.ProcessGroup,
-    ):
-        assert isinstance(op_lst, List) and len(op_lst) > 0
-        self.op_lst = op_lst
-        if isinstance(self.op_lst[0], List):
-            parent_name, _ = self.op_lst[0][0]
-        else:
-            parent_name, _ = self.op_lst[0]
-        self.parent_name = parent_name
-        self.gm = gm
-
+            world_size = 1
+            rank = 0
         self.group = group
-        self.world_size = dist.get_world_size(group)
-        self.rank = dist.get_rank(group)
+        self.world_size = world_size
+        self.rank = rank
 
-    def subschedule(self, **kwargs: Dict[str, Any]):
-        # hierachical schedule support
-        assert len(self.op_lst) == 1
-        _, node = self.op_lst[0]
-        new_sch = create_schedule(
-            getattr(self.gm, node.target),
-            group=self.group,
-            **kwargs,
-        )
-        # replace old module in case the gm is newly generated
-        self.gm.register_module(node.target, new_sch.gm)
-        return new_sch
+        self.mod = mod
+        self.name = name
+        self.path = path
+        self.parent = parent
+        self.child = {}
+        self.metadata = ScheduleMetadata()
 
-    def compose(self, subsch):
-        mod, _ = build(subsch)
-        self.replace(mod)
+        self.finalized = False
 
+    @staticmethod
+    def tokenize_module_path(module_path: str) -> List[str]:
+        tokens = []
+        for token in module_path.split("."):
+            try:
+                list_idx = int(token)
+                assert tokens, f"Invalid module path: {module_path}"
+                tokens[-1] = f"{tokens[-1]}.{list_idx}"
+            except:
+                tokens.append(token)
+        return tokens
+
+    @staticmethod
+    def update_submodule(mod, submod_name, new_submod):
+        if "." in submod_name:
+            # The submodule is a module list.
+            submod_name, list_idx = submod_name.split(".")
+            getattr(mod, submod_name)[int(list_idx)] = new_submod
+        else:
+            setattr(mod, submod_name, new_submod)
+
+    def __getitem__(self, full_path):
+        if not full_path:
+            return self
+
+        curr_sch = self
+        for token in self.tokenize_module_path(full_path):
+            if token not in curr_sch.child:
+                raise KeyError(
+                    f"'The schedule of {full_path}' is not a child of {curr_sch.name}"
+                )
+            curr_sch = curr_sch.child[token]
+            if not curr_sch:
+                raise KeyError(f"Module '{full_path}' is not found")
+        return curr_sch
+
+    def __contains__(self, full_path):
+        curr_sch = self
+        for token in self.tokenize_module_path(full_path):
+            if token not in curr_sch.child:
+                return False
+            curr_sch = curr_sch.child[token]
+            if not curr_sch:
+                return False
+        return True
+
+    @register_primitive(need_dist=True)
     def shard(self, param_name: str, axis: int):
-        assert len(self.op_lst) == 1
-        _, node = self.op_lst[0]
-        assert node.op == "call_module"
-        mod = getattr(self.gm, node.target)
-        param = mod.get_parameter(param_name)
+        param = self.mod.get_parameter(param_name)
         assert axis < len(param.shape)
         # TODO: Support arbitrary size sharding
         assert param.shape[axis] % self.world_size == 0
         sharded_size = param.shape[axis] // self.world_size
         new_param = param.detach().split(sharded_size, dim=axis)[self.rank]
-        mod.register_parameter(param_name, nn.Parameter(new_param))
+        self.mod.register_parameter(param_name, nn.Parameter(new_param))
 
         # Add metadata for sync and check. FIXME: A validation mechanism to check this.
         # 1. Whether the param is already sharded in different axis.
         # 2. Whether the output syncing method is conflict.
-        if not hasattr(mod, "schedule_metadata"):
-            mod.schedule_metadata = ScheduleMetadata()
         try:
-            mod.schedule_metadata.shard[param_name] = axis
+            self.metadata.shard[param_name] = axis
         except KeyError:
             raise RuntimeError(
-                f"Parameter {param_name} in {mod} is already sharded along axis "
-                f"{mod.schedule_metadata.shard[param_name]}"
+                f"Parameter {param_name} in {self.path} is already sharded along axis "
+                f"{self.metadata.shard[param_name]}"
             ) from None
 
         def set_output_type(output_type, gather_axis=None):
             try:
-                mod.schedule_metadata.shard["output_type"] = output_type
+                self.metadata.shard["output_type"] = output_type
             except KeyError:
                 raise RuntimeError(
-                    f"Output type of {mod} is already "
-                    f"{mod.schedule_metadata.shard['output_type']}, but "
+                    f"Output type of {self.path} is already "
+                    f"{self.metadata.shard['output_type']}, but "
                     f"{output_type} is requested"
                 ) from None
 
             if gather_axis is not None:
                 try:
-                    mod.schedule_metadata.shard["gather_axis"] = gather_axis
+                    self.metadata.shard["gather_axis"] = gather_axis
                 except KeyError:
                     raise RuntimeError(
-                        f"Output of {mod} has to be gathered along axis "
-                        f"{mod.schedule_metadata.shard['gather_axis']}, but "
+                        f"Output of {self.path} has to be gathered along axis "
+                        f"{self.metadata.shard['gather_axis']}, but "
                         f"{gather_axis} is requested"
                     ) from None
 
         # Update attributes. FIXME: Generalize to other ops.
-        if isinstance(mod, nn.Linear):
+        if isinstance(self.mod, nn.Linear):
             if axis == 0:
-                mod.out_features = sharded_size
+                self.mod.out_features = sharded_size
                 # Note that the axis is the axis of the output
                 set_output_type("partition", gather_axis=1)
             else:  # axis == 1
-                mod.in_features = sharded_size
+                self.mod.in_features = sharded_size
                 set_output_type("partial")
-        elif isinstance(mod, nn.Conv2d):
-            axes = [1, 0] if mod.transposed else [0, 1]
+        elif isinstance(self.mod, nn.Conv2d):
+            axes = [1, 0] if self.mod.transposed else [0, 1]
             if axis == axes[0]:
-                mod.out_channels = sharded_size
+                self.mod.out_channels = sharded_size
                 set_output_type("partition", gather_axis=1)
             elif axis == axes[1]:
-                mod.in_channels = sharded_size
+                self.mod.in_channels = sharded_size
                 set_output_type("partial")
             else:
                 raise NotImplementedError
 
-    def hook(self, mode, func):
-        assert len(self.op_lst) == 1
-        _, node = self.op_lst[0]
-        if node is None:
-            mod = self.gm
-        else:
-            mod = getattr(self.gm, node.target)
-
-        if mode == "fw_pre":
-
-            def fw_pre_hook(_module, _input):
-                return func(_input)
-
-            mod.register_forward_pre_hook(fw_pre_hook)
-        elif mode == "fw_post":
-
-            def fw_post_hook(_module, _input, output):
-                return func(_input, output)
-
-            mod.register_forward_hook(fw_post_hook)
-        elif mode == "bw_post":
-
-            def bw_post_hook(_module, _input, output):
-                return func(_input, output)
-
-            mod.register_full_backward_hook(bw_post_hook)
-        else:
-            raise RuntimeError("Mode {} is not supported".format())
-
+    @register_primitive(need_dist=True)
     def sync(self, mode="backward"):
         """There are several cases for sync based on two factors:
         1) The original forward output is partitioned or partial sum.
@@ -384,22 +268,15 @@ class OperationList:
                 -> (replica x, shard_out w).
             In this case, backward does not need allreduce, so mode should be 'forward'.
         """
-        assert len(self.op_lst) == 1
-        _, node = self.op_lst[0]
-        assert node.op == "call_module"
-        mod = getattr(self.gm, node.target)
-        assert hasattr(
-            mod, "schedule_metadata"
-        ), "Schedule metadata is missing in {mod}"
         assert (
-            "output_type" in mod.schedule_metadata.shard
+            "output_type" in self.metadata.shard
         ), "output_type is missing in {mod}.schedule_metadata.shard"
-        output_type = mod.schedule_metadata.shard["output_type"]
+        output_type = self.metadata.shard["output_type"]
 
         if mode in ["forward", "both"]:
             if output_type == "partition":
                 # Case 1
-                gather_axis = mod.schedule_metadata.shard["gather_axis"]
+                gather_axis = self.metadata.shard["gather_axis"]
                 sync_fn = partial(
                     all_gather_forward_output, dim=gather_axis, group=self.group
                 )
@@ -416,7 +293,7 @@ class OperationList:
                 output = sync_fn(output)
                 return output
 
-            mod.register_forward_hook(hook_func)
+            self.mod.register_forward_hook(hook_func)
 
         if mode in ["backward", "both"]:
             # Case 1, 2
@@ -427,473 +304,482 @@ class OperationList:
                     _input[0].contiguous(), op=dist.ReduceOp.SUM, group=self.group
                 )
 
-            mod.register_full_backward_hook(hook_func)
+            self.mod.register_full_backward_hook(hook_func)
 
-    def partition(self):
-        # used for pipeline parallelism
-        assert len(self.op_lst) == 1
-        _, node = self.op_lst[0]
-        node.meta["partition"] = True
+    @register_primitive()
+    def hook(self, mode, func):
+        if mode == "fw_pre":
 
-    def checkpoint(self):
-        warnings.warn(
-            "You are using checkpointing. Please make sure all the other primitives have been applied."
-        )
-        assert len(self.op_lst) == 1
-        _, node = self.op_lst[0]
-        if node.op == "call_function":
-            exe = node.target
-        elif node.op == "call_module":
-            attr_itr = self.gm
-            atoms = node.target.split(".")
-            for atom in atoms:
-                attr_itr = getattr(attr_itr, atom)
-            exe = attr_itr
+            def fw_pre_hook(_module, _input):
+                return func(_input)
+
+            self.mod.register_forward_pre_hook(fw_pre_hook)
+        elif mode == "fw_post":
+
+            def fw_post_hook(_module, _input, output):
+                return func(_input, output)
+
+            self.mod.register_forward_hook(fw_post_hook)
+        elif mode == "bw_post":
+
+            def bw_post_hook(_module, _input, output):
+                return func(_input, output)
+
+            self.mod.register_full_backward_hook(bw_post_hook)
         else:
-            raise RuntimeError("Not supported")
+            raise RuntimeError(f"Hook mode {mode} is not supported")
 
+    def get_module(self, name):
+        return dict(self.mod.named_modules())[name]
+
+    def find_module(self, pattern):
+        """pattern: lambda name: ..."""
+        self.trace()
+
+        res = []
+        for parent_name, mod in self.mod.named_modules():
+            if isinstance(mod, fx.GraphModule):
+                for node in mod.graph.nodes:
+                    name = (
+                        f"{parent_name}.{node.target}"
+                        if parent_name != ""
+                        else node.target
+                    )
+                    if node.op == "call_module" and pattern(name):
+                        res.append((parent_name, node))
+        return res
+
+    def find_function(self, pattern):
+        """pattern: lambda node: ..."""
+        self.trace()
+
+        res = []
+        for name, mod in self.mod.named_modules():
+            if not isinstance(mod, fx.GraphModule):
+                continue
+
+            for node in mod.graph.nodes:
+                if node.op == "call_function" and pattern(node):
+                    res.append((name, node))
+        return res
+
+    def find_method(self, pattern):
+        """pattern: lambda node: ..."""
+        self.trace()
+
+        res = []
+        for name, mod in self.mod.named_modules():
+            if not isinstance(mod, fx.GraphModule):
+                continue
+
+            for node in mod.graph.nodes:
+                if node.op == "call_method" and pattern(node):
+                    res.append((name, node))
+        return res
+
+    def find(self, pattern):
+        if not isinstance(pattern, Pattern):
+            return []
+
+        self.trace()
+
+        # FIXME: Find a safer way to do it
+        sig = inspect.signature(pattern.func)
+        param_str = ", ".join(sig.parameters.keys())
+        exec(
+            """
+class SubgraphWrapper(nn.Module):
+    def __init__(self, pattern):
+        super(SubgraphWrapper, self).__init__()
+        self.pattern = pattern
+
+    def forward(self, {0}):
+        return self.pattern.func({0})
+""".format(
+                param_str
+            ),
+            globals(),
+        )
+
+        # SubgraphWrapper.__signature__ = inspect.signature(pattern.func)
+        pattern_mod = fx.symbolic_trace(SubgraphWrapper(pattern))
+
+        res = []
+        for parent_name, submod in self.mod.named_modules():
+            if not isinstance(submod, fx.GraphModule):
+                continue
+
+            for node in submod.graph.nodes:
+                if not pattern.starting_point(parent_name, node):
+                    continue
+
+                subgraph = [(parent_name, node)]
+                matched = True
+
+                def find_match(curr, target):
+                    nonlocal matched
+                    for cusr, tusr in zip(curr.users, target.users):
+                        if tusr.target == "output":
+                            return True
+                        if cusr.target != tusr.target:
+                            matched = False
+                            return False
+                        if cusr not in subgraph:
+                            subgraph.append((parent_name, cusr))
+                        find_match(cusr, tusr)
+                    return True
+
+                for target_node in list(pattern_mod.graph.nodes):
+                    if target_node.op == "placeholder":
+                        break
+                curr_node = node
+                find_match(curr_node, target_node)
+                if matched:
+                    res.append(subgraph)
+        return res
+
+    def replace_function(self, func, target_op):
+        node = target_op
+        with self.mod.graph.inserting_after(node):
+            new_node = self.mod.graph.call_function(func, node.args, node.kwargs)
+            node.replace_all_uses_with(new_node)
+        self.mod.graph.erase_node(node)
+
+    def replace_module(self, new_mod, subgraphs=None):
+        if subgraphs is None:
+            # If target_ops is None, replace the whole self module and the schedule.
+            new_sch = create_schedule(
+                new_mod, self.name, self.path, self.parent, self.group
+            )
+            self.mod = new_sch.mod
+            self.child = new_sch.child
+            for name, sch in self.child.items():
+                sch.parent = self
+            if self.parent:
+                self.update_submodule(self.parent.mod, self.name, new_mod)
+        else:
+            # Otherwise, replace target forward subgraphs with the new module.
+            # Note that this requires the current module in torch.fx so it
+            # has to be traced.
+            self.trace()
+            name = _get_unique_module_name(self.mod, new_mod._get_name().split(".")[-1])
+            if len(subgraphs[0]) == 1:
+                path, node = subgraphs[0]
+                target_mod = self.mod
+                if path:
+                    assert hasattr(
+                        self.mod, path
+                    ), f"{path} is not an attribute of {self.mod}"
+                    target_mod = getattr(self.mod, path)
+
+                target_mod.add_module(name, new_mod)
+                with target_mod.graph.inserting_after(node):
+                    new_node = target_mod.graph.call_module(
+                        name, node.args, node.kwargs
+                    )
+                    node.replace_all_uses_with(new_node)
+                target_mod.graph.erase_node(node)
+            else:
+                node_or_lst = subgraphs[0]
+                if isinstance(node_or_lst, List):
+                    # horizontal fusion, e.g.,
+                    #     x
+                    #   / | \
+                    #  s0 s1 s2
+                    #  v0 v1 v2
+                    #  [[s0, v0], [s1, v1], [s2, v2]]
+                    path, node = node_or_lst[0]
+                    target_mod = self.mod
+                    if path:
+                        assert hasattr(
+                            self.mod, path
+                        ), f"{path} is not an attribute of {self.mod}"
+                        target_mod = getattr(self.mod, path)
+
+                    target_mod.add_module(name, new_mod)
+                    with target_mod.graph.inserting_before(node):
+                        new_node = target_mod.graph.call_module(
+                            name, node.args, node.kwargs
+                        )
+                    with target_mod.graph.inserting_after(new_node):
+                        for i, sublst in enumerate(subgraphs):
+                            getitem = target_mod.graph.call_function(
+                                operator.getitem, (new_node, i)
+                            )
+                            sublst = (
+                                [sublst] if not isinstance(sublst, List) else sublst
+                            )
+                            for _, node in reversed(sublst):
+                                # FIXME: this is hardcoded
+                                if node.op == "call_module" and "dense" in node.target:
+                                    assert False, "Should not get into this branch"
+                                    with self.gm.graph.inserting_after(getitem):
+                                        new_getitem = self.gm.graph.call_function(
+                                            operator.getitem, (getitem, i)
+                                        )
+                                    if node.users not in sublst:
+                                        node.replace_all_uses_with(new_getitem)
+                                else:
+                                    if node.users not in sublst:
+                                        node.replace_all_uses_with(getitem)
+                                target_mod.graph.erase_node(node)
+                else:
+                    # vertical fusion, e.g.,
+                    # s0->v0
+                    # [s0, v0]
+                    path, first_node = node_or_lst
+                    target_mod = self.mod
+                    if path:
+                        assert hasattr(
+                            self.mod, path
+                        ), f"{path} is not an attribute of {self.mod}"
+                        target_mod = getattr(self.mod, path)
+
+                    target_mod.add_module(name, new_mod)
+                    with target_mod.graph.inserting_before(first_node):
+                        new_node = target_mod.graph.call_module(
+                            name, first_node.args, first_node.kwargs
+                        )
+                    _, last_node = self.op_lst[-1]
+                    last_node.replace_all_uses_with(new_node)
+                    for _, node in reversed(self.op_lst):
+                        target_mod.graph.erase_node(node)
+
+    @register_primitive()
+    def replace(self, new_mod_or_func, target_ops=None):
+        """Replace one of the following scenarios:
+        1. Replace an entire module (new_mod_or_func is the new module object, target_ops=None).
+        2. Replace a part of the forward function (target_ops) with a new module or function.
+        """
+        if isinstance(new_mod_or_func, FunctionType):
+            if target_ops is None and isinstance(target_ops, List):
+                raise ValueError(
+                    "Cannot replace multiple subgraphs in forward with one function"
+                )
+            self.replace_function(new_mod_or_func, target_ops)
+        else:
+            self.replace_module(new_mod_or_func, target_ops)
+
+        # Clean up and update the schedule child list.
+        if isinstance(self.mod, fx.GraphModule):
+            self.mod.graph.eliminate_dead_code()
+            self.mod.delete_all_unused_submodules()
+            self.mod.graph.lint()
+            self.mod.recompile()
+
+            # Remove OOD child.
+            named_children = [name for name, _ in self.mod.named_children()]
+            to_be_removed = []
+            for child_name in self.child:
+                if child_name not in named_children:
+                    to_be_removed.append(child_name)
+
+            for child_name in to_be_removed:
+                del self.child[child_name]
+
+            # Add new child.
+            for child_name, submod in self.mod.named_children():
+                if child_name not in self.child:
+                    self.child[child_name] = create_schedule(
+                        submod,
+                        child_name,
+                        f"{self.path}.{child_name}",
+                        self,
+                        self.group,
+                    )
+
+    @register_primitive()
+    def checkpoint(self):
         class CheckPointWrapper(nn.Module):
-            def __init__(self) -> None:
-                super(CheckPointWrapper, self).__init__()
-                if isinstance(exe, nn.Module):
-                    for i, (name, param) in enumerate(exe.named_parameters()):
-                        name = name.rsplit(".", maxsplit=1)[-1] + "_" + str(i)
-                        self.register_parameter(name, param)
-                    self.register_module("top", dict(exe.named_modules())[""])
+            def __init__(self, mod) -> None:
+                super().__init__()
+                self.mod = mod
+                for idx, (name, param) in enumerate(mod.named_parameters()):
+                    name = name.rsplit(".", maxsplit=1)[-1] + "_" + str(idx)
+                    self.register_parameter(name, param)
+                self.register_module("top", dict(mod.named_modules())[""])
 
             def forward(self, *args, **kwargs):
                 new_args = [arg for arg in args]
                 for value in kwargs.values():
                     new_args += [value]
                 # Note: checkpoint cannot accept kwargs
-                return checkpoint.checkpoint(exe, *new_args)
+                return checkpoint.checkpoint(self.mod, *new_args)
 
-        return self.replace(CheckPointWrapper)
+        self.replace(CheckPointWrapper(self.mod))
 
-    def _replace_function(self, func):
-        """Do NOT use this API directly, call `.replace()` instead
+    @register_primitive()
+    def cut_pipeline_stage(self):
+        parent_sch = self.parent
 
-        Use `func` to replace the original node
-        """
-        assert len(self.op_lst) == 1
-        _, node = self.op_lst[0]
-        with self.gm.graph.inserting_after(node):
-            new_node = self.gm.graph.call_function(func, node.args, node.kwargs)
-            node.replace_all_uses_with(new_node)
-        self.gm.graph.erase_node(node)
-        return new_node
+        # Sanity check.
+        if not parent_sch:
+            raise ValueError("Cannot cut the top module")
+        if not isinstance(parent_sch.mod, fx.GraphModule):
+            raise RuntimeError(
+                "Parent module has not been traced. "
+                "Please use 'trace_for_pipeline' to trace until "
+                "the level you want to cut pipeline stages."
+            )
 
-    def _replace_module(self, nn_mod: Type[nn.Module], *args, **kwargs):
-        """Do NOT use this API directly, call `.replace()` instead
+        # Find the corresponding call node in the parent module
+        # and annotate it with pipeline partition.
+        for node in parent_sch.mod.graph.nodes:
+            if node.op == "call_module" and node.target == self.name:
+                node.meta["partition"] = True
 
-        Notice the `nn_mod` is a class constructor, which will be
-        instantiated in this function.
-        `args` and `kwargs` are used to initialize the module.
+        # Propogate the pipeline cutting level to the root.
+        root_sch = parent_sch
+        while root_sch is not None:
+            root_sch.metadata.pipeline_cutting_paths[parent_sch.path] = True
+            root_sch = root_sch.parent
 
-        An example use case is shown below.
+    def trace_for_pipeline(self, paths, **kwargs):
+        """Trace from the top module until the sub-module specified in path,
+        so that we can cut pipeline stages at the level."""
+        # Sanity check.
+        if self.parent:
+            raise ValueError("trace_for_pipeline can only be called on the top module")
+        if isinstance(self.mod, fx.GraphModule):
+            raise RuntimeError("Top module has been traced")
 
-        class NewMod(nn.Module):
-            def __init__(self, hidden_dim):
-                super(nn.Module, self).__init__()
-                self.hidden_dim = hidden_dim
+        # Add all child modules to the leaf modules.
+        leaf_modules = []
+        for path in paths if isinstance(paths, List) else [paths]:
+            leaf_modules += list(self[path].child.keys())
 
-            def forward(self, x):
-                # ...
+        tracer = kwargs.pop("tracer", "pytorch")
+        concrete_args = kwargs.pop("concrete_args", {})
+        self.trace(
+            recursive=True,
+            leaf_modules=leaf_modules,
+            tracer=tracer,
+            concrete_args=concrete_args,
+        )
 
-        sch[xxx].replace(NewMod, hidden_dim=1024)
-        """
-        assert issubclass(
-            nn_mod, nn.Module
-        ), "Please pass in a class instead of a instance"
-        # instantiate module class
-        instance = nn_mod(*args, **kwargs)
-        name = instance._get_name().split(".")[-1]
-        name = _get_unique_module_name(self.gm, name)
-        instance = trace(instance, silent=True)  # Silent trace for replacement.
-        if len(self.op_lst) == 1:
-            # single module replacement
-            _, node = self.op_lst[0]
-            self.gm.add_module(name, instance)
-            with self.gm.graph.inserting_after(node):
-                new_node = self.gm.graph.call_module(name, node.args, node.kwargs)
-                node.replace_all_uses_with(new_node)
-            self.gm.graph.erase_node(node)
-        else:
-            # operator fusion
-            node_or_lst = self.op_lst[0]
-            if isinstance(node_or_lst, List):
-                # horizontal fusion, e.g.,
-                #     x
-                #   / | \
-                #  s0 s1 s2
-                #  v0 v1 v2
-                #  [[s0, v0], [s1, v1], [s2, v2]]
-                _, node = node_or_lst[0]
-                self.gm.add_module(name, instance)
-                with self.gm.graph.inserting_before(node):
-                    new_node = self.gm.graph.call_module(name, node.args, node.kwargs)
-                with self.gm.graph.inserting_after(new_node):
-                    for i, sublst in enumerate(self.op_lst):
-                        getitem = self.gm.graph.call_function(
-                            operator.getitem, (new_node, i)
-                        )
-                        sublst = [sublst] if not isinstance(sublst, List) else sublst
-                        for _, node in reversed(sublst):
-                            # FIXME: hardcoded
-                            if node.op == "call_module" and "dense" in node.target:
-                                assert False, "Should not get into this branch"
-                                with self.gm.graph.inserting_after(getitem):
-                                    new_getitem = self.gm.graph.call_function(
-                                        operator.getitem, (getitem, i)
-                                    )
-                                if node.users not in sublst:
-                                    node.replace_all_uses_with(new_getitem)
-                            else:
-                                if node.users not in sublst:
-                                    node.replace_all_uses_with(getitem)
-                            self.gm.graph.erase_node(node)
-            else:
-                # vertical fusion, e.g.,
-                # s0->v0
-                # [s0, v0]
-                _, first_node = node_or_lst
-                self.gm.add_module(name, instance)
-                with self.gm.graph.inserting_before(first_node):
-                    new_node = self.gm.graph.call_module(
-                        name, first_node.args, first_node.kwargs
-                    )
-                _, last_node = self.op_lst[-1]
-                last_node.replace_all_uses_with(new_node)
-                for _, node in reversed(self.op_lst):
-                    self.gm.graph.erase_node(node)
-        return new_node
+    def trace(self, recursive=True, **kwargs):
+        if isinstance(self.mod, fx.GraphModule):
+            return True
 
-    def replace(self, func_or_mod, *args, **kwargs):
-        if not isinstance(func_or_mod, FunctionType):
-            new_node = self._replace_module(func_or_mod, *args, **kwargs)
-        else:
-            new_node = self._replace_function(func_or_mod)
-        self.gm.graph.eliminate_dead_code()
-        self.gm.delete_all_unused_submodules()
-        self.gm.graph.lint()
-        self.gm.recompile()
-        return self.parent_name, new_node
+        failed_msg = None
+        try:
+            gm = trace_module(self.mod, recursive=recursive, **kwargs)
+        except Exception as err:
+            failed_msg = str(err)
+
+        if failed_msg is None and isinstance(gm, fx.GraphModule):
+            self.replace(gm)
+            return True
+
+        print(
+            f"Failed to trace {self.path}: {failed_msg}. Please explicitly "
+            f"use sch['{self.path}'].trace(...) to provide necessary information. "
+            f"If you encounter this error with sch['{self.path}'].trace(...), it is "
+            f"either due to the incorrect tracer/concrete args, or the limtation "
+            f"in torch.fx."
+        )
+        return False
 
 
 def create_schedule(
-    model: nn.Module,
-    optimizer: torch.optim.Optimizer = None,
-    group: dist.ProcessGroup = None,
-    **kwargs: Dict[str, Any],
+    root: nn.Module,
+    name: str = "",
+    path: str = "",
+    parent: Optional[Schedule] = None,
+    group: Optional[dist.ProcessGroup] = None,
+    **kwargs,
 ):
-    return Schedule(model, optimizer=optimizer, group=group, **kwargs)
+    def is_leaf(module):
+        return (
+            module.__module__.startswith("torch.nn")
+            or module.__module__.startswith("torch.ao.nn")
+        ) and not isinstance(module, torch.nn.Sequential)
 
+    def is_module_list(module):
+        """A module list will become nn.Module or fx.GraphModule after tracing,
+        but we still want to treat it as a module list in the schedule.
+        """
+        if isinstance(module, nn.Sequential):
+            return False
+        if isinstance(module, nn.ModuleList):
+            return True
 
-def generate_pipeline_partition(sch):
-    # check validity, should make sure all the partition points are at the same level
-    mod_has_partition_point = (None, None)  # (name, mod)
-    named_modules = sch.gm.named_modules()
-    for name, mod in named_modules:
-        if isinstance(mod, fx.GraphModule):
-            for node in mod.graph.nodes:
-                if "partition" in node.meta:
-                    if mod_has_partition_point[0] is None:
-                        name = name.rsplit(".", 1)[-1]
-                        mod_has_partition_point = (name, mod)
-                        break
-                    else:
-                        raise RuntimeError("Partition points are not at the same level")
-    if mod_has_partition_point[0] is None:
-        sch.gm.graph.lint()
-        sch.gm.recompile()
-        return sch.gm
+        # Even it is not module list, as long as its children are indexed by
+        # sequential integers, we treat it as a module list.
+        child_names = [name for name, _ in module.named_children()]
+        if not child_names:
+            return False
+        try:
+            child_names = [int(n) for n in child_names]
+            return child_names == list(range(len(child_names)))
+        except ValueError:
+            return False
 
-    # get parent modules
-    child2parent = {}
+    root_sch = Schedule(root, name, path, parent, group, **kwargs)
+    if is_leaf(root):
+        return root_sch
 
-    def traverse_children(root, parent_name):
-        for name, mod in root.named_children():
-            child2parent[name] = parent_name
-            traverse_children(mod, name)
-
-    traverse_children(sch.gm, "")
-    child2parent[""] = None
-
-    def propagate_partition(child_name, child_mod):
-        # assign partitions to each node
-        partition_cnt = 0
-        for node in child_mod.graph.nodes:
-            if "partition" not in node.meta:
-                node.meta["partition"] = partition_cnt
-            else:
-                node.meta["partition"] = partition_cnt
-                partition_cnt += 1
-        assert partition_cnt > 0
-        # partition submodule
-        childmod_after_split = split_module(
-            child_mod,
-            None,
-            lambda node: node.meta["partition"],
-            keep_original_order=True,
-        )
-        if child_name == "":
-            return childmod_after_split
-        # propagate partitions to the parent graph
-        placeholders = []
-        for node in childmod_after_split.graph.nodes:
-            if node.op == "placeholder":
-                placeholders.append(node)
-        # get target call node in parent graph
-        target_call_node = None
-        parent_name = child2parent[child_name]
-        parent_mod = sch.gm.get_submodule(parent_name)
-        for node in parent_mod.graph.nodes:
-            if node.op == "call_module" and node.target == child_name:
-                target_call_node = node
-                break
-        assert target_call_node is not None
-        # create mapping from placeholder in subgraph to arguments in parent graph
-        ph2arg = {}
-        for i, arg in enumerate(target_call_node.args):
-            ph2arg[placeholders[i].name] = arg
-        for i, (_, kwarg) in enumerate(
-            target_call_node.kwargs.items(), len(target_call_node.args)
-        ):
-            ph2arg[placeholders[i].name] = kwarg
-        # register partitioned submodules to parent module
-        for name, child in childmod_after_split.named_children():
-            parent_mod.add_module(name, child)
-        # replace call_module in parent graph with several call submodules
-        new_node = target_call_node
-        last_call_mod_node = None
-        output_node = None
-        for child_node in childmod_after_split.graph.nodes:
-            if child_node.op == "call_module":
-                new_args = fx.map_arg(child_node.args, lambda node: ph2arg[node.name])
-                new_kwargs = fx.map_arg(
-                    child_node.kwargs, lambda node: ph2arg[node.name]
+    child_schedules = {}
+    for child_name, submod in root.named_children():
+        next_path = f"{path}.{child_name}" if path else child_name
+        if is_module_list(submod):
+            # We assume ModuleList will be iteratively traversed in forward function.
+            # For example:
+            # In __init__: self.layers = nn.ModuleList([nn.Linear(10, 10) for _ in range(3)])
+            # In forwrad :
+            #     for layer in self.layers:
+            #         x = layer(x)
+            # In this case, we register submodul as layer.0, layer.1, etc.
+            for name_idx, layer in submod.named_children():
+                child_schedules[f"{child_name}.{name_idx}"] = create_schedule(
+                    layer,
+                    f"{child_name}.{name_idx}",
+                    f"{next_path}.{name_idx}",
+                    root_sch,
+                    group,
+                    **kwargs,
                 )
-                with parent_mod.graph.inserting_after(new_node):
-                    new_node = parent_mod.graph.call_module(
-                        child_node.target, new_args, new_kwargs
-                    )
-                    # specify new partition points
-                    new_node.meta["partition"] = True
-                # add current node to mapping
-                ph2arg[child_node.name] = new_node
-                last_call_mod_node = new_node
-            elif child_node.op == "call_function":
-                new_args = fx.map_arg(child_node.args, lambda node: ph2arg[node.name])
-                new_kwargs = fx.map_arg(
-                    child_node.kwargs, lambda node: ph2arg[node.name]
-                )
-                with parent_mod.graph.inserting_after(new_node):
-                    new_node = parent_mod.graph.call_function(
-                        child_node.target, new_args, new_kwargs
-                    )
-                # add current node to mapping
-                ph2arg[child_node.name] = new_node
-            elif child_node.op == "output":
-                output_node = child_node
-        assert last_call_mod_node is not None
-        target_call_node.replace_all_uses_with(last_call_mod_node)
-        last_call_mod_node.meta.pop("partition")
-        # fix output
-        if len(output_node.args) > 1 or len(output_node.kwargs) > 0:
-            raise RuntimeError("Multiple output arguments not supported yet!")
-        elif len(output_node.args) == 1 and (
-            isinstance(output_node.args[0], tuple)
-            or isinstance(output_node.args[0], dict)
-        ):
-            if isinstance(output_node.args[0], tuple):
-                raise RuntimeError("Tuple return not supported yet!")
-            ret_dict = output_node.args[0]
-            ph2arg[None] = None
-            users_to_replace = []
-            for user in last_call_mod_node.users:
-                if user.op == "call_method" and user.target == "get":
-                    value = ret_dict.get(user.args[1], user.args[2])
-                    users_to_replace.append(
-                        (
-                            user,
-                            ph2arg[value.name if isinstance(value, fx.Node) else None],
-                        )
-                    )
-                elif user.op == "call_function" and user.target == operator.getitem:
-                    users_to_replace.append((user, ph2arg[ret_dict[user.args[1]].name]))
-            for user, target in users_to_replace:
-                user.replace_all_uses_with(target)
-        # recompile
-        parent_mod.graph.erase_node(target_call_node)
-        parent_mod.delete_all_unused_submodules()
-        parent_mod.graph.eliminate_dead_code()
-        parent_mod.graph.lint()
-        parent_mod.recompile()
-        childmod_after_split.delete_all_unused_submodules()
-        childmod_after_split.graph.eliminate_dead_code()
-        childmod_after_split.graph.lint()
-        childmod_after_split.recompile()
-        return propagate_partition(parent_name, parent_mod)
+        else:
+            # For other submodules including nn.Sequential, we assume they are directly
+            # called in forward function. For example:
+            # In __init__: self.block = nn.Sequential(...)
+            # In forward : out = self.block(x)
+            # In this case, fx IR will create directly call the submodule such as block.
+            child_schedules[child_name] = create_schedule(
+                submod, child_name, next_path, root_sch, group, **kwargs
+            )
 
-    sch.gm = propagate_partition(*mod_has_partition_point)
-    # remap input args
-    # and analyze label bypassing
-    ph_idx = {}
-    fx_idx_to_normal_idx = {}
-    ph_bypass = {}  # stage id->arg name
-    id2call = {}
-    for i, node in enumerate(sch.gm.graph.nodes):
-        if node.op == "placeholder":
-            ph_idx[node.target] = i
-        elif node.op == "call_module" and "submod_" in node.target:
-            stage_id = int(node.target.split("_")[-1])
-            id2call[stage_id] = node
-            if stage_id == 0:
-                for j, arg in enumerate(node.args):
-                    fx_idx_to_normal_idx[j] = ph_idx[arg.target]
-            else:
-                for arg in node.args:
-                    if isinstance(arg, fx.Node) and arg.op == "placeholder":
-                        ph_bypass[stage_id] = arg.target
-    # analyze data dependency to find whether the variables need to
-    # be bypassed in the pipeline
-    var_use_stages = {}  # var name -> list of stage ids
-    for node in sch.gm.graph.nodes:
-        if node.op == "call_module" and "submod_" in node.target:
-            stage_num = int(node.target.split("_")[-1])
-            for arg in node.args:
-                if arg.name not in var_use_stages:
-                    var_use_stages[arg.name] = [stage_num]
-                else:
-                    var_use_stages[arg.name].append(stage_num)
-    bypass_vars = []
-    for var, stage_lst in var_use_stages.items():
-        if len(stage_lst) > 1:
-            # multiple usage, need to bypass
-            bypass_vars.append((var, stage_lst))
-    assert len(bypass_vars) <= 1
-    # generate wrappers for pipelined modules
-    res_partition = []
-    named_children = dict(sch.gm.named_children())
-    for i, (_, partition) in enumerate(named_children.items()):
-
-        class SubmodWrapper(nn.Module):
-            def __init__(self, mod: fx.GraphModule, stage_id: int, total_stages: int):
-                super(SubmodWrapper, self).__init__()
-                self.mod = mod
-                self.stage_id = stage_id
-                self.total_stages = total_stages
-                self.last = self.stage_id == self.total_stages - 1
-
-            def forward(self, *args, **kwargs):
-                # TODO: use kwargs to do mapping
-                if len(args) == 1 and isinstance(args[0], (list, tuple)):
-                    args = args[0]
-                # unpack inputs
-                new_args = []
-                if self.stage_id == 0:
-                    unordered_args = []
-                    for arg in args:
-                        assert not isinstance(arg, dict)
-                        if isinstance(arg, tuple):
-                            unordered_args.extend([item for item in arg])
-                        else:
-                            unordered_args.append(arg)
-                    # remap inputs
-                    # not sure why fx will changes the order of partitioned module's arguments
-                    for idx in range(len(unordered_args)):
-                        if idx in fx_idx_to_normal_idx:
-                            new_args.append(unordered_args[fx_idx_to_normal_idx[idx]])
-                else:
-                    args, metadata = args[:-1], args[-1]
-                    assert len(args) == len(metadata)
-                    # restore nested structure from metadata
-                    prev_level = 0
-                    for arg, curr_level in zip(args, metadata):
-                        inner_lst = new_args
-                        for _ in range(curr_level):
-                            if curr_level > prev_level:
-                                inner_lst.append([])
-                            inner_lst = inner_lst[-1]
-                        inner_lst.append(arg)
-                        prev_level = curr_level
-                    # FIXME: avoid dirty hack
-                    is_all_getitem = True
-                    for arg in id2call[self.stage_id].args:
-                        if arg.op != "call_function" or "getitem" not in arg.name:
-                            is_all_getitem = False
-                    if is_all_getitem:
-                        new_args = new_args[0]
-                for value in kwargs.values():
-                    new_args += [value]
-                # check if arguments in bypass list
-                # TODO: actual argument position-based checking
-                if self.stage_id > 0:
-                    local_fork = []
-                    for var, stage_lst in bypass_vars:
-                        if self.stage_id in stage_lst:
-                            warnings.warn(
-                                f"Fork argument {var} in pipeline stage {self.stage_id}"
-                            )
-                            local_fork.append(new_args[-1])
-                # forward pass
-                outputs = self.mod(*new_args)
-                # add bypassed values to outputs
-                if self.stage_id > 0 and not self.last:
-                    outputs = [outputs] + local_fork
-                elif self.stage_id == 0:
-                    outputs = [outputs]
-                # pack outputs
-                if self.last:
-                    new_outputs = outputs
-                else:
-                    new_outputs = []
-                    metadata = []  # used for storing nested levels
-
-                    def flatten(outputs, level):
-                        for output in outputs:
-                            if isinstance(output, (tuple, list)):
-                                flatten(output, level + 1)
-                            elif isinstance(output, dict):
-                                flatten(output.values(), level + 1)
-                            else:
-                                new_outputs.append(output)
-                                metadata.append(level)
-
-                    flatten(outputs, 0)
-                    new_outputs.append(
-                        torch.tensor(
-                            metadata, dtype=torch.long, device=new_outputs[0].device
-                        )
-                    )
-                    new_outputs = tuple(new_outputs)
-                return new_outputs
-
-        res_partition.append(SubmodWrapper(partition, i, len(named_children)))
-    return res_partition
+    root_sch.child = child_schedules
+    return root_sch
 
 
 def build(sch: Schedule, topology=None, target=None, **kwargs):
-    sch.gm.graph.eliminate_dead_code()
-    sch.gm.delete_all_unused_submodules()
-    opt_model = generate_pipeline_partition(sch)
+    optimizer = None
+    if sch.metadata.pipeline_cutting_paths:
+        model = generate_pipeline_partition(sch)
+    else:
+        model = sch.mod
+
     if target == "deepspeed":
-        assert topology is not None, "topology must be provided for deepspeed"
+        # Sanity check
+        if topology is None:
+            raise ValueError("Must provide topology for deepspeed pipeline")
         assert "config" in kwargs
         assert "loss_fn" in kwargs
         import deepspeed
         import deepspeed.pipe as pipe
 
-        pmodel = pipe.PipelineModule(
-            opt_model,
-            topology=topology,
-            partition_method="uniform",
-            loss_fn=kwargs["loss_fn"],
-        )
-        opt_model, optimizer, _, _ = deepspeed.initialize(
-            model=pmodel,
+        if sch.metadata.pipeline_cutting_paths:
+            model = pipe.PipelineModule(
+                model,
+                topology=topology,
+                partition_method="uniform",
+                loss_fn=kwargs["loss_fn"],
+            )
+        model, optimizer, _, _ = deepspeed.initialize(
+            model=model,
             config=kwargs["config"],
-            model_parameters=[p for p in pmodel.parameters() if p.requires_grad],
+            model_parameters=[p for p in model.parameters() if p.requires_grad],
         )
-        sch.optimizer = optimizer
-    return opt_model, sch.optimizer
+
+    return model, optimizer

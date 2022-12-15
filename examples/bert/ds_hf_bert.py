@@ -1,38 +1,33 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-import os
-import inspect
 import argparse
-from transformers import BertLMHeadModel, AutoConfig
-import torch
-import torch.nn as nn
-import torch.distributed as dist
-
-import slapo
-from bert_schedule import (
-    replace_layernorm,
-    replace_xformer_attention,
-    replace_qkv,
-    shard_params,
-    checkpoint,
-    broadcast_input
-)
-from slapo.utils import report_memory
-from slapo.op.cross_entropy import ParallelCrossEntropy
 
 import deepspeed
-from deepspeed.pipe import PipelineModule
-from deepspeed.utils import RepeatingLoader
+import torch
+import torch.distributed as dist
 from deepspeed.runtime.pipe.topology import PipeModelDataParallelTopology
+from deepspeed.utils import RepeatingLoader
+from transformers import BertLMHeadModel, AutoConfig
+
+import slapo
+from slapo.op.cross_entropy import ParallelCrossEntropy
+from slapo.utils import report_memory
+
+from bert_model import schedule_bert
 
 _groups = []
+
+SINGLE_DEVICE_FOR_DEBUG = False
+
 
 def create_dist_groups(num_pp, num_mp):
     world_size = dist.get_world_size()
     num_dp = world_size // (num_pp * num_mp)
-    topology = PipeModelDataParallelTopology(num_pp=num_pp, num_mp=num_mp, num_dp=num_dp)
-    model_groups = topology.get_axis_comm_lists('model')
+    topology = PipeModelDataParallelTopology(
+        num_pp=num_pp, num_mp=num_mp, num_dp=num_dp
+    )
+    model_groups = topology.get_axis_comm_lists("model")
 
     global_rank = dist.get_rank()
     group = None
@@ -48,46 +43,34 @@ def create_dist_groups(num_pp, num_mp):
 
 def train(args):
     print("Use deepspeed to initialize")
-    num_pp = 4
-    num_mp = 2
-    torch.cuda.set_device(args.local_rank)
-    deepspeed.init_distributed(dist_backend="nccl")
+    num_pp, num_mp = 1, 1
+    rank = args.local_rank
+    torch.cuda.set_device(rank)
+
+    if not SINGLE_DEVICE_FOR_DEBUG:
+        num_pp, num_mp = 4, 2
+        deepspeed.init_distributed(dist_backend="nccl")
 
     # https://huggingface.co/bert-large-uncased/blob/main/config.json
     bert_config = AutoConfig.from_pretrained("bert-large-uncased")
     bert = BertLMHeadModel(bert_config)
-    bert.half()
 
-    input_names = list(bert.dummy_inputs.keys())
-    input_names += ["attention_mask", "token_type_ids"]
-    sig = inspect.signature(bert.forward)
-    concrete_args = {
-        p.name: p.default for p in sig.parameters.values() if p.name not in input_names
-    }
+    topology, group = None, None
+    if not SINGLE_DEVICE_FOR_DEBUG:
+        topology, group = create_dist_groups(num_pp, num_mp)
 
-    rank = args.local_rank
-    topology, group = create_dist_groups(num_pp, num_mp)
-
-    sch = slapo.create_schedule(
+    sch = schedule_bert(
         bert,
-        None,
-        group,
-        tracer="huggingface",
-        concrete_args=concrete_args,
+        bert_config,
+        prefix="bert",
+        ckpt_ratio=1 if args.checkpoint else 0,
+        bcast_input=True,
+        group=group,
+        pipeline_cuts=[5, 11, 17],
     )
-
-    if num_mp > 1:
-        shard_params(sch, bert_config, prefix="bert")
-        broadcast_input(sch)
-
-    if args.checkpoint:
-        print("Use gradient checkpoint")
-        checkpoint(sch, bert_config, prefix="bert")
-
-    print("Use pipeline parallelism")
-    sch["bert.encoder.layer.5"].partition()
-    sch["bert.encoder.layer.11"].partition()
-    sch["bert.encoder.layer.17"].partition()
+    if SINGLE_DEVICE_FOR_DEBUG:
+        slapo.build(sch)
+        assert False
 
     report_memory(rank)
     device = "cuda:{}".format(rank)
@@ -105,16 +88,17 @@ def train(args):
         prediction_scores = outputs
         shifted_prediction_scores = prediction_scores[:, :-1, :].contiguous()
         labels = labels[:, 1:].contiguous()
-        lm_loss = loss_fct(
-            shifted_prediction_scores, labels
-        )
+        lm_loss = loss_fct(shifted_prediction_scores, labels)
         lm_loss = lm_loss.contiguous().mean()
         return lm_loss
 
-    model, optimizer = slapo.build(
-        sch, topology=topology, target="deepspeed", config=ds_config_dict, loss_fn=loss_fn
+    model, _ = slapo.build(
+        sch,
+        topology=topology,
+        target="deepspeed",
+        config=ds_config_dict,
+        loss_fn=loss_fn,
     )
-
     report_memory(rank)
 
     bs = 8
@@ -149,8 +133,7 @@ def train(args):
         ]
     )
     data_iter = iter(loader)
-
-    baseline = model.train_batch(data_iter=data_iter)
+    model.train_batch(data_iter=data_iter)
 
 
 if __name__ == "__main__":

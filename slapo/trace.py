@@ -7,6 +7,10 @@ import torch
 import torch.nn as nn
 import torch.fx as fx
 from typing import Any, Callable, Dict, List, Optional, Type, Union
+import torch.utils._pytree as pytree
+from torch.fx._symbolic_trace import PH, _assert_is_none, HAS_VARSTUFF, _patch_function
+from torch.fx.graph import _PyTreeCodeGen, _PyTreeInfo
+from torch.fx.node import base_types
 import inspect
 import copy
 from transformers.utils.fx import (
@@ -146,6 +150,8 @@ def trace_submodule(
     named_children = dict(root.named_children())
     leaf_modules = kwargs.get("leaf_modules", [])
 
+    recursive = kwargs.get("recursive", True)
+
     # FIXME: Use _IS_IN_DEBUG_MODE.
     silent = kwargs.get("silent", False)
 
@@ -208,7 +214,9 @@ def trace_submodule(
             # trace each layer in ModuleList to register the submodule name.
             for i, layer in enumerate(submod):
                 module_qualified_name = tracer.path_of_module(layer)
-                if tracer_with_orig_leaf.is_leaf_module(layer, module_qualified_name):
+                if not recursive or tracer_with_orig_leaf.is_leaf_module(
+                    layer, module_qualified_name
+                ):
                     gm_submod = layer
                 else:
                     gm_submod = trace_submodule(
@@ -226,7 +234,9 @@ def trace_submodule(
             # In forward : out = self.block(x)
             # In this case, fx IR will create directly call the submodule such as block.
             module_qualified_name = tracer.path_of_module(submod)
-            if tracer_with_orig_leaf.is_leaf_module(submod, module_qualified_name):
+            if not recursive or tracer_with_orig_leaf.is_leaf_module(
+                submod, module_qualified_name
+            ):
                 # If it is a real leaf module, stop tracing.
                 gm_submod = submod
             else:
@@ -266,7 +276,7 @@ def trace(model: nn.Module, **kwargs: Dict[str, Any]):
             assert (
                 "concrete_args" in kwargs
             ), "Please provide concrete_args for HF tracer"
-            concrete_args = kwargs["concrete_args"]
+            concrete_args = kwargs.pop("concrete_args")
 
             class TracerWrapper(HFTracer):
                 def __init__(self, **config: Dict[str, Any]) -> None:
@@ -361,6 +371,7 @@ def trace(model: nn.Module, **kwargs: Dict[str, Any]):
                 TracerWrapper,
                 is_top=True,
                 concrete_args=concrete_args,
+                **kwargs,
             )
 
         elif tracer_cls_name == "pytorch":
@@ -380,6 +391,142 @@ def trace(model: nn.Module, **kwargs: Dict[str, Any]):
                         return True
                     else:
                         return super().is_leaf_module(m, module_qualified_name)
+
+                def create_args_for_root(self, root_fn, is_module, concrete_args=None):
+                    """Override this method to make sure the argument names are the same
+                    as the original module, so that the traced module can be injected.
+                    FIXME: Implement a fx pass that fixes the argument names, so that we
+                    don't need to override this method.
+                    """
+                    # In some cases, a function or method has been decorated with a wrapper
+                    # defined via ``functools.wraps``. In this case, the outer code object
+                    # will likely not contain the actual parameters we care about, so unwrap
+                    # the function to get to the innermost callable.
+                    fn_for_analysis = inspect.unwrap(root_fn)
+                    co = fn_for_analysis.__code__
+                    total_args = co.co_argcount + co.co_kwonlyargcount
+                    orig_args = list(co.co_varnames)
+                    names_iter = iter(co.co_varnames)
+                    args: List[Any] = []
+                    skip_arg_idx = 0
+                    if is_module:
+                        if total_args == 0:
+                            raise RuntimeError(
+                                "``self`` argument cannot be part of *args expansion!"
+                            )
+                        skip_arg_idx = 1
+                        next(names_iter)  # skip self
+                        args.append(self.root)
+
+                    sig = inspect.signature(fn_for_analysis)
+
+                    def proxy_placeholder(name: str):
+                        if concrete_args is not None and name in concrete_args:
+                            cnt = 0
+
+                            def replace_ph(x):
+                                nonlocal cnt
+                                cnt += 1
+                                param = sig.parameters[name]
+                                default = (
+                                    ()
+                                    if param.default is inspect.Parameter.empty
+                                    else (param.default,)
+                                )
+                                proxy_name = f"{name}_{str(cnt)}" if cnt > 1 else name
+                                out = self.create_proxy(
+                                    "placeholder", proxy_name, default, {}
+                                )
+                                if x == PH:
+                                    return out
+                                # Union[int, bool] == bool in Python <= 3.6
+                                if (
+                                    type(x) == bool
+                                    or type(x) in base_types
+                                    and type(x) != torch.Tensor
+                                ):
+                                    torch._assert(
+                                        out == x,
+                                        f"{name} has been specialized to have value {x} but got another value",
+                                    )
+                                elif type(x) == type(None):
+                                    args = (
+                                        out,
+                                        f"{name} has been specialized to have value None but got another value",
+                                    )
+                                    self.create_proxy(
+                                        "call_function", _assert_is_none, args, {}
+                                    )
+                                else:
+                                    warnings.warn(
+                                        f"Was not able to add assertion to guarantee correct input {name} to "
+                                        f"specialized function. It is up to the user to make sure that your inputs match the "
+                                        f"inputs you specialized the function with."
+                                    )
+
+                                return x
+
+                            return pytree.tree_map(replace_ph, concrete_args[name])
+                        if name[0] == "*":
+                            default = ()
+                        else:
+                            param = sig.parameters[name]
+                            default = () if param.default is inspect.Parameter.empty else (param.default,)  # type: ignore[assignment]
+                        return self.create_proxy(
+                            "placeholder",
+                            name,
+                            default,
+                            {},
+                            type_expr=fn_for_analysis.__annotations__.get(name, None),
+                        )
+
+                    arg_names = [
+                        next(names_iter) for idx in range(skip_arg_idx, total_args)
+                    ]
+                    if isinstance(concrete_args, tuple):
+                        if len(arg_names) != len(concrete_args):
+                            raise RuntimeError(
+                                f"Tracing expected {len(arg_names)} arguments but got {len(concrete_args)} concrete arguments"
+                            )
+                        concrete_args = {
+                            name: val for name, val in zip(arg_names, concrete_args)
+                        }
+                    args.extend(proxy_placeholder(names) for names in arg_names)
+
+                    if co.co_kwonlyargcount > 0 or co.co_flags & HAS_VARSTUFF:
+                        # TODO: type annotations for *args and **kwargs
+                        if co.co_flags & inspect.CO_VARARGS:
+                            args.append(proxy_placeholder("*" + next(names_iter)))
+                        if co.co_flags & inspect.CO_VARKEYWORDS:
+                            args.append(proxy_placeholder("**" + next(names_iter)))
+                        root_fn = _patch_function(root_fn, len(args))
+
+                    flat_args, in_spec = pytree.tree_flatten(tuple(args))
+                    if any(
+                        not isinstance(i, pytree.LeafSpec)
+                        for i in in_spec.children_specs
+                    ):
+                        # In the case that we have pytree-flattened inputs in
+                        # `concrete_args`, generate a flattening wrapper around the
+                        # original root function and return that.
+                        self.graph._codegen = _PyTreeCodeGen(
+                            _PyTreeInfo(orig_args[:total_args], in_spec, None)
+                        )
+
+                        def flatten_fn(*args):
+                            tree_args = pytree.tree_unflatten(list(args), in_spec)
+                            tree_out = root_fn(*tree_args)
+                            out_args, out_spec = pytree.tree_flatten(tree_out)
+                            assert isinstance(self.graph._codegen, _PyTreeCodeGen)
+                            self.graph._codegen.pytree_info = (
+                                self.graph._codegen.pytree_info._replace(
+                                    out_spec=out_spec
+                                )
+                            )
+                            return out_args
+
+                        return flatten_fn, flat_args
+                    return root_fn, args
 
             top_gm = trace_submodule(model, TracerWrapper, **kwargs)
 

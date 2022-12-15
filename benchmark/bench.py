@@ -2,12 +2,16 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
+import importlib
 import math
 import os
 import re
+import subprocess
+from collections import OrderedDict
 from dataclasses import dataclass
 
 import matplotlib.pyplot as plt
+import pkg_resources
 import torch
 from transformers import AutoConfig
 
@@ -19,6 +23,8 @@ class Exp:
     batch_size: int  # batch size per GPU
     seq_len: int  # input sequence length
     seq_len_dec: int  # Decoder sequence length. Encoder-decoder model only.
+
+    impl: str  # Implementation. "hf" or "megatron"
 
     ## Improve speed / reduce memory
     bf16: bool = False  # Faster, less memory. Recommend if GPU supports
@@ -68,7 +74,7 @@ class Exp:
             self.tflops = 3 * forward / 1e12
         else:
             # Encoder-decoder models.
-            self.num_decoder_layers = get('num_decoder_layers')
+            self.num_decoder_layers = get("num_decoder_layers")
             self.d_kv = get("d_kv")
             self.d_ff = get("d_ff")
 
@@ -110,13 +116,28 @@ class Exp:
             self.tflops = (enc_flops + dec_flops) / 1e12
         self.launcher = f"torchrun --nproc_per_node {self.num_gpus}"
 
-    def print_results(self):
-        print("Total samples / second\t: %.1f" % self.samples_per_sec)
-        print("Per GPU memory (GB)\t: %.1f" % self.gpu_mem)
-        print(
-            "Per GPU TFLOPs\t\t: %.1f"
-            % (self.samples_per_sec * self.tflops / self.num_gpus)
-        )
+    def print_results(self, append_to=""):
+        prefix = f"{self.impl}\t{self.model}\t{self.seq_len}\t{self.seq_len_dec}\t"
+        prefix += f"{len(self.gpus.split(','))}\t{self.batch_size}\t{self.grad_ckpt}"
+
+        def append_log(msg):
+            if append_to:
+                with open(append_to, "a") as filep:
+                    filep.write(f"{prefix}\t{msg}\n")
+
+        if self.error_code == 1:
+            append_log(f"na\toom\toom\toom")
+        elif self.error_code == 2:
+            append_log(f"na\fail\tfail\tfail")
+        else:
+            print("Total samples / second\t: %.1f" % self.samples_per_sec)
+            print("Per GPU memory (GB)\t: %.1f" % self.gpu_mem)
+            per_gpu_tflops = self.samples_per_sec * self.tflops / self.num_gpus
+            print("Per GPU TFLOPs\t\t: %.1f" % per_gpu_tflops)
+            append_log(
+                f"{self.param_per_gpu / 1e6:.2f}\t{self.samples_per_sec:.2f}\t"
+                f"{self.gpu_mem:.2f}\t{per_gpu_tflops:.2f}"
+            )
 
 
 def parse_args():
@@ -125,7 +146,8 @@ def parse_args():
     common_parser.add_argument(
         "--error-stop",
         action="store_true",
-        help="Stop when error occurs. Note that out-of-memory is not considdered as error",
+        help="Stop when error occurs. Note that out-of-memory is "
+        "not considdered as error",
     )
     common_parser.add_argument(
         "--seq-len", type=int, default=512, help="Sequence length. Default: 512"
@@ -152,8 +174,8 @@ def parse_args():
         "--batch-sizes",
         type=str,
         default="8 * int(math.log2(n) + 1)",
-        help="An expression with `n` as GPU number to to calculate batch size. `math` can be used."
-        "Default: 8 * int(math.log2(n) + 1)",
+        help="An expression with `n` as GPU number to to calculate batch size. "
+        "`math` can be used. Default: 8 * int(math.log2(n) + 1)",
     )
     common_parser.add_argument(
         "--gradient-checkpoint",
@@ -161,12 +183,21 @@ def parse_args():
         default="",
         help="Gradient checkpointing. Empty means no checkpointing; otherwise: "
         "Megatron: 'full' or 'selective'. HF w. schedule: a floating point indicating "
-        "the checkpointing ratio. For example, 0.5 means to checkpoint a half of layers.",
+        "the checkpointing ratio. For example, 0.5 means to checkpoint "
+        "a half of layers.",
+    )
+    common_parser.add_argument(
+        "--append-to",
+        type=str,
+        default="",
+        help="Append the results to a file without drowing a graph",
     )
 
     parser = argparse.ArgumentParser()
     subprasers = parser.add_subparsers(
-        dest="impl", help="Model implementation (hf or megatron)"
+        dest="impl",
+        help="Model implementation (hf, megatron, or env)."
+        "Note that 'env' only dumps environments without benchmarking.",
     )
     hf_parser = subprasers.add_parser(
         "hf",
@@ -192,6 +223,11 @@ def parse_args():
         "--disable-fuse-kernels",
         action="store_true",
         help="Disable fusion kernels in Megatron models.",
+    )
+    subprasers.add_parser(
+        "env",
+        parents=[common_parser],
+        help="Dump environment variables",
     )
     return parser.parse_args()
 
@@ -352,11 +388,13 @@ def megatron_log(exp, log_filename):
     param_per_gpu = query(
         "parameters on \(tensor, pipeline\) model parallel rank \(0, 0\)"
     )
+    exp.param_per_gpu = param_per_gpu
     exp.samples_per_sec = query("global batch size") / iter_time * 1e3
     exp.gpu_mem = query("max allocated") / 1e3
     print(f"per GPU params\t\t: {param_per_gpu / 1e6:.2f}M")
     print(
-        f"Breakdown(ms)\t\t: total {iter_time:.2f}, forward {forward_compute_time:.2f}, "
+        f"Breakdown(ms)\t\t: total {iter_time:.2f}, "
+        f"forward {forward_compute_time:.2f}, "
         f"backward {backward_compute_time:.2f}, "
         f"backward-params-all-reduce {backward_param_all_reduce_time:.2f}, "
         f"optimizer {optimizer_time:.2f}"
@@ -383,7 +421,8 @@ def run_megatron(exp, args):
 --data-impl mmap --lr 0.00015 --log-interval 5 --eval-iters 1"""
     if exp.grad_ckpt:
         if args.impl == "hf":
-            # Gradient checkpoint ratio for HF schedule is passed via environment variable.
+            # Gradient checkpoint ratio for HF schedule is passed
+            # via environment variable.
             grad_ckpt = "full"
         else:
             if exp.grad_ckpt == "full":
@@ -408,17 +447,123 @@ def run_megatron(exp, args):
     if ret.error_code != 0:
         ret.samples_per_sec = 0
         ret.gpu_mem = 0
-    else:
-        ret.print_results()
+    ret.print_results(append_to=args.append_to)
     return ret
+
+
+def get_pkg_info(lib_name):
+    """Get the information of the given package."""
+    # Check availability
+    try:
+        mod = importlib.import_module(lib_name)
+    except ImportError:
+        return ("N/A", "N/A")
+
+    # Fetch version.
+    if hasattr(mod, "__version__"):
+        version = mod.__version__
+    else:
+        try:
+            version = pkg_resources.get_distribution(lib_name).version
+        except Exception:
+            version = "N/A"
+
+    # If local repo is available, fetching more.
+    def run_git_cmd(cmd):
+        try:
+            root_dir = os.path.dirname(os.path.dirname(os.path.abspath(mod.__file__)))
+            ret = (
+                subprocess.check_output(
+                    cmd, cwd=root_dir, stderr=open(os.devnull, "wb")
+                )
+                .decode("utf-8")
+                .strip()
+            )
+        except Exception:  # pylint: disable=broad-except
+            ret = "N/A"
+        return ret
+
+    # Get the current branch
+    branch_name = run_git_cmd(["git", "rev-parse", "--abbrev-ref", "HEAD"])
+    if branch_name == "N/A":
+        return (version, "N/A")
+
+    # Get the remote name of the branch
+    remote_name = run_git_cmd(
+        ["git", "config", "--get", f"branch.{branch_name}.remote"]
+    )
+    if remote_name == "N/A":
+        return (version, "N/A")
+
+    # Get the remote URL of the branch
+    remote_url = run_git_cmd(["git", "config", "--get", f"remote.{remote_name}.url"])
+
+    # Get the commit hash
+    commit_hash = run_git_cmd(["git", "rev-parse", "--short", "HEAD"])
+
+    if remote_url.startswith("git@"):
+        remote_url = remote_url.replace(":", "/")
+        remote_url = remote_url.replace("git@", "https://")
+    commit_url = f"{remote_url.replace('.git', '')}/commit/{commit_hash}"
+
+    return (version, commit_url)
+
+
+def list_envs(append_to=None):
+    from tabulate import tabulate
+
+    LIBS = ["torch", "epoi", "transformers", "xformers", "megatron", "triton"]
+    data = OrderedDict()
+
+    print("===== Environment =====\n")
+    data["GPU"] = torch.cuda.get_device_name(0)
+    data["CUDA"] = torch.version.cuda
+
+    print(
+        tabulate(
+            data.items(),
+            headers=["Env", "Value"],
+            stralign="center",
+            numalign="center",
+        )
+    )
+    if append_to:
+        with open(append_to, "a") as filep:
+            filep.write("Env\tValue\n")
+            for key, val in data.items():
+                filep.write(f"{key}\t{val}\n")
+
+    # Self
+    data = OrderedDict()
+    data["self"] = get_pkg_info("ms")
+
+    # Other libs
+    for lib in LIBS:
+        data[lib] = get_pkg_info(lib)
+
+    print(
+        tabulate(
+            [(k, v[0], v[1]) for k, v in data.items()],
+            headers=["Package", "Version", "Commit URL"],
+            stralign="center",
+            numalign="center",
+        )
+    )
+    if append_to:
+        with open(append_to, "a") as filep:
+            filep.write("Package\tVersion\tCommitURL\n")
+            for key, val in data.items():
+                filep.write(f"{key}\t{val[0]}\t{val[1]}\n")
+    print("===== Environment =====\n")
 
 
 def main():
     args = parse_args()
-    assert args.dtype == "fp16", "Only fp16 is supported for now"
+    if args.impl == "env":
+        list_envs(args.append_to)
+        return
 
-    print("Pytorch version\t:", torch.__version__)
-    print("CUDA version\t:", torch.version.cuda)
+    assert args.dtype == "fp16", "Only fp16 is supported for now"
 
     title = f"{'Megatron' if args.impl == 'megatron' else 'HF'} {args.model}"
     memo = ""
@@ -456,6 +601,7 @@ def main():
                     batch_size,
                     args.seq_len,
                     args.seq_len_dec,
+                    impl=args.impl,
                     grad_ckpt=args.gradient_checkpoint,
                     fp16=args.dtype == "fp16",
                     gpus=gpus,
@@ -468,7 +614,9 @@ def main():
         if results[-1].error_code == 2 and args.error_stop:
             print("Stop benchmarking due to error")
             break
-    compare(results, f"{title}{memo}")
+
+    if not args.append_to:
+        compare(results, f"{title}{memo}")
 
 
 if __name__ == "__main__":

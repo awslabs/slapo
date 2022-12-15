@@ -36,12 +36,7 @@ def train(rank, args):
         p.name: p.default for p in sig.parameters.values() if p.name not in input_names
     }
 
-    sch = slapo.create_schedule(
-        bert,
-        optimizer,
-        tracer="huggingface",
-        concrete_args=concrete_args,
-    )
+    sch = slapo.create_schedule(bert)
     if not args.checkpoint:
         replace_qkv(sch, bert_config)
         if args.world_size > 1:

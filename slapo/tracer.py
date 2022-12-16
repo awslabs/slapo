@@ -75,7 +75,7 @@ def fix_hf_module(
             node.op == "call_function"
             and node.target == operator.getitem
             and len(node.args) == 2
-            and node.args[0].target in ["encoder", "decoder", "bert"]
+            and node.args[0].target in ["encoder", "decoder", "bert", "transformer"]
             and node.args[1] == 0
         ):
             node.args = (node.args[0], "last_hidden_state")
@@ -83,7 +83,7 @@ def fix_hf_module(
             node.op == "call_function"
             and node.target == getattr
             and len(node.args) == 2
-            and node.args[0].target in ["encoder", "decoder", "bert"]
+            and node.args[0].target in ["encoder", "decoder", "bert", "transformer"]
         ):
             node.op = "call_method"
             node.target = "get"

@@ -80,6 +80,7 @@ def train(args):
     # so we pad it to 50258 in this example. In practice, the tokenizer
     # should be used to pad the vocab size to a multiple of 2.
     config.vocab_size = 50258
+    config.use_cache = False
     model = GPTNeoForCausalLM(config)
 
     topology, group = None, None

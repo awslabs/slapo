@@ -1,7 +1,6 @@
-# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Original Copyright (c) 2020, NVIDIA CORPORATION.
+# Modifications Copyright 2022 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
-# Modifications Copyright (c) 2020, NVIDIA CORPORATION.
-# See: https://github.com/NVIDIA/Megatron-LM/blob/master/pretrain_t5.py
 
 """Pretrain T5"""
 from functools import partial

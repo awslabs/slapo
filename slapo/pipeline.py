@@ -215,14 +215,18 @@ def propagate_partition(sch, starting_stage_id=0, stop_at=None):
             continue
         elif child_node.op != "placeholder":
             raise RuntimeError(
-                f"Cannot support {child_node.name} with op type {child_node.op} in the splitted module"
+                f"Cannot support {child_node.name} with op type {child_node.op} "
+                "in the splitted module"
             )
         last_node_except_output = new_node
-    assert last_call_mod_node is not None
-    assert last_node_except_output is not None
-    assert (
-        last_call_mod_node == last_node_except_output
-    ), f"The second last node is {last_node_except_output} with op type {last_node_except_output.op}, which is not call_module node in the splitted module"
+    if last_call_mod_node is None or last_node_except_output is None:
+        raise RuntimeError(f"Cannot find call_module node in the splitted module")
+    if last_call_mod_node != last_node_except_output:
+        raise RuntimeError(
+            f"The second last node is {last_node_except_output} with op type "
+            f"{last_node_except_output.op}, "
+            "which is not call_module node in the splitted module"
+        )
 
     target_call_node.replace_all_uses_with(last_node_except_output)
 

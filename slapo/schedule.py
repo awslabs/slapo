@@ -172,7 +172,7 @@ class Schedule:
         for token in self.tokenize_module_path(full_path):
             if token not in curr_sch.child:
                 raise KeyError(
-                    f"'The schedule of {full_path}' is not a child of {curr_sch.name}"
+                    f"The schedule of '{full_path}' is not a child of {curr_sch.name}"
                 )
             curr_sch = curr_sch.child[token]
             if not curr_sch:
@@ -194,7 +194,11 @@ class Schedule:
         param = self.mod.get_parameter(param_name)
         assert axis < len(param.shape)
         # TODO: Support arbitrary size sharding
-        assert param.shape[axis] % self.world_size == 0
+        if param.shape[axis] % self.world_size != 0:
+            raise RuntimeError(
+                f"Parameter {param_name} in {self.path} cannot be sharded along axis "
+                f"{axis} with size {param.shape[axis]} by {self.world_size}"
+            )
         sharded_size = param.shape[axis] // self.world_size
         new_param = param.detach().split(sharded_size, dim=axis)[self.rank]
         self.mod.register_parameter(param_name, nn.Parameter(new_param))

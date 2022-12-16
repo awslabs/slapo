@@ -21,69 +21,31 @@ from megatron.utils import average_losses_across_data_parallel_group
 from megatron.model.gpt_model import post_language_model_processing
 
 
-def model_schedule(model, config):
+def get_scheduled_gpt(
+    model_name,
+    padded_vocab_size=None,
+    disable_flash_attn=False,
+    fp16=True,
+    ckpt_ratio=0.0,
+):
+    from transformers import AutoConfig, GPTNeoModel
     import slapo
-    import torch.distributed as dist
-    from gpt_schedule import (
-        trace_attention,
-        replace_qkv,
-        shard_word_embedding,
-        shard_qkv,
-        replace_and_shard_mlp,
-        remove_cast,
-        replace_attention,
-        checkpoint,
+    from gpt_model import schedule_gpt
+
+    config = AutoConfig.from_pretrained(model_name)
+    if padded_vocab_size is not None:
+        config.vocab_size = padded_vocab_size
+    config.use_cache = False
+
+    sch = schedule_gpt(
+        GPTNeoModel(config),
+        config,
+        disable_flash_attn=disable_flash_attn,
+        fp16=fp16,
+        ckpt_ratio=ckpt_ratio,
     )
-
-    print("Using model schedule to optimize")
-    print("World size: {}, rank: {}".format(dist.get_world_size(), dist.get_rank()))
-
-    is_gpt2 = "GPT2" in config.architectures[0]
-    assert not is_gpt2, "GPT-2 schedule is not working"
-    args = get_args()
-    disable_flash_attn = bool(int(os.environ.get("DISABLE_FLASH_ATTN", "0")))
-
-    if args.fp16:
-        print("Change model dtype to fp16")
-        model.half()
-
-    sch = slapo.create_schedule(model)
-
-    # Deal with attention.
-    attn_path, out_proj_name = "h.N.attn.attention", "out_proj"
-    if not disable_flash_attn:
-        cnt = replace_attention(sch, config, attn_path)
-        print_rank_0(f"Replace {cnt} attention patterns")
-    else:
-        # FIXME: This path is not working because our tracer cannot trace GPTNeoAttention
-        # without tracing the whole model.
-        # Trace attention
-        cnt = trace_attention(sch, config, attn_path)
-        print_rank_0(f"Traced {cnt} attention layesr")
-        assert cnt > 0
-        cnt = remove_cast(sch, config, attn_path)
-        print_rank_0(f"Remove {cnt} .to(torch.float32) ops")
-        cnt = replace_qkv(sch, config, attn_path)
-        print_rank_0(f"Replace {cnt} QKV patterns")
-        if sch.world_size > 1:
-            shard_qkv(sch, config, attn_path, out_proj_name=out_proj_name)
-
-    # Deal with MLP.
-    replace_and_shard_mlp(sch, config)
-
-    # Deal with embedding.
-    shard_word_embedding(sch, config.vocab_size)
-
-    # Gradient checkpointing
-    if args.recompute_granularity is not None:
-        ckpt_ratio = float(os.environ.get("ckpt_ratio", 1.0))
-        n_ckpt = checkpoint(
-            sch, config, ckpt_ratio=ckpt_ratio
-        )
-        print_rank_0(f"Checkpointing {n_ckpt} layers")
-
     model, _ = slapo.build(sch)
-    if args.fp16:
+    if fp16:
         model.half()
     model.cuda()
     return model
@@ -99,19 +61,25 @@ def model_provider(pre_process=True, post_process=True):
         raise RuntimeError(f"'MODEL_NAME' not found in environment")
     if "gpt-neo" not in model_name:
         raise RuntimeError(f"Only gpt-neo is supported for now, got {model_name}")
+    disable_flash_attn = bool(int(os.environ.get("DISABLE_FLASH_ATTN", "0")))
+    ckpt_ratio = 0.0
+    if args.recompute_granularity is not None:
+        ckpt_ratio = float(os.environ.get("ckpt_ratio", 1.0))
 
-    print_rank_0(f"Building HF {model_name} ...")
-    config = AutoConfig.from_pretrained(model_name)
-    config.vocab_size = args.padded_vocab_size
-    config.use_cache = False
-    print_rank_0(config)
-    
     class GPTWithLMHead(torch.nn.Module):
-        def __init__(self, config):
+        def __init__(self):
             super().__init__()
-            orig_model = GPTNeoModel(config)
-            self.gpt = model_schedule(orig_model, config)
-            print_rank_0(self.gpt)
+            self.gpt = get_scheduled_gpt(
+                model_name,
+                args.padded_vocab_size,
+                disable_flash_attn,
+                args.fp16,
+                ckpt_ratio,
+            )
+
+        def set_input_tensor(self, input_tensor):
+            # We don't support Megatron pipeline so this has no effect.
+            pass
 
         def forward(
             self,
@@ -125,8 +93,8 @@ def model_provider(pre_process=True, post_process=True):
             output = self.gpt(
                 input_ids=input_ids,
                 attention_mask=attention_mask,
-                # token_type_ids=token_type_ids,
                 position_ids=position_ids,
+                use_cache=False,
             )
             lm_output = output["last_hidden_state"].transpose(0, 1).contiguous()
 
@@ -135,7 +103,7 @@ def model_provider(pre_process=True, post_process=True):
             )
             return output_tensor
 
-    model = GPTWithLMHead(config)
+    model = GPTWithLMHead()
     return model
 
 

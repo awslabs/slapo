@@ -86,6 +86,10 @@ def model_provider(pre_process=True, post_process=True):
                 parallel_output=True,
             )
 
+        def set_input_tensor(self, input_tensor):
+            # We don't support Megatron pipeline so this has no effect.
+            pass
+
         def forward(
             self,
             input_ids=None,

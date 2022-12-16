@@ -37,7 +37,7 @@ def schedule_t5(
     print_rank_0(f"Scheduling T5")
 
     if fp16:
-        print("Change model dtype to fp16")
+        print_rank_0("Change model dtype to fp16")
         model.half()
 
     sch = slapo.create_schedule(model, group=group)

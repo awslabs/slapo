@@ -128,6 +128,10 @@ def model_provider(
                 lm_loss = lm_loss.transpose(0, 1).contiguous()
             return lm_loss
 
+        def set_input_tensor(self, input_tensor):
+            # We don't support Megatron pipeline so this has no effect.
+            pass
+
         def forward(
             self,
             encoder_input_ids,

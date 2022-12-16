@@ -8,17 +8,40 @@ import torch
 import torch.distributed as dist
 from deepspeed.runtime.pipe.topology import PipeModelDataParallelTopology
 from deepspeed.utils import RepeatingLoader
-from transformers import BertLMHeadModel, AutoConfig
+from transformers import GPTNeoForCausalLM, AutoConfig
 
 import slapo
 from slapo.op.cross_entropy import ParallelCrossEntropy
 from slapo.utils import report_memory
 
-from bert_model import schedule_bert
+from gpt_model import schedule_gpt
 
 _groups = []
 
 SINGLE_DEVICE_FOR_DEBUG = True
+
+def print_rank_0(message):
+    """If distributed is initialized, print only on rank 0."""
+    if dist.is_initialized():
+        if dist.get_rank() == 0:
+            print(message, flush=True)
+    else:
+        print(message, flush=True)
+
+def even_partition(num_layers, num_pp):
+    """Evenly partition layers for pipelining. If num_layers is not divisible by
+    num_pp, the last num_layers % num_pp partitions will have one more layer.
+    """
+    remainder = num_layers % num_pp
+    size_list = [num_layers // num_pp] * num_pp
+
+    curr = size_list[0] - 1
+    ret = [curr]
+    for idx, size in enumerate(size_list):
+        size = size + 1 if num_pp - idx - 1 <= remainder else size
+        curr += size
+        ret.append(curr)
+    return ret[: num_pp - 1]
 
 
 def create_dist_groups(num_pp, num_mp):
@@ -42,7 +65,7 @@ def create_dist_groups(num_pp, num_mp):
 
 
 def train(args):
-    print("Use deepspeed to initialize")
+    print_rank_0("Use deepspeed to initialize")
     num_pp, num_mp = 1, 1
     rank = args.local_rank
     torch.cuda.set_device(rank)
@@ -51,22 +74,33 @@ def train(args):
         num_pp, num_mp = 4, 2
         deepspeed.init_distributed(dist_backend="nccl")
 
-    # https://huggingface.co/bert-large-uncased/blob/main/config.json
-    bert_config = AutoConfig.from_pretrained("bert-large-uncased")
-    bert = BertLMHeadModel(bert_config)
+    # https://huggingface.co/EleutherAI/gpt-neo-2.7B/blob/main/config.json
+    config = AutoConfig.from_pretrained("EleutherAI/gpt-neo-2.7B")
+    # FIXME: This model has vocab size 50257 that cannot be sharded by 2,
+    # so we pad it to 50258 in this example. In practice, the tokenizer
+    # should be used to pad the vocab size to a multiple of 2.
+    config.vocab_size = 50258
+    model = GPTNeoForCausalLM(config)
 
     topology, group = None, None
     if not SINGLE_DEVICE_FOR_DEBUG:
         topology, group = create_dist_groups(num_pp, num_mp)
 
-    sch = schedule_bert(
-        bert,
-        bert_config,
-        prefix="bert",
+    # Evenly partition layers for pipelining.
+    if not SINGLE_DEVICE_FOR_DEBUG:
+        pipeline_cuts = even_partition(config.num_layers, num_pp)
+    else:
+        pipeline_cuts = even_partition(config.num_layers, 4)
+    print_rank_0(f"Pipeline cuts: {pipeline_cuts}")
+
+    sch = schedule_gpt(
+        model,
+        config,
+        prefix="transformer",
         ckpt_ratio=1 if args.checkpoint else 0,
         bcast_input=True,
         group=group,
-        pipeline_cuts=[5, 11, 17],
+        pipeline_cuts=pipeline_cuts,
     )
     if SINGLE_DEVICE_FOR_DEBUG:
         slapo.build(sch)
@@ -103,16 +137,16 @@ def train(args):
 
     bs = 8
     seq_length = 512
-    bert_input_dict = {
+    input_dict = {
         "input_ids": torch.zeros(
             bs, seq_length, dtype=torch.long, device=device
-        ).random_(bert.config.vocab_size),
+        ).random_(model.config.vocab_size),
         "attention_mask": torch.ones(
             bs, seq_length, dtype=torch.float16, device=device, requires_grad=True
         ),
-        "token_type_ids": torch.ones(bs, seq_length, dtype=torch.long, device=device),
+        "position_ids": torch.ones(bs, seq_length, dtype=torch.long, device=device),
         "labels": torch.zeros(bs, seq_length, dtype=torch.long, device=device).random_(
-            bert.config.vocab_size
+            model.config.vocab_size
         ),
     }
 
@@ -122,11 +156,11 @@ def train(args):
             # (inputs, labels)
             (
                 (
-                    bert_input_dict["input_ids"],
-                    bert_input_dict["attention_mask"],
-                    bert_input_dict["token_type_ids"],
+                    input_dict["input_ids"],
+                    input_dict["attention_mask"],
+                    input_dict["position_ids"],
                 ),
-                bert_input_dict["labels"],
+                input_dict["labels"],
             ),
             # Rest of the batches
             # ...

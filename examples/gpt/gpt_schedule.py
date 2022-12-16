@@ -74,12 +74,13 @@ def replace_qkv(sch, config, attn_path="h.N.attn.attention"):
     return cnt
 
 
-def replace_attention(sch, config, attn_path="h.N.attn.attention"):
+def replace_and_shard_attention(sch, config, attn_path="h.N.attn.attention"):
     from epoi.inject.policy.gpt import InjectHFGPTAttentionPolicy
     from epoi.ops.xformers_attn import GenericSelfAttention
 
     class SelfAttention(nn.Module):
         """A wrapper to align the original GPTNeoAttention forward signature."""
+
         def __init__(self, **kwargs):
             super().__init__()
             self.module = GenericSelfAttention(**kwargs)
@@ -104,7 +105,9 @@ def replace_attention(sch, config, attn_path="h.N.attn.attention"):
     cnt = 0
     for idx in range(num_layers):
         sub_sch = sch[attn_path.replace("N", str(idx))]
-        init_config = InjectHFGPTAttentionPolicy.gen_init_config_from_object(sub_sch.mod)
+        init_config = InjectHFGPTAttentionPolicy.gen_init_config_from_object(
+            sub_sch.mod
+        )
         new_mod = SelfAttention(**init_config)
         sub_sch.replace(new_mod)
         sub_sch.trace(
@@ -172,8 +175,7 @@ def remove_cast(sch, config, attn_path="h.N.attn.attention"):
     for idx in range(config.num_layers):
         sub_sch = sch[attn_path.replace("N", str(idx))]
         ops = sub_sch.find(
-            lambda node:
-            node.op == "call_method"
+            lambda node: node.op == "call_method"
             and node.target == "to"
             and len(node.args) == 2
             and node.args[1] == torch.float32
@@ -288,3 +290,12 @@ def checkpoint(sch, config, path="h.N", ckpt_ratio=1.0):
     for idx in range(n_ckpt):
         sch[path.replace("N", str(idx))].checkpoint()
     return n_ckpt
+
+
+def broadcast_input(sch):
+    def broadcast_input(inputs):
+        for inp in inputs:
+            dist.broadcast(inp, src=0, group=sch.group)
+        return inputs
+
+    sch.hook("fw_pre", broadcast_input)

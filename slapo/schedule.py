@@ -388,7 +388,11 @@ class SubgraphWrapper(nn.Module):
                 name = (
                     f"{parent_name}.{node.target}" if parent_name != "" else node.target
                 )
-                if not isinstance(name, str) or not re.match(mod_name_pat, name):
+                if (
+                    node.op == "placeholder"
+                    or not isinstance(name, str)
+                    or not re.match(mod_name_pat, name)
+                ):
                     continue
 
                 if func_pattern is None:
@@ -457,7 +461,7 @@ class SubgraphWrapper(nn.Module):
             self.trace()
             name = _get_unique_module_name(self.mod, new_mod._get_name().split(".")[-1])
             if len(subgraphs[0]) == 1:
-                path, node = subgraphs[0]
+                path, node = subgraphs[0][0]
                 target_mod = self.mod
                 if path:
                     assert hasattr(

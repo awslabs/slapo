@@ -1,7 +1,6 @@
 The Amazon Schedule Language for Progressive Optimization includes the following third-party software/licensing:
 
-** NVIDIA CORPORATION
-
+** examples/{bert/megatron_hf_bert.py, gpt/megatron_hf_gpt.py, t5/megatron_hf_t5.py}, slapo/op/cross_entropy.py
 Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without

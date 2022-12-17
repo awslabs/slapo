@@ -18,7 +18,32 @@ from bert_model import schedule_bert
 
 _groups = []
 
-SINGLE_DEVICE_FOR_DEBUG = True
+SINGLE_DEVICE_FOR_DEBUG = False
+
+
+def print_rank_0(message):
+    """If distributed is initialized, print only on rank 0."""
+    if dist.is_initialized():
+        if dist.get_rank() == 0:
+            print(message, flush=True)
+    else:
+        print(message, flush=True)
+
+
+def even_partition(num_layers, num_pp):
+    """Evenly partition layers for pipelining. If num_layers is not divisible by
+    num_pp, the last num_layers % num_pp partitions will have one more layer.
+    """
+    remainder = num_layers % num_pp
+    size_list = [num_layers // num_pp] * num_pp
+
+    curr = size_list[0] - 1
+    ret = [curr]
+    for idx, size in enumerate(size_list):
+        size = size + 1 if num_pp - idx - 1 <= remainder else size
+        curr += size
+        ret.append(curr)
+    return ret[: num_pp - 1]
 
 
 def create_dist_groups(num_pp, num_mp):
@@ -59,6 +84,13 @@ def train(args):
     if not SINGLE_DEVICE_FOR_DEBUG:
         topology, group = create_dist_groups(num_pp, num_mp)
 
+    # Evenly partition layers for pipelining.
+    if not SINGLE_DEVICE_FOR_DEBUG:
+        pipeline_cuts = even_partition(bert_config.num_hidden_layers, num_pp)
+    else:
+        pipeline_cuts = even_partition(bert_config.num_hidden_layers, 4)
+    print_rank_0(f"Pipeline cuts: {pipeline_cuts}")
+
     sch = schedule_bert(
         bert,
         bert_config,
@@ -66,7 +98,7 @@ def train(args):
         ckpt_ratio=1 if args.checkpoint else 0,
         bcast_input=True,
         group=group,
-        pipeline_cuts=[5, 11, 17],
+        pipeline_cuts=pipeline_cuts,
     )
     if SINGLE_DEVICE_FOR_DEBUG:
         slapo.build(sch)

@@ -95,7 +95,7 @@ def has_license_header(lines):
     copyright = False
     license = False
     for line in lines:
-        if line.find("Copyright Amazon.com, Inc. or its affiliates.") != -1:
+        if line.find("Amazon.com, Inc. or its affiliates.") != -1:
             copyright = True
         elif line.find("SPDX-License-Identifier") != -1:
             license = True

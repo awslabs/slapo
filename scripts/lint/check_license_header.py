@@ -56,10 +56,6 @@ def main():
             "-----Found %d files that cannot pass the license header check-----\n"
             % len(error_list)
         )
-        report += "--- You can use the following steps to add the the license header:\n"
-        report += "--- Create file_list.txt in your text editor\n"
-        report += "--- Copy paste the above content in file-list into file_list.txt\n"
-        report += "--- python3 scripts/lint/add_license_header.py file_list.txt\n"
         sys.stderr.write(report)
         sys.stderr.flush()
         sys.exit(-1)

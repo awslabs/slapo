@@ -46,10 +46,11 @@ def replace_and_shard_attention(sch, config, attn_path, cross_attn=False):
     from epoi.inject.policy.t5 import InjectHFT5AttentionPolicy
     from epoi.ops.xformers_attn import T5Attention
 
-    num_layers, num_heads, hidden_size = (
+    num_layers, num_heads, hidden_size, d_kv = (
         config.num_hidden_layers,
         config.num_attention_heads,
         config.hidden_size,
+        config.d_kv,
     )
 
     cnt = 0
@@ -83,19 +84,20 @@ def replace_and_shard_attention(sch, config, attn_path, cross_attn=False):
             # Cross attention can only fuse k, v, because k, v are taking encoder status
             # while q is taking the current hidden status.
             class FusedKV(nn.Module):
-                def __init__(self, hidden_size, num_heads) -> None:
+                def __init__(self, num_heads, d_model, d_kv) -> None:
                     super().__init__()
-                    self.hidden_size = hidden_size
+                    self.hidden_size = d_model
                     self.num_heads = num_heads
-                    self.head_size = hidden_size // num_heads
+                    self.key_value_proj_dim = d_kv
+                    self.inner_dim = num_heads * self.key_value_proj_dim
                     self.fused_linear = nn.Linear(
-                        hidden_size, self.num_heads * self.head_size * 2, bias=False
+                        self.hidden_size, self.inner_dim * 2, bias=False
                     )
 
                 def reshape_for_scores(self, x):
                     new_x_shape = x.size()[:-1] + (
                         self.num_heads // sch.world_size,
-                        self.head_size,
+                        self.key_value_proj_dim,
                         2,
                     )
                     x = x.view(new_x_shape)
@@ -110,66 +112,68 @@ def replace_and_shard_attention(sch, config, attn_path, cross_attn=False):
                     return [k, v]
 
             class ShardableQ(nn.Module):
-                def __init__(self, hidden_size, num_heads) -> None:
+                def __init__(self, num_heads, d_model, d_kv) -> None:
                     super().__init__()
-                    self.hidden_size = hidden_size
+                    self.hidden_size = d_model
                     self.num_heads = num_heads
-                    self.head_size = hidden_size // num_heads
-                    self.q = nn.Linear(
-                        hidden_size, self.num_heads * self.head_size, bias=False
+                    self.key_value_proj_dim = d_kv
+                    self.inner_dim = num_heads * self.key_value_proj_dim
+                    self.query = nn.Linear(
+                        hidden_size, self.inner_dim, bias=False
                     )
 
                 def reshape_for_scores(self, x):
                     new_x_shape = x.size()[:-1] + (
                         self.num_heads // sch.world_size,
-                        self.head_size,
+                        self.key_value_proj_dim,
                     )
                     x = x.view(new_x_shape)
                     return x.contiguous()
 
                 def forward(self, hidden_states):
-                    states = self.q(hidden_states)
+                    states = self.query(hidden_states)
                     states = self.reshape_for_scores(states)
                     return [states]
 
             def pattern(x: torch.Tensor) -> torch.Tensor:
-                new_x_shape = x.size()[:-1] + (num_heads, hidden_size)
+                new_x_shape = x.size()[:-1] + (num_heads, d_kv)
                 x = x.view(new_x_shape)
                 return x
 
-            subgraphs = sub_sch.find("k|v", pattern)
+            subgraphs = sub_sch.find("key|value", pattern)
             assert len(subgraphs) != 0
-            new_fused_kv = FusedKV(hidden_size, num_heads)
+            new_fused_kv = FusedKV(num_heads, hidden_size, d_kv)
             sub_sch.replace(new_fused_kv, subgraphs)
 
-            subgraphs = sub_sch.find("q", pattern)
+            subgraphs = sub_sch.find("query", pattern)
             assert len(subgraphs) != 0
-            new_q = ShardableQ(hidden_size, num_heads)
+            new_q = ShardableQ(num_heads, hidden_size, d_kv)
             sub_sch.replace(new_q, subgraphs)
             if sch.world_size > 1:
                 sub_sch["FusedKV_0.fused_linear"].shard("weight", axis=0)
                 sub_sch["FusedKV_0.fused_linear"].sync(mode="backward")
 
                 # q is not fused so we shard it along.
-                sub_sch["ShardableQ_0.q"].shard("weight", axis=0)
-                sub_sch["ShardableQ_0.q"].sync(mode="backward")
+                sub_sch["ShardableQ_0.query"].shard("weight", axis=0)
+                sub_sch["ShardableQ_0.query"].sync(mode="backward")
         else:
             # Self attention can fuse q, k, v.
 
             class FusedQKV(nn.Module):
-                def __init__(self, hidden_size, num_heads) -> None:
+                def __init__(self, num_heads, d_model, d_kv) -> None:
                     super().__init__()
-                    self.hidden_size = hidden_size
+                    self.hidden_size = d_model
                     self.num_heads = num_heads
-                    self.head_size = hidden_size // num_heads
+                    self.key_value_proj_dim = d_kv
+                    self.inner_dim = num_heads * self.key_value_proj_dim
                     self.fused_linear = nn.Linear(
-                        hidden_size, self.num_heads * self.head_size * 3, bias=False
+                        self.hidden_size, self.inner_dim * 3, bias=False
                     )
 
                 def reshape_for_scores(self, x):
                     new_x_shape = x.size()[:-1] + (
                         self.num_heads // sch.world_size,
-                        self.head_size,
+                        self.key_value_proj_dim,
                         3,
                     )
                     x = x.view(new_x_shape)
@@ -185,13 +189,13 @@ def replace_and_shard_attention(sch, config, attn_path, cross_attn=False):
                     return [q, k, v]
 
             def pattern(x: torch.Tensor) -> torch.Tensor:
-                new_x_shape = x.size()[:-1] + (num_heads, hidden_size)
+                new_x_shape = x.size()[:-1] + (num_heads, d_kv)
                 x = x.view(new_x_shape)
                 return x
 
-            subgraphs = sub_sch.find("q|k|v", pattern)
+            subgraphs = sub_sch.find("query|key|value", pattern)
             assert len(subgraphs) != 0
-            new_fused_qkv = FusedQKV(hidden_size, num_heads)
+            new_fused_qkv = FusedQKV(num_heads, hidden_size, d_kv)
             sub_sch.replace(new_fused_qkv, subgraphs)
             if sch.world_size > 1:
                 sub_sch["FusedQKV_0.fused_linear"].shard("weight", axis=0)
@@ -199,8 +203,8 @@ def replace_and_shard_attention(sch, config, attn_path, cross_attn=False):
 
         if sch.world_size > 1:
             fix_shape_cnt += fix_position_bias_shape(sub_sch)
-            sch[f"{prefix}.o"].shard("weight", axis=1)
-            sch[f"{prefix}.o"].sync(mode="forward")
+            sch[f"{prefix}.out"].shard("weight", axis=1)
+            sch[f"{prefix}.out"].sync(mode="forward")
         cnt += 1
 
     return cnt, fix_shape_cnt

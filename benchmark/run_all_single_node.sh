@@ -4,38 +4,42 @@
 
 set -e
 
+if [ $# -ne 1 ]
+then
+    echo "Usage: <config file>"
+    exit 1
+fi
+
 RESULT_FILE="$(date +"%Y-%m-%d-%T").csv"
 
 # Dump env
 
 python3 bench.py env --append-to "$RESULT_FILE"
 
-# Benchmark all
+# Benchmark
 
-echo "\n" >> $RESULT_FILE
-echo -e "Impl\tModel\tSeq\tDecSeq\tnGPU\tBatch\tPerGPUParam\tThrpt\tPerGPUMem\tPerGPUTFLOPS" >> $RESULT_FILE
+echo -e "\n" >> $RESULT_FILE
+echo -e "Impl\tModel\tSeq\tDecSeq\tnGPU\tBatch\tCkpt\tPerGPUParam\tThrpt\tPerGPUMem\tPerGPUTFLOPS" >> $RESULT_FILE
 
-echo "=== Megatron BERT Large ==="
-python3 bench.py megatron --append-to "$RESULT_FILE" \
-    --model bert-large-uncased --gpus pow2 --seq-len 512 --batch-size "min(8*n, 48)" --error-stop
+while IFS= read -r line || [[ -n $line ]]; do
+    if [[ ${line} == \#* ]]; then
+        echo "Skip ${line}"
+        continue
+    fi
 
-echo "=== HF BERT Large ==="
-python3 bench.py hf ../examples/bert/pretrain_hf_bert.py --append-to "$RESULT_FILE" \
-    --model bert-large-uncased --gpus pow2 --seq-len 512 --batch-size "min(8*n, 48)" --error-stop
+    IFS=$'\n' line_array=($(xargs -n1 <<<"$line"))
+    MODE=${line_array[0]}
+    MODEL=${line_array[1]}
+    GPUS=${line_array[2]}
+    SEQ_LEN=${line_array[3]}
+    DEC_SEQ_LEN=${line_array[4]}
+    BATCH_SIZE=${line_array[5]}
+    CKPT=${line_array[6]}
 
-echo "=== Megatron GPT 1.3B ==="
-python3 bench.py megatron --append-to "$RESULT_FILE" \
-    --model EleutherAI/gpt-neo-1.3B --gpus 2,4,8 --seq-len 1024 --batch-size "1 if n<=2 else n" --error-stop
-
-echo "=== HF GPT-Neo 1.3B ==="
-python3 bench.py hf ../examples/gpt/pretrain_hf_gpt.py --append-to "$RESULT_FILE" \
-    --model EleutherAI/gpt-neo-1.3B --gpus 2,4,8 --seq-len 1024 --batch-size "1 if n<=2 else n" --error-stop
-
-echo "=== Megatron T5 Large ==="
-python3 bench.py megatron --append-to "$RESULT_FILE" \
-    --model t5-large --gpus 2,4,8 --seq-len 1024 --seq-len-dec 512 --batch-size "n" --error-stop
-
-echo "=== HF T5 Large ==="
- python3 bench.py hf ../examples/t5/pretrain_hf_t5.py --append-to "$RESULT_FILE" \
-    --model t5-large --gpus 2,4,8 --seq-len 1024 --seq-len-dec 512 --batch-size "n" --error-stop
-
+    echo "=== ${MODE} ${MODEL} ==="
+    python3 bench.py ${MODE} --append-to "$RESULT_FILE" \
+        --model ${MODEL} --gpus ${GPUS} --seq-len ${SEQ_LEN} \
+        --seq-len-dec ${DEC_SEQ_LEN} \
+        --batch-size ${BATCH_SIZE} --gradient-checkpoint ${CKPT} --error-stop
+    sleep 1
+done < $1

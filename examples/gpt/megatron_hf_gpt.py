@@ -1,7 +1,7 @@
-# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
+# https://github.com/NVIDIA/Megatron-LM/blob/52e6368/pretrain_gpt.py
+# Modifications Copyright 2022 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
-# Modifications Copyright (c) 2020, NVIDIA CORPORATION.
-# See: https://github.com/NVIDIA/Megatron-LM/blob/master/pretrain_gpt.py
 
 """Pretrain GPT"""
 import os

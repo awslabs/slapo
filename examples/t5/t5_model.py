@@ -85,10 +85,10 @@ def schedule_t5(
 
     if ckpt_ratio > 0.0:
         n_ckpt = checkpoint(
-            sch[prefix], config, "encoder.block.N", ckpt_ratio=ckpt_ratio / 2
+            sch[prefix], config, "encoder.block.N", ckpt_ratio=ckpt_ratio
         )
         n_ckpt += checkpoint(
-            sch[prefix], config, "decoder.block.N", ckpt_ratio=ckpt_ratio / 2
+            sch[prefix], config, "decoder.block.N", ckpt_ratio=ckpt_ratio
         )
         print_rank_0(f"Checkpointing {n_ckpt} layers")
 

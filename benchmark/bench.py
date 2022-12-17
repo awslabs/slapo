@@ -24,7 +24,7 @@ class Exp:
     seq_len: int  # input sequence length
     seq_len_dec: int  # Decoder sequence length. Encoder-decoder model only.
 
-    impl: str  # Implementation. "hf" or "megatron"
+    impl: str  # Implementation. "slapo" or "megatron"
 
     ## Improve speed / reduce memory
     bf16: bool = False  # Faster, less memory. Recommend if GPU supports
@@ -32,7 +32,7 @@ class Exp:
     optim: str = "adamw_hf"  # Optimization method
     grad_ckpt: str = ""  # Empty means no checkpointing; otherwise:
     # Megatron: "full" or "selective".
-    # HF w. schedule: a floating point indicating
+    # Slapo: a floating point indicating
     # the checkpointing ratio. For example, 0.5 means
     # to checkpoint a half of layers.
     grad_accum: int = 1  # accumulate gradients for better performance
@@ -128,7 +128,7 @@ class Exp:
         if self.error_code == 1:
             append_log(f"na\toom\toom\toom")
         elif self.error_code == 2:
-            append_log(f"na\fail\tfail\tfail")
+            append_log(f"na\tfail\tfail\tfail")
         else:
             print("Total samples / second\t: %.1f" % self.samples_per_sec)
             print("Per GPU memory (GB)\t: %.1f" % self.gpu_mem)
@@ -180,7 +180,7 @@ def parse_args():
     common_parser.add_argument(
         "--gradient-checkpoint",
         type=str,
-        default="",
+        default="0",
         help="Gradient checkpointing. Empty means no checkpointing; otherwise: "
         "Megatron: 'full' or 'selective'. HF w. schedule: a floating point indicating "
         "the checkpointing ratio. For example, 0.5 means to checkpoint "
@@ -196,20 +196,21 @@ def parse_args():
     parser = argparse.ArgumentParser()
     subprasers = parser.add_subparsers(
         dest="impl",
-        help="Model implementation (hf, megatron, or env)."
+        help="Model implementation (slapo, megatron, or env)."
         "Note that 'env' only dumps environments without benchmarking.",
     )
-    hf_parser = subprasers.add_parser(
-        "hf",
+    slapo_parser = subprasers.add_parser(
+        "slapo",
         parents=[common_parser],
-        help="HuggingFace model",
+        help="HuggingFace model with Slapo",
     )
-    hf_parser.add_argument(
-        "script_file",
+    slapo_parser.add_argument(
+        "--script-file",
         type=str,
+        default=None,
         help="Megatron script file to run the HuggingFace model",
     )
-    hf_parser.add_argument(
+    slapo_parser.add_argument(
         "--disable-flash-attn",
         action="store_true",
         help="Do not replace Attention with FlashAttention in HuggingFace model",
@@ -285,10 +286,16 @@ def compare(exps, fig_name):
 
 def megatron_bert_cmd(exp, script_file=None):
     if script_file is None:
-        import megatron
+        if exp.impl == "megatron":
+            import megatron
 
-        path = megatron.__path__[0]
-        script_file = f"{path}/../pretrain_bert.py"
+            path = megatron.__path__[0]
+            script_file = f"{path}/../pretrain_bert.py"
+        else:
+            import slapo
+
+            path = slapo.__path__[0]
+            script_file = f"{path}/../examples/bert/megatron_hf_bert.py"
 
     return (
         script_file,
@@ -303,10 +310,16 @@ def megatron_bert_cmd(exp, script_file=None):
 
 def megatron_gpt_cmd(exp, script_file=None):
     if script_file is None:
-        import megatron
+        if exp.impl == "megatron":
+            import megatron
 
-        path = megatron.__path__[0]
-        script_file = f"{path}/../pretrain_gpt.py"
+            path = megatron.__path__[0]
+            script_file = f"{path}/../pretrain_gpt.py"
+        else:
+            import slapo
+
+            path = slapo.__path__[0]
+            script_file = f"{path}/../examples/gpt/megatron_hf_gpt.py"
 
     return (
         script_file,
@@ -322,10 +335,16 @@ def megatron_gpt_cmd(exp, script_file=None):
 
 def megatron_t5_cmd(exp, script_file=None):
     if script_file is None:
-        import megatron
+        if exp.impl == "megatron":
+            import megatron
 
-        path = megatron.__path__[0]
-        script_file = f"{path}/../pretrain_t5.py"
+            path = megatron.__path__[0]
+            script_file = f"{path}/../pretrain_t5.py"
+        else:
+            import slapo
+
+            path = slapo.__path__[0]
+            script_file = f"{path}/../examples/t5/megatron_hf_t5.py"
 
     assert hasattr(exp, "d_kv") and hasattr(exp, "d_ff")
     return (
@@ -404,7 +423,7 @@ def megatron_log(exp, log_filename):
 
 
 def run_megatron(exp, args):
-    script_file = args.script_file if args.impl == "hf" else None
+    script_file = args.script_file if args.impl == "slapo" else None
     for model_key, gen in MEGATRON_COMMAND_BY_MODEL.items():
         if model_key in exp.model:
             script_file, data_args = gen(exp, script_file)
@@ -420,8 +439,8 @@ def run_megatron(exp, args):
 --train-iters {exp.steps} {' '.join(data_args)} \
 --data-impl mmap --lr 0.00015 --log-interval 5 --eval-iters 1"""
     if exp.grad_ckpt:
-        if args.impl == "hf":
-            # Gradient checkpoint ratio for HF schedule is passed
+        if args.impl == "slapo":
+            # Gradient checkpoint ratio for HF w. Slapo is passed
             # via environment variable.
             grad_ckpt = "full"
         else:
@@ -437,7 +456,7 @@ def run_megatron(exp, args):
     if exp.kwargs is not None:
         if "flags" in exp.kwargs:
             cmd += " " + " ".join(exp.kwargs["flags"])
-        if "env" in exp.kwargs:
+        if "env" in exp.kwargs and exp.kwargs["env"]:
             cmd = f"{' '.join(exp.kwargs['env'])} {cmd}"
 
     cmd += " > log.txt 2>&1"
@@ -535,7 +554,7 @@ def list_envs(append_to=None):
 
     # Self
     data = OrderedDict()
-    data["self"] = get_pkg_info("ms")
+    data["self"] = get_pkg_info("slapo")
 
     # Other libs
     for lib in LIBS:
@@ -565,29 +584,32 @@ def main():
 
     assert args.dtype == "fp16", "Only fp16 is supported for now"
 
-    title = f"{'Megatron' if args.impl == 'megatron' else 'HF'} {args.model}"
+    title = f"{'Megatron' if args.impl == 'megatron' else 'Slapo'} {args.model}"
     memo = ""
 
     n_gpus = parse_gpus(args.gpus)
-    get_batch_size = eval(f"lambda n: {args.batch_sizes}", {"math": math})
+    batch_size_exp = args.batch_sizes.replace('"', "")
+    get_batch_size = eval(f"lambda n: {batch_size_exp}", {"math": math})
 
     # Deal with configurations.
-    kwargs = {}
+    kwargs = {"env": []}
     if hasattr(args, "disable_fuse_kernels") and args.disable_fuse_kernels:
-        kwargs = {
-            "flags": [
-                "--no-bias-gelu-fusion",
-                "--no-bias-dropout-fusion",
-                "--no-persist-layer-norm",
-                "--no-masked-softmax-fusion",
-            ]
-        }
+        kwargs["flags"] = [
+            "--no-bias-gelu-fusion",
+            "--no-bias-dropout-fusion",
+            "--no-persist-layer-norm",
+            "--no-masked-softmax-fusion",
+        ]
         memo += "|no_fuse"
     if hasattr(args, "disable_flash_attn") and args.disable_flash_attn:
-        kwargs = {"env": ["DISABLE_FLASH_ATTN=1"]}
+        kwargs["env"].append("DISABLE_FLASH_ATTN=1")
         memo += "|no_flash_attn"
-    if args.gradient_checkpoint:
+
+    grad_ckpt = ""
+    if args.gradient_checkpoint != "0":
         memo += f"|grad_ckpt {args.gradient_checkpoint}"
+        grad_ckpt = args.gradient_checkpoint
+        kwargs["env"].append(f"ckpt_ratio={grad_ckpt}")
 
     results = []
     for n_gpu in n_gpus:
@@ -602,7 +624,7 @@ def main():
                     args.seq_len,
                     args.seq_len_dec,
                     impl=args.impl,
-                    grad_ckpt=args.gradient_checkpoint,
+                    grad_ckpt=grad_ckpt,
                     fp16=args.dtype == "fp16",
                     gpus=gpus,
                     tensor_para=n_gpu,

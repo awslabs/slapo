@@ -18,7 +18,7 @@ from gpt_model import schedule_gpt
 
 _groups = []
 
-SINGLE_DEVICE_FOR_DEBUG = True
+SINGLE_DEVICE_FOR_DEBUG = False
 
 def print_rank_0(message):
     """If distributed is initialized, print only on rank 0."""

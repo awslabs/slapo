@@ -1,6 +1,8 @@
-# Original Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
+# https://github.com/NVIDIA/Megatron-LM/blob/52e6368/pretrain_t5.py
 # Modifications Copyright 2022 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
+
 
 """Pretrain T5"""
 from functools import partial
@@ -87,6 +89,7 @@ def model_provider(
     if model_name is None:
         raise RuntimeError(f"'MODEL_NAME' not found in environment")
     disable_flash_attn = bool(int(os.environ.get("DISABLE_FLASH_ATTN", "0")))
+    ckpt_ratio = 0.0
     if args.recompute_granularity is not None:
         ckpt_ratio = float(os.environ.get("ckpt_ratio", 1.0))
 

@@ -31,12 +31,12 @@ def _get_unique_module_name(gm_or_modules, name):
     return new_name
 
 
-def report_memory(rank, report_gc=False):
+def report_memory(rank, msg="", report_gc=False):
     torch.cuda.empty_cache()
     torch.cuda.reset_peak_memory_stats()
     print(
-        "rank {}: {:.2f} MiB".format(
-            rank, torch.cuda.max_memory_allocated() / 1024 / 1024
+        "rank {}: {:.2f} MiB {}".format(
+            rank, torch.cuda.max_memory_allocated() / 1024 / 1024, msg
         )
     )
     if report_gc:

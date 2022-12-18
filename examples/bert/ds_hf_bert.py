@@ -75,6 +75,11 @@ def train(args):
         num_pp, num_mp = 4, 2
         deepspeed.init_distributed(dist_backend="nccl")
 
+    # FIXME: Pytorch _coalescing_manager requires all the ranks to join if that is the first collective call in the given group
+    # We use the following broadcast as the first call for workaround, and it will be removed once we implement the features to synchonrize the model parameters during initialization
+    x = torch.tensor(0, device=torch.cuda.current_device())
+    dist.broadcast(x, src=0)
+
     # https://huggingface.co/bert-large-uncased/blob/main/config.json
     bert_config = AutoConfig.from_pretrained("bert-large-uncased")
     bert = BertLMHeadModel(bert_config)

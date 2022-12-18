@@ -20,7 +20,6 @@ _groups = []
 
 SINGLE_DEVICE_FOR_DEBUG = False
 
-
 def print_rank_0(message):
     """If distributed is initialized, print only on rank 0."""
     if dist.is_initialized():
@@ -111,7 +110,7 @@ def train(args):
         "train_batch_size": 32,
         "train_micro_batch_size_per_gpu": 1,
         "optimizer": {"type": "AdamW", "params": {"lr": 0.0001}},
-        "fp16": {"enabled": True},
+        "fp16": {"enabled": True, "initial_scale_power": 12},
     }
 
     loss_fct = ParallelCrossEntropy(group=group)
@@ -135,17 +134,14 @@ def train(args):
 
     bs = 8
     seq_length = 512
+    input_ids = torch.ones(bs, seq_length, dtype=torch.long, device=device)
     bert_input_dict = {
-        "input_ids": torch.zeros(
-            bs, seq_length, dtype=torch.long, device=device
-        ).random_(bert.config.vocab_size),
+        "input_ids": input_ids,
         "attention_mask": torch.ones(
-            bs, seq_length, dtype=torch.float16, device=device, requires_grad=True
+            bs, seq_length, dtype=torch.float16, device=device, requires_grad=False
         ),
         "token_type_ids": torch.ones(bs, seq_length, dtype=torch.long, device=device),
-        "labels": torch.zeros(bs, seq_length, dtype=torch.long, device=device).random_(
-            bert.config.vocab_size
-        ),
+        "labels": input_ids,
     }
 
     loader = RepeatingLoader(
@@ -165,7 +161,9 @@ def train(args):
         ]
     )
     data_iter = iter(loader)
-    model.train_batch(data_iter=data_iter)
+    num_iters = 20
+    for _ in range(num_iters):
+        model.train_batch(data_iter=data_iter)
 
 
 if __name__ == "__main__":

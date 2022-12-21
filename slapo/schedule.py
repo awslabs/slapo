@@ -471,8 +471,15 @@ class SubgraphWrapper(nn.Module):
             self.trace()
             name = _get_unique_module_name(self.mod, new_mod._get_name().split(".")[-1])
             assert len(subgraphs) > 0, "Should have at least one operator to replace"
-            if len(subgraphs[0]) == 1:
-                path, node = subgraphs[0][0]
+            node_or_lst = subgraphs[0]
+            if isinstance(node_or_lst, List):
+                # horizontal fusion, e.g.,
+                #     x
+                #   / | \
+                #  s0 s1 s2
+                #  v0 v1 v2
+                #  [[s0, v0], [s1, v1], [s2, v2]]
+                path, node = node_or_lst[0]
                 target_mod = self.mod
                 if path:
                     assert hasattr(
@@ -481,67 +488,41 @@ class SubgraphWrapper(nn.Module):
                     target_mod = getattr(self.mod, path)
 
                 target_mod.add_module(name, new_mod)
-                with target_mod.graph.inserting_after(node):
+                with target_mod.graph.inserting_before(node):
                     new_node = target_mod.graph.call_module(
                         name, node.args, node.kwargs
                     )
-                    node.replace_all_uses_with(new_node)
-                target_mod.graph.erase_node(node)
+                with target_mod.graph.inserting_after(new_node):
+                    for i, sublst in enumerate(subgraphs):
+                        getitem = target_mod.graph.call_function(
+                            operator.getitem, (new_node, i)
+                        )
+                        sublst = [sublst] if not isinstance(sublst, List) else sublst
+                        for _, node in reversed(sublst):
+                            if node.users not in sublst:
+                                node.replace_all_uses_with(getitem)
+                            target_mod.graph.erase_node(node)
             else:
-                node_or_lst = subgraphs[0]
-                if isinstance(node_or_lst, List):
-                    # horizontal fusion, e.g.,
-                    #     x
-                    #   / | \
-                    #  s0 s1 s2
-                    #  v0 v1 v2
-                    #  [[s0, v0], [s1, v1], [s2, v2]]
-                    path, node = node_or_lst[0]
-                    target_mod = self.mod
-                    if path:
-                        assert hasattr(
-                            self.mod, path
-                        ), f"{path} is not an attribute of {self.mod}"
-                        target_mod = getattr(self.mod, path)
+                # vertical fusion, e.g.,
+                # s0->v0
+                # [s0, v0]
+                path, first_node = node_or_lst
+                target_mod = self.mod
+                if path:
+                    assert hasattr(
+                        self.mod, path
+                    ), f"{path} is not an attribute of {self.mod}"
+                    target_mod = getattr(self.mod, path)
 
-                    target_mod.add_module(name, new_mod)
-                    with target_mod.graph.inserting_before(node):
-                        new_node = target_mod.graph.call_module(
-                            name, node.args, node.kwargs
-                        )
-                    with target_mod.graph.inserting_after(new_node):
-                        for i, sublst in enumerate(subgraphs):
-                            getitem = target_mod.graph.call_function(
-                                operator.getitem, (new_node, i)
-                            )
-                            sublst = (
-                                [sublst] if not isinstance(sublst, List) else sublst
-                            )
-                            for _, node in reversed(sublst):
-                                if node.users not in sublst:
-                                    node.replace_all_uses_with(getitem)
-                                target_mod.graph.erase_node(node)
-                else:
-                    # vertical fusion, e.g.,
-                    # s0->v0
-                    # [s0, v0]
-                    path, first_node = node_or_lst
-                    target_mod = self.mod
-                    if path:
-                        assert hasattr(
-                            self.mod, path
-                        ), f"{path} is not an attribute of {self.mod}"
-                        target_mod = getattr(self.mod, path)
-
-                    target_mod.add_module(name, new_mod)
-                    with target_mod.graph.inserting_before(first_node):
-                        new_node = target_mod.graph.call_module(
-                            name, first_node.args, first_node.kwargs
-                        )
-                    _, last_node = subgraphs[-1]
-                    last_node.replace_all_uses_with(new_node)
-                    for _, node in reversed(subgraphs):
-                        target_mod.graph.erase_node(node)
+                target_mod.add_module(name, new_mod)
+                with target_mod.graph.inserting_before(first_node):
+                    new_node = target_mod.graph.call_module(
+                        name, first_node.args, first_node.kwargs
+                    )
+                _, last_node = subgraphs[-1]
+                last_node.replace_all_uses_with(new_node)
+                for _, node in reversed(subgraphs):
+                    target_mod.graph.erase_node(node)
 
     @register_primitive()
     def replace(self, new_mod_or_func, target_ops=None):

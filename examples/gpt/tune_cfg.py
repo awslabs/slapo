@@ -4,7 +4,7 @@
 """The tuning configuration for GPT. Example usage (assuming you are under 'benchmark'):
 python3 -m slapo.tune --config ../examples/gpt/tune_cfg.py \
     --db gpt-gpu8-seq1024.json --error-stop symbol \
-    bench.py hf ../examples/gpt/pretrain_hf_gpt.py --model EleutherAI/gpt-neo-1.3B --gpus 8 \
+    bench.py slapo --model EleutherAI/gpt-neo-1.3B --gpus 8 \
         --seq-len 1024 --batch-size batch_size --gradient-checkpoint ckpt_ratio
 """
 import re

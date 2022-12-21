@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from .env import *
+from .logger import get_logger
 from .schedule import *
 from .tracer import *
 from .utils import *

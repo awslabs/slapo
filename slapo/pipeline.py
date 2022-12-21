@@ -2,129 +2,12 @@
 # SPDX-License-Identifier: Apache-2.0
 """Pipeline stage wrappers for supported frameworks."""
 import operator
-import warnings
 
-import torch
 import torch.fx as fx
-import torch.nn as nn
+
 from torch.fx.passes.split_module import split_module
 
-
-class DeepSpeedPipeStageWrapper(nn.Module):
-    def __init__(
-        self,
-        mod: fx.GraphModule,
-        stage_id: int,
-        total_stages: int,
-        bypass_vars: list,
-        fx_idx_to_normal_idx: dict,
-        id2call: dict,
-    ):
-        super().__init__()
-        self.mod = mod
-        self.stage_id = stage_id
-        self.total_stages = total_stages
-        self.last = self.stage_id == self.total_stages - 1
-
-        self.bypass_vars = bypass_vars
-        self.fx_idx_to_normal_idx = fx_idx_to_normal_idx
-        self.id2call = id2call
-
-    def forward(self, *args, **kwargs):
-        # TODO: use kwargs to do mapping
-        if len(args) == 1 and isinstance(args[0], (list, tuple)):
-            args = args[0]
-
-        # Unpack inputs
-        new_args = []
-        if self.stage_id == 0:
-            unordered_args = []
-            for arg in args:
-                assert not isinstance(arg, dict)
-                if isinstance(arg, tuple):
-                    unordered_args.extend([item for item in arg])
-                else:
-                    unordered_args.append(arg)
-
-            # Remap inputs.
-            # FIXME: not sure why fx changes the order of
-            # partitioned module's arguments...
-            for idx in range(len(unordered_args)):
-                if idx in self.fx_idx_to_normal_idx:
-                    new_args.append(unordered_args[self.fx_idx_to_normal_idx[idx]])
-        else:
-            args, metadata = args[:-1], args[-1]
-            assert len(args) == len(metadata)
-
-            # Restore nested structure from metadata.
-            prev_level = 0
-            for arg, curr_level in zip(args, metadata):
-                inner_lst = new_args
-                for _ in range(curr_level):
-                    if curr_level > prev_level:
-                        inner_lst.append([])
-                    inner_lst = inner_lst[-1]
-                inner_lst.append(arg)
-                prev_level = curr_level
-
-            # FIXME: avoid dirty hack
-            is_all_getitem = True
-            for arg in self.id2call[self.stage_id].args:
-                if arg.op != "call_function" or "getitem" not in arg.name:
-                    is_all_getitem = False
-            if is_all_getitem:
-                new_args = new_args[0]
-
-        for value in kwargs.values():
-            new_args += [value]
-
-        # Check if arguments in bypass list.
-        # TODO: actual argument position-based checking
-        if self.stage_id > 0:
-            local_fork = []
-            for var, stage_lst in self.bypass_vars:
-                if self.stage_id in stage_lst:
-                    warnings.warn(
-                        f"Fork argument {var} in pipeline stage {self.stage_id}"
-                    )
-                    local_fork.append(new_args[-1])
-
-        # Forward pass.
-        outputs = self.mod(*new_args)
-
-        # Add bypassed values to outputs.
-        if self.stage_id > 0 and not self.last:
-            outputs = [outputs] + local_fork
-        elif self.stage_id == 0:
-            outputs = [outputs]
-
-        # Pack outputs for the next stage.
-        if self.last:
-            new_outputs = outputs
-        else:
-            new_outputs = []
-            metadata = []  # used for storing nested levels
-
-            def flatten(outputs, level):
-                for idx, output in enumerate(outputs):
-                    if isinstance(output, (tuple, list)):
-                        flatten(output, level + 1)
-                    elif isinstance(output, dict):
-                        flatten(output.values(), level + 1)
-                    else:
-                        new_outputs.append(output)
-                        assert output is not None, (
-                            f"Output {idx} at level {level} is None, "
-                            "this is unsupported in DeepSpeed pipeline"
-                        )
-                        metadata.append(level)
-
-            flatten(outputs, 0)
-            new_outputs.append(
-                torch.tensor(metadata, dtype=torch.long, device=new_outputs[0].device)
-            )
-            new_outputs = tuple(new_outputs)
-        return new_outputs
+from .model_dialect import get_dialect_cls
 
 
 def propagate_partition(sch, starting_stage_id=0, stop_at=None):
@@ -294,6 +177,75 @@ def propagate_partition(sch, starting_stage_id=0, stop_at=None):
     return mod_after_split, curr_stage_id
 
 
+def analyze_pipeline_module(top_mod):
+    def get_itemized_name(node, suffix=""):
+        """Recursively traverse getitem nodes to get the itemized name
+        (e.g., submod_1.0.1).
+        """
+        if node.op != "call_function":
+            assert not suffix or suffix.startswith(".")
+            return f"{node.target}{suffix}"
+
+        assert node.target == operator.getitem, (
+            "Expect only getitem "
+            f"function call in top pipeline module, but got {node.target}"
+        )
+        return get_itemized_name(node.args[0], f"{suffix}.{node.args[1]}")
+
+    submod_2_stage_id = {}
+    curr_stage_id = 0
+    tensor_2_id = {}
+    liveness = {-1: []}
+    stage_id_2_arg_names = {}
+
+    # 1st pass (forward): Construct ID-tensor mapping and a part of the liveness.
+    # After this pass, liveness of each submod should include all live tensors
+    # used by itself.
+    for idx, node in enumerate(top_mod.graph.nodes):
+        itemized_name = get_itemized_name(node)
+        tensor_2_id[itemized_name] = idx
+        if node.op == "placeholder":
+            # Liveness -1 indicates the primary inputs in order.
+            liveness[-1].append(itemized_name)
+        elif node.op == "call_module" and node.target.startswith("submod_"):
+            liveness[curr_stage_id] = []
+            stage_id_2_arg_names[curr_stage_id] = []
+            for arg_idx, arg in enumerate(node.args):
+                arg_name = get_itemized_name(arg)
+                assert (
+                    arg_name in tensor_2_id
+                ), f"arg {arg_idx} in {node} is not defined (in {tensor_2_id})"
+                liveness[curr_stage_id].append(arg_name)
+                stage_id_2_arg_names[curr_stage_id].append(arg_name)
+            submod_2_stage_id[node.target] = curr_stage_id
+            curr_stage_id += 1
+
+    # 2nd pass (backward): Construct the rest of the liveness by adding
+    # more live tensors used by rest submods and should be bypassed).
+    live_set = set()
+    for node in reversed(top_mod.graph.nodes):
+        if node.op == "call_module" and node.target.startswith("submod_"):
+            curr_stage_id = submod_2_stage_id[node.target]
+            # Add all arguments to the live set.
+            live_set.update(liveness[curr_stage_id])
+            # Remove tensors that are defined in this stage from the live set.
+            # (i.e., the output of this stage).
+            live_set = set([t for t in live_set if not t.startswith(node.target)])
+            # Get the difference between the live tensors used by this stage
+            # and the current live set.
+            diff = live_set - set(liveness[curr_stage_id])
+            # Add all diff tensors to the liveness of this stage.
+            liveness[curr_stage_id].extend(diff)
+
+    # Override the liveness of the first stage to match the input order.
+    assert set(liveness[0]) == set(liveness[-1])
+    liveness[0] = liveness[-1]
+    del liveness[-1]
+
+    stage_id_2_name = {v: k for k, v in submod_2_stage_id.items()}
+    return stage_id_2_arg_names, stage_id_2_name, liveness
+
+
 def generate_pipeline_partition(sch):
     # Identify the common ancestor of all pipeline cutting paths.
     common_ancestor_path = ""
@@ -314,63 +266,38 @@ def generate_pipeline_partition(sch):
             # Skip the common ancestor because it should be handled in the next step.
             continue
         pipe_level_sch = sch[path]
-        partitioned_mod, starting_stage_id = propagate_partition(
+        _, starting_stage_id = propagate_partition(
             pipe_level_sch, starting_stage_id, stop_at=common_ancestor_path
         )
         starting_stage_id += 1
 
-    partitioned_mod, _ = propagate_partition(sch[common_ancestor_path])
+    propagate_partition(sch[common_ancestor_path])
+    return sch
 
-    # Remap input args and analyze label bypassing.
-    ph_idx = {}
-    ph_bypass = {}  # stage id->arg name
-    fx_idx_to_normal_idx = {}
-    id2call = {}
-    for idx, node in enumerate(partitioned_mod.graph.nodes):
-        if node.op == "placeholder":
-            ph_idx[node.target] = idx
-        elif node.op == "call_module" and "submod_" in node.target:
-            stage_id = int(node.target.split("_")[-1])
-            id2call[stage_id] = node
-            if stage_id == 0:
-                for j, arg in enumerate(node.args):
-                    fx_idx_to_normal_idx[j] = ph_idx[arg.target]
-            else:
-                for arg in node.args:
-                    if isinstance(arg, fx.Node) and arg.op == "placeholder":
-                        ph_bypass[stage_id] = arg.target
 
-    # Analyze data dependency to find whether the variables need to
-    # be bypassed in the pipeline.
-    var_use_stages = {}  # var name -> list of stage ids
-    for node in partitioned_mod.graph.nodes:
-        if node.op == "call_module" and "submod_" in node.target:
-            stage_num = int(node.target.split("_")[-1])
-            for arg in node.args:
-                if arg.name not in var_use_stages:
-                    var_use_stages[arg.name] = [stage_num]
-                else:
-                    var_use_stages[arg.name].append(stage_num)
-    bypass_vars = []
-    for var, stage_lst in var_use_stages.items():
-        if len(stage_lst) > 1:
-            # multiple usage, need to bypass
-            bypass_vars.append((var, stage_lst))
-    assert len(bypass_vars) <= 1
+def generate_pipeline_modules(sch, target):
+    partitioned_mod = sch.mod
+    (
+        stage_id_2_arg_names,
+        stage_id_2_name,
+        liveness,
+    ) = analyze_pipeline_module(partitioned_mod)
+
+    # Get the pipeline wrapper class.
+    pipe_wrapper_cls = get_dialect_cls("pipeline", target)
 
     # Generate wrappers for pipelined modules
     res_partition = []
     named_children = dict(partitioned_mod.named_children())
-    for idx, (_, partition) in enumerate(named_children.items()):
-        # Only support for DeepSpeed pipeline now.
+    for idx, partition in enumerate(named_children.values()):
         res_partition.append(
-            DeepSpeedPipeStageWrapper(
+            pipe_wrapper_cls(
                 partition,
                 idx,
+                stage_id_2_name[idx],
                 len(named_children),
-                bypass_vars,
-                fx_idx_to_normal_idx,
-                id2call,
+                liveness,
+                stage_id_2_arg_names,
             )
         )
     return res_partition

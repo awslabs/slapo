@@ -17,7 +17,7 @@ import torch.fx as fx
 import torch.nn as nn
 import torch.utils.checkpoint as checkpoint
 
-from .pipeline import generate_pipeline_partition
+from .pipeline import generate_pipeline_modules, generate_pipeline_partition
 from .tracer import trace as trace_module
 from .utils import _get_unique_module_name
 
@@ -735,9 +735,7 @@ def create_schedule(
 def build(sch: Schedule, topology=None, target=None, **kwargs):
     optimizer = None
     if sch.metadata.pipeline_cutting_paths:
-        model = generate_pipeline_partition(sch)
-    else:
-        model = sch.mod
+        sch = generate_pipeline_partition(sch)
 
     if target == "deepspeed":
         # Sanity check
@@ -749,8 +747,9 @@ def build(sch: Schedule, topology=None, target=None, **kwargs):
         import deepspeed.pipe as pipe
 
         if sch.metadata.pipeline_cutting_paths:
+            stage_modules = generate_pipeline_modules(sch, target)
             model = pipe.PipelineModule(
-                model,
+                stage_modules,
                 topology=topology,
                 partition_method="uniform",
                 loss_fn=kwargs["loss_fn"],

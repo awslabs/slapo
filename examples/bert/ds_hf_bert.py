@@ -11,6 +11,7 @@ from deepspeed.utils import RepeatingLoader
 from transformers import BertLMHeadModel, AutoConfig
 
 import slapo
+from slapo.logger import get_logger
 from slapo.op.cross_entropy import ParallelCrossEntropy
 from slapo.utils import report_memory
 
@@ -20,14 +21,7 @@ _groups = []
 
 SINGLE_DEVICE_FOR_DEBUG = False
 
-def print_rank_0(message):
-    """If distributed is initialized, print only on rank 0."""
-    if dist.is_initialized():
-        if dist.get_rank() == 0:
-            print(message, flush=True)
-    else:
-        print(message, flush=True)
-
+logger = get_logger()
 
 def even_partition(num_layers, num_pp):
     """Evenly partition layers for pipelining. If num_layers is not divisible by
@@ -66,7 +60,6 @@ def create_dist_groups(num_pp, num_mp):
 
 
 def train(args):
-    print("Use deepspeed to initialize")
     num_pp, num_mp = 1, 1
     rank = args.local_rank
     torch.cuda.set_device(rank)
@@ -74,6 +67,7 @@ def train(args):
     if not SINGLE_DEVICE_FOR_DEBUG:
         num_pp, num_mp = 4, 2
         deepspeed.init_distributed(dist_backend="nccl")
+        logger.info("Use deepspeed to initialize", ranks=0)
 
     # FIXME: Pytorch _coalescing_manager requires all the ranks to join if that is the first collective call in the given group
     # We use the following broadcast as the first call for workaround, and it will be removed once we implement the features to synchonrize the model parameters during initialization
@@ -93,7 +87,7 @@ def train(args):
         pipeline_cuts = even_partition(bert_config.num_hidden_layers, num_pp)
     else:
         pipeline_cuts = even_partition(bert_config.num_hidden_layers, 4)
-    print_rank_0(f"Pipeline cuts: {pipeline_cuts}")
+    logger.info(f"Pipeline cuts: {pipeline_cuts}", ranks=0)
 
     sch = schedule_bert(
         bert,

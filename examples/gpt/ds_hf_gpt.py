@@ -11,6 +11,7 @@ from deepspeed.utils import RepeatingLoader
 from transformers import GPTNeoForCausalLM, AutoConfig
 
 import slapo
+from slapo.logger import get_logger
 from slapo.op.cross_entropy import ParallelCrossEntropy
 from slapo.utils import report_memory
 
@@ -20,13 +21,8 @@ _groups = []
 
 SINGLE_DEVICE_FOR_DEBUG = False
 
-def print_rank_0(message):
-    """If distributed is initialized, print only on rank 0."""
-    if dist.is_initialized():
-        if dist.get_rank() == 0:
-            print(message, flush=True)
-    else:
-        print(message, flush=True)
+logger = get_logger()
+
 
 def even_partition(num_layers, num_pp):
     """Evenly partition layers for pipelining. If num_layers is not divisible by
@@ -65,7 +61,6 @@ def create_dist_groups(num_pp, num_mp):
 
 
 def train(args):
-    print_rank_0("Use deepspeed to initialize")
     num_pp, num_mp = 1, 1
     rank = args.local_rank
     torch.cuda.set_device(rank)
@@ -73,6 +68,15 @@ def train(args):
     if not SINGLE_DEVICE_FOR_DEBUG:
         num_pp, num_mp = 4, 2
         deepspeed.init_distributed(dist_backend="nccl")
+        logger.info("Use deepspeed to initialize", ranks=0)
+
+        # FIXME: Pytorch _coalescing_manager requires all the ranks to join
+        # if that is the first collective call in the given group.
+        # We use the following broadcast as the first call for workaround,
+        # and it will be removed once we implement the features to synchonrize
+        # the model parameters during initialization.
+        x = torch.tensor(0, device=torch.cuda.current_device())
+        dist.broadcast(x, src=0)
 
     # https://huggingface.co/EleutherAI/gpt-neo-2.7B/blob/main/config.json
     config = AutoConfig.from_pretrained("EleutherAI/gpt-neo-2.7B")
@@ -92,7 +96,7 @@ def train(args):
         pipeline_cuts = even_partition(config.num_layers, num_pp)
     else:
         pipeline_cuts = even_partition(config.num_layers, 4)
-    print_rank_0(f"Pipeline cuts: {pipeline_cuts}")
+    logger.info(f"Pipeline cuts: {pipeline_cuts}", ranks=0)
 
     sch = schedule_gpt(
         model,
@@ -108,13 +112,13 @@ def train(args):
         assert False
 
     report_memory(rank)
-    device = "cuda:{}".format(rank)
+    device = f"cuda:{rank}"
     # https://github.com/microsoft/DeepSpeed/blob/ff427438651943ee473ab37547337f5f3d8c2279/tests/unit/model_parallelism/test_configurable_parallel_pp.py#L20
     ds_config_dict = {
-        "train_batch_size": 32,
+        "train_batch_size": 16,
         "train_micro_batch_size_per_gpu": 1,
         "optimizer": {"type": "AdamW", "params": {"lr": 0.0001}},
-        "fp16": {"enabled": True},
+        "fp16": {"enabled": True, "initial_scale_power": 12},
     }
 
     loss_fct = ParallelCrossEntropy(group=group)
@@ -136,19 +140,16 @@ def train(args):
     )
     report_memory(rank)
 
-    bs = 8
+    bs = 4
     seq_length = 512
+    input_ids = torch.ones(bs, seq_length, dtype=torch.long, device=device)
     input_dict = {
-        "input_ids": torch.zeros(
-            bs, seq_length, dtype=torch.long, device=device
-        ).random_(model.config.vocab_size),
+        "input_ids": input_ids,
         "attention_mask": torch.ones(
-            bs, seq_length, dtype=torch.float16, device=device, requires_grad=True
+            bs, seq_length, dtype=torch.float16, device=device, requires_grad=False
         ),
         "position_ids": torch.ones(bs, seq_length, dtype=torch.long, device=device),
-        "labels": torch.zeros(bs, seq_length, dtype=torch.long, device=device).random_(
-            model.config.vocab_size
-        ),
+        "labels": input_ids,
     }
 
     loader = RepeatingLoader(
@@ -168,7 +169,9 @@ def train(args):
         ]
     )
     data_iter = iter(loader)
-    model.train_batch(data_iter=data_iter)
+    num_iters = 20
+    for _ in range(num_iters):
+        model.train_batch(data_iter=data_iter)
 
 
 if __name__ == "__main__":

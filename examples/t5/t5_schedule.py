@@ -234,7 +234,7 @@ def shard_word_embedding(sch, vocab_size, word_embed_name="shared"):
         input_mask = (_input[0] < vocab_start_index) | (_input[0] >= vocab_end_index)
         output[input_mask, :] = 0.0
         # Reduce across all the model parallel GPUs
-        dist.all_reduce(output, op=dist.ReduceOp.SUM)
+        dist.all_reduce(output, op=dist.ReduceOp.SUM, group=sch.group)
         return output
 
     sch[word_embed_name].hook("fw_post", fw_post_hook)

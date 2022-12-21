@@ -6,7 +6,6 @@ import inspect
 import torch
 import torch.nn as nn
 import torch.distributed as dist
-from slapo import Pattern
 
 
 def trace_attention(sch, config, attn_path="h.N.attn.attention"):
@@ -26,6 +25,7 @@ def trace_attention(sch, config, attn_path="h.N.attn.attention"):
 
 
 def replace_qkv(sch, config, attn_path="h.N.attn.attention"):
+    """Untested."""
     num_layers, num_heads, hidden_size = (
         config.num_layers,
         config.num_heads,
@@ -42,7 +42,7 @@ def replace_qkv(sch, config, attn_path="h.N.attn.attention"):
 
         def transpose_for_scores(self, x):
             new_x_shape = x.size()[:-1] + (
-                self.num_heads // dist.get_world_size(),
+                self.num_heads // sch.world_size,
                 self.head_size,
                 3,
             )
@@ -94,7 +94,10 @@ def replace_and_shard_attention(sch, config, attn_path="h.N.attn.attention"):
             use_cache=False,
             output_attentions=False,
         ):
-            return self.module(hidden_states, attention_mask, layer_past, use_cache)
+            outputs = self.module(hidden_states, attention_mask, layer_past, use_cache)
+            # FIXME: The original output is (hidden_states, None) where the None
+            # is present_key_value and only used by in inference.
+            return outputs[:1]
 
     num_layers, num_heads, hidden_size = (
         config.num_layers,
@@ -168,7 +171,7 @@ def replace_and_shard_attention(sch, config, attn_path="h.N.attn.attention"):
 
 
 def remove_cast(sch, config, attn_path="h.N.attn.attention"):
-    """Remove .to(torch.float32) in GPT-Neo attention to align
+    """[Untested] Remove .to(torch.float32) in GPT-Neo attention to align
     HF and Megatron GPT-2 behavior.
     """
     cnt = 0
@@ -211,7 +214,7 @@ def shard_word_embedding(sch, vocab_size, word_embed_name="wte"):
         input_mask = (_input[0] < vocab_start_index) | (_input[0] >= vocab_end_index)
         output[input_mask, :] = 0.0
         # Reduce across all the model parallel GPUs
-        dist.all_reduce(output, op=dist.ReduceOp.SUM)
+        dist.all_reduce(output, op=dist.ReduceOp.SUM, group=sch.group)
         return output
 
     sch[word_embed_name].hook("fw_post", fw_post_hook)
@@ -224,6 +227,7 @@ def shard_qkv(
     qkv_name="FusedQKV_0",
     out_proj_name="out_proj",
 ):
+    """Untested."""
     num_layers = config.num_layers
 
     def fix_shape_after_shard(path):

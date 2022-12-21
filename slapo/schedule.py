@@ -352,8 +352,9 @@ class Schedule:
         return res
 
     def find_subgraph(self, mod_name_pat, func_pattern=None):
+        # TODO: Support matching subgraphs with multiple inputs
         assert isinstance(mod_name_pat, str)
-        assert isinstance(func_pattern, FunctionType)
+        assert func_pattern is None or isinstance(func_pattern, FunctionType)
 
         self.trace()
 
@@ -403,6 +404,13 @@ class SubgraphWrapper(nn.Module):
                 subgraph = [(parent_name, node)]
                 matched = True
 
+                # Example:
+                # Current graph         Target graph
+                #    A                      B
+                #    B                    C   D
+                #  C   D
+                #  E
+                # curr_node = B         target_node = B
                 def find_match(curr, target):
                     nonlocal matched
                     for cusr, tusr in zip(curr.users, target.users):
@@ -417,6 +425,8 @@ class SubgraphWrapper(nn.Module):
                     return True
 
                 for target_node in list(pattern_mod.graph.nodes):
+                    # get the first placeholder,
+                    # i.e., the input of the target graph
                     if target_node.op == "placeholder":
                         break
                 curr_node = node
@@ -460,6 +470,7 @@ class SubgraphWrapper(nn.Module):
             # has to be traced.
             self.trace()
             name = _get_unique_module_name(self.mod, new_mod._get_name().split(".")[-1])
+            assert len(subgraphs) > 0, "Should have at least one operator to replace"
             if len(subgraphs[0]) == 1:
                 path, node = subgraphs[0][0]
                 target_mod = self.mod
@@ -507,18 +518,8 @@ class SubgraphWrapper(nn.Module):
                                 [sublst] if not isinstance(sublst, List) else sublst
                             )
                             for _, node in reversed(sublst):
-                                # FIXME: this is hardcoded
-                                if node.op == "call_module" and "dense" in node.target:
-                                    assert False, "Should not get into this branch"
-                                    with self.gm.graph.inserting_after(getitem):
-                                        new_getitem = self.gm.graph.call_function(
-                                            operator.getitem, (getitem, i)
-                                        )
-                                    if node.users not in sublst:
-                                        node.replace_all_uses_with(new_getitem)
-                                else:
-                                    if node.users not in sublst:
-                                        node.replace_all_uses_with(getitem)
+                                if node.users not in sublst:
+                                    node.replace_all_uses_with(getitem)
                                 target_mod.graph.erase_node(node)
                 else:
                     # vertical fusion, e.g.,
@@ -537,9 +538,9 @@ class SubgraphWrapper(nn.Module):
                         new_node = target_mod.graph.call_module(
                             name, first_node.args, first_node.kwargs
                         )
-                    _, last_node = self.op_lst[-1]
+                    _, last_node = subgraphs[-1]
                     last_node.replace_all_uses_with(new_node)
-                    for _, node in reversed(self.op_lst):
+                    for _, node in reversed(subgraphs):
                         target_mod.graph.erase_node(node)
 
     @register_primitive()

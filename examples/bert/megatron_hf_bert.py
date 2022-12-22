@@ -23,6 +23,7 @@ from megatron.training import pretrain
 from megatron.utils import average_losses_across_data_parallel_group
 from megatron.model.utils import init_method_normal
 
+
 def get_scheduled_bert(
     model_name,
     padded_vocab_size=None,
@@ -31,9 +32,11 @@ def get_scheduled_bert(
     disable_flash_attn=False,
     fp16=True,
     ckpt_ratio=0.0,
+    delay_init=True,
 ):
     from transformers import AutoConfig, BertModel
     import slapo
+    from slapo.utils.report import report_memory
     from bert_model import schedule_bert
 
     config = AutoConfig.from_pretrained(model_name)
@@ -41,14 +44,20 @@ def get_scheduled_bert(
         config.vocab_size = padded_vocab_size
     config.type_vocab_size = 2 if binary_head else 0
 
+    report_memory()
+    with slapo.init_empty_weights(enable=delay_init):
+        model = BertModel(config, add_pooling_layer=add_pooling_layer)
+    report_memory()
     sch = schedule_bert(
-        BertModel(config, add_pooling_layer=add_pooling_layer),
+        model,
         config,
         disable_flash_attn=disable_flash_attn,
         fp16=fp16,
         ckpt_ratio=ckpt_ratio,
+        delay_init=delay_init,
     )
     model, _ = slapo.build(sch)
+    report_memory()
     if fp16:
         model.half()
     model.cuda()

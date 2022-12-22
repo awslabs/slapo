@@ -55,23 +55,31 @@ def get_scheduled_t5(
     disable_flash_attn=False,
     fp16=True,
     ckpt_ratio=0.0,
+    delay_init=True,
 ):
     from transformers import AutoConfig, T5Model
     import slapo
+    from slapo.utils.report import report_memory
     from t5_model import schedule_t5
 
     config = AutoConfig.from_pretrained(model_name)
     config.vocab_size = padded_vocab_size
     config.use_cache = False
 
+    report_memory()
+    with slapo.init_empty_weights(enable=delay_init):
+        model = T5Model(config)
+    report_memory()
     sch = schedule_t5(
-        T5Model(config),
+        model,
         config,
         disable_flash_attn=disable_flash_attn,
         fp16=fp16,
         ckpt_ratio=ckpt_ratio,
+        delay_init=delay_init,
     )
     model, _ = slapo.build(sch)
+    report_memory()
     if fp16:
         model.half()
     model.cuda()

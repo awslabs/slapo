@@ -13,7 +13,7 @@ from transformers import GPTNeoForCausalLM, AutoConfig
 import slapo
 from slapo.logger import get_logger
 from slapo.op.cross_entropy import ParallelCrossEntropy
-from slapo.utils import report_memory
+from slapo.utils.report import report_memory
 
 from gpt_model import schedule_gpt
 
@@ -111,7 +111,7 @@ def train(args):
         slapo.build(sch)
         assert False
 
-    report_memory(rank)
+    report_memory()
     device = f"cuda:{rank}"
     # https://github.com/microsoft/DeepSpeed/blob/ff427438651943ee473ab37547337f5f3d8c2279/tests/unit/model_parallelism/test_configurable_parallel_pp.py#L20
     ds_config_dict = {
@@ -138,7 +138,7 @@ def train(args):
         config=ds_config_dict,
         loss_fn=loss_fn,
     )
-    report_memory(rank)
+    report_memory()
 
     bs = 4
     seq_length = 512

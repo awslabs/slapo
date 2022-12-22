@@ -8,7 +8,7 @@ import slapo
 from torch.testing._internal.distributed._shard.sharded_tensor._test_ops_common import (
     clone_module_parameter,
 )
-from slapo.utils import report_memory
+from slapo.utils.report import report_memory
 
 import deepspeed
 from deepspeed.utils import RepeatingLoader

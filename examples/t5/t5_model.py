@@ -25,6 +25,7 @@ def schedule_t5(
     group=None,
     bcast_input=False,
     pipeline_cuts=None,
+    delay_init=True,
 ):
     def print_rank_0(message):
         """If distributed is initialized, print only on rank 0."""
@@ -46,14 +47,20 @@ def schedule_t5(
     # if MP group > 1.
     if not disable_flash_attn:
         cnt, fix_shape_cnt = replace_and_shard_attention(
-            sch[prefix], config, "encoder.block.N.layer.0.SelfAttention"
+            sch[prefix],
+            config,
+            "encoder.block.N.layer.0.SelfAttention",
+            delay_init=delay_init,
         )
         print_rank_0(
             f"Replace {cnt} encoder self attention patterns "
             f"with {fix_shape_cnt} shape fixing"
         )
         cnt, fix_shape_cnt = replace_and_shard_attention(
-            sch[prefix], config, "decoder.block.N.layer.0.SelfAttention"
+            sch[prefix],
+            config,
+            "decoder.block.N.layer.0.SelfAttention",
+            delay_init=delay_init,
         )
         print_rank_0(
             f"Replace {cnt} decoder self attention patterns "
@@ -64,6 +71,7 @@ def schedule_t5(
             config,
             "decoder.block.N.layer.1.EncDecAttention",
             cross_attn=True,
+            delay_init=delay_init,
         )
         print_rank_0(
             f"Replace {cnt} decoder cross attention patterns "
@@ -102,7 +110,7 @@ def schedule_t5(
             "decoder_input_ids",
             "input_ids",
             "decoder_attention_mask",
-            "attention_mask"
+            "attention_mask",
         ]
         sig = inspect.signature(model.forward)
         concrete_args = {

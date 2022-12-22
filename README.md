@@ -45,10 +45,4 @@ Please refer to [`examples/model-schedule-demo.ipynb`](examples/model-schedule-d
 
 
 ## Examples
-```bash
-cd benchmark
-python3 bench.py hf ../examples/bert/pretrain_hf_bert.py --model bert-large-uncased --gpus pow2 --error-stop --disable-flash-attn
-python3 bench.py megatron --model bert-large-uncased --gpus pow2 --error-stop
-python3 bench.py hf ../examples/gpt/pretrain_hf_gpt.py --model EleutherAI/gpt-neo-1.3B --gpus 2,4,8 --seq-len 1024 --batch-size "n//2" --error-stop --disable-flash-attn
-python3 bench.py megatron --model EleutherAI/gpt-neo-1.3B --gpus 2,4,8 --seq-len 1024 --batch-size "n//2" --error-stop --disable-fuse-kernels
-```
+See the [benchmark](benchmark/) folder.

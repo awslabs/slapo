@@ -7,3 +7,4 @@ from .schedule import *
 from .tracer import *
 from .utils import *
 from .tune import Database, Space, Symbol
+from .initialization import init_empty_weights

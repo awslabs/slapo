@@ -10,7 +10,7 @@ import slapo, sys
 from torch.testing._internal.distributed._shard.sharded_tensor._test_ops_common import (
     clone_module_parameter,
 )
-from slapo.utils import report_memory
+from slapo.utils.report import report_memory
 
 
 # class FusedOp(nn.Module):
@@ -128,12 +128,12 @@ def train(rank, args):
         baseline = ds_model.train_batch(data_iter=data_iter)
         print("Pass")
     else:
-        report_memory(rank)
+        report_memory()
         # Apply schedule and regenerate module
         opt_model, optimizer = slapo.build(sch)
         print(sch.gm)
         opt_model.cuda(rank)
-        report_memory(rank)
+        report_memory()
 
         # test correctness
         torch.manual_seed(8899)

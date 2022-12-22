@@ -19,7 +19,19 @@ import torch.utils.checkpoint as checkpoint
 
 from .pipeline import generate_pipeline_modules, generate_pipeline_partition
 from .tracer import trace as trace_module
-from .utils import _get_unique_module_name
+
+
+def _get_unique_module_name(gm_or_modules, name):
+    if isinstance(gm_or_modules, fx.GraphModule):
+        named_module = dict(gm_or_modules.named_modules())
+    else:
+        named_module = gm_or_modules
+    num = 1
+    new_name = name + "_0"
+    while new_name in named_module.keys():
+        new_name = name + "_" + str(num)
+        num += 1
+    return new_name
 
 
 class Pattern(ABC):
@@ -81,6 +93,10 @@ class ScheduleMetadata:
         default_factory=lambda: OrderedDict()
     )
 
+    # A mapping from parameter name to original shape
+    # Used for delay initialization
+    base_params: Dict[str, tuple] = field(default_factory=lambda: DictWithValidation())
+
 
 def register_primitive(need_dist=False, finalize=False):
     """
@@ -140,6 +156,9 @@ class Schedule:
         self.parent = parent
         self.child = {}
         self.metadata = ScheduleMetadata()
+        # record original shape
+        for param_name, param in mod.named_parameters():
+            self.metadata.base_params[param_name] = param.shape
 
         self.finalized = False
 
@@ -573,10 +592,6 @@ class SubgraphWrapper(nn.Module):
             def __init__(self, mod) -> None:
                 super().__init__()
                 self.mod = mod
-                for idx, (name, param) in enumerate(mod.named_parameters()):
-                    name = name.rsplit(".", maxsplit=1)[-1] + "_" + str(idx)
-                    self.register_parameter(name, param)
-                self.register_module("top", dict(mod.named_modules())[""])
 
             def forward(self, *args, **kwargs):
                 new_args = [arg for arg in args]
@@ -708,7 +723,7 @@ def create_schedule(
             # In forwrad :
             #     for layer in self.layers:
             #         x = layer(x)
-            # In this case, we register submodul as layer.0, layer.1, etc.
+            # In this case, we register submodule as layer.0, layer.1, etc.
             for name_idx, layer in submod.named_children():
                 child_schedules[f"{child_name}.{name_idx}"] = create_schedule(
                     layer,
@@ -732,10 +747,133 @@ def create_schedule(
     return root_sch
 
 
+def consolidate_model(sch: Schedule, topology=None):
+    cnt_meta, cnt_materialized = 0, 0
+    # Since some parameters are attached to non-leaf modules, we need to
+    # fix them layer-by-layer. See the following example:
+    # https://github.com/huggingface/transformers/blob/v4.25.1/src/transformers/models/bert/modeling_bert.py#L693
+    for _, param in sch.mod.named_parameters(recurse=False):
+        if param.device == torch.device("meta"):
+            cnt_meta += 1
+        else:
+            cnt_materialized += 1
+    if cnt_meta != 0:
+        assert (
+            cnt_materialized == 0
+        ), f"Some of the parameters in module {sch.name} has been materialized"
+
+        # tackle with pipeline modules
+        # local rank means the rank in a node
+        local_rank = torch.cuda.current_device()
+        global_rank = dist.get_rank()
+        if topology is not None:
+            # 1st DP: devices in the same bracket are in the same TP group
+            #         vertical lines separate different PP stages
+            # [0, 1] |
+            #        | [4, 5]
+            # 2nd DP
+            # [2, 3] |
+            #        | [6, 7]
+            # >>> topo = PipeModelDataParallelTopology(2, 2, 2)
+            # >>> topo.get_axis_comm_lists("model")
+            # [[0, 1], [2, 3], [4, 5], [6, 7]]
+            # >>> topo.get_axis_comm_lists("pipe")
+            # [[0, 4], [1, 5], [2, 6], [3, 7]]
+            # >>> topo.get_axis_comm_lists("data")
+            # [[0, 2], [1, 3], [4, 6], [5, 7]]
+            # >>> topo.filter_match(pipe=0)
+            # [0, 1, 2, 3]
+            curr_part_idx = sch.partition_idx
+            # topology stores the global ranks
+            curr_stage_devices = topology.filter_match(pipe=curr_part_idx)
+            # create dist group for broadcasting
+            num_pp = topology.get_dim("pipe")
+            # each group contains the devices on the same stage
+            stage_groups = []
+            for i in range(num_pp):
+                stage_groups.append(dist.new_group(ranks=topology.filter_match(pipe=i)))
+            if global_rank not in curr_stage_devices:
+                # do nothing if the target module is NOT on this device group
+                return sch
+        else:
+            curr_part_idx = 0
+            curr_stage_devices = list(range(dist.get_world_size()))
+            stage_groups = [dist.new_group(ranks=curr_stage_devices)]
+
+        # copy out new params after sharding
+        new_param_shapes = {}
+        for param_name, param in sch.mod.named_parameters(recurse=False):
+            new_param_shapes[param_name] = param.shape
+            assert param_name in sch.metadata.base_params
+            sch.mod.register_parameter(
+                param_name,
+                nn.Parameter(
+                    torch.empty(
+                        sch.metadata.base_params[param_name],
+                        dtype=param.dtype,
+                        device=local_rank,
+                    )
+                ),
+            )
+
+        # use original shape to initialize parameters
+        if global_rank == curr_stage_devices[0]:
+            # only the first device in the PP group needs to initialize the weights
+            if hasattr(sch.mod, "_init_weights"):
+                # `_init_weights` is a HF specific API, see
+                # https://github.com/huggingface/transformers/blob/v4.25.1/src/transformers/models/bert/modeling_bert.py#L748
+                sch.mod._init_weights(sch.mod)
+            elif hasattr(sch.mod, "reset_parameters"):
+                sch.mod.reset_parameters()
+            else:
+                raise RuntimeError(
+                    f"Module {sch.name} should have `reset_parameters` or `_init_weights` method in order to support delay initialization"
+                )
+
+        # need to broadcast params from rank 0 to make sure all the TP+DP ranks take the same params
+        curr_stage_group = stage_groups[curr_part_idx]
+        for _, param in sch.mod.named_parameters(recurse=False):
+            dist.broadcast(param, src=curr_stage_devices[0], group=curr_stage_group)
+        # destroy process group to free memory
+        for g in stage_groups:
+            dist.destroy_process_group(g)
+
+        # discard redundant values
+        tp_rank = sch.rank
+        for param_name, param in sch.mod.named_parameters(recurse=False):
+            is_found = False
+            for idx, new_size in enumerate(new_param_shapes[param_name]):
+                if new_size != param.shape[idx]:
+                    assert not is_found, "Cannot have two sharded dimensions!"
+                    sharded_size = new_size
+                    axis = idx
+                    is_found = True
+            if is_found:
+                new_param = param.detach().split(sharded_size, dim=axis)[tp_rank]
+                sch.mod.register_parameter(param_name, nn.Parameter(new_param))
+    elif cnt_materialized != 0:
+        # skip if all the parameters have been materialized
+        assert (
+            cnt_meta == 0
+        ), f"Some of the parameters in module {sch.name} are on meta device"
+        # do nothing
+        pass
+    elif cnt_meta == 0 and cnt_materialized == 0:
+        # skip if no direct parameters in this module
+        pass
+    for subsch in sch.child.values():
+        consolidate_model(subsch, topology)
+    return sch
+
+
 def build(sch: Schedule, topology=None, target=None, **kwargs):
     optimizer = None
     if sch.metadata.pipeline_cutting_paths:
+        # pipeline stages will be wrapped into PipeStageWrapper
         sch = generate_pipeline_partition(sch)
+
+    # delay initialization
+    sch = consolidate_model(sch, topology)
 
     if target == "deepspeed":
         # Sanity check
@@ -759,5 +897,7 @@ def build(sch: Schedule, topology=None, target=None, **kwargs):
             config=kwargs["config"],
             model_parameters=[p for p in model.parameters() if p.requires_grad],
         )
+    else:
+        model = sch.mod
 
     return model, optimizer

@@ -5,10 +5,9 @@ import inspect
 
 import torch
 import torch.distributed as dist
-import torch.fx as fx
 import torch.nn as nn
 
-from slapo import Pattern
+from slapo import init_empty_weights
 
 
 def trace_attention(sch, config, attn_path="encoder.layer.N.attention"):
@@ -49,7 +48,9 @@ def fix_attention_mask_shape(sch):
         sch.replace(new_repeat, op[1])
 
 
-def replace_and_shard_attention(sch, config, attn_path="encoder.layer.N.attention"):
+def replace_and_shard_attention(
+    sch, config, attn_path="encoder.layer.N.attention", delay_init=True
+):
     from epoi.inject.policy.bert import InjectHFBertSelfAttentionPolicy
     from epoi.ops.xformers_attn import GenericSelfAttention
 
@@ -88,7 +89,8 @@ def replace_and_shard_attention(sch, config, attn_path="encoder.layer.N.attentio
         init_config = InjectHFBertSelfAttentionPolicy.gen_init_config_from_object(
             sub_sch.mod
         )
-        new_mod = SelfAttention(**init_config)
+        with init_empty_weights(enable=delay_init):
+            new_mod = SelfAttention(**init_config)
         sub_sch.replace(new_mod)
         sub_sch.trace(
             tracer="pytorch",
@@ -135,7 +137,8 @@ def replace_and_shard_attention(sch, config, attn_path="encoder.layer.N.attentio
 
         subgraphs = sub_sch["module"].find("query|key|value", pattern)
         assert len(subgraphs) != 0
-        new_fused_qkv = FusedQKV(hidden_size, num_heads)
+        with init_empty_weights(enable=delay_init):
+            new_fused_qkv = FusedQKV(hidden_size, num_heads)
         sub_sch["module"].replace(new_fused_qkv, subgraphs)
         if sch.world_size > 1:
             sub_sch["module.FusedQKV_0.fused_linear"].shard("weight", axis=0)

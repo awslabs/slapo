@@ -13,7 +13,7 @@ from transformers import BertLMHeadModel, AutoConfig
 import slapo
 from slapo.logger import get_logger
 from slapo.op.cross_entropy import ParallelCrossEntropy
-from slapo.utils import report_memory
+from slapo.utils.report import report_memory
 
 from bert_model import schedule_bert
 
@@ -69,14 +69,17 @@ def train(args):
         deepspeed.init_distributed(dist_backend="nccl")
         logger.info("Use deepspeed to initialize", ranks=0)
 
-    # FIXME: Pytorch _coalescing_manager requires all the ranks to join if that is the first collective call in the given group
-    # We use the following broadcast as the first call for workaround, and it will be removed once we implement the features to synchonrize the model parameters during initialization
-    x = torch.tensor(0, device=torch.cuda.current_device())
-    dist.broadcast(x, src=0)
+        # FIXME: Pytorch _coalescing_manager requires all the ranks to join if that is the first collective call in the given group
+        # We use the following broadcast as the first call for workaround, and it will be removed once we implement the features to synchonrize the model parameters during initialization
+        x = torch.tensor(0, device=torch.cuda.current_device())
+        dist.broadcast(x, src=0)
 
     # https://huggingface.co/bert-large-uncased/blob/main/config.json
     bert_config = AutoConfig.from_pretrained("bert-large-uncased")
-    bert = BertLMHeadModel(bert_config)
+    report_memory(msg="Before creating model")
+    with slapo.init_empty_weights():
+        bert = BertLMHeadModel(bert_config)
+    report_memory(msg="After creating model")
 
     topology, group = None, None
     if not SINGLE_DEVICE_FOR_DEBUG:
@@ -102,7 +105,6 @@ def train(args):
         slapo.build(sch)
         assert False
 
-    report_memory(rank)
     device = "cuda:{}".format(rank)
     # https://github.com/microsoft/DeepSpeed/blob/ff427438651943ee473ab37547337f5f3d8c2279/tests/unit/model_parallelism/test_configurable_parallel_pp.py#L20
     ds_config_dict = {
@@ -129,7 +131,7 @@ def train(args):
         config=ds_config_dict,
         loss_fn=loss_fn,
     )
-    report_memory(rank)
+    report_memory(msg="After building model")
 
     bs = 8
     seq_length = 512

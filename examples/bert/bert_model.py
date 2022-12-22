@@ -25,6 +25,7 @@ def schedule_bert(
     group=None,
     bcast_input=False,
     pipeline_cuts=None,
+    delay_init=True,
 ):
     def print_rank_0(message):
         """If distributed is initialized, print only on rank 0."""
@@ -45,7 +46,7 @@ def schedule_bert(
     # Replace self attention with flash attention, and shard QKV/output
     # if MP group > 1.
     if not disable_flash_attn:
-        cnt = replace_and_shard_attention(sch[prefix], config)
+        cnt = replace_and_shard_attention(sch[prefix], config, delay_init=delay_init)
         print_rank_0(f"Replace {cnt} attention patterns")
     else:
         raise NotImplementedError("Not implemented yet")

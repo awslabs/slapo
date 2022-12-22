@@ -177,6 +177,12 @@ def propagate_partition(sch, starting_stage_id=0, stop_at=None):
     return mod_after_split, curr_stage_id
 
 
+def add_partition_notation(sch, idx):
+    sch.partition_idx = idx
+    for subsch in sch.child.values():
+        add_partition_notation(subsch, idx)
+
+
 def analyze_pipeline_module(top_mod):
     def get_itemized_name(node, suffix=""):
         """Recursively traverse getitem nodes to get the itemized name
@@ -272,6 +278,11 @@ def generate_pipeline_partition(sch):
         starting_stage_id += 1
 
     propagate_partition(sch[common_ancestor_path])
+
+    # Add partition notations to the submodules
+    for idx, subsch in enumerate(sch.child.values()):
+        add_partition_notation(subsch, idx)
+
     return sch
 
 

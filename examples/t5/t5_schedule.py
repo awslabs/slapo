@@ -6,10 +6,10 @@ import re
 import torch
 import torch.nn as nn
 import torch.distributed as dist
-from slapo import Pattern
+from slapo import init_empty_weights
 
 
-def fix_position_bias_shape(sch):
+def fix_position_bias_shape(sch, delay_init=True):
     # Target EPOI T5 attention module.
     cnt = 0
 
@@ -20,7 +20,8 @@ def fix_position_bias_shape(sch):
         from epoi.ops.xformers_attn import ZeroBiasLike
 
         old_mod = sch["zero_bias_like"].mod
-        new_mod = ZeroBiasLike(old_mod.n_heads // sch.world_size)
+        with init_empty_weights(enable=delay_init):
+            new_mod = ZeroBiasLike(old_mod.n_heads // sch.world_size)
         sch["zero_bias_like"].replace(new_mod)
         cnt += 1
 
@@ -42,7 +43,9 @@ def fix_position_bias_shape(sch):
     return cnt
 
 
-def replace_and_shard_attention(sch, config, attn_path, cross_attn=False):
+def replace_and_shard_attention(
+    sch, config, attn_path, cross_attn=False, delay_init=True
+):
     from epoi.inject.policy.t5 import InjectHFT5AttentionPolicy
     from epoi.ops.xformers_attn import T5Attention
 
@@ -59,7 +62,8 @@ def replace_and_shard_attention(sch, config, attn_path, cross_attn=False):
         prefix = attn_path.replace("N", str(idx))
         sub_sch = sch[f"{prefix}"]
         init_config = InjectHFT5AttentionPolicy.gen_init_config_from_object(sub_sch.mod)
-        new_mod = T5Attention(**init_config)
+        with init_empty_weights(enable=delay_init):
+            new_mod = T5Attention(**init_config)
         sub_sch.replace(new_mod)
         concrete_args = {
             "layer_head_mask": None,
@@ -118,9 +122,7 @@ def replace_and_shard_attention(sch, config, attn_path, cross_attn=False):
                     self.num_heads = num_heads
                     self.key_value_proj_dim = d_kv
                     self.inner_dim = num_heads * self.key_value_proj_dim
-                    self.query = nn.Linear(
-                        hidden_size, self.inner_dim, bias=False
-                    )
+                    self.query = nn.Linear(hidden_size, self.inner_dim, bias=False)
 
                 def reshape_for_scores(self, x):
                     new_x_shape = x.size()[:-1] + (
@@ -142,12 +144,14 @@ def replace_and_shard_attention(sch, config, attn_path, cross_attn=False):
 
             subgraphs = sub_sch.find("key|value", pattern)
             assert len(subgraphs) != 0
-            new_fused_kv = FusedKV(num_heads, hidden_size, d_kv)
+            with init_empty_weights(enable=delay_init):
+                new_fused_kv = FusedKV(num_heads, hidden_size, d_kv)
             sub_sch.replace(new_fused_kv, subgraphs)
 
             subgraphs = sub_sch.find("query", pattern)
             assert len(subgraphs) != 0
-            new_q = ShardableQ(num_heads, hidden_size, d_kv)
+            with init_empty_weights(enable=delay_init):
+                new_q = ShardableQ(num_heads, hidden_size, d_kv)
             sub_sch.replace(new_q, subgraphs)
             if sch.world_size > 1:
                 sub_sch["FusedKV_0.fused_linear"].shard("weight", axis=0)

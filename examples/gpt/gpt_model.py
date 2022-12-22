@@ -29,6 +29,7 @@ def schedule_gpt(
     group=None,
     bcast_input=False,
     pipeline_cuts=None,
+    delay_init=True,
 ):
     def print_rank_0(message):
         """If distributed is initialized, print only on rank 0."""
@@ -51,7 +52,7 @@ def schedule_gpt(
     # if MP group > 1.
     attn_path, out_proj_name = "h.N.attn.attention", "out_proj"
     if not disable_flash_attn:
-        cnt = replace_and_shard_attention(sch[prefix], config)
+        cnt = replace_and_shard_attention(sch[prefix], config, delay_init=delay_init)
         print_rank_0(f"Replace {cnt} attention patterns")
     else:
         # FIXME: This path is not working because our tracer cannot trace
@@ -68,7 +69,7 @@ def schedule_gpt(
 
     # Shard other parameters if MP group > 1.
     if sch.world_size > 1:
-        replace_and_shard_mlp(sch[prefix], config)
+        replace_and_shard_mlp(sch[prefix], config, delay_init=delay_init)
         shard_word_embedding(sch[prefix], config.vocab_size)
 
         # Broadcast input to all devices within the MP group.

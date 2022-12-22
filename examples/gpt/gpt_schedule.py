@@ -7,6 +7,8 @@ import torch
 import torch.nn as nn
 import torch.distributed as dist
 
+from slapo import init_empty_weights
+
 
 def trace_attention(sch, config, attn_path="h.N.attn.attention"):
     cnt = 0
@@ -74,7 +76,9 @@ def replace_qkv(sch, config, attn_path="h.N.attn.attention"):
     return cnt
 
 
-def replace_and_shard_attention(sch, config, attn_path="h.N.attn.attention"):
+def replace_and_shard_attention(
+    sch, config, attn_path="h.N.attn.attention", delay_init=True
+):
     from epoi.inject.policy.gpt import InjectHFGPTAttentionPolicy
     from epoi.ops.xformers_attn import GenericSelfAttention
 
@@ -111,7 +115,8 @@ def replace_and_shard_attention(sch, config, attn_path="h.N.attn.attention"):
         init_config = InjectHFGPTAttentionPolicy.gen_init_config_from_object(
             sub_sch.mod
         )
-        new_mod = SelfAttention(**init_config)
+        with init_empty_weights(enable=delay_init):
+            new_mod = SelfAttention(**init_config)
         sub_sch.replace(new_mod)
         sub_sch.trace(
             tracer="pytorch",
@@ -157,7 +162,8 @@ def replace_and_shard_attention(sch, config, attn_path="h.N.attn.attention"):
 
         subgraphs = sub_sch["module"].find("query|key|value", pattern)
         assert len(subgraphs) != 0
-        new_fused_qkv = FusedQKV(hidden_size, num_heads)
+        with init_empty_weights(enable=delay_init):
+            new_fused_qkv = FusedQKV(hidden_size, num_heads)
         sub_sch["module"].replace(new_fused_qkv, subgraphs)
         if sch.world_size > 1:
             sub_sch["module.FusedQKV_0.fused_linear"].shard("weight", axis=0)
@@ -261,14 +267,17 @@ def shard_qkv(
         fix_shape_after_shard(prefix)
 
 
-def replace_and_shard_mlp(sch, config, path="h.N.mlp", fc_names=["c_fc", "c_proj"]):
+def replace_and_shard_mlp(
+    sch, config, path="h.N.mlp", fc_names=["c_fc", "c_proj"], delay_init=True
+):
     from epoi.inject.policy.gpt import InjectHFGPTMLPPolicy
 
     for idx in range(config.num_layers):
         prefix = path.replace("N", str(idx))
         if config.activation_function in ["gelu", "gelu_new"]:
             sub_sch = sch[prefix]
-            new_mod = InjectHFGPTMLPPolicy.init_from_object(sub_sch.mod)
+            with init_empty_weights(enable=delay_init):
+                new_mod = InjectHFGPTMLPPolicy.init_from_object(sub_sch.mod)
             sub_sch.replace(new_mod)
             sub_sch.trace(leaf_modules=["FusedBiasGELU", "FusedBiasNewGELU"])
 

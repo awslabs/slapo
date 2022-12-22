@@ -27,9 +27,11 @@ def get_scheduled_gpt(
     disable_flash_attn=False,
     fp16=True,
     ckpt_ratio=0.0,
+    delay_init=True,
 ):
     from transformers import AutoConfig, GPTNeoModel
     import slapo
+    from slapo.utils.report import report_memory
     from gpt_model import schedule_gpt
 
     config = AutoConfig.from_pretrained(model_name)
@@ -37,14 +39,20 @@ def get_scheduled_gpt(
         config.vocab_size = padded_vocab_size
     config.use_cache = False
 
+    report_memory()
+    with slapo.init_empty_weights(enable=delay_init):
+        model = GPTNeoModel(config)
+    report_memory()
     sch = schedule_gpt(
-        GPTNeoModel(config),
+        model,
         config,
         disable_flash_attn=disable_flash_attn,
         fp16=fp16,
         ckpt_ratio=ckpt_ratio,
+        delay_init=delay_init,
     )
     model, _ = slapo.build(sch)
+    report_memory()
     if fp16:
         model.half()
     model.cuda()

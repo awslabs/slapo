@@ -2,41 +2,25 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import gc
+import psutil
 import torch
-import torch.fx as fx
 import torch.distributed as dist
 from torch.profiler import profile, record_function, ProfilerActivity
-from typing import Tuple
-
-# https://github.com/pytorch/pytorch/blob/master/torch/fx/experimental/optimization.py
-def _parent_name(target: str) -> Tuple[str, str]:
-    """
-    Splits a qualname into parent path and last atom.
-    For example, `foo.bar.baz` -> (`foo.bar`, `baz`)
-    """
-    *parent, name = target.rsplit(".", 1)
-    return parent[0] if parent else "", name
 
 
-def _get_unique_module_name(gm_or_modules, name):
-    if isinstance(gm_or_modules, fx.GraphModule):
-        named_module = dict(gm_or_modules.named_modules())
-    else:
-        named_module = gm_or_modules
-    num = 1
-    new_name = name + "_0"
-    while new_name in named_module.keys():
-        new_name = name + "_" + str(num)
-        num += 1
-    return new_name
-
-
-def report_memory(rank, msg="", report_gc=False):
+def report_memory(msg="", report_gc=False):
+    print(
+        "{} CPU RAM used: {:.4f} GiB".format(
+            msg, psutil.virtual_memory()[3] / 1024 / 1024 / 1024
+        )
+    )
+    if not dist.is_initialized():
+        return
     torch.cuda.empty_cache()
     torch.cuda.reset_peak_memory_stats()
     print(
-        "rank {}: {:.2f} MiB {}".format(
-            rank, torch.cuda.max_memory_allocated() / 1024 / 1024, msg
+        "{} GPU rank {} used: {:.4f} MiB".format(
+            msg, dist.get_rank(), torch.cuda.max_memory_allocated() / 1024 / 1024
         )
     )
     if report_gc:

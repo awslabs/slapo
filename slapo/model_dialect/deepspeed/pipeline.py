@@ -28,7 +28,10 @@ def get_simple_nested_list_str(data):
     tensor values.
     """
     if isinstance(data, torch.Tensor):
-        ret = "tensor"
+        if data.shape == torch.Size([1]):
+            ret = f"scalar({data.item()})"
+        else:
+            ret = f"tensor{tuple(data.shape)}"
     elif isinstance(data, (list, tuple)):
         ret = ",".join([f"{get_simple_nested_list_str(elt)}" for elt in data])
         ret = f"[{ret}]"
@@ -150,7 +153,17 @@ def unflatten(args, metadata):
             curr_ptr = curr_ptr[idx]
         arg = unwrap_torch_tensor(arg, int(desired_type))
         prev_ptr[idx] = arg
-    return unordered_args
+
+    # Make everything tuple. Since we usually cut pipeline based on layer,
+    # so the tensors to be packed are usually the layer outputs, which are
+    # in tuple type. HF models also have some implementations based on tuple
+    # output, such as "output[:1] + (None,) + output[1:]".
+    def tupleize(data):
+        if isinstance(data, (list, tuple)):
+            return tuple(tupleize(t) for t in data)
+        return data
+
+    return tupleize(unordered_args)
 
 
 @register_model_dialect("deepspeed", "pipeline")

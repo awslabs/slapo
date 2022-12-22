@@ -204,7 +204,7 @@ def get_batch(data_iterator):
     dec_mask = data_b["dec_mask"] < 0.5
     enc_dec_mask = data_b["enc_dec_mask"] < 0.5
 
-    def post_process_mask(seq_length, mask):
+    def post_process_mask(mask):
         # The shape of attention mask is (batch, seq_length, seq_length) while
         # HF model expects (batch, 1, 1, seq_length).
         # (B, 1, S, S) -> (B, 1, S, 1)
@@ -213,8 +213,8 @@ def get_batch(data_iterator):
         mask = mask.squeeze(-1)
         return mask
 
-    enc_mask = post_process_mask(tokens_enc.shape[1], enc_mask)
-    dec_mask = post_process_mask(tokens_dec.shape[1], dec_mask)
+    enc_mask = post_process_mask(enc_mask)
+    dec_mask = post_process_mask(dec_mask)
 
     return tokens_enc, tokens_dec, loss_mask, labels, enc_mask, dec_mask, enc_dec_mask
 

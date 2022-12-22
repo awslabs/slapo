@@ -100,10 +100,9 @@ def schedule_t5(
         )
         print_rank_0(f"Checkpointing {n_ckpt} layers")
 
-    # Cut pipeline stages. Note that this means to cut
+    # Cut pipeline stages. For example, [[11], [11]] means to cut
     # encoder.block.11, decoder.block.11. And we always cut between encoder/decoder,
     # so there will be 4 stages in total.
-    # pipeline_cuts = [[11], [11]]
     if pipeline_cuts:
         assert len(pipeline_cuts) == 2
         input_names = [

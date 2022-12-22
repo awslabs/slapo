@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Pipeline stage wrappers for supported frameworks."""
 import operator
+from collections import OrderedDict
 
 import torch.fx as fx
 
@@ -108,7 +109,9 @@ def propagate_partition(sch, starting_stage_id=0, stop_at=None):
         raise RuntimeError(
             f"The second last node is {last_node_except_output} with op type "
             f"{last_node_except_output.op}, "
-            "which is not call_module node in the splitted module"
+            "which is not call_module node in the splitted module. "
+            "A possible reason is that fx.split_module generates getitems "
+            "after the partitioned submodule call, and this is not supported yet."
         )
 
     target_call_node.replace_all_uses_with(last_node_except_output)
@@ -228,18 +231,23 @@ def analyze_pipeline_module(top_mod):
 
     # 2nd pass (backward): Construct the rest of the liveness by adding
     # more live tensors used by rest submods and should be bypassed).
-    live_set = set()
+    # Note that we used an OrderedDict as a ordered set to keep the order
+    # of tensors in the live set; otherwise the generated liveness for
+    # each rank in a TP group may be different.
+    live_set = OrderedDict()
     for node in reversed(top_mod.graph.nodes):
         if node.op == "call_module" and node.target.startswith("submod_"):
             curr_stage_id = submod_2_stage_id[node.target]
             # Add all arguments to the live set.
-            live_set.update(liveness[curr_stage_id])
+            live_set.update({arg: 1 for arg in liveness[curr_stage_id]})
             # Remove tensors that are defined in this stage from the live set.
             # (i.e., the output of this stage).
-            live_set = set([t for t in live_set if not t.startswith(node.target)])
+            live_set = OrderedDict(
+                {t: 1 for t in live_set if not t.startswith(node.target)}
+            )
             # Get the difference between the live tensors used by this stage
             # and the current live set.
-            diff = live_set - set(liveness[curr_stage_id])
+            diff = [t for t in live_set if t not in liveness[curr_stage_id]]
             # Add all diff tensors to the liveness of this stage.
             liveness[curr_stage_id].extend(diff)
 

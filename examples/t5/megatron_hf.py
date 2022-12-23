@@ -60,7 +60,7 @@ def get_scheduled_t5(
     from transformers import AutoConfig, T5Model
     import slapo
     from slapo.utils.report import report_memory
-    from t5_model import schedule_t5
+    from model import schedule_t5
 
     config = AutoConfig.from_pretrained(model_name)
     config.vocab_size = padded_vocab_size

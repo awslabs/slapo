@@ -11,6 +11,10 @@ import pathlib
 import re
 import sys
 
+from slapo.logger import get_logger
+
+logger = get_logger()
+
 
 def must_fix(func):
     """Decorator to mark a function in Symbol to ensure its value has been fixed."""
@@ -135,7 +139,7 @@ class Space:
             ret += f"{k}: {v}{last_ch}"
         return ret
 
-    def print_space(self, training_script_args, update_space_fn):
+    def log_space(self, training_script_args, update_space_fn):
         """Print the tuning space for logging."""
 
         def _run(space, count=0):
@@ -147,12 +151,12 @@ class Space:
                     count = _run(space.clone(), count)
                 return count
 
-            print(f"\t{self.cfg_dict_to_str(space.to_dict())}")
+            logger.info(f"\t{self.cfg_dict_to_str(space.to_dict())}")
             return count + 1
 
-        print("Enumerating the search space:")
+        logger.info("Enumerating the search space:")
         count = _run(self.clone())
-        print(f"Space size: {count}")
+        logger.info(f"Space size: {count}")
 
     def __repr__(self):
         ret = "Space(\n"
@@ -171,14 +175,16 @@ class Database:
         self.db_file_name = db_file_name
         self.db = {}
         if self.db_file_name:
-            print(f"Tuning records will be saved to {self.db_file_name}")
+            logger.info(f"Tuning records will be saved to {self.db_file_name}")
 
     def load(self):
         """Load the database from the file."""
         if self.db_file_name and os.path.exists(self.db_file_name):
             with open(self.db_file_name, "r") as filep:
                 self.db = json.load(filep)
-            print(f"Loaded {len(self.db)} tuning records from {self.db_file_name}")
+            logger.info(
+                f"Loaded {len(self.db)} tuning records from {self.db_file_name}"
+            )
 
     def commit(self, key, data):
         """Commit the data to the database and update the DB file."""
@@ -271,7 +277,7 @@ def run_training_script(args, tuneable_cfg):
 
     cmd = f"{env} python3 {args.training_script} {train_script_args}"
     cmd += " > run_script.log 2>&1"
-    print(f"\tRunning command: {cmd}")
+    logger.info(f"\tRunning command: {cmd}")
     os.system(cmd)
     return "run_script.log"
 
@@ -280,7 +286,7 @@ def tune(args, update_space_fn, eval_fn):
     """Tune the given space with an evaluation function."""
     training_script_args = convert_nargs_to_dict(args.training_script_args)
     space = update_space_fn(training_script_args, Space())
-    space.print_space(training_script_args, update_space_fn)
+    space.log_space(training_script_args, update_space_fn)
 
     def _run(space, curr_best):
         symbol = space.next()
@@ -290,25 +296,25 @@ def tune(args, update_space_fn, eval_fn):
                 space = update_space_fn(training_script_args, space)
                 curr_best, has_error = _run(space.clone(), curr_best)
                 if has_error and args.error_stop == "symbol":
-                    print(f"\tStop tuning {symbol.name} due to error")
+                    logger.info(f"\tStop tuning {symbol.name} due to error")
                     break
             return curr_best, False
 
         cfg_dict = space.to_dict()
-        print(f"- Evaluating {cfg_dict}")
+        logger.info(f"- Evaluating {cfg_dict}")
         thrpt = eval_fn(cfg_dict)
-        print(f"\tThroughput: {thrpt:.2f}")
+        logger.info(f"\tThroughput: {thrpt:.2f}")
         if curr_best[0] is None or thrpt >= curr_best[1]:
             curr_best = (space.clone(), thrpt)
-        print(
+        logger.info(
             f"\tCurrent best config: {Space.cfg_dict_to_str(curr_best[0].to_dict())}, "
             f"thrpt: {curr_best[1]:.2f}"
         )
         return curr_best, thrpt == 0
 
-    print("Start tuning...")
+    logger.info("Start tuning...")
     curr_best, _ = _run(space.clone(), (None, 0))
-    print("Tuning done!")
+    logger.info("Tuning done!")
     return curr_best[0]
 
 
@@ -349,7 +355,7 @@ def main():
         return thrpt if error_code == 0 else 0
 
     best_cfg = tune(args, update_space_fn, eval_fn)
-    print(f"Best config: {Space.cfg_dict_to_str(best_cfg.to_dict())}")
+    logger.info(f"Best config: {Space.cfg_dict_to_str(best_cfg.to_dict())}")
 
 
 if __name__ == "__main__":

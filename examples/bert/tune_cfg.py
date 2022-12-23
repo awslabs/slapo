@@ -5,7 +5,7 @@
 Example usage (assuming you are under 'benchmark'):
 python3 -m slapo.tune --config ../examples/bert/tune_cfg.py \
     --db bert-gpu8-seq512.json --error-stop symbol \
-    bench.py slapo --model bert-large-uncased --gpus 8 --seq-len 512 \
+    bench_single_node.py slapo --model bert-large-uncased --gpus 8 --seq-len 512 \
         --batch-size batch_size --gradient-checkpoint ckpt_ratio
 """
 import re

@@ -11,22 +11,18 @@ import torch
 import torch.distributed as dist
 from torch.utils.data import DataLoader, Dataset, DistributedSampler
 
-from wideresnet_model import get_model
+from slapo.logger import get_logger
+from model import get_model
 
 NO_DEEPSPEED = bool(int(os.environ.get("NO_DEEPSPEED", "0")))
 
+logger = get_logger("WideResNet")
 
 def count_parameters(model):
     try:
         return sum(p.ds_numel for p in model.parameters())
     except:
         return sum(p.numel() for p in model.parameters())
-
-
-def print_at_rank0(msg):
-    if dist.get_rank() == 0:
-        print(msg)
-
 
 def get_args():
     parser = ArgumentParser(__doc__)
@@ -66,7 +62,6 @@ def get_dataloader(args):
     dtype = torch.half if args.config["fp16"]["enabled"] else torch.float
 
     def _collate_fn(batch):
-        # print_at_rank0(f"collate batch input {[e[0].size() for e in batch]}")
         data = torch.vstack([e[0].unsqueeze(0) for e in batch]).to(
             args.local_rank, dtype=dtype
         )
@@ -102,8 +97,8 @@ def main():
 
     model_config = args.config["wideresnet_config"]
     model = get_model(model_config["width_per_group"], model_config["layers"])
-    print_at_rank0(model)
-    print_at_rank0(f"model param size {count_parameters(model)/1e9} B")
+    logger.info(model, ranks=0)
+    logger.info(f"model param size {count_parameters(model)/1e9} B", ranks=0)
     loss_fn = torch.nn.CrossEntropyLoss()
 
     if NO_DEEPSPEED:
@@ -117,8 +112,10 @@ def main():
     for e in range(args.num_epochs):
         for n, inputs in enumerate(training_dataloader):
             if n < 5 and e < 1:
-                print_at_rank0(
-                    f"inputs sizes {[e.size() for e in inputs]}, device {[e.device for e in inputs]}"
+                logger.info(
+                    f"inputs sizes {[e.size() for e in inputs]}, "
+                    f"device {[e.device for e in inputs]}",
+                    ranks=0,
                 )
             outputs = model(inputs[0])
             loss = loss_fn(outputs, inputs[1].squeeze())
@@ -133,7 +130,7 @@ def main():
                 not hasattr(model, "is_gradient_accumulation_boundary")
                 or model.is_gradient_accumulation_boundary()
             ):
-                print_at_rank0(f"{e} {n}, LOSS: {loss.item()}")
+                logger.info(f"{e} {n}, LOSS: {loss.item()}", ranks=0)
 
             loss = None
 

@@ -40,7 +40,7 @@ cd model-schedule
 export PYTHONPATH=`pwd`:$PYTHONPATH
 ```
 
-You can run these examples using Megatron-LM framework (referring to `../benchmark/bench.py`).
+You can run these examples using Megatron-LM framework (referring to `../benchmark/bench_single_node.py`).
 Meanwhile, if you attempt to run the scheduled model on other frameworks, you can invoke
 the scheduled model as follows:
 

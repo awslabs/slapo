@@ -8,20 +8,21 @@ import torch
 import torch.distributed as dist
 from deepspeed.runtime.pipe.topology import PipeModelDataParallelTopology
 from deepspeed.utils import RepeatingLoader
-from transformers import BertLMHeadModel, AutoConfig
+from transformers import GPTNeoForCausalLM, AutoConfig
 
 import slapo
 from slapo.logger import get_logger
 from slapo.op.cross_entropy import ParallelCrossEntropy
 from slapo.utils.report import report_memory
 
-from bert_model import schedule_bert
+from model import schedule_model
 
 _groups = []
 
 SINGLE_DEVICE_FOR_DEBUG = False
 
 logger = get_logger()
+
 
 def even_partition(num_layers, num_pp):
     """Evenly partition layers for pipelining. If num_layers is not divisible by
@@ -69,17 +70,22 @@ def train(args):
         deepspeed.init_distributed(dist_backend="nccl")
         logger.info("Use deepspeed to initialize", ranks=0)
 
-        # FIXME: Pytorch _coalescing_manager requires all the ranks to join if that is the first collective call in the given group
-        # We use the following broadcast as the first call for workaround, and it will be removed once we implement the features to synchonrize the model parameters during initialization
+        # FIXME: Pytorch _coalescing_manager requires all the ranks to join
+        # if that is the first collective call in the given group.
+        # We use the following broadcast as the first call for workaround,
+        # and it will be removed once we implement the features to synchonrize
+        # the model parameters during initialization.
         x = torch.tensor(0, device=torch.cuda.current_device())
         dist.broadcast(x, src=0)
 
-    # https://huggingface.co/bert-large-uncased/blob/main/config.json
-    bert_config = AutoConfig.from_pretrained("bert-large-uncased")
-    report_memory(msg="Before creating model")
-    with slapo.init_empty_weights():
-        bert = BertLMHeadModel(bert_config)
-    report_memory(msg="After creating model")
+    # https://huggingface.co/EleutherAI/gpt-neo-2.7B/blob/main/config.json
+    config = AutoConfig.from_pretrained("EleutherAI/gpt-neo-2.7B")
+    # FIXME: This model has vocab size 50257 that cannot be sharded by 2,
+    # so we pad it to 50258 in this example. In practice, the tokenizer
+    # should be used to pad the vocab size to a multiple of 2.
+    config.vocab_size = 50258
+    config.use_cache = False
+    model = GPTNeoForCausalLM(config)
 
     topology, group = None, None
     if not SINGLE_DEVICE_FOR_DEBUG:
@@ -87,15 +93,15 @@ def train(args):
 
     # Evenly partition layers for pipelining.
     if not SINGLE_DEVICE_FOR_DEBUG:
-        pipeline_cuts = even_partition(bert_config.num_hidden_layers, num_pp)
+        pipeline_cuts = even_partition(config.num_layers, num_pp)
     else:
-        pipeline_cuts = even_partition(bert_config.num_hidden_layers, 4)
+        pipeline_cuts = even_partition(config.num_layers, 4)
     logger.info(f"Pipeline cuts: {pipeline_cuts}", ranks=0)
 
-    sch = schedule_bert(
-        bert,
-        bert_config,
-        prefix="bert",
+    sch = schedule_model(
+        model,
+        config,
+        prefix="transformer",
         ckpt_ratio=1 if args.checkpoint else 0,
         bcast_input=True,
         group=group,
@@ -105,10 +111,11 @@ def train(args):
         slapo.build(sch)
         assert False
 
-    device = "cuda:{}".format(rank)
+    report_memory()
+    device = f"cuda:{rank}"
     # https://github.com/microsoft/DeepSpeed/blob/ff427438651943ee473ab37547337f5f3d8c2279/tests/unit/model_parallelism/test_configurable_parallel_pp.py#L20
     ds_config_dict = {
-        "train_batch_size": 32,
+        "train_batch_size": 16,
         "train_micro_batch_size_per_gpu": 1,
         "optimizer": {"type": "AdamW", "params": {"lr": 0.0001}},
         "fp16": {"enabled": True, "initial_scale_power": 12},
@@ -131,17 +138,17 @@ def train(args):
         config=ds_config_dict,
         loss_fn=loss_fn,
     )
-    report_memory(msg="After building model")
+    report_memory()
 
-    bs = 8
+    bs = 4
     seq_length = 512
     input_ids = torch.ones(bs, seq_length, dtype=torch.long, device=device)
-    bert_input_dict = {
+    input_dict = {
         "input_ids": input_ids,
         "attention_mask": torch.ones(
             bs, seq_length, dtype=torch.float16, device=device, requires_grad=False
         ),
-        "token_type_ids": torch.ones(bs, seq_length, dtype=torch.long, device=device),
+        "position_ids": torch.ones(bs, seq_length, dtype=torch.long, device=device),
         "labels": input_ids,
     }
 
@@ -151,11 +158,11 @@ def train(args):
             # (inputs, labels)
             (
                 (
-                    bert_input_dict["input_ids"],
-                    bert_input_dict["attention_mask"],
-                    bert_input_dict["token_type_ids"],
+                    input_dict["input_ids"],
+                    input_dict["attention_mask"],
+                    input_dict["position_ids"],
                 ),
-                bert_input_dict["labels"],
+                input_dict["labels"],
             ),
             # Rest of the batches
             # ...

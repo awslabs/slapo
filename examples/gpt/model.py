@@ -4,9 +4,9 @@
 """HuggingFace GPT-Neo with model schedule."""
 import inspect
 
-import torch.distributed as dist
 import slapo
-from gpt_schedule import (
+from slapo.logger import get_logger
+from schedule import (
     broadcast_input,
     checkpoint,
     remove_cast,
@@ -18,8 +18,9 @@ from gpt_schedule import (
     trace_attention,
 )
 
+logger = get_logger("GPT")
 
-def schedule_gpt(
+def schedule_model(
     model,
     config,
     prefix="",
@@ -31,19 +32,12 @@ def schedule_gpt(
     pipeline_cuts=None,
     delay_init=True,
 ):
-    def print_rank_0(message):
-        """If distributed is initialized, print only on rank 0."""
-        if dist.is_initialized():
-            if dist.get_rank() == 0:
-                print(message, flush=True)
-        else:
-            print(message, flush=True)
 
-    print_rank_0(f"Scheduling GPT")
+    logger.info(f"Scheduling GPT", ranks=0)
     assert "GPT2" not in config.architectures[0], "GPT-2 schedule is not working"
 
     if fp16:
-        print_rank_0("Change model dtype to fp16")
+        logger.info("Change model dtype to fp16", ranks=0)
         model.half()
 
     sch = slapo.create_schedule(model, group=group)
@@ -53,17 +47,17 @@ def schedule_gpt(
     attn_path, out_proj_name = "h.N.attn.attention", "out_proj"
     if not disable_flash_attn:
         cnt = replace_and_shard_attention(sch[prefix], config, delay_init=delay_init)
-        print_rank_0(f"Replace {cnt} attention patterns")
+        logger.info(f"Replace {cnt} attention patterns", ranks=0)
     else:
         # FIXME: This path is not working because our tracer cannot trace
         # GPTNeoAttention without tracing the whole model.
         cnt = trace_attention(sch, config, attn_path)
-        print_rank_0(f"Traced {cnt} attention layesr")
+        logger.info(f"Traced {cnt} attention layesr", ranks=0)
         assert cnt > 0
         cnt = remove_cast(sch, config, attn_path)
-        print_rank_0(f"Remove {cnt} .to(torch.float32) ops")
+        logger.info(f"Remove {cnt} .to(torch.float32) ops", ranks=0)
         cnt = replace_qkv(sch, config, attn_path)
-        print_rank_0(f"Replace {cnt} QKV patterns")
+        logger.info(f"Replace {cnt} QKV patterns", ranks=0)
         if sch.world_size > 1:
             shard_qkv(sch, config, attn_path, out_proj_name=out_proj_name)
 
@@ -80,7 +74,7 @@ def schedule_gpt(
     # Insert activation checkpoints.
     if ckpt_ratio > 0.0:
         n_ckpt = checkpoint(sch[prefix], config, ckpt_ratio=ckpt_ratio)
-        print_rank_0(f"Checkpointing {n_ckpt} layers")
+        logger.info(f"Checkpointing {n_ckpt} layers", ranks=0)
 
     # Cut pipeline stages.
     if pipeline_cuts:

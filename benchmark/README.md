@@ -32,13 +32,13 @@ with Megatron framework on up to 8 V100 GPUs (16GB DRAM).
 The batch size and sequence length are configured for each model.
 
 ```bash
-bash run_all_single_node.sh configs/singe_v100.cfg
+bash run_all_single_node.sh configs/singe_node_v100.cfg
 ```
 
 Similarity, the following command runs with activation checkpointing:
 
 ```bash
-bash run_all_single_node.sh configs/singe_v100_ckpt.cfg
+bash run_all_single_node.sh configs/singe_node_v100_ckpt.cfg
 ```
 
 The results are logged to a .csv file and can be processed later.

@@ -17,9 +17,11 @@ import torch.fx as fx
 import torch.nn as nn
 import torch.utils.checkpoint as checkpoint
 
+from .logger import get_logger
 from .pipeline import generate_pipeline_modules, generate_pipeline_partition
 from .tracer import trace as trace_module
 
+logger = get_logger()
 
 def _get_unique_module_name(gm_or_modules, name):
     if isinstance(gm_or_modules, fx.GraphModule):
@@ -665,7 +667,7 @@ class SubgraphWrapper(nn.Module):
             self.replace(gm)
             return True
 
-        print(
+        logger.warning(
             f"Failed to trace {self.path}: {failed_msg}. Please explicitly "
             f"use sch['{self.path}'].trace(...) to provide necessary information. "
             f"If you encounter this error with sch['{self.path}'].trace(...), it is "

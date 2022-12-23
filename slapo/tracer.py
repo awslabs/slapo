@@ -6,7 +6,7 @@ import copy
 import torch
 import torch.nn as nn
 import torch.fx as fx
-from typing import Any, Callable, Dict, List, Optional, Type, Union
+from typing import Any, Dict, List
 import torch.utils._pytree as pytree
 from torch.fx._symbolic_trace import PH, _assert_is_none, HAS_VARSTUFF, _patch_function
 from torch.fx.graph import _PyTreeCodeGen, _PyTreeInfo
@@ -19,10 +19,13 @@ from transformers.utils.fx import (
     Proxy,
     _IS_IN_DEBUG_MODE,
 )
-import warnings
 import operator
 import traceback
 import random
+
+from .logger import get_logger
+
+logger = get_logger()
 
 
 def fix_hf_module(
@@ -152,9 +155,6 @@ def trace_submodule(
 
     recursive = kwargs.get("recursive", True)
 
-    # FIXME: Use _IS_IN_DEBUG_MODE.
-    silent = kwargs.get("silent", False)
-
     # Create a tracer with the original leaf modules. This is only used
     # to judge whether a submodule is really a leaf or not.
     tracer_with_orig_leaf = tracer_class(leaf_modules=leaf_modules)
@@ -181,18 +181,16 @@ def trace_submodule(
                 root, concrete_args=concrete_args, dummy_inputs=dummy_inputs
             )
         except Exception as err:
-            if not silent:
-                warnings.warn(traceback.format_exc())
-                warnings.warn(f"Cannot trace module {root.__class__.__name__}: {err}")
+            logger.debug(traceback.format_exc())
+            logger.debug(f"Cannot trace module {root.__class__.__name__}: {err}")
             return root
     else:
         concrete_args = kwargs.get("concrete_args", {})
         try:
             root_graph = tracer.trace(root, concrete_args=concrete_args)
         except Exception as err:
-            if not silent:
-                warnings.warn(traceback.format_exc())
-                warnings.warn(f"Cannot trace module {root.__class__.__name__}: {err}")
+            logger.debug(traceback.format_exc())
+            logger.debug(f"Cannot trace module {root.__class__.__name__}: {err}")
             return root
     call_arg_map = {}
     for node in root_graph.nodes:
@@ -205,7 +203,8 @@ def trace_submodule(
         if isinstance(submod, nn.ModuleList):
             # We assume ModuleList will be iteratively traversed in forward function.
             # For example:
-            # In __init__: self.layers = nn.ModuleList([nn.Linear(10, 10) for _ in range(3)])
+            # In __init__:
+            #     self.layers = nn.ModuleList([nn.Linear(10, 10) for _ in range(3)])
             # In forwrad :
             #     for layer in self.layers:
             #         x = layer(x)
@@ -266,9 +265,7 @@ def trace_submodule(
 def trace(model: nn.Module, **kwargs: Dict[str, Any]):
     """Traces a model to a GraphModule."""
     tracer_cls_name = kwargs.get("tracer", "pytorch")
-    silent = kwargs.get("silent", False)
-    if not silent:
-        warnings.warn(f"Tracer: {tracer_cls_name} Model: {model.__class__.__name__}")
+    logger.debug(f"Tracer: {tracer_cls_name} Model: {model.__class__.__name__}")
     if isinstance(tracer_cls_name, str):
         if tracer_cls_name == "huggingface":
             from transformers.utils.fx import HFTracer, HFProxy
@@ -326,7 +323,8 @@ def trace(model: nn.Module, **kwargs: Dict[str, Any]):
                         elif kind == "call_module":
                             if not hasattr(self, "orig_forward"):
                                 raise AttributeError(
-                                    f"{self} does not have an attribute called orig_forward"
+                                    f"{self} does not have an attribute "
+                                    "called orig_forward"
                                 )
                             return rv  # delete original code here
                         elif kind == "get_attr":
@@ -350,8 +348,9 @@ def trace(model: nn.Module, **kwargs: Dict[str, Any]):
                         rv.install_metadata(meta_out)
                     except Exception as e:
                         if _IS_IN_DEBUG_MODE:
-                            warnings.warn(
-                                f"Could not compute metadata for {kind} target {target}: {e}"
+                            logger.warning(
+                                f"Could not compute metadata for {kind} "
+                                f"target {target}: {e}"
                             )
 
                     return rv
@@ -398,10 +397,11 @@ def trace(model: nn.Module, **kwargs: Dict[str, Any]):
                     FIXME: Implement a fx pass that fixes the argument names, so that we
                     don't need to override this method.
                     """
-                    # In some cases, a function or method has been decorated with a wrapper
-                    # defined via ``functools.wraps``. In this case, the outer code object
-                    # will likely not contain the actual parameters we care about, so unwrap
-                    # the function to get to the innermost callable.
+                    # In some cases, a function or method has been decorated with
+                    # a wrapper defined via ``functools.wraps``. In this case,
+                    # the outer code object will likely not contain the actual
+                    # parameters we care about, so unwrap the function to get to
+                    # the innermost callable.
                     fn_for_analysis = inspect.unwrap(root_fn)
                     co = fn_for_analysis.__code__
                     total_args = co.co_argcount + co.co_kwonlyargcount
@@ -447,20 +447,24 @@ def trace(model: nn.Module, **kwargs: Dict[str, Any]):
                                 ):
                                     torch._assert(
                                         out == x,
-                                        f"{name} has been specialized to have value {x} but got another value",
+                                        f"{name} has been specialized to have value "
+                                        f"{x} but got another value",
                                     )
                                 elif type(x) == type(None):
                                     args = (
                                         out,
-                                        f"{name} has been specialized to have value None but got another value",
+                                        f"{name} has been specialized to have value "
+                                        "None but got another value",
                                     )
                                     self.create_proxy(
                                         "call_function", _assert_is_none, args, {}
                                     )
                                 else:
-                                    warnings.warn(
-                                        f"Was not able to add assertion to guarantee correct input {name} to "
-                                        f"specialized function. It is up to the user to make sure that your inputs match the "
+                                    logger.warning(
+                                        f"Was not able to add assertion to guarantee "
+                                        f"correct input {name} to "
+                                        f"specialized function. It is up to the user "
+                                        f"to make sure that your inputs match the "
                                         f"inputs you specialized the function with."
                                     )
 
@@ -471,7 +475,11 @@ def trace(model: nn.Module, **kwargs: Dict[str, Any]):
                             default = ()
                         else:
                             param = sig.parameters[name]
-                            default = () if param.default is inspect.Parameter.empty else (param.default,)  # type: ignore[assignment]
+                            default = (
+                                ()
+                                if param.default is inspect.Parameter.empty
+                                else (param.default,)
+                            )
                         return self.create_proxy(
                             "placeholder",
                             name,
@@ -486,7 +494,8 @@ def trace(model: nn.Module, **kwargs: Dict[str, Any]):
                     if isinstance(concrete_args, tuple):
                         if len(arg_names) != len(concrete_args):
                             raise RuntimeError(
-                                f"Tracing expected {len(arg_names)} arguments but got {len(concrete_args)} concrete arguments"
+                                f"Tracing expected {len(arg_names)} arguments but "
+                                f"got {len(concrete_args)} concrete arguments"
                             )
                         concrete_args = {
                             name: val for name, val in zip(arg_names, concrete_args)
@@ -536,6 +545,5 @@ def trace(model: nn.Module, **kwargs: Dict[str, Any]):
     else:
         # A custom tracer class.
         raise NotImplementedError("Not supported yet")
-        tracer = tracer_cls_name(**kwargs)
 
     return top_gm

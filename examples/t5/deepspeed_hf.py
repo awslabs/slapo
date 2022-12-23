@@ -8,14 +8,14 @@ import torch
 import torch.distributed as dist
 from deepspeed.runtime.pipe.topology import PipeModelDataParallelTopology
 from deepspeed.utils import RepeatingLoader
-from transformers import GPTNeoForCausalLM, AutoConfig
+from transformers import AutoConfig, T5ForConditionalGeneration
 
 import slapo
 from slapo.logger import get_logger
 from slapo.op.cross_entropy import ParallelCrossEntropy
 from slapo.utils.report import report_memory
 
-from gpt_model import schedule_gpt
+from model import schedule_t5
 
 _groups = []
 
@@ -25,19 +25,27 @@ logger = get_logger()
 
 
 def even_partition(num_layers, num_pp):
-    """Evenly partition layers for pipelining. If num_layers is not divisible by
+    """Evenly partition layers for pipelining. The pipeline stages are evenly
+    assigned to encoder and decoder. If num_layers is not divisible by
     num_pp, the last num_layers % num_pp partitions will have one more layer.
     """
-    remainder = num_layers % num_pp
-    size_list = [num_layers // num_pp] * num_pp
+    if num_pp % 2 != 0:
+        raise ValueError("num_pp must be even")
+    num_pp = num_pp // 2
 
-    curr = size_list[0] - 1
-    ret = [curr]
-    for idx, size in enumerate(size_list):
-        size = size + 1 if num_pp - idx - 1 <= remainder else size
-        curr += size
-        ret.append(curr)
-    return ret[: num_pp - 1]
+    ret = []
+    for _ in range(2):
+        remainder = num_layers % num_pp
+        size_list = [num_layers // num_pp] * num_pp
+
+        curr = size_list[0] - 1
+        sub_ret = [curr]
+        for idx, size in enumerate(size_list):
+            size = size + 1 if num_pp - idx - 1 <= remainder else size
+            curr += size
+            sub_ret.append(curr)
+        ret.append(sub_ret[: num_pp - 1])
+    return ret
 
 
 def create_dist_groups(num_pp, num_mp):
@@ -78,30 +86,25 @@ def train(args):
         x = torch.tensor(0, device=torch.cuda.current_device())
         dist.broadcast(x, src=0)
 
-    # https://huggingface.co/EleutherAI/gpt-neo-2.7B/blob/main/config.json
-    config = AutoConfig.from_pretrained("EleutherAI/gpt-neo-2.7B")
-    # FIXME: This model has vocab size 50257 that cannot be sharded by 2,
-    # so we pad it to 50258 in this example. In practice, the tokenizer
-    # should be used to pad the vocab size to a multiple of 2.
-    config.vocab_size = 50258
+    config = AutoConfig.from_pretrained("t5-small")
     config.use_cache = False
-    model = GPTNeoForCausalLM(config)
+    model = T5ForConditionalGeneration(config)
 
     topology, group = None, None
     if not SINGLE_DEVICE_FOR_DEBUG:
         topology, group = create_dist_groups(num_pp, num_mp)
+        rank = dist.get_rank(group)
 
     # Evenly partition layers for pipelining.
     if not SINGLE_DEVICE_FOR_DEBUG:
-        pipeline_cuts = even_partition(config.num_layers, num_pp)
+        pipeline_cuts = even_partition(config.num_hidden_layers, num_pp)
     else:
-        pipeline_cuts = even_partition(config.num_layers, 4)
+        pipeline_cuts = even_partition(config.num_hidden_layers, 4)
     logger.info(f"Pipeline cuts: {pipeline_cuts}", ranks=0)
 
-    sch = schedule_gpt(
+    sch = schedule_t5(
         model,
         config,
-        prefix="transformer",
         ckpt_ratio=1 if args.checkpoint else 0,
         bcast_input=True,
         group=group,
@@ -111,11 +114,11 @@ def train(args):
         slapo.build(sch)
         assert False
 
-    report_memory()
+    report_memory(rank)
     device = f"cuda:{rank}"
     # https://github.com/microsoft/DeepSpeed/blob/ff427438651943ee473ab37547337f5f3d8c2279/tests/unit/model_parallelism/test_configurable_parallel_pp.py#L20
     ds_config_dict = {
-        "train_batch_size": 16,
+        "train_batch_size": 32,
         "train_micro_batch_size_per_gpu": 1,
         "optimizer": {"type": "AdamW", "params": {"lr": 0.0001}},
         "fp16": {"enabled": True, "initial_scale_power": 12},
@@ -138,36 +141,45 @@ def train(args):
         config=ds_config_dict,
         loss_fn=loss_fn,
     )
-    report_memory()
+    report_memory(rank)
 
-    bs = 4
+    bs = 8
     seq_length = 512
-    input_ids = torch.ones(bs, seq_length, dtype=torch.long, device=device)
-    input_dict = {
-        "input_ids": input_ids,
-        "attention_mask": torch.ones(
-            bs, seq_length, dtype=torch.float16, device=device, requires_grad=False
-        ),
-        "position_ids": torch.ones(bs, seq_length, dtype=torch.long, device=device),
-        "labels": input_ids,
-    }
 
-    loader = RepeatingLoader(
-        [
-            # First batch
-            # (inputs, labels)
+    # Generate fake data. We make sure the number of batches is sufficient
+    # to cover a global train batch size.
+    data = []
+    for _ in range(
+        ds_config_dict["train_batch_size"]
+        // ds_config_dict["train_micro_batch_size_per_gpu"]
+    ):
+        input_ids = torch.ones(bs, seq_length, dtype=torch.long, device=device)
+        input_dict = {
+            "input_ids": input_ids,
+            "attention_mask": torch.ones(
+                bs, seq_length, dtype=torch.float16, device=device, requires_grad=False
+            ),
+            "decoder_input_ids": torch.ones(
+                bs, seq_length, dtype=torch.long, device=device
+            ),
+            "decoder_attention_mask": torch.ones(
+                bs, seq_length, dtype=torch.float16, device=device, requires_grad=False
+            ),
+            "labels": input_ids,
+        }
+        data.append(
             (
                 (
                     input_dict["input_ids"],
                     input_dict["attention_mask"],
-                    input_dict["position_ids"],
+                    input_dict["decoder_input_ids"],
+                    input_dict["decoder_attention_mask"],
                 ),
                 input_dict["labels"],
-            ),
-            # Rest of the batches
-            # ...
-        ]
-    )
+            )
+        )
+
+    loader = RepeatingLoader(data)
     data_iter = iter(loader)
     num_iters = 20
     for _ in range(num_iters):

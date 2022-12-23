@@ -8,14 +8,14 @@ import torch
 import torch.distributed as dist
 from deepspeed.runtime.pipe.topology import PipeModelDataParallelTopology
 from deepspeed.utils import RepeatingLoader
-from transformers import AutoConfig, T5ForConditionalGeneration
+from transformers import AutoConfig, RobertaForCausalLM
 
 import slapo
 from slapo.logger import get_logger
 from slapo.op.cross_entropy import ParallelCrossEntropy
-from slapo.utils import report_memory
+from slapo.utils.report import report_memory
 
-from t5_model import schedule_t5
+from model import schedule_model
 
 _groups = []
 
@@ -23,29 +23,20 @@ SINGLE_DEVICE_FOR_DEBUG = False
 
 logger = get_logger()
 
-
 def even_partition(num_layers, num_pp):
-    """Evenly partition layers for pipelining. The pipeline stages are evenly
-    assigned to encoder and decoder. If num_layers is not divisible by
+    """Evenly partition layers for pipelining. If num_layers is not divisible by
     num_pp, the last num_layers % num_pp partitions will have one more layer.
     """
-    if num_pp % 2 != 0:
-        raise ValueError("num_pp must be even")
-    num_pp = num_pp // 2
+    remainder = num_layers % num_pp
+    size_list = [num_layers // num_pp] * num_pp
 
-    ret = []
-    for _ in range(2):
-        remainder = num_layers % num_pp
-        size_list = [num_layers // num_pp] * num_pp
-
-        curr = size_list[0] - 1
-        sub_ret = [curr]
-        for idx, size in enumerate(size_list):
-            size = size + 1 if num_pp - idx - 1 <= remainder else size
-            curr += size
-            sub_ret.append(curr)
-        ret.append(sub_ret[: num_pp - 1])
-    return ret
+    curr = size_list[0] - 1
+    ret = [curr]
+    for idx, size in enumerate(size_list):
+        size = size + 1 if num_pp - idx - 1 <= remainder else size
+        curr += size
+        ret.append(curr)
+    return ret[: num_pp - 1]
 
 
 def create_dist_groups(num_pp, num_mp):
@@ -86,14 +77,15 @@ def train(args):
         x = torch.tensor(0, device=torch.cuda.current_device())
         dist.broadcast(x, src=0)
 
-    config = AutoConfig.from_pretrained("t5-small")
-    config.use_cache = False
-    model = T5ForConditionalGeneration(config)
+    config = AutoConfig.from_pretrained("roberta-large")
+    report_memory(msg="Before creating model")
+    with slapo.init_empty_weights():
+        model = RobertaForCausalLM(config)
+    report_memory(msg="After creating model")
 
     topology, group = None, None
     if not SINGLE_DEVICE_FOR_DEBUG:
         topology, group = create_dist_groups(num_pp, num_mp)
-        rank = dist.get_rank(group)
 
     # Evenly partition layers for pipelining.
     if not SINGLE_DEVICE_FOR_DEBUG:
@@ -102,9 +94,10 @@ def train(args):
         pipeline_cuts = even_partition(config.num_hidden_layers, 4)
     logger.info(f"Pipeline cuts: {pipeline_cuts}", ranks=0)
 
-    sch = schedule_t5(
+    sch = schedule_model(
         model,
         config,
+        prefix="roberta",
         ckpt_ratio=1 if args.checkpoint else 0,
         bcast_input=True,
         group=group,
@@ -114,8 +107,7 @@ def train(args):
         slapo.build(sch)
         assert False
 
-    report_memory(rank)
-    device = f"cuda:{rank}"
+    device = "cuda:{}".format(rank)
     # https://github.com/microsoft/DeepSpeed/blob/ff427438651943ee473ab37547337f5f3d8c2279/tests/unit/model_parallelism/test_configurable_parallel_pp.py#L20
     ds_config_dict = {
         "train_batch_size": 32,
@@ -141,45 +133,36 @@ def train(args):
         config=ds_config_dict,
         loss_fn=loss_fn,
     )
-    report_memory(rank)
+    report_memory(msg="After building model")
 
     bs = 8
     seq_length = 512
+    input_ids = torch.ones(bs, seq_length, dtype=torch.long, device=device)
+    bert_input_dict = {
+        "input_ids": input_ids,
+        "attention_mask": torch.ones(
+            bs, seq_length, dtype=torch.float16, device=device, requires_grad=False
+        ),
+        "token_type_ids": torch.ones(bs, seq_length, dtype=torch.long, device=device),
+        "labels": input_ids,
+    }
 
-    # Generate fake data. We make sure the number of batches is sufficient
-    # to cover a global train batch size.
-    data = []
-    for _ in range(
-        ds_config_dict["train_batch_size"]
-        // ds_config_dict["train_micro_batch_size_per_gpu"]
-    ):
-        input_ids = torch.ones(bs, seq_length, dtype=torch.long, device=device)
-        input_dict = {
-            "input_ids": input_ids,
-            "attention_mask": torch.ones(
-                bs, seq_length, dtype=torch.float16, device=device, requires_grad=False
-            ),
-            "decoder_input_ids": torch.ones(
-                bs, seq_length, dtype=torch.long, device=device
-            ),
-            "decoder_attention_mask": torch.ones(
-                bs, seq_length, dtype=torch.float16, device=device, requires_grad=False
-            ),
-            "labels": input_ids,
-        }
-        data.append(
+    loader = RepeatingLoader(
+        [
+            # First batch
+            # (inputs, labels)
             (
                 (
-                    input_dict["input_ids"],
-                    input_dict["attention_mask"],
-                    input_dict["decoder_input_ids"],
-                    input_dict["decoder_attention_mask"],
+                    bert_input_dict["input_ids"],
+                    bert_input_dict["attention_mask"],
+                    bert_input_dict["token_type_ids"],
                 ),
-                input_dict["labels"],
-            )
-        )
-
-    loader = RepeatingLoader(data)
+                bert_input_dict["labels"],
+            ),
+            # Rest of the batches
+            # ...
+        ]
+    )
     data_iter = iter(loader)
     num_iters = 20
     for _ in range(num_iters):

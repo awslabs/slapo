@@ -24,7 +24,7 @@ from megatron.utils import average_losses_across_data_parallel_group
 from megatron.model.utils import init_method_normal
 
 
-def get_scheduled_bert(
+def get_scheduled_model(
     model_name,
     padded_vocab_size=None,
     binary_head=False,
@@ -37,7 +37,7 @@ def get_scheduled_bert(
     from transformers import AutoConfig, BertModel
     import slapo
     from slapo.utils.report import report_memory
-    from bert_model import schedule_bert
+    from model import schedule_model
 
     config = AutoConfig.from_pretrained(model_name)
     if padded_vocab_size is not None:
@@ -48,7 +48,7 @@ def get_scheduled_bert(
     with slapo.init_empty_weights(enable=delay_init):
         model = BertModel(config, add_pooling_layer=add_pooling_layer)
     report_memory()
-    sch = schedule_bert(
+    sch = schedule_model(
         model,
         config,
         disable_flash_attn=disable_flash_attn,
@@ -77,7 +77,7 @@ def model_provider(pre_process=True, post_process=True):
     class BertWithLMHead(torch.nn.Module):
         def __init__(self, add_pooling_layer):
             super().__init__()
-            self.bert = get_scheduled_bert(
+            self.bert = get_scheduled_model(
                 model_name,
                 args.padded_vocab_size,
                 args.bert_binary_head,

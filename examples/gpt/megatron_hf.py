@@ -21,7 +21,7 @@ from megatron.utils import average_losses_across_data_parallel_group
 from megatron.model.gpt_model import post_language_model_processing
 
 
-def get_scheduled_gpt(
+def get_scheduled_model(
     model_name,
     padded_vocab_size=None,
     disable_flash_attn=False,
@@ -32,7 +32,7 @@ def get_scheduled_gpt(
     from transformers import AutoConfig, GPTNeoModel
     import slapo
     from slapo.utils.report import report_memory
-    from gpt_model import schedule_gpt
+    from model import schedule_model
 
     config = AutoConfig.from_pretrained(model_name)
     if padded_vocab_size is not None:
@@ -43,7 +43,7 @@ def get_scheduled_gpt(
     with slapo.init_empty_weights(enable=delay_init):
         model = GPTNeoModel(config)
     report_memory()
-    sch = schedule_gpt(
+    sch = schedule_model(
         model,
         config,
         disable_flash_attn=disable_flash_attn,
@@ -77,7 +77,7 @@ def model_provider(pre_process=True, post_process=True):
     class GPTWithLMHead(torch.nn.Module):
         def __init__(self):
             super().__init__()
-            self.gpt = get_scheduled_gpt(
+            self.gpt = get_scheduled_model(
                 model_name,
                 args.padded_vocab_size,
                 disable_flash_attn,

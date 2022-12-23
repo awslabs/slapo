@@ -14,7 +14,7 @@ RESULT_FILE="$(date +"%Y-%m-%d-%T").csv"
 
 # Dump env
 
-python3 bench.py env --append-to "$RESULT_FILE"
+python3 bench_single_node.py env --append-to "$RESULT_FILE"
 
 # Benchmark
 
@@ -37,7 +37,7 @@ while IFS= read -r line || [[ -n $line ]]; do
     CKPT=${line_array[6]}
 
     echo "=== ${MODE} ${MODEL} ==="
-    python3 bench.py ${MODE} --append-to "$RESULT_FILE" \
+    python3 bench_single_node.py ${MODE} --append-to "$RESULT_FILE" \
         --model ${MODEL} --gpus ${GPUS} --seq-len ${SEQ_LEN} \
         --seq-len-dec ${DEC_SEQ_LEN} \
         --batch-size ${BATCH_SIZE} --gradient-checkpoint ${CKPT} --error-stop

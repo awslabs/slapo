@@ -187,10 +187,15 @@ def parse_args():
         "a half of layers.",
     )
     common_parser.add_argument(
+        "--draw-fig",
+        action="store_true",
+        help="Draw a figure of the results",
+    )
+    common_parser.add_argument(
         "--append-to",
         type=str,
         default="",
-        help="Append the results to a file without drowing a graph",
+        help="Append the results to a file",
     )
 
     parser = argparse.ArgumentParser()
@@ -295,7 +300,27 @@ def megatron_bert_cmd(exp, script_file=None):
             import slapo
 
             path = slapo.__path__[0]
-            script_file = f"{path}/../examples/bert/megatron_hf_bert.py"
+            script_file = f"{path}/../examples/bert/megatron_hf.py"
+
+    return (
+        script_file,
+        [
+            f"--seq-length {exp.seq_len}",
+            f"--max-position-embeddings {exp.seq_len}",
+            "--data-path bert-sample_text_sentence",
+            "--vocab-file bert-large-uncased-vocab.txt",
+        ],
+    )
+
+def megatron_roberta_cmd(exp, script_file=None):
+    if script_file is None:
+        if exp.impl == "megatron":
+            raise NotImplementedError
+        else:
+            import slapo
+
+            path = slapo.__path__[0]
+            script_file = f"{path}/../examples/roberta/megatron_hf.py"
 
     return (
         script_file,
@@ -319,7 +344,7 @@ def megatron_gpt_cmd(exp, script_file=None):
             import slapo
 
             path = slapo.__path__[0]
-            script_file = f"{path}/../examples/gpt/megatron_hf_gpt.py"
+            script_file = f"{path}/../examples/gpt/megatron_hf.py"
 
     return (
         script_file,
@@ -344,7 +369,7 @@ def megatron_t5_cmd(exp, script_file=None):
             import slapo
 
             path = slapo.__path__[0]
-            script_file = f"{path}/../examples/t5/megatron_hf_t5.py"
+            script_file = f"{path}/../examples/t5/megatron_hf.py"
 
     assert hasattr(exp, "d_kv") and hasattr(exp, "d_ff")
     return (
@@ -366,6 +391,7 @@ MEGATRON_COMMAND_BY_MODEL = {
     "bert": megatron_bert_cmd,
     "gpt": megatron_gpt_cmd,
     "t5": megatron_t5_cmd,
+    "roberta": megatron_roberta_cmd,
 }
 
 
@@ -637,7 +663,7 @@ def main():
             print("Stop benchmarking due to error")
             break
 
-    if not args.append_to:
+    if args.draw_fig:
         compare(results, f"{title}{memo}")
 
 

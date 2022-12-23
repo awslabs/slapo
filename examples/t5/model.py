@@ -5,8 +5,8 @@
 import inspect
 
 import slapo
-import torch.distributed as dist
-from t5_schedule import (
+from slapo.logger import get_logger
+from schedule import (
     replace_and_shard_attention,
     shard_word_embedding,
     shard_mlp,
@@ -14,6 +14,7 @@ from t5_schedule import (
     broadcast_input,
 )
 
+logger = get_logger("T5")
 
 def schedule_t5(
     model,
@@ -27,18 +28,11 @@ def schedule_t5(
     pipeline_cuts=None,
     delay_init=True,
 ):
-    def print_rank_0(message):
-        """If distributed is initialized, print only on rank 0."""
-        if dist.is_initialized():
-            if dist.get_rank() == 0:
-                print(message, flush=True)
-        else:
-            print(message, flush=True)
 
-    print_rank_0(f"Scheduling T5")
+    logger.info(f"Scheduling T5", ranks=0)
 
     if fp16:
-        print_rank_0("Change model dtype to fp16")
+        logger.info("Change model dtype to fp16", ranks=0)
         model.half()
 
     sch = slapo.create_schedule(model, group=group)
@@ -52,9 +46,10 @@ def schedule_t5(
             "encoder.block.N.layer.0.SelfAttention",
             delay_init=delay_init,
         )
-        print_rank_0(
+        logger.info(
             f"Replace {cnt} encoder self attention patterns "
-            f"with {fix_shape_cnt} shape fixing"
+            f"with {fix_shape_cnt} shape fixing",
+            ranks=0,
         )
         cnt, fix_shape_cnt = replace_and_shard_attention(
             sch[prefix],
@@ -62,9 +57,10 @@ def schedule_t5(
             "decoder.block.N.layer.0.SelfAttention",
             delay_init=delay_init,
         )
-        print_rank_0(
+        logger.info(
             f"Replace {cnt} decoder self attention patterns "
-            f"with {fix_shape_cnt} shape fixing"
+            f"with {fix_shape_cnt} shape fixing",
+            ranks=0,
         )
         cnt, fix_shape_cnt = replace_and_shard_attention(
             sch[prefix],
@@ -73,9 +69,10 @@ def schedule_t5(
             cross_attn=True,
             delay_init=delay_init,
         )
-        print_rank_0(
+        logger.info(
             f"Replace {cnt} decoder cross attention patterns "
-            f"with {fix_shape_cnt} shape fixing"
+            f"with {fix_shape_cnt} shape fixing",
+            ranks=0,
         )
     else:
         raise NotImplementedError("Not implemented yet")
@@ -98,7 +95,7 @@ def schedule_t5(
         n_ckpt += checkpoint(
             sch[prefix], config, "decoder.block.N", ckpt_ratio=ckpt_ratio
         )
-        print_rank_0(f"Checkpointing {n_ckpt} layers")
+        logger.info(f"Checkpointing {n_ckpt} layers", ranks=0)
 
     # Cut pipeline stages. For example, [[11], [11]] means to cut
     # encoder.block.11, decoder.block.11. And we always cut between encoder/decoder,

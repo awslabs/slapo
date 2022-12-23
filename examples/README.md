@@ -16,10 +16,12 @@ export PYTHONPATH=`pwd`:$PYTHONPATH
 
 - xformers:
 ```
-git clone https://github.com/jfc4050/xformers --recursive
+git clone https://github.com/jfc4050/xformers
 cd xformers
-git checkout -b attn-bias origin/attn-bias
-git checkout c4a27be
+git checkout -b attn-bias-pr-2 origin/attn-bias-pr-2
+git checkout 500b8d4
+git submodule sync 
+git submodule update --init --recursive
 pip3 install -e ".[dev]"
 ```
 
@@ -27,7 +29,7 @@ pip3 install -e ".[dev]"
 ```
 git clone https://github.com/comaniac/epoi --recursive
 cd epoi
-git checkout d4e9bf8
+git checkout 03abf86
 pip3 install -e ".[dev]"
 ```
 

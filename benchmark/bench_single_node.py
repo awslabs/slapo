@@ -312,6 +312,7 @@ def megatron_bert_cmd(exp, script_file=None):
         ],
     )
 
+
 def megatron_roberta_cmd(exp, script_file=None):
     if script_file is None:
         if exp.impl == "megatron":

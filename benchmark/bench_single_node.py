@@ -313,6 +313,27 @@ def megatron_bert_cmd(exp, script_file=None):
     )
 
 
+def megatron_albert_cmd(exp, script_file=None):
+    if script_file is None:
+        if exp.impl == "megatron":
+            raise NotImplementedError
+        else:
+            import slapo
+
+            path = slapo.__path__[0]
+            script_file = f"{path}/../examples/albert/megatron_hf.py"
+
+    return (
+        script_file,
+        [
+            f"--seq-length {exp.seq_len}",
+            f"--max-position-embeddings {exp.seq_len}",
+            "--data-path bert-sample_text_sentence",
+            "--vocab-file bert-large-uncased-vocab.txt",
+        ],
+    )
+
+
 def megatron_roberta_cmd(exp, script_file=None):
     if script_file is None:
         if exp.impl == "megatron":
@@ -412,6 +433,7 @@ def megatron_t5_cmd(exp, script_file=None):
 
 MEGATRON_COMMAND_BY_MODEL = {
     "bert": megatron_bert_cmd,
+    "albert": megatron_albert_cmd,
     "gpt": megatron_gpt_cmd,
     "t5": megatron_t5_cmd,
     "roberta": megatron_roberta_cmd,
@@ -475,7 +497,8 @@ def megatron_log(exp, log_filename):
 def run_megatron(exp, args):
     script_file = args.script_file if args.impl == "slapo" else None
     for model_key, gen in MEGATRON_COMMAND_BY_MODEL.items():
-        if model_key in exp.model:
+        short_name = exp.model.split("/")[-1].split("-")[0]
+        if model_key == short_name:
             script_file, data_args = gen(exp, script_file)
             break
     else:

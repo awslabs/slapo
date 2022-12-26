@@ -359,6 +359,28 @@ def megatron_gpt_cmd(exp, script_file=None):
     )
 
 
+def megatron_opt_cmd(exp, script_file=None):
+    if script_file is None:
+        if exp.impl == "megatron":
+            raise NotImplementedError("Megatron does not support OPT")
+        else:
+            import slapo
+
+            path = slapo.__path__[0]
+            script_file = f"{path}/../examples/opt/megatron_hf.py"
+
+    return (
+        script_file,
+        [
+            f"--seq-length {exp.seq_len}",
+            f"--max-position-embeddings {exp.seq_len}",
+            "--data-path gpt2-sample_text_document",
+            "--vocab-file gpt2-vocab.json",
+            "--merge-file gpt2-merges.txt",
+        ],
+    )
+
+
 def megatron_t5_cmd(exp, script_file=None):
     if script_file is None:
         if exp.impl == "megatron":
@@ -393,6 +415,7 @@ MEGATRON_COMMAND_BY_MODEL = {
     "gpt": megatron_gpt_cmd,
     "t5": megatron_t5_cmd,
     "roberta": megatron_roberta_cmd,
+    "opt": megatron_opt_cmd,
 }
 
 

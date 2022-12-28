@@ -38,7 +38,7 @@ def get_model(
     config.use_cache = False
     print(config)
 
-    if impl == "slapo":
+    if "slapo" in impl:
         import slapo
         from slapo.utils.report import report_memory
         from model import schedule_model

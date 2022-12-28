@@ -411,7 +411,6 @@ def main():
 
     assert args.dtype == "fp16", "Only fp16 is supported for now"
 
-    impl = args.impl
     framework = "deepspeed" if "deepspeed" in args.impl else "megatron"
     if args.impl == "megatron":
         impl_name = "Megatron"
@@ -422,10 +421,8 @@ def main():
     elif args.impl == "eager":
         impl_name = "PyTorch Eager"
     elif args.impl == "slapo-megatron":
-        impl = "slapo"
         impl_name = "Slapo-Megatron"
     elif args.impl == "slapo-deepspeed":
-        impl = "slapo"
         impl_name = "Slapo-DeepSpeed"
     else:
         raise RuntimeError(f"Unrecognized implementation {impl_name}")
@@ -445,8 +442,6 @@ def main():
     else:
         runner = run_deepspeed
         kwargs, memo = parse_deepspeed_kwargs(args, kwargs, memo)
-    
-    kwargs["env"].append(f"IMPL={impl}")
 
     kwargs["env"].append(f"IMPL={args.impl}")
 

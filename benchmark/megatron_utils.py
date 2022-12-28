@@ -33,7 +33,7 @@ def parse_megatron_kwargs(args, kwargs, memo):
     return kwargs, memo
 
 def megatron_bert_cmd(exp):
-    if "slapo" not in exp.impl:
+    if exp.impl == "megatron":
         import megatron
 
         path = megatron.__path__[0]
@@ -56,7 +56,7 @@ def megatron_bert_cmd(exp):
 
 
 def megatron_albert_cmd(exp):
-    if "slapo" not in exp.impl:
+    if exp.impl == "megatron":
         raise NotImplementedError
     else:
         import slapo
@@ -76,7 +76,7 @@ def megatron_albert_cmd(exp):
 
 
 def megatron_roberta_cmd(exp):
-    if "slapo" not in exp.impl:
+    if exp.impl == "megatron":
         raise NotImplementedError
     else:
         import slapo
@@ -96,7 +96,7 @@ def megatron_roberta_cmd(exp):
 
 
 def megatron_gpt_cmd(exp):
-    if "slapo" not in exp.impl:
+    if exp.impl == "megatron":
         import megatron
 
         path = megatron.__path__[0]
@@ -120,7 +120,7 @@ def megatron_gpt_cmd(exp):
 
 
 def megatron_opt_cmd(exp):
-    if "slapo" not in exp.impl:
+    if exp.impl == "megatron":
         raise NotImplementedError("Megatron does not support OPT")
     else:
         import slapo
@@ -141,7 +141,7 @@ def megatron_opt_cmd(exp):
 
 
 def megatron_t5_cmd(exp):
-    if "slapo" not in exp.impl:
+    if exp.impl == "megatron":
         import megatron
 
         path = megatron.__path__[0]

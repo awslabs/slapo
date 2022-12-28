@@ -42,7 +42,7 @@ def get_model(
         config.vocab_size = padded_vocab_size
     config.type_vocab_size = 2 if binary_head else 0
 
-    if impl == "slapo":
+    if "slapo" in impl:
         import slapo
         from slapo.utils.report import report_memory
         from model import schedule_model

@@ -13,13 +13,13 @@ import re
 def update_space(args, space):
     # Fix GPU number
     n_gpu = int(args["gpus"])
-    if "slapo" in args:
+    if "slapo" in args or "slapomegatron" in args or "slapodeepspeed" in args:
         if n_gpu > 1:
             batch_size = space.create_symbol(
                 "batch_size", [min(32, 1 if n_gpu <= 2 else 5 * n_gpu)]
             )
         else:
-            batch_size = space.create_symbol("batch_size", [4, 8, 12, 16])
+            batch_size = space.create_symbol("batch_size", [12, 16, 20])
 
         ckpt_ratio_cand = [1.0]
         if batch_size >= 20:

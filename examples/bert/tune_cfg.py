@@ -15,7 +15,7 @@ def update_space(args, space):
     # Fix GPU number
     n_gpu = int(args["gpus"])
 
-    if "slapo" in args:
+    if "slapo" in args or "slapomegatron" in args or "slapodeepspeed" in args:
         # Batch size. When it is large (>100), also consider a smaller one.
         if n_gpu == 1:
             batch_size = space.create_symbol("batch_size", [16, 20, 24])

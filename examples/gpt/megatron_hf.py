@@ -160,7 +160,7 @@ def model_provider(pre_process=True, post_process=True):
             labels=None,
         ):
             assert token_type_ids is None, "Not traced"
-            if isinstance(self.opt, torch.jit.ScriptModule):
+            if isinstance(self.gpt, torch.jit.ScriptModule):
                 output = self.gpt(
                     input_ids=input_ids,
                     past_key_values=None,

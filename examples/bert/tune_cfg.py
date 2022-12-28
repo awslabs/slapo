@@ -15,18 +15,25 @@ def update_space(args, space):
     # Fix GPU number
     n_gpu = int(args["gpus"])
 
-    # Batch size. When it is large (>100), also consider a smaller one.
-    batch_size = space.create_symbol("batch_size", [16 * n_gpu])
-    if 16 * n_gpu > 100:
-        batch_size.add(12 * n_gpu)
+    if "slapo" in args:
+        # Batch size. When it is large (>100), also consider a smaller one.
+        if n_gpu == 1:
+            batch_size = space.create_symbol("batch_size", [16, 20, 24])
+        else:
+            batch_size = space.create_symbol("batch_size", [16 * n_gpu])
+        if 16 * n_gpu > 100:
+            batch_size.add(12 * n_gpu)
 
-    ckpt_ratio_cand = [1.0]
-    if batch_size >= 96:
-        # When memory is tight, we also consider a finer-grained checkpoint ratio.
-        ckpt_ratio_cand += [0.92, 0.84, 0.67]
-    ckpt_ratio_cand += [0.5, 0.34, 0.25]
+        ckpt_ratio_cand = [1.0]
+        if batch_size >= 96:
+            # When memory is tight, we also consider a finer-grained checkpoint ratio.
+            ckpt_ratio_cand += [0.92, 0.84, 0.67]
+        ckpt_ratio_cand += [0.5, 0.34, 0.25]
 
-    space.create_symbol("ckpt_ratio", ckpt_ratio_cand)
+        space.create_symbol("ckpt_ratio", ckpt_ratio_cand)
+    else:
+        space.create_symbol("batch_size", [4, 8, 12, 16, 20, 24])
+
     return space
 
 

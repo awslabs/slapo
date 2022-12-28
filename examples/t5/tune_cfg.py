@@ -19,7 +19,7 @@ def update_space(args, space):
                 "batch_size", [min(32, 1 if n_gpu <= 2 else 5 * n_gpu)]
             )
         else:
-            batch_size = space.create_symbol("batch_size", [1, 2, 4])
+            batch_size = space.create_symbol("batch_size", [16, 20])
 
         ckpt_ratio_cand = [1.0]
         if batch_size >= 20:
@@ -28,7 +28,7 @@ def update_space(args, space):
 
         space.create_symbol("ckpt_ratio", ckpt_ratio_cand)
     else:
-        space.create_symbol("batch_size", [1, 2, 4, 8])
+        space.create_symbol("batch_size", [2, 4, 8, 12, 16])
 
     return space
 

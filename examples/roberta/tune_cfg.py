@@ -1,11 +1,12 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""The tuning configuration for GPT. Example usage (assuming you are under 'benchmark'):
-python3 -m slapo.tune --config ../examples/gpt/tune_cfg.py \
-    --db gpt-gpu8-seq1024.json --error-stop symbol \
-    bench_single_node.py slapo --model EleutherAI/gpt-neo-1.3B --gpus 8 \
-        --seq-len 1024 --batch-size batch_size --gradient-checkpoint ckpt_ratio
+"""The tuning configuration for roberta.
+Example usage (assuming you are under 'benchmark'):
+python3 -m slapo.tune --config ../examples/roberta/tune_cfg.py \
+    --db roberta-gpu8-seq512.json --error-stop symbol \
+    bench_single_node.py slapo --model roberta-large-uncased --gpus 8 --seq-len 512 \
+        --batch-size batch_size --gradient-checkpoint ckpt_ratio
 """
 import re
 
@@ -13,22 +14,25 @@ import re
 def update_space(args, space):
     # Fix GPU number
     n_gpu = int(args["gpus"])
+
     if "slapo" in args:
-        if n_gpu > 1:
-            batch_size = space.create_symbol(
-                "batch_size", [min(32, 1 if n_gpu <= 2 else 5 * n_gpu)]
-            )
+        # Batch size. When it is large (>100), also consider a smaller one.
+        if n_gpu == 1:
+            batch_size = space.create_symbol("batch_size", [16, 20, 24])
         else:
-            batch_size = space.create_symbol("batch_size", [1, 2, 4])
+            batch_size = space.create_symbol("batch_size", [16 * n_gpu])
+        if 16 * n_gpu > 100:
+            batch_size.add(12 * n_gpu)
 
         ckpt_ratio_cand = [1.0]
-        if batch_size >= 20:
+        if batch_size >= 96:
+            # When memory is tight, we also consider a finer-grained checkpoint ratio.
             ckpt_ratio_cand += [0.92, 0.84, 0.67]
         ckpt_ratio_cand += [0.5, 0.34, 0.25]
 
         space.create_symbol("ckpt_ratio", ckpt_ratio_cand)
     else:
-        space.create_symbol("batch_size", [1, 2, 4, 8])
+        space.create_symbol("batch_size", [8, 12, 16, 20, 24])
 
     return space
 

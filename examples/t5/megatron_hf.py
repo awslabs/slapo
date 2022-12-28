@@ -67,13 +67,13 @@ def get_model(
     if impl == "slapo":
         import slapo
         from slapo.utils.report import report_memory
-        from model import schedule_t5
+        from model import schedule_model
 
         report_memory()
         with slapo.init_empty_weights(enable=delay_init):
             model = T5Model(config)
         report_memory()
-        sch = schedule_t5(
+        sch = schedule_model(
             model,
             config,
             disable_flash_attn=disable_flash_attn,

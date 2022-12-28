@@ -16,7 +16,7 @@ from schedule import (
 
 logger = get_logger("T5")
 
-def schedule_t5(
+def schedule_model(
     model,
     config,
     prefix="",

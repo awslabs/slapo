@@ -878,15 +878,16 @@ def build(sch: Schedule, topology=None, target=None, **kwargs):
     sch = consolidate_model(sch, topology)
 
     if target == "deepspeed":
-        # Sanity check
-        if topology is None:
-            raise ValueError("Must provide topology for deepspeed pipeline")
         assert "config" in kwargs
-        assert "loss_fn" in kwargs
         import deepspeed
         import deepspeed.pipe as pipe
 
         if sch.metadata.pipeline_cutting_paths:
+            # Sanity check
+            if topology is None:
+                raise ValueError("Must provide topology for deepspeed pipeline")
+            if "loss_fn" not in kwargs:
+                raise ValueError("Must provide loss_fn for deepspeed pipeline")
             stage_modules = generate_pipeline_modules(sch, target)
             model = pipe.PipelineModule(
                 stage_modules,
@@ -894,6 +895,8 @@ def build(sch: Schedule, topology=None, target=None, **kwargs):
                 partition_method="uniform",
                 loss_fn=kwargs["loss_fn"],
             )
+        else:
+            model = sch.mod
         model, optimizer, _, _ = deepspeed.initialize(
             model=model,
             config=kwargs["config"],

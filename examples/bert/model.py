@@ -28,13 +28,12 @@ def schedule_model(
     pipeline_cuts=None,
     delay_init=True,
 ):
-    logger.info("Scheduling Bert", ranks=0)
-
     if fp16:
         logger.info("Change model dtype to fp16", ranks=0)
         model.half()
 
     sch = slapo.create_schedule(model, group=group)
+    logger.info(f"Scheduling Bert with TP={sch.world_size}", ranks=0)
 
     # Replace self attention with flash attention, and shard QKV/output
     # if MP group > 1.

@@ -32,8 +32,6 @@ def schedule_model(
     pipeline_cuts=None,
     delay_init=True,
 ):
-
-    logger.info(f"Scheduling GPT", ranks=0)
     assert "GPT2" not in config.architectures[0], "GPT-2 schedule is not working"
 
     if fp16:
@@ -41,6 +39,7 @@ def schedule_model(
         model.half()
 
     sch = slapo.create_schedule(model, group=group)
+    logger.info(f"Scheduling GPT with TP={sch.world_size}", ranks=0)
 
     # Replace self attention with flash attention, and shard QKV/output
     # if MP group > 1.

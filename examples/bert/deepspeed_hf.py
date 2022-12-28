@@ -1,12 +1,11 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
-
+"""Train with DeepSpeed ZeRO-3 or pipeline."""
 import argparse
 
 import deepspeed
 import torch
 import torch.distributed as dist
-from deepspeed.runtime.pipe.topology import PipeModelDataParallelTopology
 from deepspeed.utils import RepeatingLoader
 from transformers import BertLMHeadModel, AutoConfig
 
@@ -16,58 +15,44 @@ from slapo.op.cross_entropy import ParallelCrossEntropy
 from slapo.utils.report import report_memory
 
 from model import schedule_model
-
-_groups = []
+from examples.utils import (
+    train_with_deepspeed_engine,
+    get_ds_config,
+    create_dist_group_for_pipeline,
+    generate_pipeline_cuts,
+)
 
 SINGLE_DEVICE_FOR_DEBUG = False
 
 logger = get_logger()
 
-def even_partition(num_layers, num_pp):
-    """Evenly partition layers for pipelining. If num_layers is not divisible by
-    num_pp, the last num_layers % num_pp partitions will have one more layer.
-    """
-    remainder = num_layers % num_pp
-    size_list = [num_layers // num_pp] * num_pp
-
-    curr = size_list[0] - 1
-    ret = [curr]
-    for idx, size in enumerate(size_list):
-        size = size + 1 if num_pp - idx - 1 <= remainder else size
-        curr += size
-        ret.append(curr)
-    return ret[: num_pp - 1]
-
-
-def create_dist_groups(num_pp, num_mp):
-    world_size = dist.get_world_size()
-    num_dp = world_size // (num_pp * num_mp)
-    topology = PipeModelDataParallelTopology(
-        num_pp=num_pp, num_mp=num_mp, num_dp=num_dp
-    )
-    model_groups = topology.get_axis_comm_lists("model")
-
-    global_rank = dist.get_rank()
-    group = None
-
-    for g in model_groups:
-        proc_group = dist.new_group(ranks=g)
-        _groups.append(proc_group)
-        if global_rank in g:
-            group = proc_group
-
-    return topology, group
-
 
 def train(args):
+    batch_size = args.batch_size
+    micro_batch_size = args.micro_batch_size
+    if micro_batch_size is None:
+        micro_batch_size = 8
+
     num_pp, num_mp = 1, 1
     rank = args.local_rank
+    device = f"cuda:{rank}"
     torch.cuda.set_device(rank)
 
+    # Configurations.
+    enable_pipeline = not SINGLE_DEVICE_FOR_DEBUG and not args.disable_pipeline
+    if args.disable_schedule and args.checkpoint not in [0.0, 1.0]:
+        raise ValueError("checkpoint must be 0.0 or 1.0 with disable_schedule")
+    use_default_ckpt = args.checkpoint == 1.0 and args.disable_schedule
+
+    topology, group = None, None
     if not SINGLE_DEVICE_FOR_DEBUG:
-        num_pp, num_mp = 4, 2
         deepspeed.init_distributed(dist_backend="nccl")
         logger.info("Use deepspeed to initialize", ranks=0)
+        if enable_pipeline:
+            num_pp, num_mp = 4, 2  # FIXME: May need to change for multi-node.
+        else:
+            logger.info("Pipeline disabled", ranks=0)
+        topology, group = create_dist_group_for_pipeline(num_pp, num_mp)
 
         # FIXME: Pytorch _coalescing_manager requires all the ranks to join
         # if that is the first collective call in the given group.
@@ -78,73 +63,98 @@ def train(args):
         dist.broadcast(x, src=0)
 
     # https://huggingface.co/bert-large-uncased/blob/main/config.json
-    bert_config = AutoConfig.from_pretrained("bert-large-uncased")
+    model_config = AutoConfig.from_pretrained(args.model_name)
+    model_config.gradient_checkpointing = use_default_ckpt
+
     report_memory(msg="Before creating model")
-    with slapo.init_empty_weights():
-        bert = BertLMHeadModel(bert_config)
+    with slapo.init_empty_weights(enable=enable_pipeline):
+        model = BertLMHeadModel(model_config)
     report_memory(msg="After creating model")
 
-    topology, group = None, None
-    if not SINGLE_DEVICE_FOR_DEBUG:
-        topology, group = create_dist_groups(num_pp, num_mp)
-
     # Evenly partition layers for pipelining.
-    if not SINGLE_DEVICE_FOR_DEBUG:
-        pipeline_cuts = even_partition(bert_config.num_hidden_layers, num_pp)
+    if enable_pipeline:
+        pipeline_cuts = generate_pipeline_cuts(model_config.num_hidden_layers, num_pp)
+    elif SINGLE_DEVICE_FOR_DEBUG:
+        pipeline_cuts = generate_pipeline_cuts(model_config.num_hidden_layers, 4)
     else:
-        pipeline_cuts = even_partition(bert_config.num_hidden_layers, 4)
+        pipeline_cuts = []
     logger.info(f"Pipeline cuts: {pipeline_cuts}", ranks=0)
 
-    sch = schedule_model(
-        bert,
-        bert_config,
-        prefix="bert",
-        ckpt_ratio=1 if args.checkpoint else 0,
-        bcast_input=True,
-        group=group,
-        pipeline_cuts=pipeline_cuts,
-    )
+    if args.disable_schedule:
+        assert not enable_pipeline
+        sch = slapo.create_schedule(model, group=group)
+    else:
+        sch = schedule_model(
+            model,
+            model_config,
+            prefix="bert",
+            ckpt_ratio=args.checkpoint,
+            bcast_input=True,
+            group=group,
+            pipeline_cuts=pipeline_cuts,
+            delay_init=enable_pipeline,
+        )
     if SINGLE_DEVICE_FOR_DEBUG:
         slapo.build(sch)
         assert False
 
-    device = "cuda:{}".format(rank)
-    # https://github.com/microsoft/DeepSpeed/blob/ff427438651943ee473ab37547337f5f3d8c2279/tests/unit/model_parallelism/test_configurable_parallel_pp.py#L20
-    ds_config_dict = {
-        "train_batch_size": 32,
-        "train_micro_batch_size_per_gpu": 1,
-        "optimizer": {"type": "AdamW", "params": {"lr": 0.0001}},
-        "fp16": {"enabled": True, "initial_scale_power": 12},
-    }
+    if enable_pipeline:
+        # FIXME: is mbs=1 correct?
+        batch_size = 32 if batch_size is None else batch_size
+        ds_config_dict = get_ds_config(batch_size, 1, True, False, "Pipeline")
+        loss_fct = ParallelCrossEntropy(group=group)
 
-    loss_fct = ParallelCrossEntropy(group=group)
+        def loss_fn(outputs, labels):
+            prediction_scores = outputs
+            shifted_prediction_scores = prediction_scores[:, :-1, :].contiguous()
+            labels = labels[:, 1:].contiguous()
+            lm_loss = loss_fct(shifted_prediction_scores, labels)
+            lm_loss = lm_loss.contiguous().mean()
+            return lm_loss
 
-    def loss_fn(outputs, labels):
-        prediction_scores = outputs
-        shifted_prediction_scores = prediction_scores[:, :-1, :].contiguous()
-        labels = labels[:, 1:].contiguous()
-        lm_loss = loss_fct(shifted_prediction_scores, labels)
-        lm_loss = lm_loss.contiguous().mean()
-        return lm_loss
+        model, _ = slapo.build(
+            sch,
+            topology=topology,
+            target="deepspeed",
+            config=ds_config_dict,
+            loss_fn=loss_fn,
+        )
+    else:
+        if batch_size is not None:
+            micro_batch_size = batch_size // args.world_size
+        else:
+            assert micro_batch_size is not None
+            batch_size = micro_batch_size * args.world_size
 
-    model, _ = slapo.build(
-        sch,
-        topology=topology,
-        target="deepspeed",
-        config=ds_config_dict,
-        loss_fn=loss_fn,
-    )
+        logger.info(f"BS={batch_size}, MBS={micro_batch_size}", ranks=0)
+        ds_config_dict = get_ds_config(
+            batch_size, micro_batch_size, True, True, "ZeRO-3"
+        )
+        model, _ = slapo.build(
+            sch,
+            topology=topology,
+            target="deepspeed",
+            config=ds_config_dict,
+        )
+        model = model.to(device)
     report_memory(msg="After building model")
 
-    bs = 8
-    seq_length = 512
-    input_ids = torch.ones(bs, seq_length, dtype=torch.long, device=device)
+    seq_length = args.seq_len
+    input_ids = torch.ones(
+        micro_batch_size, seq_length, dtype=torch.long, device=device
+    )
     bert_input_dict = {
         "input_ids": input_ids,
         "attention_mask": torch.ones(
-            bs, seq_length, dtype=torch.float16, device=device, requires_grad=False
+            micro_batch_size,
+            seq_length,
+            dtype=torch.float16,
+            device=device,
+            requires_grad=False,
         ),
-        "token_type_ids": torch.ones(bs, seq_length, dtype=torch.long, device=device),
+        "token_type_ids": torch.ones(
+            micro_batch_size, seq_length, dtype=torch.long, device=device
+        ),
         "labels": input_ids,
     }
 
@@ -164,10 +174,14 @@ def train(args):
             # ...
         ]
     )
-    data_iter = iter(loader)
-    num_iters = 20
-    for _ in range(num_iters):
-        model.train_batch(data_iter=data_iter)
+
+    num_iters = args.iter_nums
+    if enable_pipeline:
+        data_iter = iter(loader)
+        for _ in range(num_iters):
+            model.train_batch(data_iter=data_iter)
+    else:
+        train_with_deepspeed_engine(model, loader, num_iters)
 
 
 if __name__ == "__main__":
@@ -176,9 +190,46 @@ if __name__ == "__main__":
     # This is passed in via cmd
     parser.add_argument("--local_rank", type=int, default=0)
     parser.add_argument("--world_size", type=int, default=n_gpus)
-    parser.add_argument("--iter_nums", type=int, default=10)
+    parser.add_argument("--iter_nums", type=int, default=40)
     parser.add_argument(
-        "--checkpoint", action="store_true", help="Enable gradient checkpointing"
+        "--model_name",
+        type=str,
+        default="bert-large-uncased",
+        help="Model name",
+    )
+    parser.add_argument(
+        "--checkpoint",
+        type=float,
+        default=0.0,
+        help="Activation checkpointing ratio. 1.0 means all",
+    )
+    parser.add_argument(
+        "--batch_size",
+        type=int,
+        default=None,
+        help="Total batch size",
+    )
+    parser.add_argument(
+        "--micro_batch_size",
+        type=int,
+        default=None,
+        help="Micro batch size per GPU",
+    )
+    parser.add_argument(
+        "--seq_len",
+        type=int,
+        default=512,
+        help="Sequence length",
+    )
+    parser.add_argument(
+        "--disable_pipeline",
+        action="store_true",
+        help="Disable pipeline and only use ZeRO-3",
+    )
+    parser.add_argument(
+        "--disable_schedule",
+        action="store_true",
+        help="Disable Slapo schedule (only applicable with --disable-pipeline)",
     )
     args = parser.parse_args()
     # The main entry point is called directly without using subprocess

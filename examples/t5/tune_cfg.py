@@ -28,7 +28,7 @@ def update_space(args, space):
 
         space.create_symbol("ckpt_ratio", ckpt_ratio_cand)
     else:
-        space.create_symbol("batch_size", [2, 4, 8, 12, 16])
+        space.create_symbol("batch_size", [8, 16, 24, 32, 40])
 
     return space
 

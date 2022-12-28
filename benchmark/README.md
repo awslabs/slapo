@@ -42,3 +42,10 @@ bash run_all_single_node.sh configs/singe_node_v100_ckpt.cfg
 ```
 
 The results are logged to a .csv file and can be processed later.
+
+
+## Plot Results
+```bash
+bash run_all_single_node.sh configs/singe_device_v100.cfg
+python3 plot/single_device.py <csv_file>
+```

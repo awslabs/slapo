@@ -7,6 +7,8 @@ import torch
 import torch.distributed as dist
 import torch.nn as nn
 
+from slapo import init_empty_weights
+
 
 def trace_attention(sch, config, attn_path="encoder.layer.N.attention"):
     cnt = 0
@@ -46,7 +48,9 @@ def fix_attention_mask_shape(sch):
         sch.replace(new_repeat, op[1])
 
 
-def replace_and_shard_attention(sch, config, attn_path="encoder.layer.N.attention"):
+def replace_and_shard_attention(
+    sch, config, attn_path="encoder.layer.N.attention", delay_init=True
+):
     from epoi.inject.policy.bert import InjectHFBertSelfAttentionPolicy
     from epoi.ops.xformers_attn import GenericSelfAttention
 
@@ -85,7 +89,8 @@ def replace_and_shard_attention(sch, config, attn_path="encoder.layer.N.attentio
         init_config = InjectHFBertSelfAttentionPolicy.gen_init_config_from_object(
             sub_sch.mod
         )
-        new_mod = SelfAttention(**init_config)
+        with init_empty_weights(enable=delay_init):
+            new_mod = SelfAttention(**init_config)
         sub_sch.replace(new_mod)
         sub_sch.trace(
             tracer="pytorch",

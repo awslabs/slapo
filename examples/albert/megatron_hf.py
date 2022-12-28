@@ -24,7 +24,7 @@ from megatron.utils import average_losses_across_data_parallel_group
 from megatron.model.utils import init_method_normal
 
 
-def get_scheduled_model(
+def get_model(
     model_name,
     padded_vocab_size=None,
     binary_head=False,
@@ -32,12 +32,10 @@ def get_scheduled_model(
     disable_flash_attn=False,
     fp16=True,
     ckpt_ratio=0.0,
+    impl="slapo",
     delay_init=True,
 ):
     from transformers import AutoConfig, AlbertModel
-    import slapo
-    from slapo.utils.report import report_memory
-    from model import schedule_model
 
     config = AutoConfig.from_pretrained(model_name)
     if padded_vocab_size is not None:
@@ -45,21 +43,53 @@ def get_scheduled_model(
     config.type_vocab_size = 2 if binary_head else 0
     print(config)
 
-    report_memory()
-    with slapo.init_empty_weights(enable=delay_init):
+    if impl == "slapo":
+        import slapo
+        from slapo.utils.report import report_memory
+        from model import schedule_model
+
+        report_memory()
+        with slapo.init_empty_weights(enable=delay_init):
+            model = AlbertModel(config, add_pooling_layer=add_pooling_layer)
+        report_memory()
+        print(model)
+        sch = schedule_model(
+            model,
+            config,
+            disable_flash_attn=disable_flash_attn,
+            fp16=fp16,
+            ckpt_ratio=ckpt_ratio,
+            delay_init=delay_init,
+        )
+        model, _ = slapo.build(sch)
+        report_memory()
+
+    elif impl == "torchscript":
+        if ckpt_ratio > 0:
+            raise RuntimeError("TorchScript cannot support ckpt")
+
+        config.torchscript = True
+        model = AlbertModel(config=config, add_pooling_layer=add_pooling_layer)
+        if fp16:
+            model.half()
+        model.cuda()
+
+        bs = 8
+        seq_length = 512
+        device = "cuda"
+        input_ids = torch.ones(bs, seq_length, dtype=torch.long, device=device)
+        attention_mask = torch.ones(bs, seq_length, dtype=torch.long, device=device)
+        token_type_ids = torch.ones(bs, seq_length, dtype=torch.long, device=device)
+        model = torch.jit.trace(model, [input_ids, attention_mask, token_type_ids])
+
+    elif impl == "eager":
         model = AlbertModel(config, add_pooling_layer=add_pooling_layer)
-    report_memory()
-    print(model)
-    sch = schedule_model(
-        model,
-        config,
-        disable_flash_attn=disable_flash_attn,
-        fp16=fp16,
-        ckpt_ratio=ckpt_ratio,
-        delay_init=delay_init,
-    )
-    model, _ = slapo.build(sch)
-    report_memory()
+        if ckpt_ratio > 0:
+            model.gradient_checkpointing_enable()
+
+    else:
+        raise RuntimeError(f"Unrecognized impl `{impl}`")
+
     if fp16:
         model.half()
     model.cuda()
@@ -74,7 +104,14 @@ def model_provider(pre_process=True, post_process=True):
     disable_flash_attn = bool(int(os.environ.get("DISABLE_FLASH_ATTN", "0")))
     ckpt_ratio = 0.0
     if args.recompute_granularity is not None:
-        ckpt_ratio = float(os.environ.get("ckpt_ratio", 1.0))
+        ckpt_ratio = os.environ.get("ckpt_ratio", 1.0)
+        if ckpt_ratio == "selective":
+            raise NotImplementedError
+        ckpt_ratio = 1.0 if ckpt_ratio == "full" else float(ckpt_ratio)
+
+    impl = os.environ.get("IMPL", None)
+    if impl is None:
+        raise RuntimeError("'IMPL' not found in environment")
 
     from megatron.model.module import MegatronModule
     from megatron.model import LayerNorm
@@ -138,7 +175,7 @@ def model_provider(pre_process=True, post_process=True):
     class AlbertWithLMHead(torch.nn.Module):
         def __init__(self, add_pooling_layer):
             super().__init__()
-            self.albert = get_scheduled_model(
+            self.albert = get_model(
                 model_name,
                 args.padded_vocab_size,
                 args.bert_binary_head,
@@ -146,6 +183,7 @@ def model_provider(pre_process=True, post_process=True):
                 disable_flash_attn,
                 args.fp16,
                 ckpt_ratio,
+                impl,
             )
             init_method = init_method_normal(args.init_method_std)
             self.binary_head = torch.nn.Linear(args.hidden_size, 2)
@@ -178,8 +216,14 @@ def model_provider(pre_process=True, post_process=True):
                 attention_mask=attention_mask,
                 token_type_ids=token_type_ids,
             )
-            lm_output = output["last_hidden_state"].transpose(0, 1).contiguous()
-            pooled_output = output["pooler_output"]
+            if isinstance(output, dict):
+                lm_output = output["last_hidden_state"].transpose(0, 1).contiguous()
+                pooled_output = output["pooler_output"]
+            elif isinstance(output, tuple):
+                lm_output = output[0].transpose(0, 1).contiguous()
+                pooled_output = output[1]
+            else:
+                raise RuntimeError
             output_tensor = post_language_model_processing(
                 lm_output,
                 pooled_output,

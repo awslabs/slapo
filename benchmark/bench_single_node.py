@@ -235,6 +235,16 @@ def parse_args():
         parents=[common_parser],
         help="Dump environment variables",
     )
+    subprasers.add_parser(
+        "eager",
+        parents=[common_parser],
+        help="PyTorch Eager Mode",
+    )
+    subprasers.add_parser(
+        "torchscript",
+        parents=[common_parser],
+        help="TorchScript implementation",
+    )
     return parser.parse_args()
 
 
@@ -657,7 +667,18 @@ def main():
 
     assert args.dtype == "fp16", "Only fp16 is supported for now"
 
-    title = f"{'Megatron' if args.impl == 'megatron' else 'Slapo'} {args.model}"
+    if args.impl == "megatron":
+        impl_name = "Megatron"
+    elif args.impl == "slapo":
+        impl_name = "Slapo"
+    elif args.impl == "torchscript":
+        impl_name = "TorchScript"
+    elif args.impl == "eager":
+        impl_name = "PyTorch Eager"
+    else:
+        raise RuntimeError("Unrecognized implementation {}".format(impl_name))
+
+    title = f"{impl_name} {args.model}"
     memo = ""
 
     n_gpus = parse_gpus(args.gpus)
@@ -683,6 +704,8 @@ def main():
         memo += f"|grad_ckpt {args.gradient_checkpoint}"
         grad_ckpt = args.gradient_checkpoint
         kwargs["env"].append(f"ckpt_ratio={grad_ckpt}")
+
+    kwargs["env"].append(f"IMPL={args.impl}")
 
     results = []
     for n_gpu in n_gpus:

@@ -49,37 +49,76 @@ to accumulate the encoder_hidden_state gradient across skip connections
 """
 
 
-def get_scheduled_t5(
+def get_model(
     model_name,
     padded_vocab_size=None,
     disable_flash_attn=False,
     fp16=True,
     ckpt_ratio=0.0,
+    impl="slapo",
     delay_init=True,
 ):
     from transformers import AutoConfig, T5Model
-    import slapo
-    from slapo.utils.report import report_memory
-    from model import schedule_t5
 
     config = AutoConfig.from_pretrained(model_name)
     config.vocab_size = padded_vocab_size
     config.use_cache = False
 
-    report_memory()
-    with slapo.init_empty_weights(enable=delay_init):
+    if impl == "slapo":
+        import slapo
+        from slapo.utils.report import report_memory
+        from model import schedule_t5
+
+        report_memory()
+        with slapo.init_empty_weights(enable=delay_init):
+            model = T5Model(config)
+        report_memory()
+        sch = schedule_t5(
+            model,
+            config,
+            disable_flash_attn=disable_flash_attn,
+            fp16=fp16,
+            ckpt_ratio=ckpt_ratio,
+            delay_init=delay_init,
+        )
+        model, _ = slapo.build(sch)
+        report_memory()
+
+    elif impl == "torchscript":
+        if ckpt_ratio > 0:
+            raise RuntimeError("TorchScript cannot support ckpt")
+
+        config.torchscript = True
+        model = T5Model(config=config)
+        if fp16:
+            model.half()
+        model.cuda()
+
+        bs = 8
+        seq_length = 512
+        device = "cuda"
+        encoder_input_ids = torch.ones(bs, seq_length, dtype=torch.long, device=device)
+        decoder_input_ids = torch.ones(bs, seq_length, dtype=torch.long, device=device)
+        encoder_attn_mask = torch.ones(bs, seq_length, dtype=torch.long, device=device)
+        decoder_attn_mask = torch.ones(bs, seq_length, dtype=torch.long, device=device)
+        model = torch.jit.trace(
+            model,
+            [
+                encoder_input_ids,
+                decoder_input_ids,
+                encoder_attn_mask,
+                decoder_attn_mask,
+            ],
+        )
+
+    elif impl == "eager":
         model = T5Model(config)
-    report_memory()
-    sch = schedule_t5(
-        model,
-        config,
-        disable_flash_attn=disable_flash_attn,
-        fp16=fp16,
-        ckpt_ratio=ckpt_ratio,
-        delay_init=delay_init,
-    )
-    model, _ = slapo.build(sch)
-    report_memory()
+        if ckpt_ratio > 0:
+            model.gradient_checkpointing_enable()
+
+    else:
+        raise RuntimeError(f"Unrecognized impl `{impl}`")
+
     if fp16:
         model.half()
     model.cuda()
@@ -90,7 +129,6 @@ def model_provider(
     pre_process=True, post_process=True, add_encoder=True, add_decoder=True
 ):
     """Build the model."""
-    from transformers import AutoConfig, T5Model
 
     args = get_args()
     model_name = os.environ.get("MODEL_NAME", None)
@@ -99,17 +137,25 @@ def model_provider(
     disable_flash_attn = bool(int(os.environ.get("DISABLE_FLASH_ATTN", "0")))
     ckpt_ratio = 0.0
     if args.recompute_granularity is not None:
-        ckpt_ratio = float(os.environ.get("ckpt_ratio", 1.0))
+        ckpt_ratio = os.environ.get("ckpt_ratio", 1.0)
+        if ckpt_ratio == "selective":
+            raise NotImplementedError
+        ckpt_ratio = 1.0 if ckpt_ratio == "full" else float(ckpt_ratio)
+
+    impl = os.environ.get("IMPL", None)
+    if impl is None:
+        raise RuntimeError("'IMPL' not found in environment")
 
     class T5WithLMHead(torch.nn.Module):
         def __init__(self):
             super().__init__()
-            self.model = get_scheduled_t5(
+            self.model = get_model(
                 model_name,
                 args.padded_vocab_size,
                 disable_flash_attn,
                 args.fp16,
                 ckpt_ratio,
+                impl,
             )
 
             if post_process and add_decoder:
@@ -164,7 +210,12 @@ def model_provider(
                 decoder_input_ids=decoder_input_ids,
                 decoder_attention_mask=decoder_attn_mask,
             )
-            lm_output = output["last_hidden_state"].transpose(0, 1).contiguous()
+            if isinstance(output, dict):
+                lm_output = output["last_hidden_state"].transpose(0, 1).contiguous()
+            elif isinstance(output, tuple):
+                lm_output = output[0].transpose(0, 1).contiguous()
+            else:
+                raise RuntimeError
 
             output_tensor = self.post_model_processing(lm_output, lm_labels)
             return output_tensor

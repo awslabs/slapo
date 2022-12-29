@@ -86,13 +86,24 @@ def generate_pipeline_cuts(num_layers, num_pp, is_encoder_decoder=False):
     return even_partition(num_layers, num_pp)
 
 
-def train_with_deepspeed_engine(model, dataloader, steps=40):
-    """The training loop for DeepSpeedEngine."""
+def train_with_torch(
+    model, dataloader, optimizer=None, preproc=None, postproc=None, steps=40
+):
+    """The training loop for DeepSpeedEngine and PyTorch runtime."""
+    is_deepspeed = hasattr(model, "backward")
+    if not is_deepspeed and optimizer is None:
+        raise ValueError("optimizer must be provided for PyTorch runtime")
+
     for step, batch in enumerate(dataloader):
-        inputs, labels = batch
+        inputs, labels = preproc(step, batch) if preproc is not None else batch
         loss = model(*inputs, labels=labels).loss
-        model.backward(loss)
-        model.step()
+        if is_deepspeed:
+            model.backward(loss)
+            model.step()
+        else:
+            loss.backward()
+            optimizer.step()
+        loss = postproc(step, loss) if postproc is not None else loss
 
         if step % 10 == 0:
             logger.info(f"Step {step}, LOSS: {loss.item()}", ranks=0)

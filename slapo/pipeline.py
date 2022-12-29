@@ -8,7 +8,10 @@ import torch.fx as fx
 
 from torch.fx.passes.split_module import split_module
 
+from .logger import get_logger
 from .model_dialect import get_dialect_cls
+
+logger = get_logger()
 
 
 def propagate_partition(sch, starting_stage_id=0, stop_at=None):
@@ -252,8 +255,17 @@ def analyze_pipeline_module(top_mod):
             liveness[curr_stage_id].extend(diff)
 
     # Override the liveness of the first stage to match the input order.
-    assert set(liveness[0]) == set(liveness[-1])
-    liveness[0] = liveness[-1]
+    if set(liveness[0]) != set(liveness[-1]):
+        logger.warning(
+            f"Inputs between first submodule and top module are mismatched"
+            f" (first submodule: {liveness[0]}, top module: {liveness[-1]}). "
+            "Possibly because some arguments in top modules are specified to None "
+            "when tracing, and they are not removed by the PyTorch tracer. "
+            "This should not be an issue if the None arguments are really 'None' "
+            "in the training process."
+        )
+    else:
+        liveness[0] = liveness[-1]
     del liveness[-1]
 
     stage_id_2_name = {v: k for k, v in submod_2_stage_id.items()}

@@ -1,25 +1,26 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Train with DeepSpeed ZeRO-3 or pipeline."""
+"""Train with DeepSpeed ZeRO-3 or pipeline.
+Note that this model is not from HuggingFace, but we just use a unified
+file name for easy benchmarking.
+"""
 import argparse
 
 import deepspeed
 import torch
 import torch.distributed as dist
-from deepspeed.utils import RepeatingLoader
-from transformers import BertLMHeadModel, AutoConfig
 
 import slapo
 from slapo.logger import get_logger
 from slapo.op.cross_entropy import ParallelCrossEntropy
 from slapo.utils.report import report_memory
 
-from model import schedule_model
+from model import schedule_model, get_model_config, get_model
+from utils import count_parameters, get_data_loader
 from examples.utils import (
     train_with_torch,
     get_ds_config,
     create_dist_group_for_pipeline,
-    generate_pipeline_cuts,
 )
 
 SINGLE_DEVICE_FOR_DEBUG = False
@@ -49,7 +50,7 @@ def train(args):
         deepspeed.init_distributed(dist_backend="nccl")
         logger.info("Use deepspeed to initialize", ranks=0)
         if enable_pipeline:
-            num_pp, num_mp = 4, 2  # FIXME: May need to change for multi-node.
+            num_pp, num_mp = 4, 1  # FIXME: May need to change for multi-node.
         else:
             logger.info("Pipeline disabled", ranks=0)
         topology, group = create_dist_group_for_pipeline(num_pp, num_mp)
@@ -62,55 +63,44 @@ def train(args):
         x = torch.tensor(0, device=torch.cuda.current_device())
         dist.broadcast(x, src=0)
 
-    # https://huggingface.co/bert-large-uncased/blob/main/config.json
-    model_config = AutoConfig.from_pretrained(args.model_name)
-    model_config.gradient_checkpointing = use_default_ckpt
+    model_config = get_model_config(args.model_name)
 
     report_memory(msg="Before creating model")
     with slapo.init_empty_weights(enable=enable_pipeline):
-        model = BertLMHeadModel(model_config)
+        model = get_model(*model_config)
     report_memory(msg="After creating model")
+    logger.info(f"Param size {count_parameters(model)/1e9}B", ranks=0)
 
-    # Evenly partition layers for pipelining.
-    if enable_pipeline:
-        pipeline_cuts = generate_pipeline_cuts(model_config.num_hidden_layers, num_pp)
-    elif SINGLE_DEVICE_FOR_DEBUG:
-        pipeline_cuts = generate_pipeline_cuts(model_config.num_hidden_layers, 4)
-    else:
-        pipeline_cuts = []
+    # Partition layers (6, 8, 46, 6) for pipelining.
+    pipeline_cuts = [[], [], [1, 16, 33], []]
     logger.info(f"Pipeline cuts: {pipeline_cuts}", ranks=0)
 
     if args.disable_schedule:
         assert not enable_pipeline
         sch = slapo.create_schedule(model, group=group)
+        if args.fp16:
+            sch.mod = sch.mod.half()
     else:
         sch = schedule_model(
             model,
             model_config,
-            prefix="bert",
+            prefix="model",
             ckpt_ratio=args.checkpoint,
             bcast_input=True,
             group=group,
+            fp16=args.fp16,
             pipeline_cuts=pipeline_cuts,
-            delay_init=enable_pipeline,
         )
-    if SINGLE_DEVICE_FOR_DEBUG:
-        slapo.build(sch)
-        assert False
 
     if enable_pipeline:
         # FIXME: is mbs=1 correct?
         batch_size = 32 if batch_size is None else batch_size
-        ds_config_dict = get_ds_config(batch_size, 1, True, False, "Pipeline")
+        ds_config_dict = get_ds_config(batch_size, 1, args.fp16, False, "Pipeline")
         loss_fct = ParallelCrossEntropy(group=group)
 
         def loss_fn(outputs, labels):
-            prediction_scores = outputs
-            shifted_prediction_scores = prediction_scores[:, :-1, :].contiguous()
-            labels = labels[:, 1:].contiguous()
-            lm_loss = loss_fct(shifted_prediction_scores, labels)
-            lm_loss = lm_loss.contiguous().mean()
-            return lm_loss
+            loss = loss_fct(outputs.contiguous(), labels.squeeze()).contiguous().mean()
+            return loss
 
         model, _ = slapo.build(
             sch,
@@ -119,6 +109,7 @@ def train(args):
             config=ds_config_dict,
             loss_fn=loss_fn,
         )
+
     else:
         if batch_size is not None:
             micro_batch_size = batch_size // args.world_size
@@ -128,7 +119,7 @@ def train(args):
 
         logger.info(f"BS={batch_size}, MBS={micro_batch_size}", ranks=0)
         ds_config_dict = get_ds_config(
-            batch_size, micro_batch_size, True, True, "ZeRO-3"
+            batch_size, micro_batch_size, args.fp16, True, "ZeRO-3"
         )
         model, _ = slapo.build(
             sch,
@@ -139,40 +130,8 @@ def train(args):
         model = model.to(device)
     report_memory(msg="After building model")
 
-    seq_length = args.seq_len
-    input_ids = torch.ones(
-        micro_batch_size, seq_length, dtype=torch.long, device=device
-    )
-    bert_input_dict = {
-        "input_ids": input_ids,
-        "attention_mask": torch.ones(
-            micro_batch_size,
-            seq_length,
-            dtype=torch.float16,
-            device=device,
-            requires_grad=False,
-        ),
-        "token_type_ids": torch.ones(
-            micro_batch_size, seq_length, dtype=torch.long, device=device
-        ),
-        "labels": input_ids,
-    }
-
-    loader = RepeatingLoader(
-        [
-            # First batch
-            # (inputs, labels)
-            (
-                (
-                    bert_input_dict["input_ids"],
-                    bert_input_dict["attention_mask"],
-                    bert_input_dict["token_type_ids"],
-                ),
-                bert_input_dict["labels"],
-            ),
-            # Rest of the batches
-            # ...
-        ]
+    loader = get_data_loader(
+        micro_batch_size, device, dtype=torch.float16 if args.fp16 else torch.float
     )
 
     num_iters = args.iter_nums
@@ -194,7 +153,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--model_name",
         type=str,
-        default="bert-large-uncased",
+        default="wideresnet-250M",
         help="Model name",
     )
     parser.add_argument(
@@ -202,6 +161,11 @@ if __name__ == "__main__":
         type=float,
         default=0.0,
         help="Activation checkpointing ratio. 1.0 means all",
+    )
+    parser.add_argument(
+        "--fp16",
+        action="store_true",
+        help="Enable fp16",
     )
     parser.add_argument(
         "--batch_size",
@@ -214,12 +178,6 @@ if __name__ == "__main__":
         type=int,
         default=None,
         help="Micro batch size per GPU",
-    )
-    parser.add_argument(
-        "--seq_len",
-        type=int,
-        default=512,
-        help="Sequence length",
     )
     parser.add_argument(
         "--disable_pipeline",

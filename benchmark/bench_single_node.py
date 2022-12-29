@@ -48,12 +48,24 @@ class Exp:
     kwargs: dict = None
 
     def __post_init__(self):
-        model_conf = AutoConfig.from_pretrained(self.model)
+        self.num_gpus = len(self.gpus.split(","))
+        self.launcher = f"torchrun --nproc_per_node {self.num_gpus}"
+
+        try:
+            model_conf = AutoConfig.from_pretrained(self.model)
+        except:
+            # Not a model in HF hub. Use fake values to avoid Megatron errors.
+            self.num_layers = 1
+            self.hidden_size = 1
+            self.vocab_size = 1
+            self.num_heads = 1
+            self.tflops = 0
+            return
+
         get = lambda *keys: max(
             [getattr(model_conf, k) if hasattr(model_conf, k) else 0 for k in keys]
         )
         self.num_layers = get("num_hidden_layers", "n_layer")
-        self.num_gpus = len(self.gpus.split(","))
         self.hidden_size = get("hidden_size", "n_embd", "d_model")
         self.vocab_size = get("vocab_size")
         self.num_heads = get("num_attention_heads", "n_head")
@@ -116,7 +128,6 @@ class Exp:
 
             # TFLOPs to train one example
             self.tflops = (enc_flops + dec_flops) / 1e12
-        self.launcher = f"torchrun --nproc_per_node {self.num_gpus}"
 
     def print_results(self, append_to=""):
         prefix = f"{self.impl}\t{self.model}\t{self.seq_len}\t{self.seq_len_dec}\t"
@@ -408,8 +419,6 @@ def main():
     if args.impl == "env":
         list_envs(args.append_to)
         return
-
-    assert args.dtype == "fp16", "Only fp16 is supported for now"
 
     framework = "deepspeed" if "deepspeed" in args.impl else "megatron"
     if args.impl == "megatron":

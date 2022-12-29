@@ -23,6 +23,7 @@ from .tracer import trace as trace_module
 
 logger = get_logger()
 
+
 def _get_unique_module_name(gm_or_modules, name):
     if isinstance(gm_or_modules, fx.GraphModule):
         named_module = dict(gm_or_modules.named_modules())
@@ -699,9 +700,20 @@ def create_schedule(
             return False
         if isinstance(module, nn.ModuleList):
             return True
+        if (
+            isinstance(module, fx.GraphModule)
+            and parent is not None
+            and isinstance(parent.mod, fx.GraphModule)
+        ):
+            # If the module and its parent are both traced, we can check
+            # the caller in the parent. If there is a caller that directly
+            # calls this module, then this is not a module list.
+            for node in parent.mod.graph.nodes:
+                if node.op == "call_module" and node.target == name:
+                    return False
 
-        # Even it is not module list, as long as its children are indexed by
-        # sequential integers, we treat it as a module list.
+        # If all above cannot work, we could only chacke if its children are indexed by
+        # sequential integers, and treat it as a module list if so.
         child_names = [name for name, _ in module.named_children()]
         if not child_names:
             return False
@@ -888,12 +900,21 @@ def build(sch: Schedule, topology=None, target=None, **kwargs):
                 raise ValueError("Must provide topology for deepspeed pipeline")
             if "loss_fn" not in kwargs:
                 raise ValueError("Must provide loss_fn for deepspeed pipeline")
+            if (
+                "fp16" not in kwargs["config"]
+                or not kwargs["config"]["fp16"]["enabled"]
+            ):
+                param_dtype = torch.float
+            else:
+                param_dtype = torch.float16
+
             stage_modules = generate_pipeline_modules(sch, target)
             model = pipe.PipelineModule(
                 stage_modules,
                 topology=topology,
                 partition_method="uniform",
                 loss_fn=kwargs["loss_fn"],
+                param_dtype=param_dtype,
             )
         else:
             model = sch.mod

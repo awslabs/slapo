@@ -4,6 +4,7 @@
 import os
 import re
 
+
 def add_megatron_parser(common_parser, subprasers):
     mt_parser = subprasers.add_parser(
         "megatron",
@@ -15,6 +16,7 @@ def add_megatron_parser(common_parser, subprasers):
         action="store_true",
         help="Disable fusion kernels in Megatron models.",
     )
+
 
 def parse_megatron_kwargs(args, kwargs, memo):
     if hasattr(args, "disable_fuse_kernels") and args.disable_fuse_kernels:
@@ -31,6 +33,7 @@ def parse_megatron_kwargs(args, kwargs, memo):
         kwargs["env"].append(f"ckpt_ratio={args.gradient_checkpoint}")
 
     return kwargs, memo
+
 
 def megatron_bert_cmd(exp):
     if exp.impl == "megatron":
@@ -168,6 +171,24 @@ def megatron_t5_cmd(exp):
     )
 
 
+def megatron_wideresnet_cmd(exp):
+    if exp.impl == "megatron":
+        raise NotImplementedError("Megatron does not support WideResNet")
+    else:
+        import slapo
+
+        path = slapo.__path__[0]
+        script_file = f"{path}/../examples/wideresnet/megatron_hf.py"
+
+    return (
+        script_file,
+        [  # Fake configs.
+            f"--seq-length 1",
+            f"--max-position-embeddings 10",
+        ],
+    )
+
+
 MEGATRON_COMMAND_BY_MODEL = {
     "bert": megatron_bert_cmd,
     "albert": megatron_albert_cmd,
@@ -175,6 +196,7 @@ MEGATRON_COMMAND_BY_MODEL = {
     "t5": megatron_t5_cmd,
     "roberta": megatron_roberta_cmd,
     "opt": megatron_opt_cmd,
+    "wideresnet": megatron_wideresnet_cmd,
 }
 
 
@@ -203,7 +225,9 @@ def megatron_log(exp, log_filename):
 
     # 1. Every 5 steps, Megatron reports the average iteration time of the past 5 steps.
     # 2. We remove the first value (of the first 5 steps) as the warmup.
-    avg_time = lambda times: (sum(times[1:]) * 5) / (exp.steps - 5)
+    avg_time = (
+        lambda times: (sum(times[1:]) * 5) / (exp.steps - 5) if times is not None else 0
+    )
 
     iter_time = avg_time(iter_times)
     forward_compute_time = avg_time(query("forward-compute", last_only=False))

@@ -9,8 +9,6 @@ import pandas as pd
 # import seaborn as sns
 # sns.set_theme(context="paper", style="whitegrid", palette=sns.color_palette("Set3", 10))
 
-NORMALIZE = False
-
 
 def normalize(data):
     tmp_matrix = np.array(list(data.values()))
@@ -35,6 +33,7 @@ def draw_bar(
     legends=None,
     title=None,
     outfile="test",
+    norm=False,
 ):
     x = np.arange(0, len(x_ticklabels) * 3, 3)
     width = 0.23
@@ -52,7 +51,7 @@ def draw_bar(
     # for i, v in enumerate(baseline/best):
     #     ax.text(i, v, str(v), color='black', fontweight='bold')
     ax.set_axisbelow(True)
-    if NORMALIZE:
+    if norm:
         ax.legend(bbox_to_anchor=(0.5, 1.3), ncol=3, loc="upper center")
     else:
         ax.legend(loc=0)  # , prop={"size": 10})
@@ -63,7 +62,7 @@ def draw_bar(
     plt.show()
 
 
-def plot(file_name):
+def plot(file_name, norm=False):
     with open(file_name, "r") as csv_file:
         for line in csv_file:
             if "Impl" in line:
@@ -80,6 +79,7 @@ def plot(file_name):
         "GPT": "EleutherAI/gpt-neo-125M",
         "OPT": "facebook/opt-350m",
         "T5": "t5-base",
+        "WideResNet": "wideresnet-250M",
     }
     legend_name_mapping = {
         "eager": "PyTorch Eager",
@@ -115,7 +115,7 @@ def plot(file_name):
                 data[impl].append(0)
             else:
                 data[impl].append(float(thrpt[0]))
-    if NORMALIZE:
+    if norm:
         fig, ax = plt.subplots(1, 1, figsize=(6, 2.5))
         data = normalize(data)
     else:
@@ -126,14 +126,15 @@ def plot(file_name):
         ax,
         x_ticklabels=list(model_name_mapping.keys()),
         x_label="",
-        y_label="Normalized Throughput" if NORMALIZE else "Throughput (samples/sec)",
+        y_label="Normalized Throughput" if norm else "Throughput (samples/sec)",
         legends=legend_name_mapping,
         title=None,
-        outfile="single_device_v100{}".format("_norm" if NORMALIZE else ""),
+        outfile="single_device_v100{}".format("_norm" if norm else ""),
+        norm=norm,
     )
 
 
 if __name__ == "__main__":
     assert len(sys.argv) > 1
     file_name = sys.argv[1]
-    plot(file_name)
+    plot(file_name, norm=True if len(sys.argv) > 1 else False)

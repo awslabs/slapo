@@ -126,11 +126,14 @@ def replace_and_shard_attention(
             super().__init__()
             self.config = config
             self.attention = AlbertXFAttention(config, **kwargs)
-            device = "cuda"
-            # FIXME: Avoid hardcoding
-            output = torch.ones((8, 512, 1024), dtype=torch.float16, device=device)
-            self.ffn = FFN(config).half().cuda()
-            self.ffn = torch.jit.trace(self.ffn, [output])
+            if dist.get_world_size() == 1:
+                # FIXME: Avoid hardcoding
+                device = "cuda"
+                output = torch.ones((8, 512, 1024), dtype=torch.float16, device=device)
+                self.ffn = FFN(config).half().cuda()
+                self.ffn = torch.jit.trace(self.ffn, [output])
+            else:
+                self.ffn = FFN(config)
 
         def forward(
             self,
@@ -256,7 +259,7 @@ def shard_mlp(
     sch,
     config,
     path="encoder.albert_layer_groups.N.albert_layers.N",
-    fc_names=["ffn", "ffn_output"],
+    fc_names=["ffn.ffn", "ffn.ffn_output"],
 ):
     if sch.world_size == 1:
         return

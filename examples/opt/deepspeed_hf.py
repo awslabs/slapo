@@ -7,7 +7,7 @@ import deepspeed
 import torch
 import torch.distributed as dist
 from deepspeed.utils import RepeatingLoader
-from transformers import RobertaForCausalLM, AutoConfig
+from transformers import OPTForCausalLM, AutoConfig
 
 import slapo
 from slapo.logger import get_logger
@@ -68,7 +68,7 @@ def train(args):
 
     report_memory(msg="Before creating model")
     with slapo.init_empty_weights(enable=enable_pipeline):
-        model = RobertaForCausalLM(config)
+        model = OPTForCausalLM(config)
     report_memory(msg="After creating model")
 
     # Evenly partition layers for pipelining.
@@ -87,7 +87,7 @@ def train(args):
         sch = schedule_model(
             model,
             config,
-            prefix="roberta",
+            prefix="model",
             ckpt_ratio=args.checkpoint,
             bcast_input=True,
             group=group,
@@ -100,7 +100,7 @@ def train(args):
 
     if enable_pipeline:
         # FIXME: is mbs=1 correct?
-        batch_size = 32 if batch_size is None else batch_size
+        batch_size = 16 if batch_size is None else batch_size
         ds_config_dict = get_ds_config(batch_size, 1, True, False, "Pipeline")
         loss_fct = ParallelCrossEntropy(group=group)
 
@@ -152,7 +152,7 @@ def train(args):
             device=device,
             requires_grad=False,
         ),
-        "token_type_ids": torch.ones(
+        "position_ids": torch.ones(
             micro_batch_size, seq_length, dtype=torch.long, device=device
         ),
         "labels": input_ids,
@@ -193,7 +193,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--model_name",
         type=str,
-        default="roberta-large",
+        default="facebook/opt-350m",
         help="Model name",
     )
     parser.add_argument(

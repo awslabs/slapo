@@ -8,6 +8,7 @@ import torch.distributed as dist
 import torch.nn as nn
 
 from slapo import init_empty_weights
+from typing import Optional
 
 
 def trace_attention(
@@ -58,12 +59,46 @@ def replace_and_shard_attention(
 ):
     from epoi.inject.policy.bert import InjectHFBertSelfAttentionPolicy
     from epoi.ops.xformers_attn import GenericSelfAttention
+    from transformers.activations import ACT2FN
+    from transformers.pytorch_utils import apply_chunking_to_forward
+
+    # TODO: Use subgraph matching to obtain FFN module
+    class FFN(nn.Module):
+        def __init__(self, config):
+            super().__init__()
+            self.config = config
+            self.chunk_size_feed_forward = config.chunk_size_feed_forward
+            self.ffn = nn.Linear(config.hidden_size, config.intermediate_size)
+            self.ffn_output = nn.Linear(config.intermediate_size, config.hidden_size)
+            self.activation = ACT2FN[config.hidden_act]
+            self.dropout = nn.Dropout(float(config.hidden_dropout_prob))
+            self.seq_len_dim = 1
+            self.full_layer_layer_norm = nn.LayerNorm(
+                config.hidden_size, eps=config.layer_norm_eps
+            )
+
+        def forward(self, context_layer: torch.Tensor):
+            ffn_output = apply_chunking_to_forward(
+                self.ff_chunk,
+                self.chunk_size_feed_forward,
+                self.seq_len_dim,
+                context_layer,
+            )
+            hidden_states = self.full_layer_layer_norm(ffn_output + context_layer)
+
+            return (hidden_states,)
+
+        def ff_chunk(self, attention_output: torch.Tensor) -> torch.Tensor:
+            ffn_output = self.ffn(attention_output)
+            ffn_output = self.activation(ffn_output)
+            ffn_output = self.ffn_output(ffn_output)
+            return ffn_output
 
     class AlbertXFAttention(nn.Module):
         def __init__(self, config, **kwargs):
             super().__init__()
             self.self_attn = GenericSelfAttention(**kwargs)
-            self.output_dropout = nn.Dropout(config.hidden_dropout_prob)
+            self.output_dropout = nn.Dropout(float(config.hidden_dropout_prob))
             self.dense = nn.Linear(config.hidden_size, config.hidden_size)
             self.LayerNorm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
 
@@ -71,10 +106,10 @@ def replace_and_shard_attention(
             self,
             hidden_states: torch.Tensor,
             attention_mask=None,
-            head_mask=None,
-            output_attentions=False,
+            head_mask: Optional[torch.FloatTensor] = None,
+            output_attentions: bool = False,
         ):
-            outputs = self.self_attn(hidden_states, attention_mask, None, False)
+            outputs = self.self_attn(hidden_states, attention_mask)
             context_layer = outputs[0]
 
             projected_context_layer = self.dense(context_layer)
@@ -84,17 +119,32 @@ def replace_and_shard_attention(
             layernormed_context_layer = self.LayerNorm(
                 hidden_states + projected_context_layer_dropout
             )
-            return (
-                (layernormed_context_layer, None)
-                if output_attentions
-                else (layernormed_context_layer,)
-            )
+            return (layernormed_context_layer, None)
 
-    num_layers, num_heads, hidden_size = (
-        config.num_hidden_layers,
-        config.num_attention_heads,
-        config.hidden_size,
-    )
+    class AlbertLayer(nn.Module):
+        def __init__(self, config, **kwargs):
+            super().__init__()
+            self.config = config
+            self.attention = AlbertXFAttention(config, **kwargs)
+            device = "cuda"
+            # FIXME: Avoid hardcoding
+            output = torch.ones((8, 512, 1024), dtype=torch.float16, device=device)
+            self.ffn = FFN(config).half().cuda()
+            self.ffn = torch.jit.trace(self.ffn, [output])
+
+        def forward(
+            self,
+            hidden_states: torch.Tensor,
+            attention_mask: Optional[torch.FloatTensor] = None,
+            head_mask: Optional[torch.FloatTensor] = None,
+            output_attentions: bool = False,
+            output_hidden_states: bool = False,
+        ):
+            attention_output = self.attention(
+                hidden_states, attention_mask, head_mask, output_attentions
+            )
+            res = self.ffn(attention_output[0])
+            return res
 
     cnt = 0
     for idx in range(1):  # use layer group
@@ -103,10 +153,15 @@ def replace_and_shard_attention(
         init_config = InjectHFBertSelfAttentionPolicy.gen_init_config_from_object(
             sub_sch.mod
         )
-        with init_empty_weights(enable=delay_init):
-            new_mod = AlbertXFAttention(config, **init_config)
-        sub_sch.replace(new_mod)
-        sub_sch["self_attn"].trace(
+        sch[f"{prefix}"].replace(AlbertLayer(config, **init_config))
+
+        num_layers, num_heads, hidden_size = (
+            config.num_hidden_layers,
+            config.num_attention_heads,
+            config.hidden_size,
+        )
+
+        sch[f"{prefix}.attention.self_attn"].trace(
             tracer="pytorch",
             leaf_modules=["MemoryEfficientAttentionOp"],
             concrete_args={
@@ -149,6 +204,7 @@ def replace_and_shard_attention(
             x = x.view(new_x_shape)
             return x
 
+        sub_sch = sch[f"{prefix}.attention"]
         subgraphs = sub_sch["self_attn"].find("query|key|value", pattern)
         assert len(subgraphs) != 0
         with init_empty_weights(enable=delay_init):

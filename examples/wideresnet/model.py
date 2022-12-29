@@ -68,7 +68,7 @@ def schedule_model(
         logger.info(f"Checkpointing {n_ckpt} layers", ranks=0)
 
     # Cut pipeline stages.
-    if pipeline_cuts is not None:
+    if pipeline_cuts:
         assert len(pipeline_cuts) == 4
         input_names = ["x"]
         sig = inspect.signature(model.forward)

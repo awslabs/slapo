@@ -18,7 +18,7 @@ def parse_deepspeed_kwargs(args, kwargs, memo):
 
 
 def identify_model_key(exp):
-    for model_key in ["bert", "gpt", "albert", "t5", "opt", "roberta"]:
+    for model_key in ["bert", "gpt", "albert", "t5", "opt", "roberta", "wideresnet"]:
         short_name = exp.model.split("/")[-1].split("-")[0]
         if model_key == short_name:
             return model_key

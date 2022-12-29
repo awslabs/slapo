@@ -13,6 +13,7 @@ import torch.distributed as dist
 from torch.autograd import Variable
 import slapo
 
+
 @pytest.fixture(scope="session", autouse=True)
 def init_dist(request):
     torch.manual_seed(9999)
@@ -25,6 +26,13 @@ def init_dist(request):
         dist.destroy_process_group()
 
     request.addfinalizer(destory_dist)
+
+
+def sync_model_params(model):
+    rank = dist.get_rank()
+    model = model.cuda(rank)
+    for param in model.parameters():
+        dist.broadcast(param, src=0)
 
 
 def gather_grad(model, param_path_and_gather_axis):
@@ -81,21 +89,23 @@ def test_linear():
             out = self.linear2(out)
             return out
 
-    world_size = dist.get_world_size()
     rank = dist.get_rank()
-
     model = Model()
 
-    sch = slapo.create_schedule(copy.deepcopy(model), tracer="pytorch")
+    # Broadcast parameters to make sure all ranks have the same model.
+    sync_model_params(model)
+
+    sch = slapo.create_schedule(copy.deepcopy(model))
     sch["linear1"].shard("weight", axis=0)
     sch["linear1"].shard("bias", axis=0)
-    sch["linear1"].sync(mode="backward") # backward allreduce only
+    sch["linear1"].sync(mode="backward")  # backward allreduce only
     sch["linear2"].shard("weight", axis=1)
-    sch["linear2"].sync(mode="forward") # forward allreduce only
+    sch["linear2"].sync(mode="forward")  # forward allreduce only
     sch_model, _ = slapo.build(sch)
 
     sch_model.cuda(rank)
     data = torch.randn((10, 20), requires_grad=True).cuda(rank)
+    dist.broadcast(data, src=0)
     out = sch_model(data)
     out.mean().backward()
 
@@ -121,6 +131,7 @@ def test_conv():
     inplanes = planes = 64
     base_width = 128
     groups = 1
+    rank = dist.get_rank()
 
     def conv3x3(
         in_planes: int,
@@ -150,30 +161,63 @@ def test_conv():
             super().__init__()
             width = int(planes * (base_width / 64.0)) * groups
             self.conv1 = conv1x1(inplanes, width)
+            self.bn1 = torch.nn.BatchNorm2d(width)
             self.conv2 = conv3x3(width, width, 1, groups, 1)
+            self.bn2 = torch.nn.BatchNorm2d(width)
             self.conv3 = conv1x1(width, planes * expansion)
+            self.bn3 = torch.nn.BatchNorm2d(planes * expansion)
 
         def forward(self, data):
             out = self.conv1(data)
+            out = self.bn1(out)
             out = self.conv2(out)
+            out = self.bn2(out)
             out = self.conv3(out)
+            out = self.bn3(out)
             return out
 
-    rank = dist.get_rank()
     model = Model()
 
-    sch = slapo.create_schedule(copy.deepcopy(model), tracer="pytorch")
+    # Broadcast parameters to make sure all ranks have the same model.
+    sync_model_params(model)
+
+    sch = slapo.create_schedule(copy.deepcopy(model))
     # Layout of input/weight: (N, C, H, W), (O, I, H, W)
+
+    # Forward: partitioned output (optional allgather).
+    # Backward: allreduce.
     sch["conv1"].shard("weight", axis=0)
-    sch["conv1"].sync(mode="backward") # backward allreduce only
+    sch["conv1"].sync(mode="backward")
+
+    # We choose not allgather, so we need to shard bn as well.
+    sch["bn1"].shard("weight", axis=0)
+    sch["bn1"].shard("bias", axis=0)
+    sch["bn1"].shard("running_mean", axis=0)
+    sch["bn1"].shard("running_var", axis=0)
+
+    # Forward: partial output (need allreduce)
+    # Backward: do nothing.
     sch["conv2"].shard("weight", axis=1)
     sch["conv2"].sync(mode="forward") # forward allreduce only
+
+    # Forward: partitioned output (optional allgather).
+    # Backward: allreduce.
     sch["conv3"].shard("weight", axis=0)
-    sch["conv3"].sync(mode="both") # forward allgather + backward split/allreduce
+    sch["conv3"].sync(mode="backward")
+
+    # We choose not allgather, so we need to shard bn as well.
+    # If we choose allgather (sch["conv3"].sync("both")), then we don't need to
+    # worry about bn.
+    sch["bn3"].shard("weight", axis=0)
+    sch["bn3"].shard("bias", axis=0)
+    sch["bn3"].shard("running_mean", axis=0)
+    sch["bn3"].shard("running_var", axis=0)
+    sch["bn3"].sync("both")
     sch_model, _ = slapo.build(sch)
 
     sch_model.cuda(rank)
     data = torch.randn((4, 64, 56, 56), requires_grad=True).cuda(rank)
+    dist.broadcast(data, src=0)
     data = Variable(data, requires_grad=True)  # Make data.grad avaiable for verifying
     out = sch_model(data)
     out.mean().backward()

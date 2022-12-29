@@ -15,10 +15,24 @@ def shard_layers(sch, config):
             # to access the layer. This is a constraint of the current
             # hierarchical schedule.
             sub_sch = sch[f"layer{idx + 1}"][str(lidx)]
+            # Forward: partitioned output.
+            # Backward: allreduce.
             sub_sch["conv1"].shard("weight", axis=0)
             sub_sch["conv1"].sync(mode="backward")
+
+            # We choose not allgather, so we need to shard bn as well.
+            sub_sch["bn1"].shard("weight", axis=0)
+            sub_sch["bn1"].shard("bias", axis=0)
+            sub_sch["bn1"].shard("running_mean", axis=0)
+            sub_sch["bn1"].shard("running_var", axis=0)
+
+            # Forward: partial output (need allreduce)
+            # Backward: do nothing.
             sub_sch["conv2"].shard("weight", axis=1)
-            sub_sch["conv2"].sync(mode="forward")
+            sub_sch["conv2"].sync(mode="forward") # forward allreduce only
+
+            # Forward: partitioned output (followed by allgather).
+            # Backward: allreduce.
             sub_sch["conv3"].shard("weight", axis=0)
             sub_sch["conv3"].sync(mode="both")
 

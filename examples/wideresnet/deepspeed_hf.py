@@ -72,7 +72,9 @@ def train(args):
     logger.info(f"Param size {count_parameters(model)/1e9}B", ranks=0)
 
     # Partition layers (6, 8, 46, 6) for pipelining.
-    pipeline_cuts = [[], [], [1, 16, 33], []]
+    pipeline_cuts = []
+    if enable_pipeline:
+        pipeline_cuts = [[], [], [1, 16, 33], []]
     logger.info(f"Pipeline cuts: {pipeline_cuts}", ranks=0)
 
     if args.disable_schedule:
@@ -188,6 +190,11 @@ if __name__ == "__main__":
         "--disable_schedule",
         action="store_true",
         help="Disable Slapo schedule (only applicable with --disable-pipeline)",
+    )
+    parser.add_argument(
+        "--seq_len",
+        type=int,
+        help="Unused. Only for compatibility with other scripts.",
     )
     args = parser.parse_args()
     # The main entry point is called directly without using subprocess

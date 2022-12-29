@@ -77,7 +77,7 @@ class _AllGatherForwardOutput(torch.autograd.Function):
         rank = dist.get_rank(group)
         sharded_size = grad_output.shape[dim] // world_size
         ret = grad_output.split(sharded_size, dim=dim)[rank]
-        return ret, None
+        return ret, None, None
 
 
 def all_gather_forward_output(input, dim, group):
@@ -212,28 +212,40 @@ class Schedule:
         return True
 
     @register_primitive(need_dist=True)
-    def shard(self, param_name: str, axis: int):
-        param = self.mod.get_parameter(param_name)
-        assert axis < len(param.shape)
-        # TODO: Support arbitrary size sharding
-        if param.shape[axis] % self.world_size != 0:
-            raise RuntimeError(
-                f"Parameter {param_name} in {self.path} cannot be sharded along axis "
-                f"{axis} with size {param.shape[axis]} by {self.world_size}"
+    def shard(self, tensor_name: str, axis: int):
+        def _shard(name, tensor):
+            assert axis < len(tensor.shape)
+            # TODO: Support arbitrary size sharding
+            if tensor.shape[axis] % self.world_size != 0:
+                raise RuntimeError(
+                    f"Parameter/Buffer {name} in {self.path} cannot be sharded "
+                    f"along axis {axis} with size {tensor.shape[axis]} "
+                    f"by {self.world_size}"
+                )
+            sharded_size = tensor.shape[axis] // self.world_size
+            return (
+                tensor.detach().split(sharded_size, dim=axis)[self.rank],
+                sharded_size,
             )
-        sharded_size = param.shape[axis] // self.world_size
-        new_param = param.detach().split(sharded_size, dim=axis)[self.rank]
-        self.mod.register_parameter(param_name, nn.Parameter(new_param))
+
+        try:
+            param = self.mod.get_parameter(tensor_name)
+            new_param, sharded_size = _shard(tensor_name, param)
+            self.mod.register_parameter(tensor_name, nn.Parameter(new_param))
+        except AttributeError:
+            buffer = self.mod.get_buffer(tensor_name)
+            new_buffer, sharded_size = _shard(tensor_name, buffer)
+            self.mod.register_buffer(tensor_name, new_buffer)
 
         # Add metadata for sync and check. FIXME: A validation mechanism to check this.
         # 1. Whether the param is already sharded in different axis.
         # 2. Whether the output syncing method is conflict.
         try:
-            self.metadata.shard[param_name] = axis
+            self.metadata.shard[tensor_name] = axis
         except KeyError:
             raise RuntimeError(
-                f"Parameter {param_name} in {self.path} is already sharded along axis "
-                f"{self.metadata.shard[param_name]}"
+                f"Parameter/Buffer {tensor_name} in {self.path} is already "
+                f"sharded along axis {self.metadata.shard[tensor_name]}"
             ) from None
 
         def set_output_type(output_type, gather_axis=None):
@@ -275,6 +287,9 @@ class Schedule:
                 set_output_type("partial")
             else:
                 raise NotImplementedError
+        elif isinstance(self.mod, nn.BatchNorm2d):
+            self.mod.num_features = sharded_size
+            set_output_type("partition", gather_axis=1)
 
     @register_primitive(need_dist=True)
     def sync(self, mode="backward"):

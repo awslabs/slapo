@@ -111,8 +111,8 @@ def replace_and_shard_attention(
                     kv = self.fused_linear(hidden_states)
                     reshaped_qkv = self.reshape_for_scores(kv)
                     k, v = torch.split(reshaped_qkv, 1, dim=-1)
-                    k = torch.squeeze(k).contiguous()
-                    v = torch.squeeze(v).contiguous()
+                    k = torch.squeeze(k, -1).contiguous()
+                    v = torch.squeeze(v, -1).contiguous()
                     return [k, v]
 
             class ShardableQ(nn.Module):
@@ -187,9 +187,9 @@ def replace_and_shard_attention(
                     qkv = self.fused_linear(hidden_states)
                     reshaped_qkv = self.reshape_for_scores(qkv)
                     q, k, v = torch.split(reshaped_qkv, 1, dim=-1)
-                    q = torch.squeeze(q).contiguous()
-                    k = torch.squeeze(k).contiguous()
-                    v = torch.squeeze(v).contiguous()
+                    q = torch.squeeze(q, -1).contiguous()
+                    k = torch.squeeze(k, -1).contiguous()
+                    v = torch.squeeze(v, -1).contiguous()
                     return [q, k, v]
 
             def pattern(x: torch.Tensor) -> torch.Tensor:

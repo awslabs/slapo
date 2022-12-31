@@ -7,7 +7,7 @@ import torch.fx as fx
 import torch.nn as nn
 
 from ..registry import register_model_dialect
-from ...logger import get_logger, INFO
+from ...logger import get_logger, DEBUG, INFO
 
 # Change INFO to DEBUG for more verbose logging.
 logger = get_logger("DS-Pipeline", INFO)
@@ -223,20 +223,22 @@ class DeepSpeedPipeStageWrapper(nn.Module):
         # The unordered arguments should match the liveness list, and we assign
         # the name of each input argument accordingly.
         liveness = self.liveness[self.stage_id]
-        logger.debug(
-            f"[{self.name}] Args ({len(unordered_args)}): "
-            f"{get_simple_nested_list_str(unordered_args)}, "
-            f"liveness ({len(liveness)}): {liveness}",
-        )
+        if logger.isEnabledFor(DEBUG):
+            logger.debug(
+                f"[{self.name}] Args ({len(unordered_args)}): "
+                f"{get_simple_nested_list_str(unordered_args)}, "
+                f"liveness ({len(liveness)}): {liveness}",
+            )
         assert (
             len(unordered_args) == len(liveness),
             f"{len(unordered_args)} vs. {len(liveness)}",
         )
         name_2_live_tensor = dict(zip(liveness, unordered_args))
-        logger.debug(
-            f"[{self.name}] Live tensors before forward: "
-            f"{list(name_2_live_tensor.keys())}",
-        )
+        if logger.isEnabledFor(DEBUG):
+            logger.debug(
+                f"[{self.name}] Live tensors before forward: "
+                f"{list(name_2_live_tensor.keys())}",
+            )
 
         # Make forward argiments from live tensors to align the submodule arguments.
         ordered_args = []
@@ -259,23 +261,26 @@ class DeepSpeedPipeStageWrapper(nn.Module):
 
         # Add output tensors to live tensor set.
         name_2_live_tensor.update(flat_and_name_tensor_list(fwd_outputs, self.name, ""))
-        logger.debug(
-            f"[{self.name}] Live tensors after forward: "
-            f"{list(name_2_live_tensor.keys())}",
-        )
+        if logger.isEnabledFor(DEBUG):
+            logger.debug(
+                f"[{self.name}] Live tensors after forward: "
+                f"{list(name_2_live_tensor.keys())}",
+            )
 
         # Organize output based on the liveness of the next stage.
         outputs = []
         for tensor_name in self.liveness[self.stage_id + 1]:
             assert tensor_name in name_2_live_tensor
             outputs.append(name_2_live_tensor[tensor_name])
-        logger.debug(
-            f"[{self.name}] Output: {get_simple_nested_list_str(outputs)}",
-        )
+        if logger.isEnabledFor(DEBUG):
+            logger.debug(
+                f"[{self.name}] Output: {get_simple_nested_list_str(outputs)}",
+            )
 
         # Flat and pack outputs for the next stage.
         metadata, ret = flatten(outputs, device)
-        logger.debug(f"[{self.name}] Flatten: {len(ret)}; metadata: {metadata}")
+        if logger.isEnabledFor(DEBUG):
+            logger.debug(f"[{self.name}] Flatten: {len(ret)}; metadata: {metadata}")
         ret.append(
             torch.ByteTensor(
                 torch.ByteStorage.from_buffer(bytes(encode_metadata(metadata), "utf8"))

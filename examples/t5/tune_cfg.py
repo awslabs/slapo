@@ -15,8 +15,9 @@ def update_space(args, space):
     n_gpu = int(args["gpus"])
     if "slapo" in args or "slapomegatron" in args or "slapodeepspeed" in args:
         if n_gpu > 1:
+            base = 2 if n_gpu <= 2 else 3 * n_gpu
             batch_size = space.create_symbol(
-                "batch_size", [min(32, 1 if n_gpu <= 2 else 5 * n_gpu)]
+                "batch_size", [base, base + 1, base + 2, base + 3]
             )
         else:
             batch_size = space.create_symbol("batch_size", [16, 20])
@@ -24,7 +25,7 @@ def update_space(args, space):
         ckpt_ratio_cand = [1.0]
         if batch_size >= 20:
             ckpt_ratio_cand += [0.92, 0.84, 0.67]
-        ckpt_ratio_cand += [0.5, 0.34, 0.25]
+        ckpt_ratio_cand += [0.5, 0.34, 0.25, 0]
 
         space.create_symbol("ckpt_ratio", ckpt_ratio_cand)
     else:

@@ -20,15 +20,15 @@ def update_space(args, space):
         if n_gpu == 1:
             batch_size = space.create_symbol("batch_size", [16, 20, 24])
         else:
-            batch_size = space.create_symbol("batch_size", [16 * n_gpu])
+            batch_size = space.create_symbol("batch_size", [16 * n_gpu, 16 * n_gpu - 4, 16 * n_gpu + 4])
         if 16 * n_gpu > 100:
             batch_size.add(12 * n_gpu)
 
         ckpt_ratio_cand = [1.0]
-        if batch_size >= 96:
-            # When memory is tight, we also consider a finer-grained checkpoint ratio.
-            ckpt_ratio_cand += [0.92, 0.84, 0.67]
-        ckpt_ratio_cand += [0.5, 0.34, 0.25]
+        # if batch_size >= 96:
+        #     # When memory is tight, we also consider a finer-grained checkpoint ratio.
+        #     ckpt_ratio_cand += [0.92, 0.84, 0.67]
+        ckpt_ratio_cand += [0.5, 0.34, 0.25, 0]
 
         space.create_symbol("ckpt_ratio", ckpt_ratio_cand)
     else:

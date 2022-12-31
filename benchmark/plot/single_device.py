@@ -10,20 +10,6 @@ import pandas as pd
 # sns.set_theme(context="paper", style="whitegrid", palette=sns.color_palette("Set3", 10))
 
 
-def normalize(data):
-    tmp_matrix = np.array(list(data.values()))
-    max_val = tmp_matrix.max(axis=0)
-    max_val = (
-        np.repeat(max_val, tmp_matrix.shape[0], axis=0)
-        .reshape(tmp_matrix.shape[::-1])
-        .transpose()
-    )
-    normalized_data = tmp_matrix / max_val
-    for i, key in enumerate(data):
-        data[key] = normalized_data[i]
-    return data
-
-
 def draw_bar(
     data,
     ax,
@@ -31,38 +17,48 @@ def draw_bar(
     x_label=None,
     y_label=None,
     legends=None,
-    title=None,
-    outfile="test",
-    norm=False,
+    draw_labels=False,
+    mark_na=False,
 ):
     x = np.arange(0, len(x_ticklabels) * 3, 3)
     width = 0.23
     interval = np.arange(-len(data) + 1, len(data), 2)
+    bars = []
     for i, key in enumerate(data):
         label = legends.get(key, key) if legends is not None else key
-        ax.bar(x + interval[i] * width, data[key], width * 2, alpha=0.95, label=label)
+        bars.append(
+            ax.bar(
+                x + interval[i] * width, data[key], width * 2, alpha=0.95, label=label
+            )
+        )
     ax.set_xticks(x)
     ax.set_xticklabels(x_ticklabels)
     # ax.set_yticks(np.arange(0, 8.5, 1.0))
     if x_label is not None:
         ax.set_xlabel(x_label)
-    if y_label is not None:
-        ax.set_ylabel(y_label)
-    # for i, v in enumerate(baseline/best):
-    #     ax.text(i, v, str(v), color='black', fontweight='bold')
+    # if y_label is not None:
+    #     ax.set_ylabel(y_label)
+    if mark_na:
+        for bar in bars:
+            for patch in bar.patches:
+                height = patch.get_height()
+                if height == 0:
+                    ax.text(
+                        patch.get_x() + patch.get_width() / 2.0,
+                        height,
+                        "X",
+                        ha="center",
+                        va="bottom",
+                        color=patch.get_facecolor(),
+                        fontweight="bold",
+                    )
     ax.set_axisbelow(True)
-    if norm:
-        ax.legend(bbox_to_anchor=(0.5, 1.3), ncol=3, loc="upper center")
-    else:
-        ax.legend(loc=0)  # , prop={"size": 10})
+    if draw_labels:
+        ax.legend(loc=0, ncol=2)  # , prop={"size": 10})
     ax.grid(axis="y")
-    if title is not None:
-        ax.set_title(title)
-    plt.savefig(f"{outfile}.pdf", format="pdf", dpi=200, bbox_inches="tight")
-    plt.show()
 
 
-def plot(file_name, norm=False):
+def plot(file_name):
     with open(file_name, "r") as csv_file:
         for line in csv_file:
             if "Impl" in line:
@@ -115,26 +111,62 @@ def plot(file_name, norm=False):
                 data[impl].append(0)
             else:
                 data[impl].append(float(thrpt[0]))
-    if norm:
-        fig, ax = plt.subplots(1, 1, figsize=(6, 2.5))
-        data = normalize(data)
-    else:
-        fig, ax = plt.subplots(1, 1, figsize=(6.5, 3))
+    fig, axs = plt.subplots(2, 1, figsize=(6, 2.5), sharex=True)
+    fig.subplots_adjust(hspace=0.1)
     print(data)
-    draw_bar(
-        data,
-        ax,
-        x_ticklabels=list(model_name_mapping.keys()),
-        x_label="",
-        y_label="Normalized Throughput" if norm else "Throughput (samples/sec)",
-        legends=legend_name_mapping,
-        title=None,
-        outfile="single_device_v100{}".format("_norm" if norm else ""),
-        norm=norm,
+    # https://matplotlib.org/stable/gallery/subplots_axes_and_figures/broken_axis.html
+    for i, ax in enumerate(axs):
+        draw_bar(
+            data,
+            ax,
+            x_ticklabels=list(model_name_mapping.keys()),
+            x_label="",
+            y_label="Throughput (samples/sec)",
+            legends=legend_name_mapping,
+            draw_labels=(i == 0),
+            mark_na=(i == len(axs) - 1),
+        )
+    ax1, ax2 = axs
+    ax1.set_ylim(235, 275)  # outliers only
+    ax2.set_ylim(0, 50)  # most of the data
+
+    # hide the spines between ax and ax2
+    ax1.spines.bottom.set_visible(False)
+    ax2.spines.top.set_visible(False)
+    ax1.xaxis.tick_top()
+    ax1.tick_params(labeltop=False)  # don't put tick labels at the top
+    ax1.xaxis.set_ticks_position("none")  # don't put tick labels at the top
+    ax2.xaxis.tick_bottom()
+
+    # Now, let's turn towards the cut-out slanted lines.
+    # We create line objects in axes coordinates, in which (0,0), (0,1),
+    # (1,0), and (1,1) are the four corners of the axes.
+    # The slanted lines themselves are markers at those locations, such that the
+    # lines keep their angle and position, independent of the axes size or scale
+    # Finally, we need to disable clipping.
+
+    d = 0.5  # proportion of vertical to horizontal extent of the slanted line
+    kwargs = dict(
+        marker=[(-1, -d), (1, d)],
+        markersize=12,
+        linestyle="none",
+        color="k",
+        mec="k",
+        mew=1,
+        clip_on=False,
     )
+    ax1.plot([0, 1], [0, 0], transform=ax1.transAxes, **kwargs)
+    ax2.plot([0, 1], [1, 1], transform=ax2.transAxes, **kwargs)
+
+    fig.supylabel("Throughput (samples/sec)")
+    # plt.tight_layout()
+    plt.savefig(
+        "single_device_v100_break.pdf", format="pdf", dpi=200, bbox_inches="tight"
+    )
+    plt.show()
 
 
 if __name__ == "__main__":
     assert len(sys.argv) > 1
     file_name = sys.argv[1]
-    plot(file_name, norm=True if len(sys.argv) > 1 else False)
+    plot(file_name)

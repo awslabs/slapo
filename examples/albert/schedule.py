@@ -62,6 +62,23 @@ def replace_and_shard_attention(
     from transformers.activations import ACT2FN
     from transformers.pytorch_utils import apply_chunking_to_forward
 
+    import math
+
+    @torch.jit.script
+    def bias_gelu(x, bias):
+        x = x + bias
+        x = (
+            0.5
+            * x
+            * (
+                1.0
+                + torch.tanh(
+                    math.sqrt(2.0 / math.pi) * (x + 0.044715 * torch.pow(x, 3.0))
+                )
+            )
+        )
+        return x
+
     # TODO: Use subgraph matching to obtain FFN module
     class FFN(nn.Module):
         def __init__(self, config):
@@ -69,6 +86,8 @@ def replace_and_shard_attention(
             self.config = config
             self.chunk_size_feed_forward = config.chunk_size_feed_forward
             self.ffn = nn.Linear(config.hidden_size, config.intermediate_size)
+            self.bias = self.ffn.bias
+            self.ffn.bias = None
             self.ffn_output = nn.Linear(config.intermediate_size, config.hidden_size)
             self.activation = ACT2FN[config.hidden_act]
             self.dropout = nn.Dropout(float(config.hidden_dropout_prob))
@@ -90,7 +109,7 @@ def replace_and_shard_attention(
 
         def ff_chunk(self, attention_output: torch.Tensor) -> torch.Tensor:
             ffn_output = self.ffn(attention_output)
-            ffn_output = self.activation(ffn_output)
+            ffn_output = bias_gelu(ffn_output, self.bias)
             ffn_output = self.ffn_output(ffn_output)
             return ffn_output
 
@@ -126,14 +145,7 @@ def replace_and_shard_attention(
             super().__init__()
             self.config = config
             self.attention = AlbertXFAttention(config, **kwargs)
-            if dist.get_world_size() == 1:
-                # FIXME: Avoid hardcoding
-                device = "cuda"
-                output = torch.ones((8, 512, 1024), dtype=torch.float16, device=device)
-                self.ffn = FFN(config).half().cuda()
-                self.ffn = torch.jit.trace(self.ffn, [output])
-            else:
-                self.ffn = FFN(config)
+            self.ffn = FFN(config)
 
         def forward(
             self,
@@ -156,7 +168,9 @@ def replace_and_shard_attention(
         init_config = InjectHFBertSelfAttentionPolicy.gen_init_config_from_object(
             sub_sch.mod
         )
-        sch[f"{prefix}"].replace(AlbertLayer(config, **init_config))
+        with init_empty_weights(enable=False):
+            albert_layer = AlbertLayer(config, **init_config)
+        sch[f"{prefix}"].replace(albert_layer)
 
         num_layers, num_heads, hidden_size = (
             config.num_hidden_layers,
@@ -164,56 +178,56 @@ def replace_and_shard_attention(
             config.hidden_size,
         )
 
-        sch[f"{prefix}.attention.self_attn"].trace(
-            tracer="pytorch",
-            leaf_modules=["MemoryEfficientAttentionOp"],
-            concrete_args={
-                "past_key_value": None,
-                "layer_past": None,
-                "use_cache": False,
-            },
-        )
-
-        class FusedQKV(nn.Module):
-            def __init__(self, hidden_size, num_heads) -> None:
-                super().__init__()
-                self.hidden_size = hidden_size
-                self.num_heads = num_heads
-                self.head_size = hidden_size // num_heads
-                self.fused_linear = nn.Linear(
-                    hidden_size, self.num_heads * self.head_size * 3
-                )
-
-            def reshape_for_scores(self, x):
-                new_x_shape = x.size()[:-1] + (
-                    self.num_heads // sch.world_size,
-                    self.head_size,
-                    3,
-                )
-                x = x.view(new_x_shape)
-                return x.contiguous()
-
-            def forward(self, hidden_states):
-                qkv = self.fused_linear(hidden_states)
-                reshaped_qkv = self.reshape_for_scores(qkv)
-                q, k, v = torch.split(reshaped_qkv, 1, dim=-1)
-                q = torch.squeeze(q, -1).contiguous()
-                k = torch.squeeze(k, -1).contiguous()
-                v = torch.squeeze(v, -1).contiguous()
-                return [q, k, v]
-
-        def pattern(x: torch.Tensor) -> torch.Tensor:
-            new_x_shape = x.size()[:-1] + (num_heads, hidden_size)
-            x = x.view(new_x_shape)
-            return x
-
-        sub_sch = sch[f"{prefix}.attention"]
-        subgraphs = sub_sch["self_attn"].find("query|key|value", pattern)
-        assert len(subgraphs) != 0
-        with init_empty_weights(enable=delay_init):
-            new_fused_qkv = FusedQKV(hidden_size, num_heads)
-        sub_sch["self_attn"].replace(new_fused_qkv, subgraphs)
         if sch.world_size > 1:
+            sch[f"{prefix}.attention.self_attn"].trace(
+                tracer="pytorch",
+                leaf_modules=["MemoryEfficientAttentionOp"],
+                concrete_args={
+                    "past_key_value": None,
+                    "layer_past": None,
+                    "use_cache": False,
+                },
+            )
+
+            class FusedQKV(nn.Module):
+                def __init__(self, hidden_size, num_heads) -> None:
+                    super().__init__()
+                    self.hidden_size = hidden_size
+                    self.num_heads = num_heads
+                    self.head_size = hidden_size // num_heads
+                    self.fused_linear = nn.Linear(
+                        hidden_size, self.num_heads * self.head_size * 3
+                    )
+
+                def reshape_for_scores(self, x):
+                    new_x_shape = x.size()[:-1] + (
+                        self.num_heads // sch.world_size,
+                        self.head_size,
+                        3,
+                    )
+                    x = x.view(new_x_shape)
+                    return x.contiguous()
+
+                def forward(self, hidden_states):
+                    qkv = self.fused_linear(hidden_states)
+                    reshaped_qkv = self.reshape_for_scores(qkv)
+                    q, k, v = torch.split(reshaped_qkv, 1, dim=-1)
+                    q = torch.squeeze(q, -1).contiguous()
+                    k = torch.squeeze(k, -1).contiguous()
+                    v = torch.squeeze(v, -1).contiguous()
+                    return [q, k, v]
+
+            def pattern(x: torch.Tensor) -> torch.Tensor:
+                new_x_shape = x.size()[:-1] + (num_heads, hidden_size)
+                x = x.view(new_x_shape)
+                return x
+
+            sub_sch = sch[f"{prefix}.attention"]
+            subgraphs = sub_sch["self_attn"].find("query|key|value", pattern)
+            assert len(subgraphs) != 0
+            with init_empty_weights(enable=delay_init):
+                new_fused_qkv = FusedQKV(hidden_size, num_heads)
+            sub_sch["self_attn"].replace(new_fused_qkv, subgraphs)
             sub_sch["self_attn.FusedQKV_0.fused_linear"].shard("weight", axis=0)
             sub_sch["self_attn.FusedQKV_0.fused_linear"].shard("bias", axis=0)
             sub_sch["self_attn.FusedQKV_0.fused_linear"].sync(mode="backward")
@@ -267,7 +281,7 @@ def shard_mlp(
     for idx in range(1):  # use layer group
         prefix = path.replace("N", str(idx))
         sch[f"{prefix}.{fc_names[0]}"].shard("weight", axis=0)
-        sch[f"{prefix}.{fc_names[0]}"].shard("bias", axis=0)
+        sch[f"{prefix}.ffn"].shard("bias", axis=0)
         sch[f"{prefix}.{fc_names[0]}"].sync(mode="backward")
         sch[f"{prefix}.{fc_names[1]}"].shard("weight", axis=1)
         sch[f"{prefix}.{fc_names[1]}"].sync(mode="forward")

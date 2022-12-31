@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import re
+import os
 import inspect
 import operator
 from abc import ABC, abstractmethod
@@ -818,16 +819,18 @@ def consolidate_model(sch: Schedule, topology=None):
             # create dist group for broadcasting
             num_pp = topology.get_dim("pipe")
             # each group contains the devices on the same stage
-            stage_groups = []
-            for i in range(num_pp):
-                stage_groups.append(dist.new_group(ranks=topology.filter_match(pipe=i)))
+            if not "DEBUG" in os.environ:
+                stage_groups = []
+                for i in range(num_pp):
+                    stage_groups.append(dist.new_group(ranks=topology.filter_match(pipe=i)))
             if global_rank not in curr_stage_devices:
                 # do nothing if the target module is NOT on this device group
                 return sch
         else:
             curr_part_idx = 0
             curr_stage_devices = list(range(dist.get_world_size()))
-            stage_groups = [dist.new_group(ranks=curr_stage_devices)]
+            if not "DEBUG" in os.environ:
+                stage_groups = [dist.new_group(ranks=curr_stage_devices)]
 
         # copy out new params after sharding
         new_param_shapes = {}
@@ -846,7 +849,7 @@ def consolidate_model(sch: Schedule, topology=None):
             )
 
         # use original shape to initialize parameters
-        if global_rank == curr_stage_devices[0]:
+        if global_rank == curr_stage_devices[0] and not "DEBUG" in os.environ:
             # only the first device in the PP group needs to initialize the weights
             if hasattr(sch.mod, "_init_weights"):
                 # `_init_weights` is a HF specific API, see
@@ -860,12 +863,13 @@ def consolidate_model(sch: Schedule, topology=None):
                 )
 
         # need to broadcast params from rank 0 to make sure all the TP+DP ranks take the same params
-        curr_stage_group = stage_groups[curr_part_idx]
-        for _, param in sch.mod.named_parameters(recurse=False):
-            dist.broadcast(param, src=curr_stage_devices[0], group=curr_stage_group)
-        # destroy process group to free memory
-        for g in stage_groups:
-            dist.destroy_process_group(g)
+        if not "DEBUG" in os.environ:
+            curr_stage_group = stage_groups[curr_part_idx]
+            for _, param in sch.mod.named_parameters(recurse=False):
+                dist.broadcast(param, src=curr_stage_devices[0], group=curr_stage_group)
+            # destroy process group to free memory
+            for g in stage_groups:
+                dist.destroy_process_group(g)
 
         # discard redundant values
         tp_rank = sch.rank

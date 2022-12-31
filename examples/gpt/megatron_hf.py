@@ -36,6 +36,8 @@ def get_model(
     if padded_vocab_size is not None:
         config.vocab_size = padded_vocab_size
     config.use_cache = False
+    config.attention_types = [[["global"], config.num_layers]]
+    config.attention_layers = ["global"] * config.num_layers
     print(config)
 
     if "slapo" in impl:

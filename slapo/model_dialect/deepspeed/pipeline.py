@@ -27,7 +27,9 @@ def get_simple_nested_list_str(data):
     """A helper function that prints a nested structure without printing
     tensor values.
     """
-    if isinstance(data, torch.Tensor):
+    if data is None:
+        ret = "None"
+    elif isinstance(data, torch.Tensor):
         if data.shape == torch.Size([1]):
             ret = f"scalar({data.item()})"
         else:

@@ -163,18 +163,29 @@ def train(args):
         "labels": input_ids,
     }
 
+    if enable_pipeline:
+        # When pipeline is enabled, the top module is traced to
+        # be a GraphModule, and the HF tracer will remove all None arguments.
+        inputs = (
+            input_dict["input_ids"],
+            input_dict["attention_mask"],
+            input_dict["position_ids"],
+        )
+    else:
+        inputs = (
+            input_dict["input_ids"],
+            None,  # past_key_values
+            input_dict["attention_mask"],
+            None,  # token_type_ids
+            input_dict["position_ids"],
+        )
+
     loader = RepeatingLoader(
         [
             # First batch
             # (inputs, labels)
             (
-                (
-                    input_dict["input_ids"],
-                    None, # past_key_values
-                    input_dict["attention_mask"],
-                    None, # token_type_ids
-                    input_dict["position_ids"],
-                ),
+                inputs,
                 input_dict["labels"],
             ),
             # Rest of the batches

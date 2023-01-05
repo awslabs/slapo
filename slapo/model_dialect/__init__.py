@@ -2,5 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Framework dialects."""
 
+from .megatron.utils import MegatronLogParser
+from .deepspeed.utils import DeepSpeedLogParser
 from .deepspeed.pipeline import DeepSpeedPipeStageWrapper
 from .registry import get_all_dialects, get_dialect_cls

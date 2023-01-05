@@ -160,10 +160,22 @@ def plot(file_name):
 
     fig.supylabel("Throughput (samples/sec)")
     # plt.tight_layout()
-    plt.savefig(
-        "single_device_v100_break.pdf", format="pdf", dpi=200, bbox_inches="tight"
-    )
+    plt.savefig("single_device_v100.pdf", format="pdf", dpi=200, bbox_inches="tight")
     plt.show()
+    speedup_eager = np.array(data["slapo"]) / np.array(data["eager"])
+    speedup_ts = np.array(data["slapo"][:3] + data["slapo"][4:]) / np.array(
+        data["torchscript"][:3] + data["torchscript"][4:]
+    )
+    print(
+        "Speedup vs Eager: min {:.2f}x, max {:.2f}x, mean {:.2f}x".format(
+            speedup_eager.min(), speedup_eager.max(), speedup_eager.mean()
+        )
+    )
+    print(
+        "Speedup vs TorchScript: min {:.2f}x, max {:.2f}x, mean {:.2f}x".format(
+            speedup_ts.min(), speedup_ts.max(), speedup_ts.mean()
+        )
+    )
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
-import re
+from slapo.model_dialect import get_dialect_cls
 
 
 def add_deepspeed_parser(common_parser, subprasers):
@@ -26,39 +26,16 @@ def identify_model_key(exp):
 
 
 def deepspeed_log(exp, log_filename):
-    with open(log_filename) as f:
-        text = f.read()
-    # Find the last number after the key, returns 0 if not exists
-    def query(key, last_only=True):
-        values = re.findall(key + "=+([\d\.]+)", text)
-        if not values:
-            return None
-        if last_only:
-            return float(values[-1])
-        return [float(v) for v in values]
-
-    if "CUDA out of memory" in text:
-        print("Out of GPU memory, try a smaller batch size")
-        exp.error_code = 1
+    parser = get_dialect_cls("log_parser", "deepspeed")
+    param_per_gpu, samples_per_sec, gpu_mem, error_code = parser.parse_log(log_filename)
+    if error_code != 0:
+        exp.error_code = error_code
         return exp
-
-    samples_per_sec = query("SamplesPerSec", last_only=False)
-    if not samples_per_sec:
-        print(f'Failed. Check "{log_filename}" to find error')
-        exp.error_code = 2
-        return exp
-
-    # 1. Every 10 steps, DeepSpeed reports the average samples/sec from beginning.
-    # 2. We remove the first value (of the first 10 steps) as the warmup.
-    n_records = len(samples_per_sec)
-    avg_samples_per_sec = (
-        samples_per_sec[-1] * 10 * n_records - samples_per_sec[0] * 10
-    ) / (10 * (n_records - 1))
-
-    exp.param_per_gpu = 0  # DeepSpeed doesn't report this.
-    exp.samples_per_sec = avg_samples_per_sec
-    exp.gpu_mem = query("MaxMemAllocated")
-    exp.error_code = 0
+    else:
+        exp.param_per_gpu = param_per_gpu  # DeepSpeed doesn't report this.
+        exp.samples_per_sec = samples_per_sec
+        exp.gpu_mem = gpu_mem
+        exp.error_code = 0
     return exp
 
 

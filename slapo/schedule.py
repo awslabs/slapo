@@ -606,18 +606,23 @@ class SubgraphWrapper(nn.Module):
                     )
 
     @register_primitive()
-    def checkpoint(self):
+    def checkpoint(self, order_args_fn=None):
         class CheckPointWrapper(nn.Module):
             def __init__(self, mod) -> None:
                 super().__init__()
                 self.mod = mod
 
             def forward(self, *args, **kwargs):
-                new_args = [arg for arg in args]
-                for value in kwargs.values():
-                    new_args += [value]
+                ordered_args = []
+                if order_args_fn is None:
+                    ordered_args = [arg for arg in args]
+                    for value in kwargs.values():
+                        ordered_args += [value]
+                else:
+                    ordered_args = order_args_fn(*args, **kwargs)
+                
                 # Note: checkpoint cannot accept kwargs
-                return checkpoint.checkpoint(self.mod, *new_args)
+                return checkpoint.checkpoint(self.mod, *ordered_args)
 
         self.replace(CheckPointWrapper(self.mod))
 

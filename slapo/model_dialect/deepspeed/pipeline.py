@@ -252,6 +252,12 @@ class DeepSpeedPipeStageWrapper(nn.Module):
         for value in kwargs.values():
             ordered_args += [value]
 
+        if logger.isEnabledFor(DEBUG):
+            logger.debug(
+                f"[{self.name}] Ordered forward args: "
+                f"{get_simple_nested_list_str(ordered_args)}",
+            )
+
         # Forward pass.
         fwd_outputs = self.mod(*ordered_args)
 

@@ -299,9 +299,24 @@ def checkpoint(sch, config, path="h.N", ckpt_ratio=1.0):
     if ckpt_ratio == 0.0:
         return
 
+    def order_args_fn(*args, **kwargs):
+        assert len(args) == 1
+        attention_mask = kwargs.get("attention_mask", None)
+        head_mask = kwargs.get("head_mask", None)
+        output_attentions = kwargs.get("output_attentions", False)
+        # Forward: (
+        #   hidden_states,
+        #   layer_past,
+        #   attention_mask,
+        #   head_mask,
+        #   use_cache,
+        #   output_attentions
+        # )
+        return (args[0], None, attention_mask, head_mask, False, output_attentions)
+
     n_ckpt = int(config.num_hidden_layers * ckpt_ratio)
     for idx in range(n_ckpt):
-        sch[path.replace("N", str(idx))].checkpoint()
+        sch[path.replace("N", str(idx))].checkpoint(order_args_fn=order_args_fn)
     return n_ckpt
 
 

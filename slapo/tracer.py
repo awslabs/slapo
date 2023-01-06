@@ -61,7 +61,14 @@ def fix_hf_module(
         if node.op == "call_module":
             args = node.args
             kwargs = node.kwargs
-            sig = inspect.signature(submods[node.target].forward)
+
+            # Checkpoint wrapper has a unified interface (*args, **kwargs)
+            # which ruins the argument matching.
+            orig_forward = submods[node.target].forward
+            if submods[node.target].__class__.__name__ == "CheckPointWrapper":
+                orig_forward = submods[node.target].mod.forward
+
+            sig = inspect.signature(orig_forward)
             target_args = list(sig.parameters.keys())
             res_kwargs = {}
             for key in kwargs:

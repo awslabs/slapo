@@ -99,9 +99,6 @@ def train(args):
             pipeline_cuts=pipeline_cuts,
             delay_init=enable_pipeline,
         )
-    if SINGLE_DEVICE_FOR_DEBUG:
-        slapo.build(sch)
-        assert False
 
     if enable_pipeline:
         # FIXME: is mbs=1 correct?

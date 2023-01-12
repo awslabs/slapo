@@ -38,7 +38,7 @@ def report_memory(msg="", report_gc=False):
                 pass
 
 
-def profile(model, inputs):
+def profile_perf(model, inputs, backward=False):
     with profile(
         activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
         with_stack=True,
@@ -46,9 +46,9 @@ def profile(model, inputs):
     ) as prof:
         with record_function("model_inference_fw"):
             output = model(*inputs)
-        # backward
-        with record_function("model_inference_bw"):
-            output["logits"].mean().backward()
+        if backward:
+            with record_function("model_inference_bw"):
+                output["logits"].mean().backward()
 
     print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=100))
     print(

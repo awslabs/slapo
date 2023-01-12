@@ -11,7 +11,7 @@ from transformers.utils import ModelOutput
 
 import slapo
 from slapo.logger import get_logger
-from schedule import checkpoint, broadcast_input, shard_layers
+from schedule import fuse_conv_bn, checkpoint, broadcast_input, shard_layers
 
 logger = get_logger("WideResNet")
 
@@ -52,6 +52,8 @@ def schedule_model(
 
     sch = slapo.create_schedule(model, group=group)
     logger.info(f"Scheduling Wide-ResNet with TP={sch.world_size}", ranks=0)
+
+    fuse_conv_bn(sch[prefix], config)
 
     if sch.world_size > 1:
         # Shard layers.

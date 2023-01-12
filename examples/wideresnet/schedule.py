@@ -1,6 +1,63 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
+
+import torch
+import torch.nn as nn
 import torch.distributed as dist
+
+
+def fuse_conv_bn(sch, config):
+    from torchvision.models.resnet import Bottleneck
+
+    inplanes = 64
+    expansion = 4
+    all_planes = [64, 128, 256, 512]
+    all_strides = [1, 2, 2, 2]
+    in_sizes = [112, 56, 28, 14]
+    base_width, num_layers = config
+    for i in range(4):
+        planes = all_planes[i]
+        layers = num_layers[i]
+        stride = all_strides[i]
+        in_size = in_sizes[i]
+        if stride != 1 or inplanes != planes * 4:
+            downsample = nn.Sequential(
+                nn.Conv2d(
+                    inplanes,
+                    planes * expansion,
+                    kernel_size=1,
+                    stride=stride,
+                    bias=False,
+                ),
+                nn.BatchNorm2d(planes * expansion),
+            )
+        data = torch.rand((8, inplanes, in_size, in_size), dtype=torch.float).cuda()
+        new_block = torch.jit.trace(
+            Bottleneck(
+                inplanes=inplanes,
+                planes=planes,
+                stride=stride,
+                downsample=downsample,
+                base_width=base_width,
+            ).cuda(),
+            data,
+        )
+        sch[f"layer{i+1}"]["0"].replace(new_block)
+        inplanes = planes * expansion
+        data = torch.rand(
+            (8, inplanes, in_size // 2, in_size // 2), dtype=torch.float
+        ).cuda()
+        for j in range(1, layers):
+            new_block = torch.jit.trace(
+                Bottleneck(
+                    inplanes=inplanes,
+                    planes=planes,
+                    base_width=base_width,
+                ).cuda(),
+                data,
+            )
+            sch[f"layer{i+1}"][f"{j}"].replace(new_block)
+    print(sch.mod)
 
 
 def shard_layers(sch, config):
@@ -29,7 +86,7 @@ def shard_layers(sch, config):
             # Forward: partial output (need allreduce)
             # Backward: do nothing.
             sub_sch["conv2"].shard("weight", axis=1)
-            sub_sch["conv2"].sync(mode="forward") # forward allreduce only
+            sub_sch["conv2"].sync(mode="forward")  # forward allreduce only
 
             # Forward: partitioned output (followed by allgather).
             # Backward: allreduce.

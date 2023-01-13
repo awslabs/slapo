@@ -89,6 +89,7 @@ def replace_and_shard_attention(
         init_config = InjectHFBertSelfAttentionPolicy.gen_init_config_from_object(
             sub_sch.mod
         )
+        # init_config["attn_op_name"] = "native"
         with init_empty_weights(enable=delay_init):
             new_mod = SelfAttention(**init_config)
         sub_sch.replace(new_mod)

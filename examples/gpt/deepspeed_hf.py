@@ -22,10 +22,31 @@ from examples.utils import (
     generate_pipeline_cuts,
 )
 
+from examples.data_util import get_dataloader
+
 SINGLE_DEVICE_FOR_DEBUG = False
 
 logger = get_logger()
 
+def reconfig_model(args, model_config):
+    if args.hidden_size > 0:
+        model_config.hidden_size = args.hidden_size
+        model_config.num_layers = args.nlayers
+        model_config.num_heads = args.num_attn_heads
+
+        assert args.nlayers % 2 == 0, "number of layers must be even"
+        # config "attention_types"
+        model_config.attention_types = [
+            [
+                [
+                    "global"
+                ],
+                model_config.num_layers
+            ]
+        ]
+        model_config.attention_layers = ["global"] * model_config.num_layers
+
+    return model_config
 
 def train(args):
     batch_size = args.batch_size
@@ -49,7 +70,9 @@ def train(args):
         deepspeed.init_distributed(dist_backend="nccl")
         logger.info("Use deepspeed to initialize", ranks=0)
         if enable_pipeline:
-            num_pp, num_mp = 4, 2  # FIXME: May need to change for multi-node.
+            # num_pp, num_mp = 4, 2 # For single node testing.
+            num_pp = args.pmp
+            num_mp = args.tmp
         else:
             logger.info("Pipeline disabled", ranks=0)
         topology, group = create_dist_group_for_pipeline(num_pp, num_mp)
@@ -62,14 +85,17 @@ def train(args):
         x = torch.tensor(0, device=torch.cuda.current_device())
         dist.broadcast(x, src=0)
 
+    logger.info(f'TMP {num_mp}, PMP {num_pp}', ranks=[0])
     # https://huggingface.co/EleutherAI/gpt-neo-2.7B/blob/main/config.json
     config = AutoConfig.from_pretrained(args.model_name)
     # FIXME: This model has vocab size 50257 that cannot be sharded by 2,
     # so we pad it to 50258 in this example. In practice, the tokenizer
     # should be used to pad the vocab size to a multiple of 2.
-    config.vocab_size = 50258
+    config.vocab_size = (config.vocab_size // 8 + 1) * 8
     config.use_cache = False
     config.gradient_checkpointing = use_default_ckpt
+    config = reconfig_model(args, config)
+    logger.info(config, ranks=[0])
 
     report_memory(msg="Before creating model")
     with slapo.init_empty_weights(enable=enable_pipeline):
@@ -103,7 +129,7 @@ def train(args):
     if enable_pipeline:
         # FIXME: is mbs=1 correct?
         batch_size = 16 if batch_size is None else batch_size
-        ds_config_dict = get_ds_config(batch_size, 1, True, False, "Pipeline")
+        ds_config_dict = get_ds_config(batch_size, micro_batch_size, True, False, "Pipeline")
         loss_fct = ParallelCrossEntropy(group=group)
 
         def loss_fn(outputs, labels):
@@ -122,10 +148,9 @@ def train(args):
             loss_fn=loss_fn,
         )
     else:
-        if batch_size is not None:
+        if batch_size is not None and micro_batch_size is None:
             micro_batch_size = batch_size // args.world_size
-        else:
-            assert micro_batch_size is not None
+        if batch_size is None and micro_batch_size is not None:
             batch_size = micro_batch_size * args.world_size
 
         logger.info(f"BS={batch_size}, MBS={micro_batch_size}", ranks=0)
@@ -141,54 +166,14 @@ def train(args):
         model = model.to(device)
     report_memory(msg="After building model")
 
-    seq_length = args.seq_len
-    input_ids = torch.ones(
-        micro_batch_size, seq_length, dtype=torch.long, device=device
-    )
-    input_dict = {
-        "input_ids": input_ids,
-        "attention_mask": torch.ones(
-            micro_batch_size,
-            seq_length,
-            dtype=torch.float16,
-            device=device,
-            requires_grad=False,
-        ),
-        "position_ids": torch.ones(
-            micro_batch_size, seq_length, dtype=torch.long, device=device
-        ),
-        "labels": input_ids,
-    }
+    random_seed = 2000 + dist.get_rank()
+    torch.manual_seed(random_seed)
 
-    if enable_pipeline:
-        # When pipeline is enabled, the top module is traced to
-        # be a GraphModule, and the HF tracer will remove all None arguments.
-        inputs = (
-            input_dict["input_ids"],
-            input_dict["attention_mask"],
-            input_dict["position_ids"],
-        )
-    else:
-        inputs = (
-            input_dict["input_ids"],
-            None,  # past_key_values
-            input_dict["attention_mask"],
-            None,  # token_type_ids
-            input_dict["position_ids"],
-        )
+    # for now always use seq_length 1024
+    # TODO: make the dataloader generic to different sequence length
+    train_loader, _ = get_dataloader(args.model_name, micro_batch_size, enable_pipeline)
 
-    loader = RepeatingLoader(
-        [
-            # First batch
-            # (inputs, labels)
-            (
-                inputs,
-                input_dict["labels"],
-            ),
-            # Rest of the batches
-            # ...
-        ]
-    )
+    loader = RepeatingLoader(train_loader)
 
     num_iters = args.iter_nums
     if enable_pipeline:
@@ -233,7 +218,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--seq_len",
         type=int,
-        default=512,
+        default=1024,
         help="Sequence length",
     )
     parser.add_argument(
@@ -246,6 +231,42 @@ if __name__ == "__main__":
         action="store_true",
         help="Disable Slapo schedule (only applicable with --disable-pipeline)",
     )
+    parser.add_argument(
+        "--hidden-size",
+        type=int,
+        default=-1,
+        help="Config hidden size of the model, if it is negative value,"
+        " it uses default value associated with the model name",
+    )
+    parser.add_argument(
+        "--nlayers",
+        type=int,
+        default=-1,
+        help="number of transformer layers"
+    )
+    parser.add_argument(
+        "--num-attn-heads",
+        type=int,
+        default=-1,
+        help="number of attention heads"
+    )
+    parser.add_argument(
+        "--pmp", 
+        type=int, default=2,
+        help="pipeline model parallel size"
+    )
+    parser.add_argument(
+        "--tmp",
+        type=int,
+        default=8,
+        help="tensor parallel size"
+    )
+    args = parser.parse_args()
+    
+    if args.hidden_size > 0:
+        assert args.nlayers > 0, "must have nlayers > 0"
+        assert args.num_attn_heads > 0, "must have num_attn_heads > 0"
+
     args = parser.parse_args()
     # The main entry point is called directly without using subprocess
     train(args)

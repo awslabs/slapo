@@ -32,6 +32,7 @@ def get_ds_config(
                 "overlap_comm": True,
                 "reduce_scatter": True,
                 "contiguous_gradients": False,
+                "prefetch_bucket_size": 5e8
             },
             "zero_allow_untested_optimizer": True,
         }

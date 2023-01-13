@@ -295,17 +295,20 @@ def tune(args, get_bs_range, eval_fn):
     min_bs, max_bs, step = get_bs_range(training_script_args)
     bs_range = list(range(min_bs, max_bs + 1, step))
     ckpt_ratio_range = [1.0, 0.92, 0.84, 0.67, 0.5, 0.34, 0.25]
+    early_stopping_patience = 0
 
     def is_valid(config):
         if "slapo-deepspeed" in training_script_args:
             # DeepSpeed uses data parallelism requiring the global batch size
             # can be divided by number of devices
-            return config["batch_size"] % training_script_args["gpus"]
+            return config["batch_size"] % int(training_script_args["gpus"]) == 0
         return True
 
-    def binary_search(data, cfg_dict, key, curr_best):
+    def binary_search(data, cfg_dict, key, curr_best, lt=0, rt=None):
+        nonlocal early_stopping_patience
         logger.info(f"Binary searching {key} without OOM")
-        lt, rt = 0, len(data) - 1
+        if rt is None:
+            rt = len(data) - 1
         while lt <= rt:
             mid = (lt + rt) // 2
             cfg_dict[key] = data[mid]
@@ -315,19 +318,31 @@ def tune(args, get_bs_range, eval_fn):
                 thrpt = eval_fn(cfg_dict)
             else:
                 thrpt = 0.0
-                logger.info("Invalid configuration point")
+                logger.info(
+                    f"Invalid configuration point {cfg_dict}, n_gpu={training_script_args['gpus']}"
+                )
             time.sleep(0.5)
             logger.info(f"\tThroughput: {thrpt:.2f}")
+            # TODO: threshold should be a larger value used for pruning
+            # maybe provide an interface for the users
             if thrpt < 0.01:
                 rt = mid - 1
             else:
                 lt = mid + 1
             if thrpt > curr_best[1]:
                 curr_best = (cfg_dict.copy(), thrpt)
+                early_stopping_patience = 0
+            else:
+                early_stopping_patience += 1
+            # set step 5 as the patience
+            if early_stopping_patience >= 5:
+                return mid, None, curr_best
             logger.info(
                 f"\tCurrent best config: {curr_best[0]}, " f"thrpt: {curr_best[1]:.2f}"
             )
-        return data[mid], thrpt, curr_best
+        if thrpt < 0.01:
+            mid = mid - 1
+        return mid, thrpt, curr_best
 
     def _run(min_bs, max_bs, step):
         if "megatron" in training_script_args:
@@ -342,11 +357,12 @@ def tune(args, get_bs_range, eval_fn):
         logger.info(f"\tThroughput: {thrpt:.2f}")
         curr_best = (cfg_dict.copy(), thrpt)
         if thrpt == 0:  # OOM
-            max_bs, thrpt, curr_best = binary_search(
+            mid, thrpt, curr_best = binary_search(
                 bs_range, cfg_dict, "batch_size", curr_best
             )
+            max_bs = bs_range[mid]
         else:
-            pass
+            mid = 0
         logger.info(f"Maximum batch size without OOM: {max_bs}")
         if (
             "slapo-megatron" in training_script_args
@@ -354,9 +370,11 @@ def tune(args, get_bs_range, eval_fn):
         ):
             for bs in reversed(list(range(min_bs, max_bs + 1, step))):
                 cfg_dict["batch_size"] = bs
-                _, thrpt, curr_best = binary_search(
-                    ckpt_ratio_range, cfg_dict, "ckpt_ratio", curr_best
+                mid, thrpt, curr_best = binary_search(
+                    ckpt_ratio_range, cfg_dict, "ckpt_ratio", curr_best, lt=mid
                 )
+                if thrpt is None:  # early stopping
+                    break
         return curr_best
 
     logger.info("Start tuning...")

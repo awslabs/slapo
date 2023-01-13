@@ -21,7 +21,7 @@ def draw_bar(
     mark_na=False,
 ):
     x = np.arange(0, len(x_ticklabels) * 3, 3)
-    width = 0.23
+    width = 0.3
     interval = np.arange(-len(data) + 1, len(data), 2)
     bars = []
     for i, key in enumerate(data):
@@ -32,7 +32,8 @@ def draw_bar(
             )
         )
     ax.set_xticks(x)
-    ax.set_xticklabels(x_ticklabels)
+    ax.set_xticklabels(x_ticklabels, fontsize=12)
+    ax.yaxis.set_tick_params(labelsize=12)
     # ax.set_yticks(np.arange(0, 8.5, 1.0))
     if x_label is not None:
         ax.set_xlabel(x_label)
@@ -54,7 +55,7 @@ def draw_bar(
                     )
     ax.set_axisbelow(True)
     if draw_labels:
-        ax.legend(loc=0, ncol=2)  # , prop={"size": 10})
+        ax.legend(loc=0, prop={"size": 12})
     ax.grid(axis="y")
 
 
@@ -79,17 +80,17 @@ def plot(file_name):
     }
     legend_name_mapping = {
         "eager": "PyTorch Eager",
-        "eager-ckpt": "PyTorch Eager+Ckpt",
+        # "eager-ckpt": "PyTorch Eager+Ckpt",
         "torchscript": "TorchScript",
         "slapo": "Slapo",
-        "slapo-ckpt": "Slapo+Ckpt",
+        # "slapo-ckpt": "Slapo+Ckpt",
     }
     data = {
         "eager": [],
-        "eager-ckpt": [],
+        # "eager-ckpt": [],
         "torchscript": [],
         "slapo": [],
-        "slapo-ckpt": [],
+        # "slapo-ckpt": [],
     }
     for impl in data:
         if "ckpt" in impl:
@@ -101,17 +102,12 @@ def plot(file_name):
         res = results[results["Impl"] == new_impl_name]
         for long_name in model_name_mapping.values():
             selected_model_res = res[res["Model"] == long_name]
-            cond = (
-                (selected_model_res["Ckpt"] == "0")
-                if "ckpt" not in impl
-                else (selected_model_res["Ckpt"] != "0")
-            )
-            thrpt = selected_model_res[cond]["Thrpt"].values.tolist()
-            if len(thrpt) == 0 or thrpt[0] in ["fail", "oom"]:
-                data[impl].append(0)
-            else:
-                data[impl].append(float(thrpt[0]))
-    fig, axs = plt.subplots(2, 1, figsize=(6, 2.5), sharex=True)
+            # including ckpt and non-ckpt
+            thrpt = selected_model_res["Thrpt"].values.tolist()
+            thrpt = [0.0 if val in ["fail", "oom"] else float(val) for val in thrpt]
+            thrpt = max(thrpt) if len(thrpt) > 0 else 0.0
+            data[impl].append(thrpt)
+    fig, axs = plt.subplots(2, 1, figsize=(7, 2.9), sharex=True)
     fig.subplots_adjust(hspace=0.1)
     print(data)
     # https://matplotlib.org/stable/gallery/subplots_axes_and_figures/broken_axis.html
@@ -158,7 +154,7 @@ def plot(file_name):
     ax1.plot([0, 1], [0, 0], transform=ax1.transAxes, **kwargs)
     ax2.plot([0, 1], [1, 1], transform=ax2.transAxes, **kwargs)
 
-    fig.supylabel("Throughput (samples/sec)")
+    fig.supylabel("Throughput (samples/sec)", fontsize=12)
     # plt.tight_layout()
     plt.savefig("single_device_v100.pdf", format="pdf", dpi=200, bbox_inches="tight")
     plt.show()

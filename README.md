@@ -3,21 +3,24 @@
 
 # Slapo: Schedule Language for Large Model Training
 
-Slapo is a schedule language for progressive optimization of large deep learning model training. We aim to address the tension between usability and training efficieny through separtion of concerns. Slapo decouples model execution from definition, enabling users to work on a PyTorch model and use a set of schedule primitives to convert it for common model training optimizations such as high-performance kernels, effective 3D parallelism, and efficient activation checkpointing. Slapo progressively optimizes the model "as-needed" through high-level primitives, and thus preserving programmability and debuggability for users to a large extent.
+Slapo is a schedule language for progressive optimization of large deep learning model training.
+
+Large deep learning models demonstrate dominating model accuracy on a range of tasks in NLP and CV, but it is hard to train the model efficiently while preserving the usability. Slapo aims to address this tension through separation of concerns. Slapo decouples model execution from definition, enabling developers to use a set of schedule primitives to convert a PyTorch model for common model training optimizations without directly changing the model itself.
+
+Slapo highlights the following features:
+
+:rocket: **Progressive optimization**. Slapo incorporates a "trace by need" approach that only traces a desired module to be a static graph for compiler-based aggressive optimizations.
+
+:building_construction: **Structure-preserving scheduling**. Slapo preserves the module hierarchy when constructing the schedule, so developers can easily locate the module and apply scheduling, which also facilitates the users to debug any performance and convergence issue.
+
+:gear: **Auto-tuning**. Slapo provides a programming interface that allows developers to specify a set of tuneable knobs to form an efficient tuning space, which can then be explored by Slapo auto-tuner to realize the optimal configuration.
 
 
 ## Getting Started
 
-### Requirements
-* [PyTorch](https://pytorch.org/) >= 1.13
-* [HuggingFace Transformers](https://github.com/huggingface/transformers) >= 4.25.1
-* [Megatron-LM](https://github.com/NVIDIA/Megatron-LM) >= 3.0.2
-* [DeepSpeed](https://github.com/microsoft/DeepSpeed) >= 0.7.7
-
-
 ### Installation
 
-We currently only support installation from source. We will provide pip-wheel in the future.
+We currently only support installation from source, and will provide pip-wheel in the future. Please make sure you have installed [PyTorch](https://pytorch.org/) (>= v1.13) in advance.
 
 ```bash
 git clone https://github.com/awslabs/slapo.git slapo
@@ -25,12 +28,17 @@ cd slapo
 pip3 install -e ".[dev]"
 ```
 
+You can optionally install [HuggingFace Transformers](https://github.com/huggingface/transformers) (>= v4.25.1) to retrieve models. Also, we support the following frameworks. You can run the scheduled models on these frameworks if needed.
+* [Megatron-LM](https://github.com/NVIDIA/Megatron-LM) >= 3.0.2
+* [DeepSpeed](https://github.com/microsoft/DeepSpeed) >= 0.7.7
+
+
 ### Usage
-Please see the [example](example/) folder for more details.
+Please see the [examples](examples/) folder for more details. Documentations will be released soon.
 ```python
 import slapo
 
-# load a PyTorch model from HuggingFace Hub, TorchVision, etc.
+# Load a PyTorch model from HuggingFace Hub, TorchVision, etc.
 from transformers import BertLMHeadModel, AutoConfig
 config = AutoConfig.from_pretrained("bert-large-uncased")
 bert = BertLMHeadModel(config)
@@ -38,9 +46,9 @@ bert = BertLMHeadModel(config)
 # Create a default schedule
 sch = slapo.create_schedule(bert)
 
-# Conduct optimizations
-# Please refer to examples/bert/schedule.py for how to apply our primitives
-sch["bert.xxx"].primitve(...)
+# Apply primitives to optimize the model
+# Please refer to examples/bert/schedule.py for details
+sch["bert.encoder.layer.0"].primitve(...)
 
 # Build an optimized model
 opt_model = slapo.build(sch)
@@ -52,7 +60,7 @@ outputs = opt_model(inputs)
 
 
 ## Supported Primitives
-To maximally reduce the risk introduced by tracers and compilers, we leverage **progressive optimization** to gradually apply primitives to a part of the model. We classify the primitives into two catagories. The first type of primitives does *not* require tracing and can be directly applied to modules and parameters; the second type of primitives requires a static graph, and thus needs to apply the `.trace()` primitive first.
+To maximally reduce the risk introduced by tracers and compilers, we leverage **progressive optimization** to gradually apply primitives to a part of the model. We classify the primitives into two categories. The first type of primitives does *not* require tracing and can be directly applied to modules and parameters; the second type of primitives requires a static graph, and thus needs to apply the `.trace()` primitive first.
 
 We provide the following primitives for dynamic graph optimizations:
 | Feature | Primitive |
@@ -75,27 +83,33 @@ And the following primitives for static graph optimizations:
 
 
 ### Auto-Tuning
-We also provide a light-weight interface for auto-tuning, so the users can (1) construct a polyhedral search space using our APIs, and (2) leverage our auto-tuner for automatically search for the best configuration.
+We also provide a light-weight interface for auto-tuning, so the developers can (1) construct a polyhedral search space using our APIs, and (2) leverage Slapo auto-tuner to automatically search for the best training configuration.
 
 ```bash
 cd benchmark
-python3 tun_single_node.py
+# Single device
+# To following script will trigger the tuning jobs for all the models
+python3 tune_single_device.py
+# Single node
+python3 tune_single_node.py
 ```
 
 
 ## Benchmarking
-We provide scripts to reproduce our results on a single node with 8 * V100 GPUs.
+We provide scripts to reproduce our results on a single AWS EC2 p3.16xlarge node with 8 * V100 GPUs.
+
 ```bash
 cd benchmark
-# Download test datasets
+# Download datasets
 bash download_benchmark_dataset.sh
-# Benchmark
+# Run benchmarking
+# Megatron-LM and Deepspeed are required for executing the experiments
 bash run_all_single_node.sh config/single_node_v100.cfg
 ```
 
 
 ## Publication
-If you use Slapo in your project, please feel free to cite our [paper](https://arxiv.org/):
+If you use Slapo in your project, please feel free to cite our ArXiv [paper](https://arxiv.org/):
 - **Slapo: A Schedule Language for Progressive Optimization of Large Deep Learning Model Training**
   Hongzheng Chen, Cody Hao Yu, Shuai Zheng, Zhen Zhang, Zhiru Zhang, and Yida Wang.
 

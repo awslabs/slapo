@@ -3,14 +3,20 @@
 # Modifications Copyright 2022 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+import operator as op
 import sys
 from typing import Union
 
 from packaging.version import Version, parse
 
-import operator as op
-
-STR_OPERATION_TO_FUNC = {">": op.gt, ">=": op.ge, "==": op.eq, "!=": op.ne, "<=": op.le, "<": op.lt}
+STR_OPERATION_TO_FUNC = {
+    ">": op.gt,
+    ">=": op.ge,
+    "==": op.eq,
+    "!=": op.ne,
+    "<=": op.le,
+    "<": op.lt,
+}
 
 
 if sys.version_info < (3, 8):
@@ -21,7 +27,9 @@ else:
 torch_version = parse(importlib_metadata.version("torch"))
 
 
-def compare_versions(library_or_version: Union[str, Version], operation: str, requirement_version: str):
+def compare_versions(
+    library_or_version: Union[str, Version], operation: str, requirement_version: str
+):
     """
     Compares a library version to some requirement using a given operation.
     Args:
@@ -32,8 +40,10 @@ def compare_versions(library_or_version: Union[str, Version], operation: str, re
         requirement_version (`str`):
             The version to compare the library version against
     """
-    if operation not in STR_OPERATION_TO_FUNC.keys():
-        raise ValueError(f"`operation` must be one of {list(STR_OPERATION_TO_FUNC.keys())}, received {operation}")
+    if operation not in STR_OPERATION_TO_FUNC:
+        raise ValueError(
+            f"`operation` must be one of {list(STR_OPERATION_TO_FUNC.keys())}, received {operation}"
+        )
     operation = STR_OPERATION_TO_FUNC[operation]
     if isinstance(library_or_version, str):
         library_or_version = parse(importlib_metadata.version(library_or_version))

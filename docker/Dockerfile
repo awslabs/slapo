@@ -262,8 +262,8 @@ RUN cd $HOME/Megatron-LM && git checkout 0bb597b
 ENV PYTHONPATH "${PYTHONPATH}:$HOME/Megatron-LM"
 
 # Install xformers
-RUN git clone https://github.com/jfc4050/xformers $HOME/xformers
-RUN cd $HOME/xformers && git checkout -b bias-dropout origin/bias-dropout && \
+RUN git clone https://github.com/jfc4050/xformers $HOME/xformers && \
+    cd $HOME/xformers && git checkout -b bias-dropout origin/bias-dropout && \
     git checkout 500b8d4 && git submodule sync && git submodule update --init --recursive
 RUN cd $HOME/xformers && \
     export FORCE_CUDA="1" && \
@@ -272,7 +272,7 @@ RUN cd $HOME/xformers && \
 
 # Install epoi
 RUN git clone https://github.com/comaniac/epoi --recursive $HOME/epoi
-RUN cd $HOME/epoi && git fetch && git checkout 03abf86 && pip3 install -e ".[dev]"
+RUN cd $HOME/epoi && git fetch && git checkout b2e2e98 && pip3 install -e ".[dev]"
 
 # Install transformers
 RUN git clone https://github.com/huggingface/transformers.git $HOME/transformers

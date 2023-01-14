@@ -1,22 +1,22 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
+from __future__ import annotations
 
-import re
-import os
 import inspect
 import operator
+import os
+import re
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from functools import partial
 from types import FunctionType
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import torch
 import torch.distributed as dist
-import torch.fx as fx
-import torch.nn as nn
-import torch.utils.checkpoint as checkpoint
+from torch.utils import checkpoint
+from torch import fx, nn
 
 from .logger import get_logger
 from .pipeline import generate_pipeline_modules, generate_pipeline_partition
@@ -55,18 +55,19 @@ class DictWithValidation(dict):
 
 
 class _AllGatherForwardOutput(torch.autograd.Function):
+    # pylint: disable=abstract-method, arguments-differ
     @staticmethod
-    def forward(ctx, input, dim, group):
+    def forward(ctx, inp, dim, group):
         ctx.dim = dim
         ctx.group = group
         world_size = dist.get_world_size(group)
         rank = dist.get_rank(group)
         parts = [
-            torch.zeros(input.shape, dtype=input.dtype).cuda(rank)
+            torch.zeros(inp.shape, dtype=inp.dtype).cuda(rank)
             for _ in range(world_size)
         ]
         # dist.all_gather_into_tensor
-        dist.all_gather(parts, input, group=group)
+        dist.all_gather(parts, inp, group=group)
         ret = torch.cat(parts, dim=dim)
         return ret
 
@@ -81,25 +82,26 @@ class _AllGatherForwardOutput(torch.autograd.Function):
         return ret, None, None
 
 
-def all_gather_forward_output(input, dim, group):
-    return _AllGatherForwardOutput.apply(input, dim, group)
+def all_gather_forward_output(inp, dim, group):
+    return _AllGatherForwardOutput.apply(inp, dim, group)
 
 
 @dataclass
 class ScheduleMetadata:
+    # pylint: disable=unnecessary-lambda
     # FIXME: 1) A mechanism to let each primitive register their metadata.
     # 2) Let each primitive derive metadata class.
-    shard: Dict[str, Any] = field(default_factory=lambda: DictWithValidation())
+    shard: dict[str, Any] = field(default_factory=lambda: DictWithValidation())
 
     # A set of paths to the modules that includes pipeline cutting annotations.
     # Note that we use ordered set to keep the order of the modules.
-    pipeline_cutting_paths: Dict[str, Any] = field(
+    pipeline_cutting_paths: dict[str, Any] = field(
         default_factory=lambda: OrderedDict()
     )
 
     # A mapping from parameter name to original shape
     # Used for delay initialization
-    base_params: Dict[str, tuple] = field(default_factory=lambda: DictWithValidation())
+    base_params: dict[str, tuple] = field(default_factory=lambda: DictWithValidation())
 
 
 def register_primitive(need_dist=False, finalize=False):
@@ -142,7 +144,6 @@ class Schedule:
         path: str = "",
         parent: Optional["Schedule"] = None,
         group: Optional[dist.ProcessGroup] = None,
-        **kwargs: Dict[str, Any],
     ):
         if dist.is_initialized():
             world_size = dist.get_world_size(group)
@@ -167,14 +168,14 @@ class Schedule:
         self.finalized = False
 
     @staticmethod
-    def tokenize_module_path(module_path: str) -> List[str]:
+    def tokenize_module_path(module_path: str) -> list[str]:
         tokens = []
         for token in module_path.split("."):
             try:
                 list_idx = int(token)
                 assert tokens, f"Invalid module path: {module_path}"
                 tokens[-1] = f"{tokens[-1]}.{list_idx}"
-            except:
+            except Exception:
                 tokens.append(token)
         return tokens
 
@@ -316,7 +317,7 @@ class Schedule:
         ), "output_type is missing in {mod}.schedule_metadata.shard"
         output_type = self.metadata.shard["output_type"]
 
-        if mode in ["forward", "both"]:
+        if mode in {"forward", "both"}:
             if output_type == "partition":
                 # Case 1
                 gather_axis = self.metadata.shard["gather_axis"]
@@ -338,9 +339,10 @@ class Schedule:
 
             self.mod.register_forward_hook(hook_func)
 
-        if mode in ["backward", "both"]:
+        if mode in {"backward", "both"}:
             # Case 1, 2
 
+            # pylint: disable=function-redefined, unused-argument
             def hook_func(_module, _input, output):
                 # Allreduce dx.
                 dist.all_reduce(
@@ -397,25 +399,25 @@ class Schedule:
         self.trace()
 
         if func_pattern is not None:
+            # pylint: disable=exec-used
             # FIXME: Find a safer way to do it
             sig = inspect.signature(func_pattern)
             param_str = ", ".join(sig.parameters.keys())
             exec(
-                """
+                f"""
 class SubgraphWrapper(nn.Module):
     def __init__(self, pattern):
         super(SubgraphWrapper, self).__init__()
         self.pattern = pattern
 
-    def forward(self, {0}):
-        return self.pattern({0})
-""".format(
-                    param_str
-                ),
+    def forward(self, {param_str}):
+        return self.pattern({param_str})
+""",
                 globals(),
             )
 
             # SubgraphWrapper.__signature__ = inspect.signature(func_pattern)
+            # pylint: disable=undefined-variable
             pattern_mod = fx.symbolic_trace(SubgraphWrapper(func_pattern))
 
         res = []
@@ -476,10 +478,9 @@ class SubgraphWrapper(nn.Module):
     def find(self, node_pattern, func_pattern=None):
         if isinstance(node_pattern, str):
             return self.find_subgraph(node_pattern, func_pattern=func_pattern)
-        elif isinstance(node_pattern, FunctionType):
+        if isinstance(node_pattern, FunctionType):
             return self.find_node(node_pattern)
-        else:
-            raise RuntimeError(f"Unrecognized pattern {node_pattern}")
+        raise RuntimeError(f"Unrecognized pattern {node_pattern}")
 
     def replace_function(self, func, target_op):
         """Do NOT directly call this function, use `.replace()` instead"""
@@ -510,7 +511,7 @@ class SubgraphWrapper(nn.Module):
             name = _get_unique_module_name(self.mod, new_mod._get_name().split(".")[-1])
             assert len(subgraphs) > 0, "Should have at least one operator to replace"
             node_or_lst = subgraphs[0]
-            if isinstance(node_or_lst, List):
+            if isinstance(node_or_lst, list):
                 # horizontal fusion, e.g.,
                 #     x
                 #   / | \
@@ -535,7 +536,7 @@ class SubgraphWrapper(nn.Module):
                         getitem = target_mod.graph.call_function(
                             operator.getitem, (new_node, i)
                         )
-                        sublst = [sublst] if not isinstance(sublst, List) else sublst
+                        sublst = [sublst] if not isinstance(sublst, list) else sublst
                         for _, node in reversed(sublst):
                             if node.users not in sublst:
                                 node.replace_all_uses_with(getitem)
@@ -569,7 +570,7 @@ class SubgraphWrapper(nn.Module):
         2. Replace a part of the forward function (target_ops) with a new module or function.
         """
         if isinstance(new_mod_or_func, FunctionType):
-            if target_ops is None and isinstance(target_ops, List):
+            if target_ops is None and isinstance(target_ops, list):
                 raise ValueError(
                     "Cannot replace multiple subgraphs in forward with one function"
                 )
@@ -615,12 +616,12 @@ class SubgraphWrapper(nn.Module):
             def forward(self, *args, **kwargs):
                 ordered_args = []
                 if order_args_fn is None:
-                    ordered_args = [arg for arg in args]
+                    ordered_args = list(args)
                     for value in kwargs.values():
                         ordered_args += [value]
                 else:
                     ordered_args = order_args_fn(*args, **kwargs)
-                
+
                 # Note: checkpoint cannot accept kwargs
                 return checkpoint.checkpoint(self.mod, *ordered_args)
 
@@ -663,7 +664,7 @@ class SubgraphWrapper(nn.Module):
 
         # Add all child modules to the leaf modules.
         leaf_modules = []
-        for path in paths if isinstance(paths, List) else [paths]:
+        for path in paths if isinstance(paths, list) else [paths]:
             leaf_modules += list(self[path].child.keys())
 
         tracer = kwargs.pop("tracer", "pytorch")
@@ -690,11 +691,15 @@ class SubgraphWrapper(nn.Module):
             return True
 
         logger.warning(
-            f"Failed to trace {self.path}: {failed_msg}. Please explicitly "
-            f"use sch['{self.path}'].trace(...) to provide necessary information. "
-            f"If you encounter this error with sch['{self.path}'].trace(...), it is "
-            f"either due to the incorrect tracer/concrete args, or the limtation "
-            f"in torch.fx."
+            "Failed to trace %s: %s. Please explicitly "
+            "use sch['%s'].trace(...) to provide necessary information. "
+            "If you encounter this error with sch['%s'].trace(...), it is "
+            "either due to the incorrect tracer/concrete args, or the limtation "
+            "in torch.fx.",
+            self.path,
+            failed_msg,
+            self.path,
+            self.path,
         )
         return False
 
@@ -827,7 +832,9 @@ def consolidate_model(sch: Schedule, topology=None):
             if not "DEBUG" in os.environ:
                 stage_groups = []
                 for i in range(num_pp):
-                    stage_groups.append(dist.new_group(ranks=topology.filter_match(pipe=i)))
+                    stage_groups.append(
+                        dist.new_group(ranks=topology.filter_match(pipe=i))
+                    )
             if global_rank not in curr_stage_devices:
                 # do nothing if the target module is NOT on this device group
                 return sch
@@ -894,8 +901,6 @@ def consolidate_model(sch: Schedule, topology=None):
         assert (
             cnt_meta == 0
         ), f"Some of the parameters in module {sch.name} are on meta device"
-        # do nothing
-        pass
     elif cnt_meta == 0 and cnt_materialized == 0:
         # skip if no direct parameters in this module
         pass
@@ -916,7 +921,7 @@ def build(sch: Schedule, topology=None, target=None, **kwargs):
     if target == "deepspeed":
         assert "config" in kwargs
         import deepspeed
-        import deepspeed.pipe as pipe
+        from deepspeed import pipe
 
         if sch.metadata.pipeline_cutting_paths:
             # Sanity check
@@ -942,6 +947,8 @@ def build(sch: Schedule, topology=None, target=None, **kwargs):
             )
         else:
             model = sch.mod
+
+        # pylint: disable=unbalanced-tuple-unpacking
         model, optimizer, _, _ = deepspeed.initialize(
             model=model,
             config=kwargs["config"],

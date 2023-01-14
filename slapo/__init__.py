@@ -6,5 +6,5 @@ from .logger import get_logger
 from .schedule import *
 from .tracer import *
 from .utils import *
-from .tune import Database, Space, Symbol
+from .autotune.tune import Database, Space, Symbol
 from .initialization import init_empty_weights

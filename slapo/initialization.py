@@ -3,9 +3,10 @@
 # Modifications Copyright 2022 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-import torch
-import torch.nn as nn
 from contextlib import contextmanager, nullcontext
+
+import torch
+from torch import nn
 
 from .utils.versions import is_torch_version
 
@@ -13,22 +14,29 @@ from .utils.versions import is_torch_version
 @contextmanager
 def init_empty_weights(enable: bool = True, include_buffers: bool = False):
     """
-    A context manager under which models are initialized with all parameters on the meta device, therefore creating an
+    A context manager under which models are initialized with all parameters on the
+    meta device, therefore creating an
     empty model. Useful when just initializing the model would blow the available RAM.
-    Args:
-        include_buffers (`bool`, *optional*, defaults to `False`):
-            Whether or not to also put all buffers on the meta device while initializing.
+
+    Parameters
+    ----------
+    include_buffers (`bool`, *optional*, defaults to `False`):
+        Whether or not to also put all buffers on the meta device while initializing.
+
     Example:
     ```python
     import torch.nn as nn
     from accelerate import init_empty_weights
-    # Initialize a model with 100 billions parameters in no time and without using any RAM.
+    # Initialize a model with 100 billions parameters in no time and without
+    # using any RAM.
     with init_empty_weights():
         tst = nn.Sequential(*[nn.Linear(10000, 10000) for _ in range(1000)])
     ```
     <Tip warning={true}>
-    Any model created under this context manager has no weights. As such you can't do something like
-    `model.to(some_device)` with it. To load weights inside your empty model, see [`load_checkpoint_and_dispatch`].
+    Any model created under this context manager has no weights. As such you can't
+    do something like
+    `model.to(some_device)` with it. To load weights inside your empty model,
+    see [`load_checkpoint_and_dispatch`].
     </Tip>
     """
     if not is_torch_version(">=", "1.9.0"):
@@ -46,12 +54,16 @@ def init_empty_weights(enable: bool = True, include_buffers: bool = False):
 @contextmanager
 def init_on_device(device: torch.device, include_buffers: bool = False):
     """
-    A context manager under which models are initialized with all parameters on the specified device.
-    Args:
-        device (`torch.device`):
-            Device to initialize all parameters on.
-        include_buffers (`bool`, *optional*, defaults to `False`):
-            Whether or not to also put all buffers on the meta device while initializing.
+    A context manager under which models are initialized with all parameters
+    on the specified device.
+
+    Parameters
+    ----------
+    device (`torch.device`)
+        Device to initialize all parameters on.
+    include_buffers (`bool`, *optional*, defaults to `False`):
+        Whether or not to also put all buffers on the meta device while initializing.
+
     Example:
     ```python
     import torch.nn as nn
@@ -60,6 +72,7 @@ def init_on_device(device: torch.device, include_buffers: bool = False):
         tst = nn.Liner(100, 100)  # on `cuda` device
     ```
     """
+    # pylint: disable=redefined-variable-type
     old_register_parameter = nn.Module.register_parameter
     if include_buffers:
         old_register_buffer = nn.Module.register_buffer
@@ -82,7 +95,7 @@ def init_on_device(device: torch.device, include_buffers: bool = False):
     if include_buffers:
         tensor_constructors_to_patch = {
             torch_function_name: getattr(torch, torch_function_name)
-            for torch_function_name in ["empty", "zeros", "ones", "full"]
+            for torch_function_name in ("empty", "zeros", "ones", "full")
         }
     else:
         tensor_constructors_to_patch = {}

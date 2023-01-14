@@ -1,12 +1,10 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-import argparse
 import os
 import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
-import torch.nn as nn
 
 
 def setup(rank, world_size):

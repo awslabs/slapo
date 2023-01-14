@@ -1,15 +1,18 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
+"""Test trace primitives."""
 
 import inspect
-import pytest
 
+import pytest
 import torch
-import torch.fx as fx
+from torch import fx
+
 import slapo
 
 
 def generate_concrete_args(model, input_names):
+    """Generate concrete args for tracing."""
     sig = inspect.signature(model.forward)
     concrete_args = {
         p.name: p.default for p in sig.parameters.values() if p.name not in input_names
@@ -18,6 +21,7 @@ def generate_concrete_args(model, input_names):
 
 
 def test_hf_bert():
+    """Test tracing HF bert model."""
     from transformers import AutoConfig, BertModel
 
     config = AutoConfig.from_pretrained("bert-base-uncased")
@@ -48,6 +52,7 @@ def test_hf_bert():
 
 
 def test_hf_gpt_neo():
+    """Test tracing HF gpt-neo model."""
     from transformers import AutoConfig, GPTNeoModel
 
     config = AutoConfig.from_pretrained("EleutherAI/gpt-neo-125M")
@@ -75,7 +80,8 @@ def test_hf_gpt_neo():
 
 
 def test_torchvision_wideresnet():
-    from torchvision.models.resnet import ResNet, Bottleneck
+    """Test tracing torchvision wideresnet model."""
+    from torchvision.models.resnet import Bottleneck, ResNet
 
     model = ResNet(Bottleneck, [6, 8, 4, 6], width_per_group=128)
     concrete_args = generate_concrete_args(model, ["x"])

@@ -19,7 +19,7 @@ def init_dist(request):
     torch.manual_seed(9999)
     try:
         dist.init_process_group(backend="nccl")
-    except:
+    except Exception:
         pytest.skip(f"Skip {__file__} because torch.distributed is not initialized")
 
     def destory_dist():
@@ -67,7 +67,7 @@ def verify_grads(ref_model, path_and_grads, tol=1e-5):
         torch.testing.assert_close(
             grad,
             param.grad,
-            msg=lambda msg: f"{path}.grad mismatch\n{msg}",
+            msg=lambda msg: f"{path}.grad mismatch\n{msg}", # pylint: disable=cell-var-from-loop
             atol=tol,
             rtol=tol,
         )

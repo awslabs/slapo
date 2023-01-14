@@ -8,7 +8,7 @@ from logging import getLevelName
 import torch.distributed as dist
 
 FORMATTER = logging.Formatter(
-    "[%(asctime)s][%(levelname)s]" "[%(filename)s:%(lineno)d:%(funcName)s] %(message)s"
+    "[%(asctime)s][%(levelname)s][%(filename)s:%(lineno)d:%(funcName)s] %(message)s"
 )
 STREAM_HANDLER = logging.StreamHandler()
 STREAM_HANDLER.setFormatter(FORMATTER)

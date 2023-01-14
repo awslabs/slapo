@@ -3,7 +3,7 @@
 
 from enum import Enum
 import torch
-import torch.fx as fx
+from torch import fx
 import torch.nn as nn
 
 from ..registry import register_model_dialect

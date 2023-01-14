@@ -4,7 +4,7 @@
 import operator
 from collections import OrderedDict
 
-import torch.fx as fx
+from torch import fx
 
 from torch.fx.passes.split_module import split_module
 
@@ -107,7 +107,7 @@ def propagate_partition(sch, starting_stage_id=0, stop_at=None):
             )
         last_node_except_output = new_node
     if last_call_mod_node is None or last_node_except_output is None:
-        raise RuntimeError(f"Cannot find call_module node in the splitted module")
+        raise RuntimeError("Cannot find call_module node in the splitted module")
     if last_call_mod_node != last_node_except_output:
         raise RuntimeError(
             f"The second last node is {last_node_except_output} with op type "
@@ -145,9 +145,7 @@ def propagate_partition(sch, starting_stage_id=0, stop_at=None):
     # Fix output
     if len(output_node.args) > 1 or len(output_node.kwargs) > 0:
         raise RuntimeError("Multiple output arguments not supported yet!")
-    elif len(output_node.args) == 1 and (
-        isinstance(output_node.args[0], tuple) or isinstance(output_node.args[0], dict)
-    ):
+    if len(output_node.args) == 1 and (isinstance(output_node.args[0], (dict, tuple))):
         if isinstance(output_node.args[0], tuple):
             raise RuntimeError("Tuple return not supported yet!")
         ret_dict = output_node.args[0]
@@ -162,7 +160,9 @@ def propagate_partition(sch, starting_stage_id=0, stop_at=None):
                         ph2arg[value.name if isinstance(value, fx.Node) else None],
                     )
                 )
-            elif user.op == "call_function" and user.target == operator.getitem:
+            elif ( # pylint: disable=comparison-with-callable
+                user.op == "call_function" and user.target == operator.getitem
+            ):
                 users_to_replace.append((user, ph2arg[ret_dict[user.args[1]].name]))
         for user, target in users_to_replace:
             user.replace_all_uses_with(target)
@@ -198,6 +198,7 @@ def analyze_pipeline_module(top_mod):
             assert not suffix or suffix.startswith(".")
             return f"{node.target}{suffix}"
 
+        # pylint: disable=comparison-with-callable
         assert node.target == operator.getitem, (
             "Expect only getitem "
             f"function call in top pipeline module, but got {node.target}"
@@ -257,12 +258,13 @@ def analyze_pipeline_module(top_mod):
     # Override the liveness of the first stage to match the input order.
     if set(liveness[0]) != set(liveness[-1]):
         logger.warning(
-            f"Inputs between first submodule and top module are mismatched"
-            f" (first submodule: {liveness[0]}, top module: {liveness[-1]}). "
+            "Inputs between first submodule and top module are mismatched"
+            " (first submodule: %s, top module: %s). "
             "Possibly because some arguments in top modules are specified to None "
             "when tracing, and they are not removed by the PyTorch tracer. "
             "This should not be an issue if the None arguments are really 'None' "
-            "in the training process."
+            "in the training process.",
+            liveness[0], liveness[-1],
         )
     else:
         liveness[0] = liveness[-1]

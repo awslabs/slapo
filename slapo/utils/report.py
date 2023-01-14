@@ -2,26 +2,24 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import gc
+
 import psutil
 import torch
 import torch.distributed as dist
-from torch.profiler import profile, record_function, ProfilerActivity
+from torch.profiler import ProfilerActivity, profile, record_function
 
 
 def report_memory(msg="", report_gc=False):
     print(
-        "{} CPU RAM used: {:.4f} GiB".format(
-            msg, psutil.virtual_memory()[3] / 1024 / 1024 / 1024
-        )
+        f"{msg} CPU RAM used: {psutil.virtual_memory()[3] / 1024 / 1024 / 1024:.4f} GiB"
     )
     if not dist.is_initialized():
         return
     torch.cuda.empty_cache()
     torch.cuda.reset_peak_memory_stats()
     print(
-        "{} GPU rank {} used: {:.4f} MiB".format(
-            msg, dist.get_rank(), torch.cuda.max_memory_allocated() / 1024 / 1024
-        )
+        f"{msg} GPU rank {dist.get_rank()} "
+        f"used: {torch.cuda.max_memory_allocated() / 1024 / 1024:.4f} MiB"
     )
     if report_gc:
         gc.collect()
@@ -34,7 +32,7 @@ def report_memory(msg="", report_gc=False):
                     if dist.get_rank() == 0:
                         print("GC Tensor", type(obj), obj.size())
                     tc += obj.numel()
-            except:
+            except Exception:
                 pass
 
 

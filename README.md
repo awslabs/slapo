@@ -1,7 +1,7 @@
 <!--- Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved. -->
 <!--- SPDX-License-Identifier: Apache-2.0  -->
 
-# Slapo: Schedule Language for Large Model Training
+# Slapo: A Schedule Language for Large Model Training
 
 Slapo is a schedule language for progressive optimization of large deep learning model training.
 
@@ -88,7 +88,7 @@ We also provide a light-weight interface for auto-tuning, so the developers can 
 ```bash
 cd benchmark
 # Single device
-# To following script will trigger the tuning jobs for all the models
+# The following script will trigger the tuning jobs for all the models
 python3 tune_single_device.py
 # Single node
 python3 tune_single_node.py

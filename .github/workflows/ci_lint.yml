@@ -32,10 +32,10 @@ jobs:
         with:
           fetch-depth: 0 # Checkout all branches and history.
           submodules: 'recursive'
-      - name: Setup tmate session
-        uses: mxschmitt/action-tmate@v3
       - name: Check linting
-        run: bash ./ci/task_lint.sh
+        run: |
+          git config --global --add safe.directory .
+          bash ./ci/task_lint.sh
       - name: Check whether to skip rest tests
         # If the PR only changes docs or docker file, no need to run other tests.
         id: check_skip

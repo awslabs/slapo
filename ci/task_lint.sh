@@ -12,8 +12,8 @@ python3 scripts/lint/check_license_header.py origin/main
 
 echo "Check Python formats using black..."
 python3 -m pip install black==22.10.0
-./scripts/lint/git-black.sh HEAD~1
-./scripts/lint/git-black.sh origin/main
+bash ./scripts/lint/git-black.sh HEAD~1
+bash ./scripts/lint/git-black.sh origin/main
 
 echo "Running pylint on slapo"
 python3 -m pip install pylint==2.14.0

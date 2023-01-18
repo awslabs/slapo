@@ -795,7 +795,7 @@ def create_schedule(
     return root_sch
 
 
-def consolidate_model(sch: Schedule, topology=None, param_init_fn: Optional[Callable[[nn.Module], None]] = None):
+def consolidate_model(sch: Schedule, topology=None, param_init_fn: Optional[Callable[[nn.Module], None]] = None, init_required: bool = True):
     if dist.get_world_size() > sch.world_size:
         assert topology is not None, f"topology={topology} must be given when there are multiple tensor paralel groups or pipeline parallelism is used"
 
@@ -880,7 +880,7 @@ def consolidate_model(sch: Schedule, topology=None, param_init_fn: Optional[Call
             )
 
         # use original shape to initialize parameters
-        if global_rank == curr_stage_devices[0] and num_params > 0:
+        if global_rank == curr_stage_devices[0] and num_params > 0 and init_required:
             # only the first device in the PP group needs to initialize the weights
             if param_init_fn:
                 param_init_fn(sch.mod)
@@ -897,8 +897,9 @@ def consolidate_model(sch: Schedule, topology=None, param_init_fn: Optional[Call
 
         # need to broadcast params from rank 0 to make sure all the TP+DP ranks take the same params
         curr_stage_group = stage_groups[curr_part_idx]
-        for _, param in sch.mod.named_parameters(recurse=False):
-            dist.broadcast(param, src=curr_stage_devices[0], group=curr_stage_group)
+        if init_required:
+            for _, param in sch.mod.named_parameters(recurse=False):
+                dist.broadcast(param, src=curr_stage_devices[0], group=curr_stage_group)
 
         # discard redundant values
         tp_rank = sch.rank
@@ -926,7 +927,7 @@ def consolidate_model(sch: Schedule, topology=None, param_init_fn: Optional[Call
     return sch
 
 
-def build(sch: Schedule, topology=None, target=None, param_init_fn=None, **kwargs):
+def build(sch: Schedule, topology=None, target=None, param_init_fn=None, init_required: bool = True, **kwargs):
     optimizer = None
     if sch.metadata.pipeline_cutting_paths:
         # pipeline stages will be wrapped into PipeStageWrapper
@@ -935,7 +936,7 @@ def build(sch: Schedule, topology=None, target=None, param_init_fn=None, **kwarg
         tie_weight_groups = analyze_tie_weights(sch.mod)
 
     # delay initialization
-    sch = consolidate_model(sch, topology, param_init_fn)
+    sch = consolidate_model(sch, topology, param_init_fn, init_required)
 
     if target == "deepspeed":
         assert "config" in kwargs

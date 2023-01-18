@@ -9,6 +9,8 @@ import os
 import torch
 import torch.nn.functional as F
 
+from transformers import AutoConfig, RobertaModel
+
 from megatron import get_args
 from megatron import print_rank_0
 from megatron import get_timers
@@ -32,8 +34,6 @@ def get_model(
     impl="slapo",
     delay_init=True,
 ):
-    from transformers import AutoConfig, RobertaModel
-
     config = AutoConfig.from_pretrained(model_name)
     if padded_vocab_size is not None:
         config.vocab_size = padded_vocab_size

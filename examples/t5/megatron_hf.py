@@ -10,6 +10,8 @@ import os
 
 import torch
 
+from transformers import AutoConfig, T5Model
+
 from megatron import get_args, get_timers, mpu, print_rank_0
 from megatron.data.dataset_utils import build_train_valid_test_datasets
 from megatron.model import ModelType
@@ -58,8 +60,6 @@ def get_model(
     impl="slapo",
     delay_init=True,
 ):
-    from transformers import AutoConfig, T5Model
-
     config = AutoConfig.from_pretrained(model_name)
     config.vocab_size = padded_vocab_size
     config.use_cache = False

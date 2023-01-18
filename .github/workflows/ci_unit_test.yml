@@ -105,7 +105,7 @@ jobs:
             --image ${{ needs.check_status.outputs.docker_image }} \
             --name ci-gpu-${{ needs.check_status.outputs.job_tag }} \
             --job-queue ci-gpu-queue \
-            --job-def-cfg ./ci/job-def-cfg.json \
+            --job-def-cfg ./ci/job_def_cfg.json \
             --entry-script /batch/entry.sh \
             --source-ref ${{ needs.check_status.outputs.ref }} \
             --repo ${{ needs.check_status.outputs.repo }} \

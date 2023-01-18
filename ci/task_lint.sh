@@ -12,6 +12,7 @@ python3 scripts/lint/check_license_header.py origin/main
 
 echo "Check Python formats using black..."
 python3 -m pip install black==22.10.0
+python3 -m pip install transformers==4.25.1 --no-deps
 bash ./scripts/lint/git-black.sh HEAD~1
 bash ./scripts/lint/git-black.sh origin/main
 

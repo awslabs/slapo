@@ -282,7 +282,7 @@ def run_training_script(args, tuneable_cfg):
     # Set all tunable parameters as environment variables.
     env = " ".join(f"{k}={v}" for k, v in tuneable_cfg.items())
 
-    cmd = f"DEBUG=1 {env} python3 {args.training_script} {train_script_args}"
+    cmd = f"{env} python3 {args.training_script} {train_script_args}"
     cmd += " > run_script.log 2>&1"
     logger.info(f"\tRunning command: {cmd}")
     os.system(cmd)

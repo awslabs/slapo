@@ -46,8 +46,7 @@ def run_deepspeed(exp, args):
     path = slapo.__path__[0]
     script_file = f"{path}/../examples/{model_key}/deepspeed_hf.py"
 
-    flag_debug = "DEBUG=1" if args.debug else ""
-    cmd = f"""{flag_debug} CUDA_VISIBLE_DEVICES={exp.gpus} deepspeed {script_file} \
+    cmd = f"""CUDA_VISIBLE_DEVICES={exp.gpus} deepspeed {script_file} \
 --model_name {exp.model} --seq_len {exp.seq_len} \
 --disable_pipeline --batch_size {exp.batch_size} \
 --iter_nums {exp.steps}"""

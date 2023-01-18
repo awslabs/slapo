@@ -223,8 +223,7 @@ def run_megatron(exp, args):
     else:
         raise ValueError(f"Unsupported model {exp.model}")
 
-    flag_debug = "DEBUG=1" if args.debug else ""
-    cmd = f"""{flag_debug} MODEL_NAME={exp.model} {exp.launcher} {script_file} \
+    cmd = f"""MODEL_NAME={exp.model} {exp.launcher} {script_file} \
 --num-layers {exp.num_layers} --hidden-size {exp.hidden_size} \
 --num-attention-heads {exp.num_heads} \
 --tensor-model-parallel-size {exp.tensor_para} \

@@ -28,8 +28,8 @@ RUN apt-get update && \
 ##############################################################################
 # Installation Latest Git
 ##############################################################################
-# RUN add-apt-repository ppa:git-core/ppa -y && \
-#     apt-get update && \
+RUN apt-get install -y -q software-properties-common
+RUN add-apt-repository ppa:git-core/ppa -y
 RUN apt-get update && apt-get install -y git && \
     git --version
 
@@ -294,4 +294,3 @@ RUN python3 -m pip install --upgrade awscli
 EXPOSE 2345
 EXPOSE 2555
 EXPOSE 2022
-

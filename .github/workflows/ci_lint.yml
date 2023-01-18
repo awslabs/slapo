@@ -22,9 +22,10 @@ jobs:
     runs-on: ubuntu-latest
     container:
         image: metaprojdev/dev:slapo-latest
+        options: --user root
         credentials:
           username: metaprojdev
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2

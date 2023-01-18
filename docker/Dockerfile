@@ -286,6 +286,11 @@ RUN sudo chown $USER:$USER /etc/container_entrypoint.sh
 RUN chmod 777 /etc/container_entrypoint.sh
 # ENTRYPOINT /etc/container_entrypoint.sh
 
+# AWS Batch setup for CI
+COPY batch_entry.sh /batch/entry.sh
+RUN DEBIAN_FRONTEND=noninteractive sudo apt-get install -y awscli
+RUN python3 -m pip install --upgrade awscli
+
 EXPOSE 2345
 EXPOSE 2555
 EXPOSE 2022

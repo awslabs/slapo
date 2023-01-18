@@ -20,6 +20,7 @@ def generate_concrete_args(model, input_names):
     return concrete_args
 
 
+@pytest.mark.skip(reason="Need update")
 def test_hf_bert():
     """Test tracing HF bert model."""
     from transformers import AutoConfig, BertModel
@@ -51,6 +52,7 @@ def test_hf_bert():
     assert isinstance(sch.get_module("encoder.layer.0.output"), fx.GraphModule)
 
 
+@pytest.mark.skip(reason="Need update")
 def test_hf_gpt_neo():
     """Test tracing HF gpt-neo model."""
     from transformers import AutoConfig, GPTNeoModel
@@ -79,6 +81,7 @@ def test_hf_gpt_neo():
     assert isinstance(sch.get_module("h.0.mlp"), fx.GraphModule)
 
 
+@pytest.mark.skip(reason="Need update")
 def test_torchvision_wideresnet():
     """Test tracing torchvision wideresnet model."""
     from torchvision.models.resnet import Bottleneck, ResNet

@@ -1,0 +1,165 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+name: CI-UnitTest
+
+on:
+  # This workflow includes AWS credential to run jobs on AWS batch.
+  # Thus, this workflow cannot checkout PRs and can only be triggered by CI-Lint.
+  workflow_run:
+    workflows: ["CI-Lint"]
+    types:
+      - completed
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  check_status:
+    if: github.repository == 'awslabs/slapo'
+    runs-on: ubuntu-latest
+    outputs:
+      docker_image: "metaprojdev/dev:slapo-latest"
+      skip_ci: ${{ steps.job_info.outputs.skip_ci }}
+      ref: ${{ steps.job_info.outputs.ref }}
+      repo: ${{ steps.job_info.outputs.repo }}
+      pr: ${{ steps.pr_job_info.outputs.pr }}
+      sha: ${{ steps.pr_job_info.outputs.sha }}
+      job_tag: ${{ steps.gen_tag.outputs.tag }}
+    steps:
+      # The workflow triggered by workflow run will not show its status
+      # in Github by default, so we have to use this action to enable it.
+      # Note that when this action is used, "name" in job is unavailable:
+      # https://github.com/haya14busa/action-workflow_run-status/issues/158
+      - uses: haya14busa/action-workflow_run-status@v1
+      - name: Download artifact
+        uses: dawidd6/action-download-artifact@v2
+        with:
+          workflow: ci_lint.yml
+          run_id: ${{ github.event.workflow_run.id }}
+      - name: Parse common job info
+        id: job_info
+        run: |
+          skip_ci=$(head -n 1 artifact/skip.txt)
+          echo "skip_ci=${skip_ci}" >> $GITHUB_OUTPUT
+          ref=$(head -n 1 artifact/ref.txt)
+          echo "ref=${ref}" >> $GITHUB_OUTPUT
+          repo=$(head -n 1 artifact/repo.txt)
+          echo "repo=${repo}" >> $GITHUB_OUTPUT
+          lint=${{ github.event.workflow_run.conclusion }}
+          echo "Linting result: ${lint}"
+      - name: Parse PR job info
+        id: pr_job_info
+        continue-on-error: true
+        # Note that pr and sha only available for pull request, and will be empty for push events.
+        run: |
+          pr=$(head -n 1 artifact/pr.txt)
+          echo "pr=${pr}" >> $GITHUB_OUTPUT
+          sha=$(head -n 1 artifact/sha.txt)
+          echo "sha=${sha}" >> $GITHUB_OUTPUT
+      - name: Generate tag
+        id: gen_tag
+        # This tag is PR-unique so it can be used to connect jobs for the same PR.
+        # For example, we use it to share ccache caches and cancel previous runs.
+        run: |
+          tag=${{ steps.job_info.outputs.repo }}/${{ steps.pr_job_info.outputs.pr }}
+          echo "tag=${tag}" >> $GITHUB_OUTPUT
+      - name: Whether linting was failed
+        if: ${{ github.event.workflow_run.conclusion != 'success' }}
+        run: exit 1
+  unit_test:
+    needs: [check_status]
+    if: github.repository == 'awslabs/slapo'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: haya14busa/action-workflow_run-status@v1
+      - name: List environments
+        run: |
+          echo "Job tag: ${{ needs.check_status.outputs.job_tag }}"
+          echo "Skip CI? ${{ needs.check_status.outputs.skip_ci }}"
+          echo "REF: ${{ needs.check_status.outputs.ref }}"
+          echo "REPO: ${{ needs.check_status.outputs.repo }}"
+          echo "PR: ${{ needs.check_status.outputs.pr }}"
+          echo "SHA: ${{ needs.check_status.outputs.sha }}"
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_BATCH_ACCESS_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_BATCH_SECRET_ACCESS_KEY }}
+          aws-region: us-west-2
+      - name: Checkout repository
+        # No need to checkout submodules because we only need the script.
+        uses: actions/checkout@v2
+      - name: Test
+        run: |
+          # env vars are unavailable in job.if so we have to implement it here.
+          if [ "${{ needs.check_status.outputs.skip_ci }}" == "1" ]; then
+            echo "Skip GPU tests"
+            exit 0
+          fi
+          echo "Running tests on GPU"
+          python3 -m pip install argparse boto3
+          python3 ./ci/submit-job.py \
+            --platform multi-GPU \
+            --image ${{ needs.check_status.outputs.docker_image }} \
+            --name ci-gpu-${{ needs.check_status.outputs.job_tag }} \
+            --job-queue ci-gpu-queue \
+            --job-def-cfg ./ci/job-def-cfg.json \
+            --entry-script /batch/entry.sh \
+            --source-ref ${{ needs.check_status.outputs.ref }} \
+            --repo ${{ needs.check_status.outputs.repo }} \
+            --wait \
+            --command "bash ./ci/task_unit_test.sh"
+  update_ci_badge:
+    needs: [unit_test]
+    # Run this job whatever the unit tests were success or not.
+    if: ${{ always() && github.repository == 'awslabs/slapo' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: haya14busa/action-workflow_run-status@v1
+      - name: Checkout repository
+        # No need to checkout submodules because we only need to get the HEAD commit hash.
+        uses: actions/checkout@v2
+      - name: Download artifact
+        uses: dawidd6/action-download-artifact@v2
+        with:
+          workflow: ci_lint.yml
+          run_id: ${{ github.event.workflow_run.id }}
+      - name: Parse PR job info
+        id: pr_job_info
+        continue-on-error: true
+        # Note that pr and sha only available for pull request, and will be empty for push events.
+        run: |
+          pr=$(head -n 1 artifact/pr.txt)
+          echo "pr=${pr}" >> $GITHUB_OUTPUT
+      - name: Generate CI badge
+        id: badge
+        run: |
+          # env vars are unavailable in job.if so we have to implement it here.
+          if [ "${{ steps.pr_job_info.outputs.pr }}" != "" ]; then
+            echo "No need to update badge for PR CI. Skip."
+            exit 0
+          fi
+          echo "gist_id=4b5f48daff54fb5d1a862c1649632648" >> $GITHUB_OUTPUT
+          head_commit=$(git rev-parse --short HEAD)
+          if [[ "${{ needs.test_on_cpu.result }}" == "success" &&
+                "${{ needs.test_on_gpu.result }}" == "success" &&
+                "${{ needs.test_on_multi_gpu.result }}" == "success" ]]; then
+            echo "message=passing (${head_commit})" >> $GITHUB_OUTPUT
+            echo "color=success" >> $GITHUB_OUTPUT
+          else
+            echo "message=failing (${head_commit})" >> $GITHUB_OUTPUT
+            echo "color=critical" >> $GITHUB_OUTPUT
+          fi
+      - name: Update CI badge
+        # Intentionally fail this step with empty gist_id.
+        uses: schneegans/dynamic-badges-action@v1.1.0
+        continue-on-error: true
+        with:
+          auth: ${{ secrets.BOT_TOKEN }}
+          gistID: ${{ steps.badge.outputs.gist_id }}
+          filename: awslabs-slapo-ci-badge-last-pass.json
+          label: CI-UnitTests
+          message: ${{ steps.badge.outputs.message }}
+          color: ${{ steps.badge.outputs.color }}

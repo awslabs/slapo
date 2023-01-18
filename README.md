@@ -3,6 +3,9 @@
 
 # Slapo: A Schedule Language for Large Model Training
 
+![CI-Lass-Pass](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/aire-meta-bot/4b5f48daff54fb5d1a862c1649632648/raw/awslabs-slapo-ci-badge-last-pass.json)
+
+
 Slapo is a schedule language for progressive optimization of large deep learning model training.
 
 Large deep learning models demonstrate dominating model accuracy on a range of tasks in NLP and CV, but it is hard to train the model efficiently while preserving the usability. Slapo aims to address this tension through separation of concerns. Slapo decouples model execution from definition, enabling developers to use a set of schedule primitives to convert a PyTorch model for common model training optimizations without directly changing the model itself.

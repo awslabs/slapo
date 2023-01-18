@@ -6,12 +6,13 @@ import inspect
 import operator
 import os
 import re
+import gc
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from functools import partial
 from types import FunctionType
-from typing import Any, Optional
+from typing import Any, Optional, Callable
 
 import torch
 import torch.distributed as dist
@@ -794,25 +795,27 @@ def create_schedule(
     return root_sch
 
 
-def consolidate_model(sch: Schedule, topology=None):
+def consolidate_model(sch: Schedule, topology=None, param_init_fn: Optional[Callable[[nn.Module], None]] = None):
+    if dist.get_world_size() > sch.world_size:
+        assert topology is not None, f"topology={topology} must be given when there are multiple tensor paralel groups or pipeline parallelism is used"
+
     cnt_meta, cnt_materialized = 0, 0
     # Since some parameters are attached to non-leaf modules, we need to
     # fix them layer-by-layer. See the following example:
     # https://github.com/huggingface/transformers/blob/v4.25.1/src/transformers/models/bert/modeling_bert.py#L693
-    for _, param in sch.mod.named_parameters(recurse=False):
+    for _, param in sch.mod.named_parameters(recurse=True):
         if param.device == torch.device("meta"):
             cnt_meta += 1
         else:
             cnt_materialized += 1
-    if cnt_meta != 0:
-        assert (
-            cnt_materialized == 0
-        ), f"Some of the parameters in module {sch.name} has been materialized"
 
+    stage_groups = None
+    # local rank means the rank in a node
+    local_rank = torch.cuda.current_device()
+    global_rank = dist.get_rank()
+    if cnt_meta != 0 or cnt_materialized != 0:
         # tackle with pipeline modules
-        # local rank means the rank in a node
-        local_rank = torch.cuda.current_device()
-        global_rank = dist.get_rank()
+        # even the model does not use meta device, we still need to broadcast the weights to ensure consistency
         if topology is not None:
             # 1st DP: devices in the same bracket are in the same TP group
             #         vertical lines separate different PP stages
@@ -830,30 +833,39 @@ def consolidate_model(sch: Schedule, topology=None):
             # [[0, 2], [1, 3], [4, 6], [5, 7]]
             # >>> topo.filter_match(pipe=0)
             # [0, 1, 2, 3]
-            curr_part_idx = sch.partition_idx
-            # topology stores the global ranks
-            curr_stage_devices = topology.filter_match(pipe=curr_part_idx)
             # create dist group for broadcasting
             num_pp = topology.get_dim("pipe")
             # each group contains the devices on the same stage
-            if not "DEBUG" in os.environ:
-                stage_groups = []
-                for i in range(num_pp):
-                    stage_groups.append(
-                        dist.new_group(ranks=topology.filter_match(pipe=i))
-                    )
-            if global_rank not in curr_stage_devices:
-                # do nothing if the target module is NOT on this device group
-                return sch
+            stage_groups = []
+            for i in range(num_pp):
+                stage_groups.append(
+                    dist.new_group(ranks=topology.filter_match(pipe=i))
+                )
+        else:
+            stage_groups = [dist.new_group()]
+    else:
+        return sch
+
+    global_ranks = list(range(dist.get_world_size()))
+
+    def _consolidate_and_broadcast(sch: Schedule):
+        if hasattr(sch, 'partition_idx'):
+            curr_part_idx = sch.partition_idx
+            # topology stores the global ranks
+            curr_stage_devices = topology.filter_match(pipe=curr_part_idx)
         else:
             curr_part_idx = 0
-            curr_stage_devices = list(range(dist.get_world_size()))
-            if not "DEBUG" in os.environ:
-                stage_groups = [dist.new_group(ranks=curr_stage_devices)]
+            curr_stage_devices = global_ranks
+
+        if global_rank not in curr_stage_devices:
+            # do nothing if the target module is NOT on this device group
+            return
 
         # copy out new params after sharding
+        num_params = 0
         new_param_shapes = {}
         for param_name, param in sch.mod.named_parameters(recurse=False):
+            num_params += 1
             new_param_shapes[param_name] = param.shape
             assert param_name in sch.metadata.base_params
             sch.mod.register_parameter(
@@ -868,7 +880,7 @@ def consolidate_model(sch: Schedule, topology=None):
             )
 
         # use original shape to initialize parameters
-        if global_rank == curr_stage_devices[0] and not "DEBUG" in os.environ:
+        if global_rank == curr_stage_devices[0] and num_params > 0:
             # only the first device in the PP group needs to initialize the weights
             if hasattr(sch.mod, "_init_weights"):
                 # `_init_weights` is a HF specific API, see
@@ -876,19 +888,17 @@ def consolidate_model(sch: Schedule, topology=None):
                 sch.mod._init_weights(sch.mod)
             elif hasattr(sch.mod, "reset_parameters"):
                 sch.mod.reset_parameters()
+            elif param_init_fn:
+                param_init_fn(sch.mod)
             else:
                 raise RuntimeError(
-                    f"Module {sch.name} should have `reset_parameters` or `_init_weights` method in order to support delay initialization"
+                    f"Module {sch.name} should have `reset_parameters` or `_init_weights` method or param_init_fn={param_init_fn} needs to be provided in order to support delay initialization"
                 )
 
         # need to broadcast params from rank 0 to make sure all the TP+DP ranks take the same params
-        if not "DEBUG" in os.environ:
-            curr_stage_group = stage_groups[curr_part_idx]
-            for _, param in sch.mod.named_parameters(recurse=False):
-                dist.broadcast(param, src=curr_stage_devices[0], group=curr_stage_group)
-            # destroy process group to free memory
-            for g in stage_groups:
-                dist.destroy_process_group(g)
+        curr_stage_group = stage_groups[curr_part_idx]
+        for _, param in sch.mod.named_parameters(recurse=False):
+            dist.broadcast(param, src=curr_stage_devices[0], group=curr_stage_group)
 
         # discard redundant values
         tp_rank = sch.rank
@@ -903,20 +913,20 @@ def consolidate_model(sch: Schedule, topology=None):
             if is_found:
                 new_param = param.detach().split(sharded_size, dim=axis)[tp_rank]
                 sch.mod.register_parameter(param_name, nn.Parameter(new_param))
-    elif cnt_materialized != 0:
-        # skip if all the parameters have been materialized
-        assert (
-            cnt_meta == 0
-        ), f"Some of the parameters in module {sch.name} are on meta device"
-    elif cnt_meta == 0 and cnt_materialized == 0:
-        # skip if no direct parameters in this module
-        pass
-    for subsch in sch.child.values():
-        consolidate_model(subsch, topology)
+
+        for subsch in sch.child.values():
+            _consolidate_and_broadcast(subsch)
+
+    if cnt_meta != 0 or cnt_materialized != 0:
+        _consolidate_and_broadcast(sch)
+
+    gc.collect()
+    torch.cuda.empty_cache()
+
     return sch
 
 
-def build(sch: Schedule, topology=None, target=None, **kwargs):
+def build(sch: Schedule, topology=None, target=None, param_init_fn=None, **kwargs):
     optimizer = None
     if sch.metadata.pipeline_cutting_paths:
         # pipeline stages will be wrapped into PipeStageWrapper
@@ -925,7 +935,7 @@ def build(sch: Schedule, topology=None, target=None, **kwargs):
         tie_weight_groups = analyze_tie_weights(sch.mod)
 
     # delay initialization
-    sch = consolidate_model(sch, topology)
+    sch = consolidate_model(sch, topology, param_init_fn)
 
     if target == "deepspeed":
         assert "config" in kwargs

@@ -63,12 +63,12 @@ def train(args):
     optimizer = torch.optim.SGD(model.parameters(), lr=0.002)
 
     # Create a default schedule
-    sch = slapo.create_schedule(model, optimizer, args.world_size, rank, deepspeed=True)
+    sch = slapo.create_schedule(model, optimizer, args.world_size, rank)
 
     # Partition parameters
     # Cannot be used with pipeline parallelism
 
-    sch["mlp.activation"].partition()
+    sch["mlp.activation"].cut_pipeline_stage()
     ds_config_dict = {
         "train_batch_size": 1,
         "train_micro_batch_size_per_gpu": 1,

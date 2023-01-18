@@ -145,9 +145,7 @@ jobs:
           fi
           echo "gist_id=4b5f48daff54fb5d1a862c1649632648" >> $GITHUB_OUTPUT
           head_commit=$(git rev-parse --short HEAD)
-          if [[ "${{ needs.test_on_cpu.result }}" == "success" &&
-                "${{ needs.test_on_gpu.result }}" == "success" &&
-                "${{ needs.test_on_multi_gpu.result }}" == "success" ]]; then
+          if [[ "${{ needs.unit_test.result }}" == "success" ]]; then
             echo "message=passing (${head_commit})" >> $GITHUB_OUTPUT
             echo "color=success" >> $GITHUB_OUTPUT
           else

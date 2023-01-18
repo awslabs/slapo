@@ -22,7 +22,7 @@ jobs:
     outputs:
       # FIXME: We have to make lots of changes on AWS batch to allow
       # private docker hub images, so we currently use a private ECR image.
-      docker_image: "233412475951.dkr.ecr.us-west-2.amazonaws.com/slapo:latest"
+      docker_image: "metaprojdev/slapo:ci-latest"
       skip_ci: ${{ steps.job_info.outputs.skip_ci }}
       ref: ${{ steps.job_info.outputs.ref }}
       repo: ${{ steps.job_info.outputs.repo }}

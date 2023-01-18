@@ -21,11 +21,8 @@ jobs:
     if: github.repository == 'awslabs/slapo'
     runs-on: ubuntu-latest
     container:
-        image: metaprojdev/dev:slapo-latest
+        image: metaprojdev/slapo:ci-latest
         options: --user root
-        credentials:
-          username: metaprojdev
-          password: ${{ secrets.DOCKERHUB_PASSWORD }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2

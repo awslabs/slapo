@@ -795,9 +795,16 @@ def create_schedule(
     return root_sch
 
 
-def consolidate_model(sch: Schedule, topology=None, param_init_fn: Optional[Callable[[nn.Module], None]] = None, init_required: bool = True):
+def consolidate_model(
+    sch: Schedule,
+    topology=None,
+    param_init_fn: Optional[Callable[[nn.Module], None]] = None,
+    init_required: bool = True,
+):
     if dist.get_world_size() > sch.world_size:
-        assert topology is not None, f"topology={topology} must be given when there are multiple tensor paralel groups or pipeline parallelism is used"
+        assert (
+            topology is not None
+        ), f"topology={topology} must be given when there are multiple tensor paralel groups or pipeline parallelism is used"
 
     cnt_meta, cnt_materialized = 0, 0
     # Since some parameters are attached to non-leaf modules, we need to
@@ -838,9 +845,7 @@ def consolidate_model(sch: Schedule, topology=None, param_init_fn: Optional[Call
             # each group contains the devices on the same stage
             stage_groups = []
             for i in range(num_pp):
-                stage_groups.append(
-                    dist.new_group(ranks=topology.filter_match(pipe=i))
-                )
+                stage_groups.append(dist.new_group(ranks=topology.filter_match(pipe=i)))
         else:
             stage_groups = [dist.new_group()]
     else:
@@ -849,7 +854,7 @@ def consolidate_model(sch: Schedule, topology=None, param_init_fn: Optional[Call
     global_ranks = list(range(dist.get_world_size()))
 
     def _consolidate_and_broadcast(sch: Schedule):
-        if hasattr(sch, 'partition_idx'):
+        if hasattr(sch, "partition_idx"):
             curr_part_idx = sch.partition_idx
             # topology stores the global ranks
             curr_stage_devices = topology.filter_match(pipe=curr_part_idx)
@@ -927,7 +932,14 @@ def consolidate_model(sch: Schedule, topology=None, param_init_fn: Optional[Call
     return sch
 
 
-def build(sch: Schedule, topology=None, target=None, param_init_fn=None, init_required: bool = True, **kwargs):
+def build(
+    sch: Schedule,
+    topology=None,
+    target=None,
+    param_init_fn=None,
+    init_required: bool = True,
+    **kwargs,
+):
     optimizer = None
     if sch.metadata.pipeline_cutting_paths:
         # pipeline stages will be wrapped into PipeStageWrapper

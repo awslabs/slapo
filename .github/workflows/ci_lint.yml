@@ -34,7 +34,7 @@ jobs:
           submodules: 'recursive'
       - name: Check linting
         run: |
-          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git config --global --add safe.directory .
           bash ./ci/task_lint.sh
       - name: Check whether to skip rest tests
         # If the PR only changes docs or docker file, no need to run other tests.

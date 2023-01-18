@@ -20,24 +20,11 @@ def init_empty_weights(enable: bool = True, include_buffers: bool = False):
 
     Parameters
     ----------
-    include_buffers (`bool`, *optional*, defaults to `False`):
-        Whether or not to also put all buffers on the meta device while initializing.
+    enable: bool
+        Whether or not to enable this context manager.
 
-    Example:
-    ```python
-    import torch.nn as nn
-    from accelerate import init_empty_weights
-    # Initialize a model with 100 billions parameters in no time and without
-    # using any RAM.
-    with init_empty_weights():
-        tst = nn.Sequential(*[nn.Linear(10000, 10000) for _ in range(1000)])
-    ```
-    <Tip warning={true}>
-    Any model created under this context manager has no weights. As such you can't
-    do something like
-    `model.to(some_device)` with it. To load weights inside your empty model,
-    see [`load_checkpoint_and_dispatch`].
-    </Tip>
+    include_buffers: bool
+        Whether or not to also put all buffers on the meta device while initializing.
     """
     if not is_torch_version(">=", "1.9.0"):
         raise NotImplementedError(
@@ -59,18 +46,11 @@ def init_on_device(device: torch.device, include_buffers: bool = False):
 
     Parameters
     ----------
-    device (`torch.device`)
+    device: torch.device
         Device to initialize all parameters on.
-    include_buffers (`bool`, *optional*, defaults to `False`):
-        Whether or not to also put all buffers on the meta device while initializing.
 
-    Example:
-    ```python
-    import torch.nn as nn
-    from accelerate import init_on_device
-    with init_on_device(device=torch.device("cuda")):
-        tst = nn.Liner(100, 100)  # on `cuda` device
-    ```
+    include_buffers: bool
+        Whether or not to also put all buffers on the meta device while initializing.
     """
     # pylint: disable=redefined-variable-type
     old_register_parameter = nn.Module.register_parameter

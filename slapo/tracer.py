@@ -296,7 +296,7 @@ def trace(model: nn.Module, **kwargs: dict[str, Any]):
                     type_expr=None,
                     proxy_factory_fn=None,
                 ):
-                    rv = super(HFTracer, self).create_proxy(
+                    rv = super().create_proxy(
                         kind, target, args, kwargs, name, type_expr, proxy_factory_fn
                     )  # grandparent method
 

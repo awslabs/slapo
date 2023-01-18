@@ -1,5 +1,3 @@
 {
-    "CPU": "ci-job-meta-cpu",
-    "GPU": "ci-job-meta-gpu",
-    "multi-GPU": "ci-job-meta-multi-gpu"
+    "multi-GPU": "ci-job-slapo-multi-gpu"
 }

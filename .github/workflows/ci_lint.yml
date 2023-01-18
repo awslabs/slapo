@@ -32,6 +32,8 @@ jobs:
         with:
           fetch-depth: 0 # Checkout all branches and history.
           submodules: 'recursive'
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
       - name: Check linting
         run: bash ./ci/task_lint.sh
       - name: Check whether to skip rest tests

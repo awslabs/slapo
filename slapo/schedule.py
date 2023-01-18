@@ -396,6 +396,30 @@ class Schedule:
         assert isinstance(mod_name_pat, str)
         assert func_pattern is None or isinstance(func_pattern, FunctionType)
 
+        # Example:
+        # Current graph         Target graph
+        #    A                      B
+        #    B                    C   D
+        #  C   D
+        #  E
+        # curr_node = B         target_node = B
+        def find_match_subgraphs(curr, target, subgraphs):
+            matched = True
+            for cusr, tusr in zip(curr.users, target.users):
+                if tusr.target == "output":
+                    # "output" always matches.
+                    return True
+                if cusr.target != tusr.target:
+                    # Not matched.
+                    return False
+                if cusr not in subgraph:
+                    # New matched.
+                    subgraphs.append((parent_name, cusr))
+                # DFS traverse. If any subgraph is not matched, the whole graph
+                # is not matched.
+                matched = matched and find_match_subgraphs(cusr, tusr, subgraphs)
+            return matched
+
         self.trace()
 
         if func_pattern is not None:
@@ -442,37 +466,16 @@ class SubgraphWrapper(nn.Module):
                     continue
 
                 subgraph = [(parent_name, node)]
-                matched = True
-
-                # Example:
-                # Current graph         Target graph
-                #    A                      B
-                #    B                    C   D
-                #  C   D
-                #  E
-                # curr_node = B         target_node = B
-                def find_match(curr, target):
-                    nonlocal matched
-                    for cusr, tusr in zip(curr.users, target.users):
-                        if tusr.target == "output":
-                            return True
-                        if cusr.target != tusr.target:
-                            matched = False
-                            return False
-                        if cusr not in subgraph:
-                            subgraph.append((parent_name, cusr))
-                        find_match(cusr, tusr)
-                    return True
-
                 for target_node in list(pattern_mod.graph.nodes):
                     # get the first placeholder,
                     # i.e., the input of the target graph
                     if target_node.op == "placeholder":
+                        curr_node = node
+                        if find_match_subgraphs(curr_node, target_node, subgraph):
+                            res.append(subgraph)
                         break
-                curr_node = node
-                find_match(curr_node, target_node)
-                if matched:
-                    res.append(subgraph)
+                else:
+                    raise RuntimeError("Cannot find the first placeholder")
         return res
 
     def find(self, node_pattern, func_pattern=None):

@@ -229,10 +229,9 @@ class DeepSpeedPipeStageWrapper(nn.Module):
                 f"{get_simple_nested_list_str(unordered_args)}, "
                 f"liveness ({len(liveness)}): {liveness}",
             )
-        assert (
-            len(unordered_args) == len(liveness),
-            f"{len(unordered_args)} vs. {len(liveness)}",
-        )
+        assert len(unordered_args) == len(
+            liveness
+        ), f"{len(unordered_args)} vs. {len(liveness)}"
         name_2_live_tensor = dict(zip(liveness, unordered_args))
         if logger.isEnabledFor(DEBUG):
             logger.debug(

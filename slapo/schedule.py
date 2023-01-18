@@ -882,14 +882,14 @@ def consolidate_model(sch: Schedule, topology=None, param_init_fn: Optional[Call
         # use original shape to initialize parameters
         if global_rank == curr_stage_devices[0] and num_params > 0:
             # only the first device in the PP group needs to initialize the weights
-            if hasattr(sch.mod, "_init_weights"):
+            if param_init_fn:
+                param_init_fn(sch.mod)
+            elif hasattr(sch.mod, "_init_weights"):
                 # `_init_weights` is a HF specific API, see
                 # https://github.com/huggingface/transformers/blob/v4.25.1/src/transformers/models/bert/modeling_bert.py#L748
                 sch.mod._init_weights(sch.mod)
             elif hasattr(sch.mod, "reset_parameters"):
                 sch.mod.reset_parameters()
-            elif param_init_fn:
-                param_init_fn(sch.mod)
             else:
                 raise RuntimeError(
                     f"Module {sch.name} should have `reset_parameters` or `_init_weights` method or param_init_fn={param_init_fn} needs to be provided in order to support delay initialization"

@@ -1,0 +1,74 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+name: CI-Lint
+
+on:
+  push:
+    branches:
+      - main
+  # Since we use pull_request which allows workflow to checkout PRs,
+  # we cannot use AWS credential in this workflow. Instead, we trigger
+  # another workflow to run the rest CI jobs on AWS batch.
+  pull_request:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  lint:
+    if: github.repository == 'awslabs/slapo'
+    runs-on: ubuntu-latest
+    container:
+        image: metaprojdev/dev:slapo-latest
+        credentials:
+          username: metaprojdev
+          password: ${{ secrets.DOCKER_PASSWORD }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0 # Checkout all branches and history.
+          submodules: 'recursive'
+      - name: Check linting
+        run: bash ./ci/task_lint.sh
+      - name: Check whether to skip rest tests
+        # If the PR only changes docs or docker file, no need to run other tests.
+        id: check_skip
+        continue-on-error: true
+        run: |
+          bash ./scripts/lint/git-skip-testing.sh
+          SKIP_CI=$(bash ./scripts/lint/git-skip-testing.sh)
+          echo "skip_ci=${SKIP_CI}" >> $GITHUB_OUTPUT
+      - name: Save common job info
+        # Initialize the artifact and whether to skip CI.
+        run: |
+          mkdir job_info
+          echo "Skip CI? ${{ steps.check_skip.outputs.skip_ci }}"
+          echo "${{ steps.check_skip.outputs.skip_ci }}" > job_info/skip.txt
+      - name: Save push event job info
+        # Dump the job information for running CI with a new commit on main branch.
+        if: ${{ github.event_name == 'push' }}
+        run: |
+          echo "Ref: ${{ github.ref }}"
+          echo "Repo: ${{ github.repository }}"
+          echo "${{ github.ref }}" > job_info/ref.txt
+          echo "${{ github.repository }}" > job_info/repo.txt
+      - name: Save pull request event job info
+        # Dump the job information for running CI with a pull request.
+        if: ${{ github.event_name == 'pull_request' || github.event_name == 'pull_request_target' }}
+        run: |
+          echo "Ref: ${{ github.event.pull_request.head.ref }}"
+          echo "FullName: ${{ github.event.pull_request.head.repo.full_name }}"
+          echo "Number: ${{ github.event.number }}"
+          echo "HeadSHA: ${{ github.event.pull_request.head.sha }}"
+          echo "${{ github.event.pull_request.head.ref }}" > job_info/ref.txt
+          echo "${{ github.event.pull_request.head.repo.full_name }}" > job_info/repo.txt
+          echo "${{ github.event.number }}" > job_info/pr.txt
+          echo "${{ github.event.pull_request.head.sha }}" > job_info/sha.txt
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          path: job_info
+          retention-days: 3

@@ -95,12 +95,12 @@ jobs:
         run: |
           # env vars are unavailable in job.if so we have to implement it here.
           if [ "${{ needs.check_status.outputs.skip_ci }}" == "1" ]; then
-            echo "Skip GPU tests"
+            echo "Skip tests"
             exit 0
           fi
-          echo "Running tests on GPU"
+          echo "Running tests on GPUs"
           python3 -m pip install argparse boto3
-          python3 ./ci/submit-job.py \
+          python3 ./ci/submit_job.py \
             --platform multi-GPU \
             --image ${{ needs.check_status.outputs.docker_image }} \
             --name ci-gpu-${{ needs.check_status.outputs.job_tag }} \

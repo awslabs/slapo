@@ -231,7 +231,7 @@ class Schedule:
                 )
             sharded_size = tensor.shape[axis] // self.world_size
             return (
-                tensor.detach().split(sharded_size, dim=axis)[self.rank],
+                tensor.detach().split(sharded_size, dim=axis)[self.rank].contiguous(),
                 sharded_size,
             )
 

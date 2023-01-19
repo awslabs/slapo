@@ -68,7 +68,7 @@ def gather_and_copy_model(src_model, dest_model, param_path_and_gather_axis):
 
     def _gather_param(part_param, axis=0):
         if axis < 0:
-            return 
+            return
 
         parts = [
             torch.zeros(part_param.shape, dtype=part_param.dtype).cuda(local_rank)
@@ -95,7 +95,7 @@ def verify_grads(ref_model, path_and_grads, tol=1e-5):
         torch.testing.assert_close(
             grad,
             param.grad,
-            msg=lambda msg: f"{path}.grad mismatch\n{msg}", # pylint: disable=cell-var-from-loop
+            msg=lambda msg: f"{path}.grad mismatch\n{msg}",  # pylint: disable=cell-var-from-loop
             atol=tol,
             rtol=tol,
         )
@@ -227,7 +227,7 @@ def test_conv():
     # Forward: partial output (need allreduce)
     # Backward: do nothing.
     sch["conv2"].shard("weight", axis=1)
-    sch["conv2"].sync(mode="forward") # forward allreduce only
+    sch["conv2"].sync(mode="forward")  # forward allreduce only
 
     # Forward: partitioned output (optional allgather).
     # Backward: allreduce.

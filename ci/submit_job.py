@@ -326,7 +326,7 @@ def main():
     while wait:
         response = aws_batch.describe_jobs(jobs=[job_id])
         status = response["jobs"][0]["status"]
-        if status in  {"SUCCEEDED", "FAILED"}:
+        if status in {"SUCCEEDED", "FAILED"}:
             if status == "SUCCEEDED" and log_stream_name is None:
                 # If the job is succeeded within a print period so that
                 # we have not got the log stream name, we need to get it here.

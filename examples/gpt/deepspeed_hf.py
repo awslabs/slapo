@@ -28,6 +28,7 @@ SINGLE_DEVICE_FOR_DEBUG = False
 
 logger = get_logger()
 
+
 def reconfig_model(args, model_config):
     if args.hidden_size > 0:
         model_config.hidden_size = args.hidden_size
@@ -36,23 +37,15 @@ def reconfig_model(args, model_config):
 
         assert args.nlayers % 2 == 0, "number of layers must be even"
         # config "attention_types"
-        model_config.attention_types = [
-            [
-                [
-                    "global"
-                ],
-                model_config.num_layers
-            ]
-        ]
+        model_config.attention_types = [[["global"], model_config.num_layers]]
         model_config.attention_layers = ["global"] * model_config.num_layers
 
     return model_config
 
+
 def train(args):
     batch_size = args.batch_size
     micro_batch_size = args.micro_batch_size
-    if micro_batch_size is None:
-        micro_batch_size = 4
 
     num_pp, num_mp = 1, 1
     rank = args.local_rank
@@ -85,7 +78,7 @@ def train(args):
         x = torch.tensor(0, device=torch.cuda.current_device())
         dist.broadcast(x, src=0)
 
-    logger.info(f'TMP {num_mp}, PMP {num_pp}', ranks=[0])
+    logger.info(f"TMP {num_mp}, PMP {num_pp}", ranks=[0])
     # https://huggingface.co/EleutherAI/gpt-neo-2.7B/blob/main/config.json
     config = AutoConfig.from_pretrained(args.model_name)
     # FIXME: This model has vocab size 50257 that cannot be sharded by 2,
@@ -129,7 +122,10 @@ def train(args):
     if enable_pipeline:
         # FIXME: is mbs=1 correct?
         batch_size = 16 if batch_size is None else batch_size
-        ds_config_dict = get_ds_config(batch_size, micro_batch_size, True, False, "Pipeline")
+        micro_batch_size = 4 if micro_batch_size is None else micro_batch_size
+        ds_config_dict = get_ds_config(
+            batch_size, micro_batch_size, True, False, "Pipeline"
+        )
         loss_fct = ParallelCrossEntropy(group=group)
 
         def loss_fn(outputs, labels):
@@ -239,30 +235,17 @@ if __name__ == "__main__":
         " it uses default value associated with the model name",
     )
     parser.add_argument(
-        "--nlayers",
-        type=int,
-        default=-1,
-        help="number of transformer layers"
+        "--nlayers", type=int, default=-1, help="number of transformer layers"
     )
     parser.add_argument(
-        "--num-attn-heads",
-        type=int,
-        default=-1,
-        help="number of attention heads"
+        "--num-attn-heads", type=int, default=-1, help="number of attention heads"
     )
     parser.add_argument(
-        "--pmp", 
-        type=int, default=2,
-        help="pipeline model parallel size"
+        "--pmp", type=int, default=2, help="pipeline model parallel size"
     )
-    parser.add_argument(
-        "--tmp",
-        type=int,
-        default=8,
-        help="tensor parallel size"
-    )
+    parser.add_argument("--tmp", type=int, default=8, help="tensor parallel size")
     args = parser.parse_args()
-    
+
     if args.hidden_size > 0:
         assert args.nlayers > 0, "must have nlayers > 0"
         assert args.num_attn_heads > 0, "must have num_attn_heads > 0"

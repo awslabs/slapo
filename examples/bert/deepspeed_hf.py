@@ -26,6 +26,7 @@ SINGLE_DEVICE_FOR_DEBUG = False
 
 logger = get_logger()
 
+
 def reconfig_model(args, model_config):
     if args.hidden_size > 0:
         model_config.hidden_size = args.hidden_size
@@ -35,11 +36,10 @@ def reconfig_model(args, model_config):
 
     return model_config
 
+
 def train(args):
     batch_size = args.batch_size
     micro_batch_size = args.micro_batch_size
-    if micro_batch_size is None:
-        micro_batch_size = 8
 
     num_pp, num_mp = 1, 1
     rank = args.local_rank
@@ -58,7 +58,7 @@ def train(args):
         logger.info("Use deepspeed to initialize", ranks=0)
         if enable_pipeline:
             # num_pp, num_mp = 4, 2 # For single node testing.
-            num_pp, num_mp = 2, 8 
+            num_pp, num_mp = 2, 8
         else:
             logger.info("Pipeline disabled", ranks=0)
         topology, group = create_dist_group_for_pipeline(num_pp, num_mp)
@@ -77,7 +77,7 @@ def train(args):
     model_config.gradient_checkpointing = use_default_ckpt
     # adjust the configuration, if the args.hidden_size is specified
     model_config = reconfig_model(args, model_config)
-    logger.info(f'model config: {model_config}', ranks=[0])
+    logger.info(f"model config: {model_config}", ranks=[0])
 
     report_memory(msg="Before creating model")
     with slapo.init_empty_weights(enable=enable_pipeline):
@@ -113,7 +113,10 @@ def train(args):
 
     if enable_pipeline:
         batch_size = 32 if batch_size is None else batch_size
-        ds_config_dict = get_ds_config(batch_size, micro_batch_size, True, False, "Pipeline")
+        micro_batch_size = 8 if micro_batch_size is None else micro_batch_size
+        ds_config_dict = get_ds_config(
+            batch_size, micro_batch_size, True, False, "Pipeline"
+        )
         loss_fct = ParallelCrossEntropy(group=group)
 
         def loss_fn(outputs, labels):
@@ -154,7 +157,7 @@ def train(args):
     input_ids = torch.ones(
         micro_batch_size, seq_length, dtype=torch.long, device=device
     )
-    logger.info(f'mbs={micro_batch_size}', ranks=[0])
+    logger.info(f"mbs={micro_batch_size}", ranks=[0])
     bert_input_dict = {
         "input_ids": input_ids,
         "attention_mask": torch.ones(
@@ -191,9 +194,9 @@ def train(args):
     if enable_pipeline:
         data_iter = iter(loader)
         for idx in range(num_iters):
-            logger.info(f'start iter {idx}', ranks=0)
+            logger.info(f"start iter {idx}", ranks=0)
             model.train_batch(data_iter=data_iter)
-            logger.info(f'end iter {idx}', ranks=0)
+            logger.info(f"end iter {idx}", ranks=0)
 
     else:
         train_with_torch(model, loader, steps=num_iters)
@@ -258,22 +261,16 @@ if __name__ == "__main__":
         "--intermediate-size",
         type=int,
         default=-1,
-        help="ffn intermediate size, 4 * hidden_size"
+        help="ffn intermediate size, 4 * hidden_size",
     )
     parser.add_argument(
-        "--nlayers",
-        type=int,
-        default=-1,
-        help="number of transformer layers"
+        "--nlayers", type=int, default=-1, help="number of transformer layers"
     )
     parser.add_argument(
-        "--num-attn-heads",
-        type=int,
-        default=-1,
-        help="number of attention heads"
+        "--num-attn-heads", type=int, default=-1, help="number of attention heads"
     )
     args = parser.parse_args()
-    
+
     if args.hidden_size > 0:
         assert args.intermediate_size > 0, "must have intermediate_size > 0"
         assert args.nlayers > 0, "must have nlayers > 0"

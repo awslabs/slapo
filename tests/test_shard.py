@@ -38,7 +38,6 @@ def sync_model_params(model):
 
 def gather_grad(model, param_path_and_gather_axis):
     world_size = dist.get_world_size()
-    rank = dist.get_rank()
     local_rank = int(os.environ["LOCAL_RANK"])
 
     def _gather_grad(part_grad, axis=0):
@@ -63,7 +62,6 @@ def gather_grad(model, param_path_and_gather_axis):
 
 def gather_and_copy_model(src_model, dest_model, param_path_and_gather_axis):
     world_size = dist.get_world_size()
-    rank = dist.get_rank()
     local_rank = int(os.environ["LOCAL_RANK"])
 
     def _gather_param(part_param, axis=0):

@@ -11,7 +11,8 @@ from collections import OrderedDict
 from dataclasses import dataclass, field
 from functools import partial
 from types import FunctionType
-from typing import Any, Optional, Callable
+from typing import Any, Optional
+from collections.abc import Callable
 
 import torch
 import torch.distributed as dist

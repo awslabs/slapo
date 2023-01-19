@@ -16,8 +16,8 @@ from typing import Any, Optional, Union
 
 import torch
 import torch.distributed as dist
-from torch.utils import checkpoint
 from torch import fx, nn
+from torch.utils import checkpoint
 
 from .logger import get_logger
 from .pipeline import (
@@ -25,6 +25,11 @@ from .pipeline import (
     analyze_tie_ranks,
     generate_pipeline_modules,
     generate_pipeline_partition,
+)
+from .sharding import (
+    all_gather_forward_output,
+    get_output_type_after_sharding,
+    reduce_scatter_forward_output,
 )
 from .tracer import trace as trace_module
 
@@ -58,113 +63,6 @@ class DictWithValidation(dict):
         if key in self and self[key] != value:
             raise KeyError(f"{key}:{value} conflicts exists value {self[key]}")
         super().__setitem__(key, value)
-
-
-def all_gather_along_dim(inp, dim, rank, world_size, group):
-    """all-gather along the given dimension. Will use all_gather_into_tensor
-    if available as it is more efficient; otherwise fallback to all_gather.
-
-    Paramters
-    ---------
-    inp: torch.Tensor
-        The input tensor to all-gather.
-    dim: int
-        The dimension to all-gather along.
-    rank: int
-        The rank of the current process.
-    world_size: int
-        The number of processes in the group.
-    group: torch.distributed.ProcessGroup
-        The process group to all-gather.
-
-    Returns
-    -------
-    torch.Tensor
-        The gathered tensor.
-    """
-    if hasattr(dist, "all_gather_into_tensor"):
-        temp = inp.transpose(0, dim).contiguous() if dim != 0 else inp
-        gather_shape = list(temp.shape)
-        gather_shape[0] = world_size * gather_shape[0]
-        ret = torch.empty(gather_shape, dtype=temp.dtype).cuda(rank)
-        dist.all_gather_into_tensor(ret, temp, group=group)
-        ret = ret.transpose(0, dim).contiguous() if dim != 0 else ret
-    else:
-        # Fallback to all_gather. This may lead to suboptimal performance.
-        parts = [
-            torch.empty(inp.shape, dtype=inp.dtype).cuda(rank)
-            for _ in range(world_size)
-        ]
-        dist.all_gather(parts, inp, group=group)
-        ret = torch.cat(parts, dim=dim)
-    return ret
-
-
-class _AllGatherForwardOutput(torch.autograd.Function):
-    # pylint: disable=abstract-method, arguments-differ
-    @staticmethod
-    def forward(ctx, inp, dim, group):
-        ctx.dim = dim
-        ctx.group = group
-        world_size = dist.get_world_size(group)
-        rank = dist.get_rank(group)
-        return all_gather_along_dim(inp, dim, rank, world_size, group)
-
-    @staticmethod
-    def backward(ctx, grad_output):
-        dim = ctx.dim
-        group = ctx.group
-        world_size = dist.get_world_size(group)
-        rank = dist.get_rank(group)
-        sharded_size = grad_output.shape[dim] // world_size
-        ret = grad_output.split(sharded_size, dim=dim)[rank]
-        return ret, None, None
-
-
-def all_gather_forward_output(inp, dim, group):
-    return _AllGatherForwardOutput.apply(inp, dim, group)
-
-
-class _ReduceScatterForwardOutput(torch.autograd.Function):
-    # pylint: disable=abstract-method, arguments-differ
-    @staticmethod
-    def forward(ctx, inp, dim, group):
-        ctx.dim = dim
-        ctx.group = group
-        world_size = dist.get_world_size(group)
-        rank = dist.get_rank(group)
-
-        # reduce_scatter always targets dim 0, so we transpose the target dim
-        # to dim 0, and transpose the result back.
-        assert inp.shape[dim] % world_size == 0, (
-            f"Reduce scatter dimension {dim} size {inp.shape} "
-            f"should be divisible by world size {world_size}"
-        )
-        temp = inp.transpose(0, dim).contiguous() if dim != 0 else inp
-        scatter_shape = list(temp.shape)
-        scatter_shape[0] = scatter_shape[0] // world_size
-        ret = torch.zeros(scatter_shape, dtype=inp.dtype).cuda(rank)
-
-        dist.reduce_scatter_tensor(ret, temp, group=group)
-        if dim != 0:
-            ret = ret.transpose(0, dim).contiguous()
-        return ret
-
-    @staticmethod
-    def backward(ctx, grad_output):
-        dim = ctx.dim
-        group = ctx.group
-        world_size = dist.get_world_size(group)
-        rank = dist.get_rank(group)
-        return (
-            all_gather_along_dim(grad_output, dim, rank, world_size, group),
-            None,
-            None,
-        )
-
-
-def reduce_scatter_forward_output(inp, dim, group):
-    return _ReduceScatterForwardOutput.apply(inp, dim, group)
 
 
 @dataclass
@@ -351,31 +249,13 @@ class Schedule:
                         f"{gather_axis} is requested"
                     ) from None
 
-        # Update attributes. FIXME: Generalize to other ops.
-        if isinstance(self.mod, nn.Linear):
-            if axis == 0:
-                self.mod.out_features = sharded_size
-                # Note that the axis is the axis of the output
-                set_output_type("partition", gather_axis=1)
-            else:  # axis == 1
-                self.mod.in_features = sharded_size
-                set_output_type("partial")
-        elif isinstance(self.mod, nn.Conv2d):
-            axes = [1, 0] if self.mod.transposed else [0, 1]
-            if axis == axes[0]:
-                self.mod.out_channels = sharded_size
-                set_output_type("partition", gather_axis=1)
-            elif axis == axes[1]:
-                self.mod.in_channels = sharded_size
-                set_output_type("partial")
-            else:
-                raise NotImplementedError
-        elif isinstance(self.mod, nn.BatchNorm2d):
-            self.mod.num_features = sharded_size
-            set_output_type("partition", gather_axis=1)
+        out_type, out_part_axis = get_output_type_after_sharding(
+            self.mod, sharded_size, axis
+        )
+        set_output_type(out_type, gather_axis=out_part_axis)
 
     @register_primitive(need_dist=True)
-    def sync(self, mode="backward", **kwargs):
+    def sync(self, mode="backward", sync_op=None, **kwargs):
         """There are several cases for sync based on two factors:
         1) The original forward output is partitioned or partial sum.
         2) The next module wants to take full or partitioned input.
@@ -398,47 +278,51 @@ class Schedule:
             which is called "sequential parallelism". In this case, we also need
             to specify the allgather point in kwargs. For example,
             sch["out_proj"].sync(mode="forward_defer_gather", gather_at=sch)
+
+        Parameters
+        ----------
+        mode: str
+            Where to sync the output. Could be "forward", "backward", or "both".
+        sync_op: Optional[str]
+            If not given, we infer the sync_op from the output_type.
+        kwargs: Dict[str, Any]
+            Additional arguments. For example, if sync_op is specified,
+            axis is required for reduce_scatter and all_gather.
         """
-        assert (
-            "output_type" in self.metadata.shard
-        ), "output_type is missing in {mod}.schedule_metadata.shard"
-        output_type = self.metadata.shard["output_type"]
+        output_type = None
+        if sync_op is None:
+            if "output_type" not in self.metadata.shard:
+                raise ValueError(
+                    "output_type is missing in schedule metadata. This may be because "
+                    "the op is not sharded by .shard primitive. Please specify "
+                    "sync_op explicitly."
+                )
+            output_type = self.metadata.shard["output_type"]
 
-        if mode in {"forward", "forward_defer_gather", "both"}:
-            if output_type == "partition":
-                if mode == "forward_defer_gather":
-                    raise ValueError(f"mode {mode} is not supported for {output_type}")
-
+        if mode in {"forward", "both"}:
+            if sync_op is not None:
+                axis = kwargs.get("axis", 0)
+                if sync_op == "reduce_scatter":
+                    sync_fn = partial(
+                        reduce_scatter_forward_output, dim=axis, group=self.group
+                    )
+                elif sync_op == "all_gather":
+                    sync_fn = partial(
+                        all_gather_forward_output, dim=axis, group=self.group
+                    )
+                else:
+                    raise ValueError(f"Unsupported sync_op {sync_op}")
+            elif output_type == "partition":
                 # Case 1
                 gather_axis = self.metadata.shard["gather_axis"]
                 sync_fn = partial(
                     all_gather_forward_output, dim=gather_axis, group=self.group
                 )
             elif output_type == "partial":
-                if mode == "forward_defer_gather":
-                    if "gather_at" not in kwargs:
-                        raise ValueError(
-                            "gather_at is missing in kwargs for mode "
-                            "forward_defer_gather"
-                        )
-
-                    # Case 4
-                    gather_sch, gather_axis = kwargs["gather_at"]
-                    sync_fn = partial(
-                        reduce_scatter_forward_output, dim=gather_axis, group=self.group
-                    )
-
-                    def allgather_fn(_input, _output):
-                        return all_gather_forward_output(
-                            _output, dim=gather_axis, group=self.group
-                        )
-
-                    gather_sch.hook("fw_post", allgather_fn)
-                else:
-                    # Case 3
-                    def sync_fn(output):
-                        dist.all_reduce(output, op=dist.ReduceOp.SUM, group=self.group)
-                        return output
+                # Case 3
+                def sync_fn(output):
+                    dist.all_reduce(output, op=dist.ReduceOp.SUM, group=self.group)
+                    return output
 
             else:
                 raise NotImplementedError
@@ -451,6 +335,8 @@ class Schedule:
 
         if mode in {"backward", "both"}:
             # Case 1, 2
+            if sync_op is not None:
+                raise ValueError("sync_op is not supported in backward yet")
 
             # pylint: disable=function-redefined, unused-argument
             def hook_func(_module, _input, output):

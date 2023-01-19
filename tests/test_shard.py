@@ -180,7 +180,8 @@ def test_seq_para():
     sch["linear2"].shard("weight", axis=1)
 
     # forward reduce_scatter, and allgather at the end of the top module.
-    sch["linear2"].sync(mode="forward_defer_gather", gather_at=(sch, 1))
+    sch["linear2"].sync(mode="forward", sync_op="reduce_scatter", axis=1)
+    sch.sync(mode="forward", sync_op="all_gather", axis=1)
 
     sch_model, _ = slapo.build(sch)
 

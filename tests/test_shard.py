@@ -66,7 +66,7 @@ def gather_and_copy_model(src_model, dest_model, param_path_and_gather_axis):
 
     def _gather_param(part_param, axis=0):
         if axis < 0:
-            return
+            return part_param
 
         parts = [
             torch.zeros(part_param.shape, dtype=part_param.dtype).cuda(local_rank)

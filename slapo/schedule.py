@@ -60,6 +60,46 @@ class DictWithValidation(dict):
         super().__setitem__(key, value)
 
 
+def all_gather_along_dim(inp, dim, rank, world_size, group):
+    """all-gather along the given dimension. Will use all_gather_into_tensor
+    if available as it is more efficient; otherwise fallback to all_gather.
+
+    Paramters
+    ---------
+    inp: torch.Tensor
+        The input tensor to all-gather.
+    dim: int
+        The dimension to all-gather along.
+    rank: int
+        The rank of the current process.
+    world_size: int
+        The number of processes in the group.
+    group: torch.distributed.ProcessGroup
+        The process group to all-gather.
+
+    Returns
+    -------
+    torch.Tensor
+        The gathered tensor.
+    """
+    if hasattr(dist, "all_gather_into_tensor"):
+        temp = inp.transpose(0, dim).contiguous() if dim != 0 else inp
+        gather_shape = list(temp.shape)
+        gather_shape[0] = world_size * gather_shape[0]
+        ret = torch.empty(gather_shape, dtype=temp.dtype).cuda(rank)
+        dist.all_gather_into_tensor(ret, temp, group=group)
+        ret = ret.transpose(0, dim).contiguous() if dim != 0 else ret
+    else:
+        # Fallback to all_gather. This may lead to suboptimal performance.
+        parts = [
+            torch.empty(inp.shape, dtype=inp.dtype).cuda(rank)
+            for _ in range(world_size)
+        ]
+        dist.all_gather(parts, inp, group=group)
+        ret = torch.cat(parts, dim=dim)
+    return ret
+
+
 class _AllGatherForwardOutput(torch.autograd.Function):
     # pylint: disable=abstract-method, arguments-differ
     @staticmethod
@@ -68,14 +108,7 @@ class _AllGatherForwardOutput(torch.autograd.Function):
         ctx.group = group
         world_size = dist.get_world_size(group)
         rank = dist.get_rank(group)
-        parts = [
-            torch.zeros(inp.shape, dtype=inp.dtype).cuda(rank)
-            for _ in range(world_size)
-        ]
-        # dist.all_gather_into_tensor
-        dist.all_gather(parts, inp, group=group)
-        ret = torch.cat(parts, dim=dim)
-        return ret
+        return all_gather_along_dim(inp, dim, rank, world_size, group)
 
     @staticmethod
     def backward(ctx, grad_output):
@@ -90,6 +123,48 @@ class _AllGatherForwardOutput(torch.autograd.Function):
 
 def all_gather_forward_output(inp, dim, group):
     return _AllGatherForwardOutput.apply(inp, dim, group)
+
+
+class _ReduceScatterForwardOutput(torch.autograd.Function):
+    # pylint: disable=abstract-method, arguments-differ
+    @staticmethod
+    def forward(ctx, inp, dim, group):
+        ctx.dim = dim
+        ctx.group = group
+        world_size = dist.get_world_size(group)
+        rank = dist.get_rank(group)
+
+        # reduce_scatter always targets dim 0, so we transpose the target dim
+        # to dim 0, and transpose the result back.
+        assert inp.shape[dim] % world_size == 0, (
+            f"Reduce scatter dimension {dim} size {inp.shape} "
+            f"should be divisible by world size {world_size}"
+        )
+        temp = inp.transpose(0, dim).contiguous() if dim != 0 else inp
+        scatter_shape = list(temp.shape)
+        scatter_shape[0] = scatter_shape[0] // world_size
+        ret = torch.zeros(scatter_shape, dtype=inp.dtype).cuda(rank)
+
+        dist.reduce_scatter_tensor(ret, temp, group=group)
+        if dim != 0:
+            ret = ret.transpose(0, dim).contiguous()
+        return ret
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        dim = ctx.dim
+        group = ctx.group
+        world_size = dist.get_world_size(group)
+        rank = dist.get_rank(group)
+        return (
+            all_gather_along_dim(grad_output, dim, rank, world_size, group),
+            None,
+            None,
+        )
+
+
+def reduce_scatter_forward_output(inp, dim, group):
+    return _ReduceScatterForwardOutput.apply(inp, dim, group)
 
 
 @dataclass
@@ -300,7 +375,7 @@ class Schedule:
             set_output_type("partition", gather_axis=1)
 
     @register_primitive(need_dist=True)
-    def sync(self, mode="backward"):
+    def sync(self, mode="backward", **kwargs):
         """There are several cases for sync based on two factors:
         1) The original forward output is partitioned or partial sum.
         2) The next module wants to take full or partitioned input.
@@ -317,24 +392,53 @@ class Schedule:
         Case 3: (shard x, shard_in w) -> partial sum -> allreduce
                 -> (replica x, shard_out w).
             In this case, backward does not need allreduce, so mode should be 'forward'.
+        Case 4: (shard x, shard_in w) -> partial sum -> reduce-scatter
+                -> ... -> allgather -> full output.
+            This case breaks the allreduce in case 3 to reduce-scatter and allgather,
+            which is called "sequential parallelism". In this case, we also need
+            to specify the allgather point in kwargs. For example,
+            sch["out_proj"].sync(mode="forward_defer_gather", gather_at=sch)
         """
         assert (
             "output_type" in self.metadata.shard
         ), "output_type is missing in {mod}.schedule_metadata.shard"
         output_type = self.metadata.shard["output_type"]
 
-        if mode in {"forward", "both"}:
+        if mode in {"forward", "forward_defer_gather", "both"}:
             if output_type == "partition":
+                if mode == "forward_defer_gather":
+                    raise ValueError(f"mode {mode} is not supported for {output_type}")
+
                 # Case 1
                 gather_axis = self.metadata.shard["gather_axis"]
                 sync_fn = partial(
                     all_gather_forward_output, dim=gather_axis, group=self.group
                 )
             elif output_type == "partial":
-                # Case 3
-                def sync_fn(output):
-                    dist.all_reduce(output, op=dist.ReduceOp.SUM, group=self.group)
-                    return output
+                if mode == "forward_defer_gather":
+                    if "gather_at" not in kwargs:
+                        raise ValueError(
+                            "gather_at is missing in kwargs for mode "
+                            "forward_defer_gather"
+                        )
+
+                    # Case 4
+                    gather_sch, gather_axis = kwargs["gather_at"]
+                    sync_fn = partial(
+                        reduce_scatter_forward_output, dim=gather_axis, group=self.group
+                    )
+
+                    def allgather_fn(_input, _output):
+                        return all_gather_forward_output(
+                            _output, dim=gather_axis, group=self.group
+                        )
+
+                    gather_sch.hook("fw_post", allgather_fn)
+                else:
+                    # Case 3
+                    def sync_fn(output):
+                        dist.all_reduce(output, op=dist.ReduceOp.SUM, group=self.group)
+                        return output
 
             else:
                 raise NotImplementedError

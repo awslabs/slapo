@@ -231,24 +231,24 @@ RUN cd ${STAGE_DIR} && git clone https://github.com/NVIDIA/apex && \
 # DeepSpeed ZeRO2D code base
 ##############################################################################
 
-USER root
-ADD repo-key /
-RUN chmod 600 /repo-key && \
-    echo "IdentityFile /repo-key" >> /etc/ssh/ssh_config && \
-    echo "StrictHostKeyChecking no" >> /etc/ssh/ssh_config && \
-    echo "change code base: setting partition type from config" && \
-    git clone -b ms/debug git@github.com:zarzen/ZeRO-2D.git ${STAGE_DIR}/DeepSpeed && \
-    cd ${STAGE_DIR}/DeepSpeed \
-    && git submodule sync && git submodule update --init --recursive
-
-USER deepspeed
-RUN sudo chown $USER:$USER -R ${STAGE_DIR}/DeepSpeed
-RUN sudo apt-get install -y libaio-dev
-RUN cd ${STAGE_DIR}/DeepSpeed && \
-    sudo CUDACXX=/usr/local/cuda/bin/nvcc \
-    CUDA_HOME=/usr/local/cuda \
-    DS_BUILD_SPARSE_ATTN=0 \
-    DS_BUILD_OPS=1 TORCH_CUDA_ARCH_LIST="7.0 7.5 8.0" pip3 install -v ./
+#USER root
+#ADD repo-key /
+#RUN chmod 600 /repo-key && \
+#    echo "IdentityFile /repo-key" >> /etc/ssh/ssh_config && \
+#    echo "StrictHostKeyChecking no" >> /etc/ssh/ssh_config && \
+#    echo "change code base: setting partition type from config" && \
+#    git clone -b ms/debug git@github.com:zarzen/ZeRO-2D.git ${STAGE_DIR}/DeepSpeed && \
+#    cd ${STAGE_DIR}/DeepSpeed \
+#    && git submodule sync && git submodule update --init --recursive
+#
+#USER deepspeed
+#RUN sudo chown $USER:$USER -R ${STAGE_DIR}/DeepSpeed
+#RUN sudo apt-get install -y libaio-dev
+#RUN cd ${STAGE_DIR}/DeepSpeed && \
+#    sudo CUDACXX=/usr/local/cuda/bin/nvcc \
+#    CUDA_HOME=/usr/local/cuda \
+#    DS_BUILD_SPARSE_ATTN=0 \
+#    DS_BUILD_OPS=1 TORCH_CUDA_ARCH_LIST="7.0 7.5 8.0" pip3 install -v ./
 
 # install nccl-tests
 RUN git clone https://github.com/NVIDIA/nccl-tests.git $HOME/nccl-tests

@@ -11,6 +11,7 @@ import pytest
 
 import torch
 import torch.distributed as dist
+from torch.nn import functional as F
 from torch.autograd import Variable
 import slapo
 
@@ -93,7 +94,8 @@ def verify_grads(ref_model, path_and_grads, tol=1e-5):
         torch.testing.assert_close(
             grad,
             param.grad,
-            msg=lambda msg: f"{path}.grad mismatch\n{msg}",  # pylint: disable=cell-var-from-loop
+            # pylint: disable=cell-var-from-loop
+            msg=lambda msg: f"{path}.grad mismatch\n{msg}",
             atol=tol,
             rtol=tol,
         )
@@ -145,6 +147,58 @@ def test_linear():
 
     if rank == 0:
         model.cuda(local_rank)
+        out_ref = model(data)
+        out_ref.mean().backward()
+
+        torch.testing.assert_close(out, out_ref)
+        verify_grads(model, path_and_grads)
+
+
+def test_seq_para():
+    class Model(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.linear1 = torch.nn.Linear(30, 30)
+            self.linear2 = torch.nn.Linear(30, 30, bias=False)
+
+        def forward(self, data):
+            out = self.linear1(data)
+            out = self.linear2(out)
+            out = F.relu(out)
+            return out
+
+    rank = dist.get_rank()
+    model = Model()
+
+    # Broadcast parameters to make sure all ranks have the same model.
+    sync_model_params(model)
+
+    sch = slapo.create_schedule(copy.deepcopy(model))
+    sch["linear1"].shard("weight", axis=0)
+    sch["linear1"].shard("bias", axis=0)
+    sch["linear1"].sync(mode="backward")  # backward allreduce only
+    sch["linear2"].shard("weight", axis=1)
+
+    # forward reduce_scatter, and allgather at the end of the top module.
+    sch["linear2"].sync(mode="forward_defer_gather", gather_at=(sch, 1))
+
+    sch_model, _ = slapo.build(sch)
+
+    sch_model.cuda(rank)
+    data = torch.randn((3, 16, 30), requires_grad=True).cuda(rank)
+    dist.broadcast(data, src=0)
+    out = sch_model(data)
+    out.mean().backward()
+
+    param_path_and_gather_axis = {
+        "linear1.weight": 0,
+        "linear1.bias": 0,
+        "linear2.weight": 1,
+    }
+    path_and_grads = gather_grad(sch_model, param_path_and_gather_axis)
+
+    if rank == 0:
+        model.cuda(rank)
         out_ref = model(data)
         out_ref.mean().backward()
 

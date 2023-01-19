@@ -170,7 +170,10 @@ def replace_and_shard_attention(
             sub_sch["module.FusedQKV_0.fused_linear"].shard("bias", axis=0)
             sub_sch["module.FusedQKV_0.fused_linear"].sync(mode="backward")
             sub_sch["module.out_proj"].shard("weight", axis=1)
-            sub_sch["module.out_proj"].sync(mode="forward")
+            sub_sch["module.out_proj"].sync(
+                mode="forward_defer_gather",
+                gather_at=(sub_sch["module.resid_dropout"], 1),
+            )
         cnt += 1
 
     return cnt

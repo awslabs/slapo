@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import inspect
 import operator
-import os
 import re
 import gc
 from abc import ABC, abstractmethod

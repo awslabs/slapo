@@ -124,7 +124,7 @@ def train(args):
         batch_size = 16 if batch_size is None else batch_size
         micro_batch_size = 4 if micro_batch_size is None else micro_batch_size
         ds_config_dict = get_ds_config(
-            batch_size, micro_batch_size, True, False, "Pipeline"
+            batch_size, micro_batch_size, True, False, "Pipeline", False
         )
         loss_fct = ParallelCrossEntropy(group=group)
 
@@ -173,6 +173,8 @@ def train(args):
 
     loader = RepeatingLoader(train_loader)
 
+    model.load_checkpoint("checkpoint", "global_step40")
+
     num_iters = args.iter_nums
     if enable_pipeline:
         data_iter = iter(loader)
@@ -180,6 +182,8 @@ def train(args):
             model.train_batch(data_iter=data_iter)
     else:
         train_with_torch(model, loader, steps=num_iters)
+
+    model.save_checkpoint("checkpoint")
 
 
 if __name__ == "__main__":

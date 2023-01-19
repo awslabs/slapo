@@ -7,6 +7,9 @@
 import os
 
 import torch
+
+from transformers import AutoConfig, GPTNeoModel
+
 from functools import partial
 from megatron import get_args
 from megatron import print_rank_0
@@ -30,8 +33,6 @@ def get_model(
     impl="slapo",
     delay_init=True,
 ):
-    from transformers import AutoConfig, GPTNeoModel
-
     config = AutoConfig.from_pretrained(model_name)
     if padded_vocab_size is not None:
         config.vocab_size = padded_vocab_size

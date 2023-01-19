@@ -5,6 +5,7 @@
 Test sharding primitive. Note that this test has to be invoked by torchrun. For example:
 torchrun --nproc_per_node 2 -m pytest test_shard.py
 """
+import os
 import copy
 import pytest
 
@@ -38,13 +39,14 @@ def sync_model_params(model):
 def gather_grad(model, param_path_and_gather_axis):
     world_size = dist.get_world_size()
     rank = dist.get_rank()
+    local_rank = int(os.environ["LOCAL_RANK"])
 
     def _gather_grad(part_grad, axis=0):
         if axis < 0:
             return part_grad
 
         parts = [
-            torch.zeros(part_grad.shape, dtype=part_grad.dtype).cuda(rank)
+            torch.zeros(part_grad.shape, dtype=part_grad.dtype).cuda(local_rank)
             for _ in range(world_size)
         ]
         dist.all_gather(parts, part_grad)
@@ -57,6 +59,32 @@ def gather_grad(model, param_path_and_gather_axis):
             param = getattr(param, token)
         ret[path] = _gather_grad(param.grad, axis)
     return ret
+
+
+def gather_and_copy_model(src_model, dest_model, param_path_and_gather_axis):
+    world_size = dist.get_world_size()
+    rank = dist.get_rank()
+    local_rank = int(os.environ["LOCAL_RANK"])
+
+    def _gather_param(part_param, axis=0):
+        if axis < 0:
+            return 
+
+        parts = [
+            torch.zeros(part_param.shape, dtype=part_param.dtype).cuda(local_rank)
+            for _ in range(world_size)
+        ]
+        dist.all_gather(parts, part_param.contiguous())
+        return torch.cat(parts, dim=axis)
+
+    for path, axis in param_path_and_gather_axis.items():
+        part_param = src_model
+        dest_param = dest_model
+        for token in path.split("."):
+            part_param = getattr(part_param, token)
+            dest_param = getattr(dest_param, token)
+        param = _gather_param(part_param, axis)
+        dest_param.data = param
 
 
 def verify_grads(ref_model, path_and_grads, tol=1e-5):
@@ -90,10 +118,9 @@ def test_linear():
             return out
 
     rank = dist.get_rank()
+    local_rank = int(os.environ["LOCAL_RANK"])
+    torch.cuda.set_device(local_rank)
     model = Model()
-
-    # Broadcast parameters to make sure all ranks have the same model.
-    sync_model_params(model)
 
     sch = slapo.create_schedule(copy.deepcopy(model))
     sch["linear1"].shard("weight", axis=0)
@@ -103,8 +130,8 @@ def test_linear():
     sch["linear2"].sync(mode="forward")  # forward allreduce only
     sch_model, _ = slapo.build(sch)
 
-    sch_model.cuda(rank)
-    data = torch.randn((10, 20), requires_grad=True).cuda(rank)
+    sch_model.cuda(local_rank)
+    data = torch.randn((10, 20), requires_grad=True).cuda(local_rank)
     dist.broadcast(data, src=0)
     out = sch_model(data)
     out.mean().backward()
@@ -116,8 +143,10 @@ def test_linear():
     }
     path_and_grads = gather_grad(sch_model, param_path_and_gather_axis)
 
+    gather_and_copy_model(sch_model, model, param_path_and_gather_axis)
+
     if rank == 0:
-        model.cuda(rank)
+        model.cuda(local_rank)
         out_ref = model(data)
         out_ref.mean().backward()
 

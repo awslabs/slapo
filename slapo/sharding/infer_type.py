@@ -48,7 +48,7 @@ def get_output_type_after_sharding(module, sharded_size, axis):
 
 
 @register_output_infer_fn(nn.Linear)
-def linear(module, sharded_size, axis):
+def _linear(module, sharded_size, axis):
     """Output inference for linear layer.
     It adjusts the input or output feature size to reflect the shard size,
     and returns the output type (partial or partition) after sharding.
@@ -77,7 +77,7 @@ def linear(module, sharded_size, axis):
 
 
 @register_output_infer_fn(nn.Conv2d)
-def conv2d(module, sharded_size, axis):
+def _conv2d(module, sharded_size, axis):
     """Output inference for conv2d layer.
     It adjusts the input or output channel number to reflect the shard size,
     and returns the output type (partial or partition) after sharding.
@@ -108,7 +108,7 @@ def conv2d(module, sharded_size, axis):
 
 
 @register_output_infer_fn(nn.BatchNorm2d)
-def batchnorm2d(module, sharded_size, axis):
+def _batchnorm2d(module, sharded_size, axis):
     """Output inference for BatchNorm2d layer.
     It adjusts the feature number to reflect the shard size,
     and returns the output type (partition along axis=1).

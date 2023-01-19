@@ -70,7 +70,7 @@ We provide the following primitives for dynamic graph optimizations:
 | :--: | :-- |
 | Module replacement | `s[op].replace(new_module)` |
 | Tensor parallelism | `s[op].shard(param_name, axis)` |
-| Synchronization | `s[op].sync(mode="forward/forward_defer_gather/backward/both", **kwargs)` |
+| Synchronization | `s[op].sync(mode="forward/backward/both", sync_op, **kwargs)` |
 | Checkpointing | `s[op].checkpoint()` |
 | Forward/Backward hook | `s[op].hook(mode="fw_pre/fw_post/bw_post", func=hook)` |
 

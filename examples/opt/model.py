@@ -20,6 +20,7 @@ from schedule import (
 
 logger = get_logger("OPT")
 
+
 def schedule_model(
     model,
     config,

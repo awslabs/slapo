@@ -57,8 +57,8 @@ def train(args):
         deepspeed.init_distributed(dist_backend="nccl")
         logger.info("Use deepspeed to initialize", ranks=0)
         if enable_pipeline:
-            num_pp, num_mp = 4, 2 # For single node testing.
-            #num_pp, num_mp = 2, 8 
+            num_pp, num_mp = 4, 2  # For single node testing.
+            # num_pp, num_mp = 2, 8
         else:
             logger.info("Pipeline disabled", ranks=0)
         topology, group = create_dist_group_for_pipeline(num_pp, num_mp)
@@ -133,7 +133,7 @@ def train(args):
             target="deepspeed",
             config=ds_config_dict,
             loss_fn=loss_fn,
-            param_init_fn=model._init_weights
+            param_init_fn=model._init_weights,
         )
     else:
         if batch_size is not None and micro_batch_size is None:
@@ -150,7 +150,7 @@ def train(args):
             topology=topology,
             target="deepspeed",
             config=ds_config_dict,
-            param_init_fn=model._init_weights
+            param_init_fn=model._init_weights,
         )
         model = model.to(device)
     report_memory(msg="After building model")

@@ -35,9 +35,9 @@ pip3 install -e ".[dev]"
 
 - This repo:
 ```
-git clone https://github.com/chhzh123/model-schedule
-cd model-schedule
-export PYTHONPATH=`pwd`:$PYTHONPATH
+git clone https://github.com/awslabs/slapo.git slapo
+cd slapo
+pip3 install -e ".[dev]"
 ```
 
 You can run these examples using Megatron-LM framework (referring to `../benchmark/bench_single_node.py`).

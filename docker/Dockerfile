@@ -100,6 +100,7 @@ RUN apt-get update && apt-get install -y python3 python3-dev python3-pip
 RUN apt-get install -y python3.8 python3.8-dev python3.8-venv
 RUN rm -f /usr/bin/python && ln -s /usr/bin/python3.8 /usr/bin/python
 RUN rm -f /usr/bin/python3 && ln -s /usr/bin/python3.8 /usr/bin/python3
+RUN rm -f /usr/bin/python3-config && ln -s /usr/bin/python3.8-config /usr/bin/python3-config
 RUN curl -O https://bootstrap.pypa.io/get-pip.py && \
     python3 get-pip.py && rm get-pip.py
 RUN pip3 install --upgrade pip && \
@@ -150,6 +151,7 @@ RUN pip3 install psutil \
                  scipy \
                  numpy \
                  sklearn \
+                 networkx \
                  scikit-learn \
                  nvidia-ml-py3 \
                  mpi4py \ 

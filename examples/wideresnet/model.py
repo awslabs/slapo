@@ -6,6 +6,7 @@ import inspect
 
 import torch
 from torch.nn import Module
+import torch.distributed as dist
 from torchvision.models.resnet import Bottleneck, ResNet
 from transformers.utils import ModelOutput
 
@@ -53,6 +54,9 @@ def schedule_model(
     sch = slapo.create_schedule(model, group=group)
     logger.info(f"Scheduling Wide-ResNet with TP={sch.world_size}", ranks=0)
 
+    if dist.get_world_size() == 1:  # not only counting the TP devices
+        fuse_conv_bn(sch[prefix], config)
+
     if sch.world_size > 1:
         # Shard layers.
         shard_layers(sch[prefix], config)
@@ -61,8 +65,6 @@ def schedule_model(
         # This is not required when running on Megatron.
         if bcast_input:
             broadcast_input(sch)
-    else:
-        fuse_conv_bn(sch[prefix], config)
 
     # Insert activation checkpoints.
     if ckpt_ratio > 0.0:

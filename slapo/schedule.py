@@ -798,8 +798,7 @@ def create_schedule(
 def consolidate_model(
     sch: Schedule,
     topology=None,
-    param_init_fn: Optional[Callable[[nn.Module], None]] = None,
-    init_required: bool = True,
+    param_init_fn: Optional[Callable[[nn.Module], None]] = None
 ):
     if dist.get_world_size() > sch.world_size:
         assert (
@@ -885,7 +884,7 @@ def consolidate_model(
             )
 
         # use original shape to initialize parameters
-        if global_rank == curr_stage_devices[0] and num_params > 0 and init_required:
+        if global_rank == curr_stage_devices[0] and num_params > 0:
             # only the first device in the PP group needs to initialize the weights
             if param_init_fn:
                 param_init_fn(sch.mod)
@@ -902,9 +901,8 @@ def consolidate_model(
 
         # need to broadcast params from rank 0 to make sure all the TP+DP ranks take the same params
         curr_stage_group = stage_groups[curr_part_idx]
-        if init_required:
-            for _, param in sch.mod.named_parameters(recurse=False):
-                dist.broadcast(param, src=curr_stage_devices[0], group=curr_stage_group)
+        for _, param in sch.mod.named_parameters(recurse=False):
+            dist.broadcast(param, src=curr_stage_devices[0], group=curr_stage_group)
 
         # discard redundant values
         tp_rank = sch.rank
@@ -948,7 +946,8 @@ def build(
         tie_weight_groups = analyze_tie_weights(sch.mod)
 
     # delay initialization
-    sch = consolidate_model(sch, topology, param_init_fn, init_required)
+    if init_required:
+        sch = consolidate_model(sch, topology, param_init_fn)
 
     if target == "deepspeed":
         assert "config" in kwargs

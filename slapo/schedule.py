@@ -798,7 +798,7 @@ def create_schedule(
 def consolidate_model(
     sch: Schedule,
     topology=None,
-    param_init_fn: Optional[Callable[[nn.Module], None]] = None
+    param_init_fn: Optional[Callable[[nn.Module], None]] = None,
 ):
     if dist.get_world_size() > sch.world_size:
         assert (

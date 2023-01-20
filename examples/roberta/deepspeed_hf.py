@@ -95,7 +95,7 @@ def train(args):
             delay_init=enable_pipeline,
         )
     if SINGLE_DEVICE_FOR_DEBUG:
-        slapo.build(sch, param_init_fn=model._init_weights)
+        slapo.build(sch, init_weights=model._init_weights)
         assert False
 
     if enable_pipeline:
@@ -118,7 +118,7 @@ def train(args):
             target="deepspeed",
             config=ds_config_dict,
             loss_fn=loss_fn,
-            param_init_fn=model._init_weights,
+            init_weights=model._init_weights,
         )
     else:
         if batch_size is not None:
@@ -136,7 +136,7 @@ def train(args):
             topology=topology,
             target="deepspeed",
             config=ds_config_dict,
-            param_init_fn=model._init_weights,
+            init_weights=model._init_weights,
         )
         model = model.to(device)
     report_memory(msg="After building model")

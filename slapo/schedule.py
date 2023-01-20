@@ -941,8 +941,7 @@ def build(
     sch: Schedule,
     topology=None,
     target=None,
-    param_init_fn=None,
-    init_required: bool = True,
+    init_weights: Optional[Union[bool, Callable]] = True,
     **kwargs,
 ):
     optimizer = None
@@ -953,8 +952,11 @@ def build(
         tie_weight_groups = analyze_tie_weights(sch.mod)
 
     # delay initialization
-    if init_required:
-        sch = consolidate_model(sch, topology, param_init_fn)
+    if init_weights:
+        if isinstance(init_weights, Callable):
+            sch = consolidate_model(sch, topology, init_weights)
+        else:
+            sch = consolidate_model(sch, topology)
 
     if target == "deepspeed":
         assert "config" in kwargs

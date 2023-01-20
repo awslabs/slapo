@@ -22,6 +22,7 @@ from torch import fx, nn
 from .logger import get_logger
 from .pipeline import (
     analyze_tie_weights,
+    analyze_tied_ranks,
     generate_pipeline_modules,
     generate_pipeline_partition,
 )
@@ -820,7 +821,7 @@ def consolidate_model(
     local_rank = torch.cuda.current_device()
     global_rank = None
     global_ranks = [None]
-    if (cnt_meta != 0 or cnt_materialized != 0):
+    if cnt_meta != 0 or cnt_materialized != 0:
         if dist.is_initialized():
             # tackle with pipeline modules
             # even the model does not use meta device, we still need to broadcast the weights to ensure consistency
@@ -847,7 +848,9 @@ def consolidate_model(
                 # each group contains the devices on the same stage
                 stage_groups = []
                 for i in range(num_pp):
-                    stage_groups.append(dist.new_group(ranks=topology.filter_match(pipe=i)))
+                    stage_groups.append(
+                        dist.new_group(ranks=topology.filter_match(pipe=i))
+                    )
             else:
                 stage_groups = [dist.new_group()]
 
@@ -946,10 +949,14 @@ def build(
 ):
     optimizer = None
     if sch.metadata.pipeline_cutting_paths:
+        if topology is None:
+            raise ValueError("Must provide topology for deepspeed pipeline")
+
         # pipeline stages will be wrapped into PipeStageWrapper
         sch = generate_pipeline_partition(sch)
         # Analyzie tie weights before consolidation.
         tie_weight_groups = analyze_tie_weights(sch.mod)
+        tied_ranks = analyze_tied_ranks(tie_weight_groups, topology)
 
     # delay initialization
     if init_weights:

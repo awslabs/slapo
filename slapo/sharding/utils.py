@@ -69,7 +69,7 @@ class _AllGatherForwardOutput(torch.autograd.Function):
         world_size = dist.get_world_size(group)
         rank = dist.get_rank(group)
         sharded_size = grad_output.shape[dim] // world_size
-        ret = grad_output.split(sharded_size, dim=dim)[rank]
+        ret = grad_output.split(sharded_size, dim=dim)[rank].contiguous()
         return ret, None, None
 
 

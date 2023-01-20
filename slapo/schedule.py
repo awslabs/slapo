@@ -259,8 +259,6 @@ class Schedule:
         """There are several cases for sync based on two factors:
         1) The original forward output is partitioned or partial sum.
         2) The next module wants to take full or partitioned input.
-        Note that we ignore the case that the next module wants to take partial sum
-        input, because it is not benefitical to the performance.
 
         Case 1: (replica x, shard_out w) -> partition output -> allgather
                 -> full output -> (replica x, shard_out w).
@@ -275,9 +273,10 @@ class Schedule:
         Case 4: (shard x, shard_in w) -> partial sum -> reduce-scatter
                 -> ... -> allgather -> full output.
             This case breaks the allreduce in case 3 to reduce-scatter and allgather,
-            which is called "sequential parallelism". In this case, we also need
+            which is called "sequence parallelism". In this case, we also need
             to specify the allgather point in kwargs. For example,
-            sch["out_proj"].sync(mode="forward_defer_gather", gather_at=sch)
+            sch["out_proj"].sync(mode="forward", sync_op="reduce_scatter", axis=1)
+            sch["resid_dropout"].sync(mode="forward", sync_op="all_gather", axis=1)
 
         Parameters
         ----------

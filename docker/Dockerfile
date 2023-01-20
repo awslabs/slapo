@@ -281,7 +281,7 @@ RUN git clone https://github.com/huggingface/transformers.git $HOME/transformers
 RUN cd $HOME/transformers && git checkout 2bdd9fa && pip3 install -e ".[dev]" --no-deps
 
 # Fix dependencies
-RUN pip3 install huggingface-hub tokenizers numpy==1.23.4
+RUN pip3 install huggingface-hub tokenizers numpy==1.23.4 datasets
 
 COPY container_entrypoint.sh /etc/
 RUN sudo chown $USER:$USER /etc/container_entrypoint.sh

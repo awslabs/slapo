@@ -252,23 +252,6 @@ def test_conv():
     data_grad = data.grad
     data.grad = None
 
-    param_path_and_gather_axis = {
-        "conv3.weight": 0,
-        "conv2.weight": 1,
-        "conv1.weight": 0,
-        "bn1.weight": 0,
-        "bn1.bias": 0,
-        "bn2.weight": -1,
-        "bn2.bias": -1,
-        "bn3.weight": 0,
-        "bn3.bias": 0,
-        "bn1.running_mean": 0,
-        "bn1.running_var": 0,
-        "bn2.running_mean": -1,
-        "bn2.running_var": -1,
-        "bn3.running_mean": 0,
-        "bn3.running_var": 0,
-    }
     grad_path_and_gather_axis = {
         "conv3.weight": 0,
         "conv2.weight": 1,
@@ -281,8 +264,6 @@ def test_conv():
         "bn3.bias": 0,
     }
     path_and_grads = gather_grad(sch_model, grad_path_and_gather_axis)
-
-    gather_and_copy_model(sch_model, model, param_path_and_gather_axis)
 
     if rank == 0:
         model.cuda(local_rank)

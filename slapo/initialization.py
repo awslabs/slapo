@@ -59,7 +59,7 @@ def init_on_device(device: torch.device, include_buffers: bool = False):
 
     def register_empty_parameter(module, name, param):
         old_register_parameter(module, name, param)
-        if param is not None:
+        if param is not None and param.device != device:
             param_cls = type(module._parameters[name])
             kwargs = module._parameters[name].__dict__
             module._parameters[name] = param_cls(

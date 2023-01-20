@@ -1,5 +1,6 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
+from __future__ import annotations
 
 from enum import Enum
 import torch
@@ -168,7 +169,7 @@ def unflatten(args, metadata):
     return tupleize(unordered_args)
 
 
-@register_model_dialect("deepspeed", "pipeline")
+@register_model_dialect("deepspeed", "pipeline_stage")
 class DeepSpeedPipeStageWrapper(nn.Module):
     def __init__(
         self,
@@ -293,3 +294,24 @@ class DeepSpeedPipeStageWrapper(nn.Module):
         )
         ret = tuple(ret)
         return ret
+
+@register_model_dialect("deepspeed", "pipeline_engine")
+def deepspeed_pipe_engine(
+    stage_modules,
+    topology,
+    param_dtype,
+    **kwargs,
+):
+    from deepspeed import pipe
+
+    model = pipe.PipelineModule(
+        stage_modules,
+        topology=topology,
+        partition_method="uniform",
+        loss_fn=kwargs.get("loss_fn", None),
+        param_dtype=param_dtype,
+    )
+    # TODO: tie weights
+    # tie_weight_groups=kwargs.get("tie_weight_groups", None)
+    # model.register_tie_weights()
+    return model

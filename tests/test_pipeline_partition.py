@@ -43,6 +43,7 @@ def test_analyze_tie_weights():
         model.stage2.linear.weight = model.stage0.wte.weight
 
     tie_weights = slapo.pipeline.analyze_tie_weights(model)
+
     assert len(tie_weights) == 1
     assert len(tie_weights[0]) == 3
     assert ("stage0.wte.weight", 0) in tie_weights[0]

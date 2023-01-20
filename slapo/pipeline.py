@@ -301,6 +301,10 @@ def analyze_tie_weights(top_mod):
     def _traverse_children(stage_id, prefix, curr_mod_name, curr_mod):
         full_prefix = f"{prefix}.{curr_mod_name}" if prefix else curr_mod_name
 
+        # We cannot use named_parameters(recurse=True) but have to explicitly
+        # traverse submodules recursively. This is because tie weights will
+        # only show up once in named_parameters. In other words, we cannot
+        # identify tie weights with named_parameters(recurse=True).
         for curr_param_name, curr_param in curr_mod.named_parameters():
             curr_param_full_name = f"{full_prefix}.{curr_param_name}"
             curr_param_id = id(curr_param)

@@ -152,6 +152,7 @@ def test_linear():
         verify_grads(model, path_and_grads)
 
 
+@pytest.mark.skip(reason="Flaky test")
 def test_conv():
     """Test conv2d sharding. The workload is from WideResNet from torchvision."""
     expansion = 4

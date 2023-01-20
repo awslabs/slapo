@@ -4,8 +4,8 @@
 import operator
 from collections import OrderedDict
 
+import torch
 from torch import fx
-
 from torch.fx.passes.split_module import split_module
 
 from .logger import get_logger
@@ -160,7 +160,7 @@ def propagate_partition(sch, starting_stage_id=0, stop_at=None):
                         ph2arg[value.name if isinstance(value, fx.Node) else None],
                     )
                 )
-            elif ( # pylint: disable=comparison-with-callable
+            elif (  # pylint: disable=comparison-with-callable
                 user.op == "call_function" and user.target == operator.getitem
             ):
                 users_to_replace.append((user, ph2arg[ret_dict[user.args[1]].name]))
@@ -264,7 +264,8 @@ def analyze_pipeline_module(top_mod):
             "when tracing, and they are not removed by the PyTorch tracer. "
             "This should not be an issue if the None arguments are really 'None' "
             "in the training process.",
-            liveness[0], liveness[-1],
+            liveness[0],
+            liveness[-1],
         )
     else:
         liveness[0] = liveness[-1]
@@ -272,6 +273,82 @@ def analyze_pipeline_module(top_mod):
 
     stage_id_2_name = {v: k for k, v in submod_2_stage_id.items()}
     return stage_id_2_arg_names, stage_id_2_name, liveness
+
+
+def analyze_tie_weights(top_mod):
+    """Analyze if there is any tie weights (two weights in different module
+    share the same memory) partitioned into different pipeline stages.
+
+    Parameters
+    ----------
+    top_mod : torch.nn.Module
+        The top-level module. This should be a top pipeline module, so
+        1) it should already be traced and partitioned, and
+        2) it should have a number of submodules that matches pipeline stages.
+
+    Returns
+    -------
+    tie_groups : Dict[str, Set[Tuple[str, int]]]
+    """
+    # Mapping from parameter name to (the pipeline stage ID, the parameter object ID).
+    params = {}
+    # Mapping from the primary key (i.e., the first parameter name)
+    # of a tie group to the tie group.
+    tie_groups = {}
+    # Mapping from paramter name to the primary key of the tie group.
+    param_name_2_group_key = {}
+
+    def _traverse_children(stage_id, prefix, curr_mod_name, curr_mod):
+        full_prefix = f"{prefix}.{curr_mod_name}" if prefix else curr_mod_name
+
+        # We cannot use named_parameters(recurse=True) but have to explicitly
+        # traverse submodules recursively. This is because tie weights will
+        # only show up once in named_parameters. In other words, we cannot
+        # identify tie weights with named_parameters(recurse=True).
+        for curr_param_name, curr_param in curr_mod.named_parameters():
+            curr_param_full_name = f"{full_prefix}.{curr_param_name}"
+            curr_param_id = id(curr_param)
+            if curr_param_full_name in params:
+                continue
+
+            # Check if this parameter is tie to another one in a different stage.
+            for target_param_full_name, (
+                target_stage,
+                target_param_id,
+            ) in params.items():
+                if stage_id != target_stage and curr_param_id == target_param_id:
+                    if target_param_full_name in param_name_2_group_key:
+                        # Get the tie group of the target parameter.
+                        tie_group_key = param_name_2_group_key[target_param_full_name]
+                        tie_group = tie_groups[tie_group_key]
+                    else:
+                        # Create a new tie group, and use the target parameter name
+                        # as the primary key.
+                        param_name_2_group_key[
+                            target_param_full_name
+                        ] = target_param_full_name
+                        tie_group = set([(target_param_full_name, target_stage)])
+                        tie_groups[target_param_full_name] = tie_group
+
+                    # Add the current parameter to the tie group.
+                    param_name_2_group_key[
+                        curr_param_full_name
+                    ] = target_param_full_name
+                    tie_group.add((curr_param_full_name, stage_id))
+
+            # Add this parameter for the rest analysis.
+            params[curr_param_full_name] = (stage_id, id(curr_param))
+
+        # Traverse children.
+        for name, mod in curr_mod.named_children():
+            _traverse_children(stage_id, f"{full_prefix}", name, mod)
+
+    for stage_id, (mod_name, stage_mod) in enumerate(top_mod.named_children()):
+        _traverse_children(stage_id, "", mod_name, stage_mod)
+
+    # Explicitly delete the reference to parameters for safety.
+    del params
+    return list(tie_groups.values())
 
 
 def generate_pipeline_partition(sch):
@@ -308,7 +385,10 @@ def generate_pipeline_partition(sch):
     return sch
 
 
-def generate_pipeline_modules(sch, target):
+def generate_pipeline_modules(
+    sch, target, topology=None, param_dtype=torch.float16, **kwargs
+):
+    # Analyze pipelien module for liveness and arguments.
     partitioned_mod = sch.mod
     (
         stage_id_2_arg_names,
@@ -317,7 +397,7 @@ def generate_pipeline_modules(sch, target):
     ) = analyze_pipeline_module(partitioned_mod)
 
     # Get the pipeline wrapper class.
-    pipe_wrapper_cls = get_dialect_cls("pipeline", target)
+    pipe_wrapper_cls = get_dialect_cls("pipeline_stage", target)
 
     # Generate wrappers for pipelined modules
     res_partition = []
@@ -333,4 +413,11 @@ def generate_pipeline_modules(sch, target):
                 stage_id_2_arg_names,
             )
         )
-    return res_partition
+
+    pipe_engine_fn = get_dialect_cls("pipeline_engine", target)
+    return pipe_engine_fn(
+        res_partition,
+        topology,
+        param_dtype,
+        **kwargs,
+    )

@@ -19,7 +19,11 @@ from torch.utils import checkpoint
 from torch import fx, nn
 
 from .logger import get_logger
-from .pipeline import generate_pipeline_modules, generate_pipeline_partition
+from .pipeline import (
+    analyze_tie_weights,
+    generate_pipeline_modules,
+    generate_pipeline_partition,
+)
 from .tracer import trace as trace_module
 
 logger = get_logger()
@@ -917,6 +921,8 @@ def build(sch: Schedule, topology=None, target=None, **kwargs):
     if sch.metadata.pipeline_cutting_paths:
         # pipeline stages will be wrapped into PipeStageWrapper
         sch = generate_pipeline_partition(sch)
+        # Analyzie tie weights before consolidation.
+        tie_weight_groups = analyze_tie_weights(sch.mod)
 
     # delay initialization
     sch = consolidate_model(sch, topology)
@@ -924,7 +930,6 @@ def build(sch: Schedule, topology=None, target=None, **kwargs):
     if target == "deepspeed":
         assert "config" in kwargs
         import deepspeed
-        from deepspeed import pipe
 
         if sch.metadata.pipeline_cutting_paths:
             # Sanity check
@@ -940,13 +945,13 @@ def build(sch: Schedule, topology=None, target=None, **kwargs):
             else:
                 param_dtype = torch.float16
 
-            stage_modules = generate_pipeline_modules(sch, target)
-            model = pipe.PipelineModule(
-                stage_modules,
-                topology=topology,
-                partition_method="uniform",
-                loss_fn=kwargs["loss_fn"],
-                param_dtype=param_dtype,
+            model = generate_pipeline_modules(
+                sch,
+                target,
+                topology,
+                param_dtype,
+                tie_weight_groups=tie_weight_groups,
+                **kwargs,
             )
         else:
             model = sch.mod

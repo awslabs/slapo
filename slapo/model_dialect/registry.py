@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Framework model dialect registration."""
 
-DIALECTS = {"pipeline": {}, "log_parser": {}}
+DIALECTS = {"pipeline_stage": {}, "pipeline_engine": {}, "log_parser": {}}
 
 
 def register_model_dialect(target, cls_type):

@@ -295,6 +295,7 @@ class DeepSpeedPipeStageWrapper(nn.Module):
         ret = tuple(ret)
         return ret
 
+
 @register_model_dialect("deepspeed", "pipeline_engine")
 def deepspeed_pipe_engine(
     stage_modules,

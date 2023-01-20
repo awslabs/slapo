@@ -25,7 +25,9 @@ def init_dist():
 
 def verify_weights(module: torch.nn.Module):
     for param in module.parameters():
-        torch.testing.assert_close(param.data, torch.zeros_like(param).cuda(param.device))
+        torch.testing.assert_close(
+            param.data, torch.zeros_like(param).cuda(param.device)
+        )
 
 
 def test_singlegpu_consolidation():

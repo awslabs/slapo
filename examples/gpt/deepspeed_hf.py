@@ -173,8 +173,6 @@ def train(args):
 
     loader = RepeatingLoader(train_loader)
 
-    model.load_checkpoint("checkpoint", "global_step40")
-
     num_iters = args.iter_nums
     if enable_pipeline:
         data_iter = iter(loader)
@@ -182,8 +180,6 @@ def train(args):
             model.train_batch(data_iter=data_iter)
     else:
         train_with_torch(model, loader, steps=num_iters)
-
-    model.save_checkpoint("checkpoint")
 
 
 if __name__ == "__main__":

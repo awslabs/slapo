@@ -800,7 +800,7 @@ def consolidate_model(
     topology=None,
     param_init_fn: Optional[Callable[[nn.Module], None]] = None,
 ):
-    if dist.get_world_size() > sch.world_size:
+    if dist.is_initialized() and dist.get_world_size() > sch.world_size:
         assert (
             topology is not None
         ), f"topology={topology} must be given when there are multiple tensor paralel groups or pipeline parallelism is used"
@@ -818,39 +818,56 @@ def consolidate_model(
     stage_groups = None
     # local rank means the rank in a node
     local_rank = torch.cuda.current_device()
-    global_rank = dist.get_rank()
-    if cnt_meta != 0 or cnt_materialized != 0:
-        # tackle with pipeline modules
-        # even the model does not use meta device, we still need to broadcast the weights to ensure consistency
-        if topology is not None:
-            # 1st DP: devices in the same bracket are in the same TP group
-            #         vertical lines separate different PP stages
-            # [0, 1] |
-            #        | [4, 5]
-            # 2nd DP
-            # [2, 3] |
-            #        | [6, 7]
-            # >>> topo = PipeModelDataParallelTopology(2, 2, 2)
-            # >>> topo.get_axis_comm_lists("model")
-            # [[0, 1], [2, 3], [4, 5], [6, 7]]
-            # >>> topo.get_axis_comm_lists("pipe")
-            # [[0, 4], [1, 5], [2, 6], [3, 7]]
-            # >>> topo.get_axis_comm_lists("data")
-            # [[0, 2], [1, 3], [4, 6], [5, 7]]
-            # >>> topo.filter_match(pipe=0)
-            # [0, 1, 2, 3]
-            # create dist group for broadcasting
-            num_pp = topology.get_dim("pipe")
-            # each group contains the devices on the same stage
-            stage_groups = []
-            for i in range(num_pp):
-                stage_groups.append(dist.new_group(ranks=topology.filter_match(pipe=i)))
-        else:
-            stage_groups = [dist.new_group()]
+    global_rank = None
+    global_ranks = [None]
+    if (cnt_meta != 0 or cnt_materialized != 0):
+        if dist.is_initialized():
+            # tackle with pipeline modules
+            # even the model does not use meta device, we still need to broadcast the weights to ensure consistency
+            global_rank = dist.get_rank()
+            if topology is not None:
+                # 1st DP: devices in the same bracket are in the same TP group
+                #         vertical lines separate different PP stages
+                # [0, 1] |
+                #        | [4, 5]
+                # 2nd DP
+                # [2, 3] |
+                #        | [6, 7]
+                # >>> topo = PipeModelDataParallelTopology(2, 2, 2)
+                # >>> topo.get_axis_comm_lists("model")
+                # [[0, 1], [2, 3], [4, 5], [6, 7]]
+                # >>> topo.get_axis_comm_lists("pipe")
+                # [[0, 4], [1, 5], [2, 6], [3, 7]]
+                # >>> topo.get_axis_comm_lists("data")
+                # [[0, 2], [1, 3], [4, 6], [5, 7]]
+                # >>> topo.filter_match(pipe=0)
+                # [0, 1, 2, 3]
+                # create dist group for broadcasting
+                num_pp = topology.get_dim("pipe")
+                # each group contains the devices on the same stage
+                stage_groups = []
+                for i in range(num_pp):
+                    stage_groups.append(dist.new_group(ranks=topology.filter_match(pipe=i)))
+            else:
+                stage_groups = [dist.new_group()]
+
+            global_ranks = list(range(dist.get_world_size()))
     else:
         return sch
 
-    global_ranks = list(range(dist.get_world_size()))
+    def _init_module(sch: Schedule):
+        if param_init_fn:
+            param_init_fn(sch.mod)
+        elif hasattr(sch.mod, "_init_weights"):
+            # `_init_weights` is a HF specific API, see
+            # https://github.com/huggingface/transformers/blob/v4.25.1/src/transformers/models/bert/modeling_bert.py#L748
+            sch.mod._init_weights(sch.mod)
+        elif hasattr(sch.mod, "reset_parameters"):
+            sch.mod.reset_parameters()
+        else:
+            raise RuntimeError(
+                f"Module {sch.name} should have `reset_parameters` or `_init_weights` method or param_init_fn={param_init_fn} needs to be provided in order to support delay initialization"
+            )
 
     def _consolidate_and_broadcast(sch: Schedule):
         if hasattr(sch, "partition_idx"):
@@ -886,23 +903,13 @@ def consolidate_model(
         # use original shape to initialize parameters
         if global_rank == curr_stage_devices[0] and num_params > 0:
             # only the first device in the PP group needs to initialize the weights
-            if param_init_fn:
-                param_init_fn(sch.mod)
-            elif hasattr(sch.mod, "_init_weights"):
-                # `_init_weights` is a HF specific API, see
-                # https://github.com/huggingface/transformers/blob/v4.25.1/src/transformers/models/bert/modeling_bert.py#L748
-                sch.mod._init_weights(sch.mod)
-            elif hasattr(sch.mod, "reset_parameters"):
-                sch.mod.reset_parameters()
-            else:
-                raise RuntimeError(
-                    f"Module {sch.name} should have `reset_parameters` or `_init_weights` method or param_init_fn={param_init_fn} needs to be provided in order to support delay initialization"
-                )
+            _init_module(sch)
 
         # need to broadcast params from rank 0 to make sure all the TP+DP ranks take the same params
-        curr_stage_group = stage_groups[curr_part_idx]
-        for _, param in sch.mod.named_parameters(recurse=False):
-            dist.broadcast(param, src=curr_stage_devices[0], group=curr_stage_group)
+        if dist.is_initialized():
+            curr_stage_group = stage_groups[curr_part_idx]
+            for _, param in sch.mod.named_parameters(recurse=False):
+                dist.broadcast(param, src=curr_stage_devices[0], group=curr_stage_group)
 
         # discard redundant values
         tp_rank = sch.rank

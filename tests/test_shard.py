@@ -203,9 +203,10 @@ def test_conv():
             out = self.bn3(out)
             return out
 
+    local_rank = int(os.environ["LOCAL_RANK"])
+    torch.cuda.set_device(local_rank)
     model = Model()
 
-    # Broadcast parameters to make sure all ranks have the same model.
     sync_model_params(model)
 
     sch = slapo.create_schedule(copy.deepcopy(model))
@@ -240,10 +241,10 @@ def test_conv():
     sch["bn3"].shard("running_mean", axis=0)
     sch["bn3"].shard("running_var", axis=0)
     sch["bn3"].sync("both")
-    sch_model, _ = slapo.build(sch)
+    sch_model, _ = slapo.build(sch, init_required=False)
 
-    sch_model.cuda(rank)
-    data = torch.randn((4, 64, 56, 56), requires_grad=True).cuda(rank)
+    sch_model.cuda(local_rank)
+    data = torch.randn((4, 64, 56, 56), requires_grad=True).cuda(local_rank)
     dist.broadcast(data, src=0)
     data = Variable(data, requires_grad=True)  # Make data.grad avaiable for verifying
     out = sch_model(data)
@@ -255,11 +256,36 @@ def test_conv():
         "conv3.weight": 0,
         "conv2.weight": 1,
         "conv1.weight": 0,
+        "bn1.weight": 0,
+        "bn1.bias": 0,
+        "bn2.weight": -1,
+        "bn2.bias": -1,
+        "bn3.weight": 0,
+        "bn3.bias": 0,
+        "bn1.running_mean": 0,
+        "bn1.running_var": 0,
+        "bn2.running_mean": -1,
+        "bn2.running_var": -1,
+        "bn3.running_mean": 0,
+        "bn3.running_var": 0,
     }
-    path_and_grads = gather_grad(sch_model, param_path_and_gather_axis)
+    grad_path_and_gather_axis = {
+        "conv3.weight": 0,
+        "conv2.weight": 1,
+        "conv1.weight": 0,
+        "bn1.weight": 0,
+        "bn1.bias": 0,
+        "bn2.weight": -1,
+        "bn2.bias": -1,
+        "bn3.weight": 0,
+        "bn3.bias": 0,
+    }
+    path_and_grads = gather_grad(sch_model, grad_path_and_gather_axis)
+
+    gather_and_copy_model(sch_model, model, param_path_and_gather_axis)
 
     if rank == 0:
-        model.cuda(rank)
+        model.cuda(local_rank)
         out_ref = model(data)
         out_ref.mean().backward()
 

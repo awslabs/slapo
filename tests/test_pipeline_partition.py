@@ -89,13 +89,12 @@ def test_analyze_tie_ranks():
 
     tie_weights = slapo.pipeline.analyze_tie_weights(model)
 
-    print(tie_weights)
-
     tie_ranks = slapo.pipeline.analyze_tie_ranks(tie_weights, topology)
 
     assert len(tie_ranks) == 1
-    assert len(tie_ranks[0]) == 2
-    assert tie_ranks[0] == [0, 1]
+    assert len(tie_ranks[0]) == 1
+    assert len(tie_ranks[0][0]) == 2
+    assert tie_ranks[0][0] == [0, 1]
 
 
 if __name__ == "__main__":

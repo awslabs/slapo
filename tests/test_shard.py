@@ -16,20 +16,6 @@ from torch.autograd import Variable
 import slapo
 
 
-@pytest.fixture(scope="session", autouse=True)
-def init_dist(request):
-    torch.manual_seed(9999)
-    try:
-        dist.init_process_group(backend="nccl")
-    except Exception:
-        pytest.skip(f"Skip {__file__} because torch.distributed is not initialized")
-
-    def destory_dist():
-        dist.destroy_process_group()
-
-    request.addfinalizer(destory_dist)
-
-
 def gather_grad(model, param_path_and_gather_axis):
     world_size = dist.get_world_size()
     local_rank = int(os.environ["LOCAL_RANK"])
@@ -95,7 +81,7 @@ def verify_grads(ref_model, path_and_grads, tol=1e-5):
         print(f"{path}.grad verified")
 
 
-def test_linear():
+def test_linear(init_dist):
     class Model(torch.nn.Module):
         def __init__(self):
             super().__init__()
@@ -147,7 +133,7 @@ def test_linear():
         verify_grads(model, path_and_grads)
 
 
-def test_seq_para():
+def test_seq_para(init_dist):
     class Model(torch.nn.Module):
         def __init__(self):
             super().__init__()
@@ -176,9 +162,9 @@ def test_seq_para():
     sch.sync(mode="fwd_post", sync_op_or_fn="all_gather", axis=1)
 
     sch_model, _ = slapo.build(sch)
+    sch_model.cuda(local_rank)
 
-    sch_model.cuda(rank)
-    data = torch.randn((3, 16, 30), requires_grad=True).cuda(rank)
+    data = torch.randn((3, 16, 30), requires_grad=True).cuda(local_rank)
     dist.broadcast(data, src=0)
     out = sch_model(data)
     out.mean().backward()
@@ -190,8 +176,10 @@ def test_seq_para():
     }
     path_and_grads = gather_grad(sch_model, param_path_and_gather_axis)
 
+    gather_and_copy_model(sch_model, model, param_path_and_gather_axis)
+
     if rank == 0:
-        model.cuda(rank)
+        model.cuda(local_rank)
         out_ref = model(data)
         out_ref.mean().backward()
 
@@ -200,7 +188,7 @@ def test_seq_para():
 
 
 @pytest.mark.skip(reason="Flaky test")
-def test_conv():
+def test_conv(init_dist):
     """Test conv2d sharding. The workload is from WideResNet from torchvision."""
     expansion = 4
     inplanes = planes = 64

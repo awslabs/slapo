@@ -5,9 +5,8 @@
 import pytest
 
 from torch import nn
-import slapo
-
 from deepspeed.runtime.pipe.topology import PipeModelDataParallelTopology
+import slapo
 
 
 def test_analyze_tie_weights():

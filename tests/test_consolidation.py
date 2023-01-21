@@ -11,7 +11,6 @@ import pytest
 
 import torch
 import torch.distributed as dist
-from torch.autograd import Variable
 import slapo
 
 
@@ -30,60 +29,39 @@ def verify_weights(module: torch.nn.Module):
         )
 
 
+def init_module(module: torch.nn.Module):
+    if isinstance(module, torch.nn.Linear):
+        module.weight.data.zero_()
+        if module.bias is not None:
+            module.bias.data.zero_()
+
+
+class Model(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.linear1 = torch.nn.Linear(20, 20)
+        self.linear2 = torch.nn.Linear(20, 40, bias=False)
+
+    def forward(self, data):
+        out = self.linear1(data)
+        out = self.linear2(out)
+        return out
+
+
 def test_singlegpu_consolidation():
-    class Model(torch.nn.Module):
-        def __init__(self):
-            super().__init__()
-            self.linear1 = torch.nn.Linear(20, 30)
-            # FIXME: Enable bias results in incorrect results with sharding,
-            # because when sharding the input dimension, bias should also
-            # be scaled by world size,
-            self.linear2 = torch.nn.Linear(30, 40, bias=False)
-
-        def forward(self, data):
-            out = self.linear1(data)
-            out = self.linear2(out)
-            return out
-
-        def init_module(self, module: torch.nn.Module):
-            if isinstance(module, torch.nn.Linear):
-                module.weight.data.zero_()
-                if module.bias is not None:
-                    module.bias.data.zero_()
-
     device = 0
     torch.cuda.set_device(device)
     with slapo.init_empty_weights(enable=True):
         model = Model()
 
     sch = slapo.create_schedule(copy.deepcopy(model))
-    sch_model, _ = slapo.build(sch, param_init_fn=model.init_module)
+    sch_model, _ = slapo.build(sch, param_init_fn=init_module)
 
     sch_model.cuda(device)
     verify_weights(sch_model)
 
 
 def test_multigpu_consolidation():
-    class Model(torch.nn.Module):
-        def __init__(self):
-            super().__init__()
-            self.linear1 = torch.nn.Linear(20, 30)
-            # FIXME: Enable bias results in incorrect results with sharding,
-            # because when sharding the input dimension, bias should also
-            # be scaled by world size,
-            self.linear2 = torch.nn.Linear(30, 40, bias=False)
-
-        def forward(self, data):
-            out = self.linear1(data)
-            out = self.linear2(out)
-            return out
-
-        def init_module(self, module: torch.nn.Module):
-            if isinstance(module, torch.nn.Linear):
-                module.weight.data.zero_()
-                if module.bias is not None:
-                    module.bias.data.zero_()
-
     init_dist()
 
     local_rank = int(os.environ["LOCAL_RANK"])
@@ -94,10 +72,10 @@ def test_multigpu_consolidation():
     sch = slapo.create_schedule(copy.deepcopy(model))
     sch["linear1"].shard("weight", axis=0)
     sch["linear1"].shard("bias", axis=0)
-    sch["linear1"].sync(mode="backward")  # backward allreduce only
+    sch["linear1"].sync(mode="backward")
     sch["linear2"].shard("weight", axis=1)
-    sch["linear2"].sync(mode="forward")  # forward allreduce only
-    sch_model, _ = slapo.build(sch, param_init_fn=model.init_module)
+    sch["linear2"].sync(mode="forward")
+    sch_model, _ = slapo.build(sch, param_init_fn=init_module)
 
     sch_model.cuda(local_rank)
     verify_weights(sch_model)

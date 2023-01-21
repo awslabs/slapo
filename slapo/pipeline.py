@@ -359,9 +359,11 @@ def analyze_tie_ranks(tie_weight_groups, topology):
             stage_ranks = topology.filter_match(pipe=stage_id)
             tie_stage_ranks.append(stage_ranks)
 
-        for i in range(len(tie_stage_ranks[0])):
+        num_ranks_same_stage = len(tie_stage_ranks[0])
+        num_stages = len(tie_stage_ranks)
+        for i in range(num_ranks_same_stage):
             sub_group_ranks = []
-            for j in range(len(tie_stage_ranks)):
+            for j in range(num_stages):
                 sub_group_ranks.append(tie_stage_ranks[j][i])
             tie_ranks.append(sorted(sub_group_ranks))
     return tie_ranks

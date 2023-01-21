@@ -351,23 +351,20 @@ def analyze_tie_weights(top_mod):
     return list(tie_groups.values())
 
 
-def analyze_tied_ranks(tied_weight_groups: Dict[str, Set[Tuple[str, int]]], topology):
-    global_rank = dist.get_rank()
-    current_stage_id = topology.filter_match(global_rank)
-    tied_ranks = {}
-    for group_name, tied_weight_set in tie_weight_groups.items():
-        tied_ranks[group_name] = []
-        tied_stage_ranks = []
-        for param_full_name, stage_id in tied_weight_set:
+def analyze_tie_ranks(tie_weight_groups, topology):
+    tie_ranks = []
+    for tie_weight_set in tie_weight_groups:
+        tie_stage_ranks = []
+        for _, stage_id in tie_weight_set:
             stage_ranks = topology.filter_match(pipe=stage_id)
-            tied_stage_ranks.append(stage_ranks)
+            tie_stage_ranks.append(stage_ranks)
 
-        for i in range(len(tied_stage_ranks[0])):
+        for i in range(len(tie_stage_ranks[0])):
             sub_group_ranks = []
-            for j in range(len(tied_stage_ranks)):
-                sub_group_ranks.append(tied_ranks[j][i])
-            tied_ranks[group_name].append(sub_group_ranks)
-    return tied_ranks
+            for j in range(len(tie_stage_ranks)):
+                sub_group_ranks.append(tie_stage_ranks[j][i])
+            tie_ranks.append(sorted(sub_group_ranks))
+    return tie_ranks
 
 
 def generate_pipeline_partition(sch):

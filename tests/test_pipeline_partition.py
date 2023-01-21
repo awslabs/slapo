@@ -7,6 +7,8 @@ import pytest
 from torch import nn
 import slapo
 
+from deepspeed.runtime.pipe.topology import PipeModelDataParallelTopology
+
 
 def test_analyze_tie_weights():
     class Stage0(nn.Module):
@@ -49,6 +51,51 @@ def test_analyze_tie_weights():
     assert ("stage0.wte.weight", 0) in tie_weights[0]
     assert ("stage1.linear.weight", 1) in tie_weights[0]
     assert ("stage2.linear.weight", 2) in tie_weights[0]
+
+
+def test_analyze_tie_ranks():
+    topology = PipeModelDataParallelTopology(num_pp=2, num_mp=1, num_dp=1)
+
+    class Stage0(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.wte = nn.Embedding(10, 10)
+            self.linear = nn.Linear(10, 10, bias=False)
+
+        def forward(self, x):
+            return self.linear(self.wte(x))
+
+    class StageN(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.linear = nn.Linear(10, 10, bias=False)
+
+        def forward(self, x):
+            return self.linear(x)
+
+    class Model(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.stage0 = Stage0()
+            self.stage1 = StageN()
+
+        def forward(self, x):
+            return self.stage1(self.stage0(x))
+
+    with slapo.init_empty_weights():
+        model = Model()
+        # Tie weights
+        model.stage1.linear.weight = model.stage0.wte.weight
+
+    tie_weights = slapo.pipeline.analyze_tie_weights(model)
+
+    print(tie_weights)
+
+    tie_ranks = slapo.pipeline.analyze_tie_ranks(tie_weights, topology)
+
+    assert len(tie_ranks) == 1
+    assert len(tie_ranks[0]) == 2
+    assert tie_ranks[0] == [0, 1]
 
 
 if __name__ == "__main__":

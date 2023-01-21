@@ -12,7 +12,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from functools import partial
 from types import FunctionType
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 import torch
 import torch.distributed as dist
@@ -22,7 +22,7 @@ from torch import fx, nn
 from .logger import get_logger
 from .pipeline import (
     analyze_tie_weights,
-    analyze_tied_ranks,
+    analyze_tie_ranks,
     generate_pipeline_modules,
     generate_pipeline_partition,
 )
@@ -956,7 +956,9 @@ def build(
         sch = generate_pipeline_partition(sch)
         # Analyzie tie weights before consolidation.
         tie_weight_groups = analyze_tie_weights(sch.mod)
-        tied_ranks = analyze_tied_ranks(tie_weight_groups, topology)
+        tie_ranks = analyze_tie_ranks(tie_weight_groups, topology)
+        for _, _ in tie_ranks:
+            pass
 
     # delay initialization
     if init_weights:

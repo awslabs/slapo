@@ -949,9 +949,6 @@ def build(
 ):
     optimizer = None
     if sch.metadata.pipeline_cutting_paths:
-        if topology is None:
-            raise ValueError("Must provide topology for deepspeed pipeline")
-
         # pipeline stages will be wrapped into PipeStageWrapper
         sch = generate_pipeline_partition(sch)
         # Analyzie tie weights before consolidation.

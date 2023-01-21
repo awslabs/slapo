@@ -252,122 +252,162 @@ class Schedule:
         out_type, out_part_axis = get_output_type_after_sharding(
             self.mod, sharded_size, axis
         )
-        set_output_type(out_type, gather_axis=out_part_axis)
+        if out_type is not None:
+            set_output_type(out_type, gather_axis=out_part_axis)
 
     @register_primitive(need_dist=True)
-    def sync(self, mode="backward", sync_op=None, **kwargs):
-        """There are several cases for sync based on two factors:
-        1) The original forward output is partitioned or partial sum.
-        2) The next module wants to take full or partitioned input.
+    def sync(self, mode, sync_op_or_fn, **kwargs):
+        """Synchronize the tensor across multiple devices.
+        Since the underlying implementation is registering a PyTorch hook
+        to the target module, the mode could be "fwd_pre", "fwd_post", "bwd_post".
+        The following are some example use cases:
 
         Case 1: (replica x, shard_out w) -> partition output -> allgather
                 -> full output -> (replica x, shard_out w).
             In this case, since forward uses all-gather to get a full output,
             backward must have a split to match the shape, and
-            allreduce is also required for x.grad, so mode should be 'both'.
+            allreduce is also required for x.grad, so we use:
+            ```python
+            sch["out_prj"].shard("weight", axis=0)
+            sch["out_prj"].sync(mode="fwd_post", sync_op_or_fn="all_gather", axis=1)
+            sch["out_prj"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
+            ```
+
         Case 2: (replica x, shard_out w) -> partition output -> (shard x, shard_in w).
-            In this case, backward still needs allrecuce, so mode should be 'backward'.
+            In this case, backward still needs allrecuce, so we use:
+            ```python
+            sch["out_prj"].shard("weight", axis=0)
+            sch["out_prj"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
+            ```
+
         Case 3: (shard x, shard_in w) -> partial sum -> allreduce
                 -> (replica x, shard_out w).
             In this case, backward does not need allreduce, so mode should be 'forward'.
+            ```python
+            sch["out_prj"].shard("weight", axis=1)
+            sch["out_prj"].sync(mode="fwd_post", sync_op_or_fn="all_reduce")
+            ```
+
         Case 4: (shard x, shard_in w) -> partial sum -> reduce-scatter
                 -> ... -> allgather -> full output.
             This case breaks the allreduce in case 3 to reduce-scatter and allgather,
             which is called "sequence parallelism". In this case, we also need
-            to specify the allgather point in kwargs. For example,
-            sch["out_proj"].sync(mode="forward", sync_op="reduce_scatter", axis=1)
-            sch["resid_dropout"].sync(mode="forward", sync_op="all_gather", axis=1)
+            to specify the allgather point in kwargs, so we use:
+            ```python
+            sch["out_prj"].shard("weight", axis=1)
+            sch["out_prj"].sync(mode="fwd_post", sync_op_or_fn="reduce_scatter", axis=1)
+            sch["dropout"].sync(mode="fwd_post", sync_op_or_fn="all_gather", axis=1)
+            ```
+
+        Case 5: Custom sync function.
+            We may need additional logic when syncing the output. In this case,
+            we could use a custom sync function. Here is an example of sharding
+            a word embedding:
+            ```python
+            sch["wte"].shard("weight", axis=0)
+
+            def fwd_pre_hook(_module, _input):
+                ...
+            def fwd_post_hook(_module, _input, output):
+                ...
+            sch["wte"].sync(mode="fw_pre", sync_op_or_fn=fwd_pre_hook)
+            sch["wte"].sync(mode="fw_post", sync_op_or_fn=fwd_post_hook)
+            ```
 
         Parameters
         ----------
         mode: str
-            Where to sync the output. Could be "forward", "backward", or "both".
-        sync_op: Optional[str]
-            If not given, we infer the sync_op from the output_type.
+            Where to sync the output. Could be "fwd_pre", "fwd_post", or "bwd_post".
+        sync_op_or_fn: Union[str, Callable]
+            The sync_op_or_fn (e.g., all_gather, all_reduce, reduce_scatter) or hook function.
         kwargs: Dict[str, Any]
-            Additional arguments. For example, if sync_op is specified,
+            Additional arguments. For example, if sync_op_or_fn is specified,
             axis is required for reduce_scatter and all_gather.
         """
-        output_type = None
-        if sync_op is None:
+
+        def validate_sync_op(mode, sync_op_or_fn, axis=None):
+            """A helper function to validate if the user given sync_op_or_fn is valid."""
             if "output_type" not in self.metadata.shard:
-                raise ValueError(
-                    "output_type is missing in schedule metadata. This may be because "
-                    "the op is not sharded by .shard primitive. Please specify "
-                    "sync_op explicitly."
-                )
+                return
             output_type = self.metadata.shard["output_type"]
 
-        if mode in {"forward", "both"}:
-            if sync_op is not None:
+            if mode == "fwd_post" and sync_op_or_fn == "all_gather":
+                if output_type == "partition":
+                    gather_axis = self.metadata.shard["gather_axis"]
+                    if gather_axis != axis:
+                        raise ValueError(
+                            f"Output of {self.path} has to be gathered along axis "
+                            f"{gather_axis}, but {axis} is requested"
+                        )
+                else:
+                    raise ValueError("Cannot all-gather a full output")
+            elif mode == "fwd_post" and sync_op_or_fn == "reduce_scatter":
+                if output_type == "partition":
+                    raise ValueError("Cannot reduce-scatter a partition output")
+            elif sync_op_or_fn == "all_reduce":
+                if mode == "fwd_post" and output_type == "partition":
+                    raise ValueError("Cannot all-reduce a partition output")
+
+        # Generate the hook if sync_op_or_fn is a string.
+        if isinstance(sync_op_or_fn, str):
+            if mode == "fwd_post":
+                sync_fn = None
                 axis = kwargs.get("axis", 0)
-                if sync_op == "reduce_scatter":
-                    sync_fn = partial(
-                        reduce_scatter_forward_output, dim=axis, group=self.group
-                    )
-                elif sync_op == "all_gather":
+                if sync_op_or_fn == "all_gather":
+                    validate_sync_op(mode, sync_op_or_fn, axis)
                     sync_fn = partial(
                         all_gather_forward_output, dim=axis, group=self.group
                     )
+                elif sync_op_or_fn == "reduce_scatter":
+                    validate_sync_op(mode, sync_op_or_fn)
+                    sync_fn = partial(
+                        reduce_scatter_forward_output, dim=axis, group=self.group
+                    )
+                elif sync_op_or_fn == "all_reduce":
+                    validate_sync_op(mode, sync_op_or_fn)
+                    sync_fn = partial(
+                        dist.all_reduce, op=dist.ReduceOp.SUM, group=self.group
+                    )
                 else:
-                    raise ValueError(f"Unsupported sync_op {sync_op}")
-            elif output_type == "partition":
-                # Case 1
-                gather_axis = self.metadata.shard["gather_axis"]
-                sync_fn = partial(
-                    all_gather_forward_output, dim=gather_axis, group=self.group
-                )
-            elif output_type == "partial":
-                # Case 3
-                def sync_fn(output):
-                    dist.all_reduce(output, op=dist.ReduceOp.SUM, group=self.group)
+                    raise ValueError(
+                        f"Invalid sync_op_or_fn {sync_op_or_fn} for mode {mode} "
+                        "in {self.path}."
+                    )
+
+                # pylint: disable=function-redefined, unused-argument
+                def hook_fn(_module, _input, output):
+                    output = sync_fn(output)
                     return output
 
+            elif sync_op_or_fn == "all_reduce":
+                validate_sync_op(mode, sync_op_or_fn)
+
+                # pylint: disable=function-redefined, unused-argument
+                def hook_fn(_module, _input, output):
+                    # Allreduce dx.
+                    dist.all_reduce(
+                        _input[0].contiguous(),
+                        op=dist.ReduceOp.SUM,
+                        group=self.group,
+                    )
+
             else:
-                raise NotImplementedError
-
-            def hook_func(_module, _input, output):
-                output = sync_fn(output)
-                return output
-
-            self.mod.register_forward_hook(hook_func)
-
-        if mode in {"backward", "both"}:
-            # Case 1, 2
-            if sync_op is not None:
-                raise ValueError("sync_op is not supported in backward yet")
-
-            # pylint: disable=function-redefined, unused-argument
-            def hook_func(_module, _input, output):
-                # Allreduce dx.
-                dist.all_reduce(
-                    _input[0].contiguous(), op=dist.ReduceOp.SUM, group=self.group
+                raise ValueError(
+                    f"Unsupported combination of mode {mode} and "
+                    f"sync_op_or_fn {sync_op_or_fn}. Please specify "
+                    "sync_op_or_fn as a hook function."
                 )
-
-            self.mod.register_full_backward_hook(hook_func)
-
-    @register_primitive()
-    def hook(self, mode, func):
-        if mode == "fw_pre":
-
-            def fw_pre_hook(_module, _input):
-                return func(_input)
-
-            self.mod.register_forward_pre_hook(fw_pre_hook)
-        elif mode == "fw_post":
-
-            def fw_post_hook(_module, _input, output):
-                return func(_input, output)
-
-            self.mod.register_forward_hook(fw_post_hook)
-        elif mode == "bw_post":
-
-            def bw_post_hook(_module, _input, output):
-                return func(_input, output)
-
-            self.mod.register_full_backward_hook(bw_post_hook)
         else:
-            raise RuntimeError(f"Hook mode {mode} is not supported")
+            hook_fn = sync_op_or_fn
+
+        if mode == "fwd_pre":
+            self.mod.register_forward_pre_hook(hook_fn)
+        elif mode == "fwd_post":
+            self.mod.register_forward_hook(hook_fn)
+        elif mode == "bwd_post":
+            self.mod.register_full_backward_hook(hook_fn)
+        else:
+            raise ValueError(f"Unsupported mode {mode}.")
 
     def get_module(self, name):
         return dict(self.mod.named_modules())[name]

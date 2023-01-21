@@ -125,9 +125,9 @@ def test_linear():
     sch = slapo.create_schedule(copy.deepcopy(model))
     sch["linear1"].shard("weight", axis=0)
     sch["linear1"].shard("bias", axis=0)
-    sch["linear1"].sync(mode="backward")  # backward allreduce only
+    sch["linear1"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
     sch["linear2"].shard("weight", axis=1)
-    sch["linear2"].sync(mode="forward")  # forward allreduce only
+    sch["linear2"].sync(mode="fwd_post", sync_op_or_fn="all_reduce")
     sch_model, _ = slapo.build(sch)
 
     sch_model.cuda(local_rank)
@@ -176,12 +176,12 @@ def test_seq_para():
     sch = slapo.create_schedule(copy.deepcopy(model))
     sch["linear1"].shard("weight", axis=0)
     sch["linear1"].shard("bias", axis=0)
-    sch["linear1"].sync(mode="backward")  # backward allreduce only
+    sch["linear1"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
     sch["linear2"].shard("weight", axis=1)
 
     # forward reduce_scatter, and allgather at the end of the top module.
-    sch["linear2"].sync(mode="forward", sync_op="reduce_scatter", axis=1)
-    sch.sync(mode="forward", sync_op="all_gather", axis=1)
+    sch["linear2"].sync(mode="fwd_post", sync_op_or_fn="reduce_scatter", axis=1)
+    sch.sync(mode="fwd_post", sync_op_or_fn="all_gather", axis=1)
 
     sch_model, _ = slapo.build(sch)
 
@@ -271,7 +271,7 @@ def test_conv():
     # Forward: partitioned output (optional allgather).
     # Backward: allreduce.
     sch["conv1"].shard("weight", axis=0)
-    sch["conv1"].sync(mode="backward")
+    sch["conv1"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
 
     # We choose not allgather, so we need to shard bn as well.
     sch["bn1"].shard("weight", axis=0)
@@ -282,21 +282,24 @@ def test_conv():
     # Forward: partial output (need allreduce)
     # Backward: do nothing.
     sch["conv2"].shard("weight", axis=1)
-    sch["conv2"].sync(mode="forward")  # forward allreduce only
+    sch["conv2"].sync(
+        mode="fwd_post", sync_op_or_fn="all_reduce"
+    )  # forward allreduce only
 
     # Forward: partitioned output (optional allgather).
     # Backward: allreduce.
     sch["conv3"].shard("weight", axis=0)
-    sch["conv3"].sync(mode="backward")
+    sch["conv3"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
 
     # We choose not allgather, so we need to shard bn as well.
-    # If we choose allgather (sch["conv3"].sync("both")), then we don't need to
+    # If we choose allgather, then we don't need to
     # worry about bn.
     sch["bn3"].shard("weight", axis=0)
     sch["bn3"].shard("bias", axis=0)
     sch["bn3"].shard("running_mean", axis=0)
     sch["bn3"].shard("running_var", axis=0)
-    sch["bn3"].sync("both")
+    sch["bn3"].sync(mode="fwd_post", sync_op_or_fn="all_gather", axis=1)
+    sch["bn3"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
     sch_model, _ = slapo.build(sch, init_required=False)
 
     sch_model.cuda(local_rank)

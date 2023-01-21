@@ -195,13 +195,15 @@ def replace_and_shard_attention(
         if sch.world_size > 1:
             sub_sch["module.FusedQKV_0.fused_linear"].shard("weight", axis=0)
             sub_sch["module.FusedQKV_0.fused_linear"].shard("bias", axis=0)
-            sub_sch["module.FusedQKV_0.fused_linear"].sync(mode="backward")
+            sub_sch["module.FusedQKV_0.fused_linear"].sync(
+                mode="bwd_post", sync_op_or_fn="all_reduce"
+            )
             sub_sch["module.out_proj"].shard("weight", axis=1)
             sub_sch["module.out_proj"].sync(
-                mode="forward", sync_op="reduce_scatter", axis=1
+                mode="fwd_post", sync_op_or_fn="reduce_scatter", axis=1
             )
             sub_sch["module.resid_dropout"].sync(
-                mode="forward", sync_op="all_gather", axis=1
+                mode="fwd_post", sync_op_or_fn="all_gather", axis=1
             )
         cnt += 1
 
@@ -238,16 +240,16 @@ def shard_word_embedding(sch, vocab_size, word_embed_name="decoder.embed_tokens"
     vocab_start_index = sch.rank * vocab_size // sch.world_size
     vocab_end_index = (sch.rank + 1) * vocab_size // sch.world_size
 
-    def fw_pre_hook(_input):
+    def fwd_pre_hook(_module, _input):
         # Mask the input
         input_mask = (_input[0] < vocab_start_index) | (_input[0] >= vocab_end_index)
         masked_input = _input[0].clone() - vocab_start_index
         masked_input[input_mask] = 0
         return masked_input
 
-    sch[word_embed_name].hook("fw_pre", fw_pre_hook)
+    sch[word_embed_name].sync(mode="fwd_pre", sync_op_or_fn=fwd_pre_hook)
 
-    def fw_post_hook(_input, output):
+    def fwd_post_hook(_module, _input, output):
         # Mask the output embedding
         input_mask = (_input[0] < vocab_start_index) | (_input[0] >= vocab_end_index)
         output[input_mask, :] = 0.0
@@ -255,7 +257,7 @@ def shard_word_embedding(sch, vocab_size, word_embed_name="decoder.embed_tokens"
         dist.all_reduce(output, op=dist.ReduceOp.SUM, group=sch.group)
         return output
 
-    sch[word_embed_name].hook("fw_post", fw_post_hook)
+    sch[word_embed_name].sync(mode="fwd_post", sync_op_or_fn=fwd_post_hook)
 
 
 def shard_qkv(
@@ -292,10 +294,14 @@ def shard_qkv(
         prefix = attn_path.replace("N", str(idx))
         sch[f"{prefix}.{qkv_name}.fused_linear"].shard("weight", axis=0)
         sch[f"{prefix}.{qkv_name}.fused_linear"].shard("bias", axis=0)
-        sch[f"{prefix}.{qkv_name}.fused_linear"].sync(mode="backward")
+        sch[f"{prefix}.{qkv_name}.fused_linear"].sync(
+            mode="bwd_post", sync_op_or_fn="all_reduce"
+        )
 
         sch[f"{prefix}.{out_proj_name}"].shard("weight", axis=1)
-        sch[f"{prefix}.{out_proj_name}"].sync(mode="forward")
+        sch[f"{prefix}.{out_proj_name}"].sync(
+            mode="fwd_post", sync_op_or_fn="all_reduce"
+        )
         fix_shape_after_shard(prefix)
 
 
@@ -316,15 +322,19 @@ def replace_and_shard_mlp(
             if sch.world_size > 1:
                 sub_sch["fc_in"].shard("weight", axis=0)
                 sub_sch["act"].shard("bias", axis=0)
-                sub_sch["fc_in"].sync(mode="backward")
+                sub_sch["fc_in"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
                 sub_sch["fc_out"].shard("weight", axis=1)
-                sub_sch["fc_out"].sync(mode="forward")
+                sub_sch["fc_out"].sync(mode="fwd_post", sync_op_or_fn="all_reduce")
         elif sch.world_size > 1:
             sch[f"{prefix}.{fc_names[0]}"].shard("weight", axis=0)
             sch[f"{prefix}.{fc_names[0]}"].shard("bias", axis=0)
-            sch[f"{prefix}.{fc_names[0]}"].sync(mode="backward")
+            sch[f"{prefix}.{fc_names[0]}"].sync(
+                mode="bwd_post", sync_op_or_fn="all_reduce"
+            )
             sch[f"{prefix}.{fc_names[1]}"].shard("weight", axis=1)
-            sch[f"{prefix}.{fc_names[1]}"].sync(mode="forward")
+            sch[f"{prefix}.{fc_names[1]}"].sync(
+                mode="fwd_post", sync_op_or_fn="all_reduce"
+            )
 
 
 def checkpoint(sch, config, path="decoder.layers.N", ckpt_ratio=1.0):
@@ -343,4 +353,4 @@ def broadcast_input(sch):
             dist.broadcast(inp, src=0, group=sch.group)
         return inputs
 
-    sch.hook("fw_pre", broadcast_input)
+    sch.sync(mode="fwd_pre", sync_op_or_fn=broadcast_input)

@@ -33,7 +33,8 @@ def all_gather_along_dim(inp, dim, rank, world_size, group):
         The gathered tensor.
     """
     if hasattr(dist, "all_gather_into_tensor"):
-        temp = inp.transpose(0, dim).contiguous() if dim != 0 else inp
+        temp = inp.transpose(0, dim) if dim != 0 else inp
+        temp = temp.contiguous()
         gather_shape = list(temp.shape)
         gather_shape[0] = world_size * gather_shape[0]
         ret = torch.empty(gather_shape, dtype=temp.dtype).cuda(rank)
@@ -90,11 +91,13 @@ class _ReduceScatterForwardOutput(torch.autograd.Function):
             f"Reduce scatter dimension {dim} size {inp.shape} "
             f"should be divisible by world size {world_size}"
         )
-        temp = inp.transpose(0, dim).contiguous() if dim != 0 else inp
+        temp = inp.transpose(0, dim) if dim != 0 else inp
+        temp = temp.contiguous()
         scatter_shape = list(temp.shape)
         scatter_shape[0] = scatter_shape[0] // world_size
         ret = torch.zeros(scatter_shape, dtype=inp.dtype).cuda(rank)
 
+        print(f"=== {inp.shape} -> {temp.shape} -> {scatter_shape}", flush=True)
         dist.reduce_scatter_tensor(ret, temp, group=group)
         if dim != 0:
             ret = ret.transpose(0, dim).contiguous()

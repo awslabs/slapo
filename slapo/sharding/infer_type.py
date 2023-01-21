@@ -40,11 +40,13 @@ def get_output_type_after_sharding(module, sharded_size, axis):
     -------
     tuple
         The output type and the axis (if the output is partitioned).
+        The output type will be None if the output inference function is not
+        registered.
     """
     module_cls = module.__class__
     if module_cls in OUTPUT_INFER_FN:
         return OUTPUT_INFER_FN[module_cls](module, sharded_size, axis)
-    raise ValueError(f"No sharding rule registered for {module_cls}")
+    return None, None
 
 
 @register_output_infer_fn(nn.Linear)

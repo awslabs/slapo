@@ -5,6 +5,7 @@
 Test sharding primitive. Note that this test has to be invoked by torchrun. For example:
 torchrun --nproc_per_node 2 -m pytest test_shard.py
 """
+# pylint: disable=unused-argument
 import os
 import copy
 import pytest

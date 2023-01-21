@@ -5,21 +5,13 @@
 Test sharding primitive. Note that this test has to be invoked by torchrun. For example:
 torchrun --nproc_per_node 2 -m pytest test_shard.py
 """
+# pylint: disable=unused-argument
 import os
 import copy
 import pytest
 
 import torch
-import torch.distributed as dist
 import slapo
-
-
-def init_dist():
-    torch.manual_seed(9999)
-    try:
-        dist.init_process_group(backend="nccl")
-    except Exception:
-        pytest.skip(f"Skip {__file__} because torch.distributed is not initialized")
 
 
 def verify_weights(module: torch.nn.Module):
@@ -49,7 +41,7 @@ class Model(torch.nn.Module):
 
 
 @pytest.mark.parametrize("ngpu", ["single", "multi"])
-def test_multigpu_consolidation(init_dist, ngpu):
+def test_consolidation(init_dist, ngpu):
 
     local_rank = int(os.environ["LOCAL_RANK"])
     torch.cuda.set_device(local_rank)

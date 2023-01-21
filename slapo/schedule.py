@@ -962,10 +962,8 @@ def build(
 
     # delay initialization
     if init_weights:
-        if isinstance(init_weights, Callable):
-            sch = consolidate_model(sch, topology, init_weights)
-        else:
-            sch = consolidate_model(sch, topology)
+        init_weight_fn = init_weights if isinstance(init_weights, Callable) else None
+        sch = consolidate_model(sch, topology, init_weight_fn)
 
     if target == "deepspeed":
         assert "config" in kwargs

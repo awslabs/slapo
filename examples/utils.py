@@ -12,14 +12,16 @@ _groups = []
 
 
 def get_ds_config(
-    batch_size, micro_batch_size_per_gpu, fp16=True, zero3=False, desc=""
+    batch_size, micro_batch_size_per_gpu, fp16=True, zero3=False, desc="", bf16=False
 ):
     # https://github.com/microsoft/DeepSpeed/blob/ff42743/tests/unit/model_parallelism/test_configurable_parallel_pp.py#L20
+    assert fp16 ^ bf16, f"Either fp16={fp16} or bf16={bf16} needs to be turned on"
     config_dict = {
         "help": desc,
         "steps_per_print": 10,
         "optimizer": {"type": "AdamW", "params": {"lr": 0.0001}},
         "fp16": {"enabled": fp16, "initial_scale_power": 12},
+        "bf16": {"enabled": bf16},
         "gradient_clipping": 1.0,
         "train_batch_size": batch_size,
         "train_micro_batch_size_per_gpu": micro_batch_size_per_gpu,
@@ -32,7 +34,7 @@ def get_ds_config(
                 "overlap_comm": True,
                 "reduce_scatter": True,
                 "contiguous_gradients": False,
-                "prefetch_bucket_size": 5e8
+                "prefetch_bucket_size": 5e8,
             },
             "zero_allow_untested_optimizer": True,
         }

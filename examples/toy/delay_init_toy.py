@@ -60,7 +60,7 @@ def train(rank, args):
     with init_empty_weights():
         model = Top()
     # model = Top()
-    
+
     print(model)
     print(dict(model.named_parameters()))
     # local_model = Top()

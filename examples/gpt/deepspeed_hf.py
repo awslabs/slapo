@@ -124,7 +124,7 @@ def train(args):
         batch_size = 16 if batch_size is None else batch_size
         micro_batch_size = 4 if micro_batch_size is None else micro_batch_size
         ds_config_dict = get_ds_config(
-            batch_size, micro_batch_size, True, False, "Pipeline"
+            batch_size, micro_batch_size, True, False, "Pipeline", False
         )
         loss_fct = ParallelCrossEntropy(group=group)
 
@@ -142,6 +142,7 @@ def train(args):
             target="deepspeed",
             config=ds_config_dict,
             loss_fn=loss_fn,
+            init_weights=model._init_weights,
         )
     else:
         if batch_size is not None and micro_batch_size is None:
@@ -158,6 +159,7 @@ def train(args):
             topology=topology,
             target="deepspeed",
             config=ds_config_dict,
+            init_weights=model._init_weights,
         )
         model = model.to(device)
     report_memory(msg="After building model")

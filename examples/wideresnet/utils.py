@@ -5,11 +5,13 @@ import torch
 
 from deepspeed.utils import RepeatingLoader
 
+
 def count_parameters(model):
     try:
         return sum(p.ds_numel for p in model.parameters())
     except:
         return sum(p.numel() for p in model.parameters())
+
 
 def get_data_loader(micro_batch_size, device, dtype=torch.float):
     loader = RepeatingLoader(

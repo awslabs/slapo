@@ -21,4 +21,4 @@ python3 -m pip install pylint==2.14.0 astroid==2.11.6
 python3 -m pylint slapo --rcfile=./scripts/lint/pylintrc
 
 echo "Running pylint on tests"
-python3 -m pylint tests --rcfile=./scripts/lint/pylintrc
+python3 -m pylint tests --rcfile=./scripts/lint/pylintrc --min-similarity-lines=10

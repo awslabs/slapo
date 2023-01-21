@@ -36,15 +36,10 @@ while IFS= read -r line || [[ -n $line ]]; do
     BATCH_SIZE=${line_array[5]}
     CKPT=${line_array[6]}
 
-    if [[ ! -z "${DEBUG}" ]]; then
-        echo "Debug mode: ON"
-        FLAG_DEBUG="--debug"
-    fi
-
     echo "=== ${MODE} ${MODEL} ==="
     python3 bench_single_node.py ${MODE} --append-to "$RESULT_FILE" \
         --model ${MODEL} --gpus ${GPUS} --seq-len ${SEQ_LEN} \
         --seq-len-dec ${DEC_SEQ_LEN} \
-        --batch-size ${BATCH_SIZE} --gradient-checkpoint ${CKPT} --error-stop ${FLAG_DEBUG}
+        --batch-size ${BATCH_SIZE} --gradient-checkpoint ${CKPT} --error-stop
     sleep 1
 done < $1

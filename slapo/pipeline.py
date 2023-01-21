@@ -351,6 +351,26 @@ def analyze_tie_weights(top_mod):
     return list(tie_groups.values())
 
 
+def analyze_tie_ranks(tie_weight_groups, topology):
+    tie_ranks = []
+    for tie_weight_set in tie_weight_groups:
+        tie_stage_ranks = []
+        for _, stage_id in tie_weight_set:
+            stage_ranks = topology.filter_match(pipe=stage_id)
+            tie_stage_ranks.append(stage_ranks)
+
+        num_ranks_same_stage = len(tie_stage_ranks[0])
+        num_stages = len(tie_stage_ranks)
+        group_ranks = []
+        for i in range(num_ranks_same_stage):
+            sub_group_ranks = []
+            for j in range(num_stages):
+                sub_group_ranks.append(tie_stage_ranks[j][i])
+            group_ranks.append(sorted(sub_group_ranks))
+        tie_ranks.append(group_ranks)
+    return tie_ranks
+
+
 def generate_pipeline_partition(sch):
     # Identify the common ancestor of all pipeline cutting paths.
     common_ancestor_path = ""

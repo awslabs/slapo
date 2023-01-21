@@ -205,11 +205,6 @@ def parse_args():
         help="Draw a figure of the results",
     )
     common_parser.add_argument(
-        "--debug",
-        action="store_true",
-        help="Debug mode",
-    )
-    common_parser.add_argument(
         "--append-to",
         type=str,
         default="",

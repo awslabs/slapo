@@ -319,14 +319,15 @@ class Schedule:
         mode: str
             Where to sync the output. Could be "fwd_pre", "fwd_post", or "bwd_post".
         sync_op_or_fn: Union[str, Callable]
-            The sync_op_or_fn (e.g., all_gather, all_reduce, reduce_scatter) or hook function.
+            The sync_op_or_fn (e.g., all_gather, all_reduce, reduce_scatter) or
+            hook function.
         kwargs: Dict[str, Any]
             Additional arguments. For example, if sync_op_or_fn is specified,
             axis is required for reduce_scatter and all_gather.
         """
 
         def validate_sync_op(mode, sync_op_or_fn, axis=None):
-            """A helper function to validate if the user given sync_op_or_fn is valid."""
+            """A helper function to validate the user given sync_op_or_fn."""
             if "output_type" not in self.metadata.shard:
                 return
             output_type = self.metadata.shard["output_type"]
@@ -374,7 +375,6 @@ class Schedule:
                         "in {self.path}."
                     )
 
-                # pylint: disable=function-redefined, unused-argument
                 def hook_fn(_module, _input, output):
                     output = sync_fn(output)
                     return output
@@ -382,7 +382,7 @@ class Schedule:
             elif sync_op_or_fn == "all_reduce":
                 validate_sync_op(mode, sync_op_or_fn)
 
-                # pylint: disable=function-redefined, unused-argument
+                # pylint: disable=unused-argument
                 def hook_fn(_module, _input, output):
                     # Allreduce dx.
                     dist.all_reduce(

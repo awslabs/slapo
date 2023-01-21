@@ -10,7 +10,7 @@ from ..logger import get_logger
 logger = get_logger()
 
 
-def all_gather_along_dim(inp, dim, rank, world_size, group):
+def all_gather_along_dim(inp, dim, world_size, group):
     """all-gather along the given dimension. Will use all_gather_into_tensor
     if available as it is more efficient; otherwise fallback to all_gather.
 
@@ -20,8 +20,6 @@ def all_gather_along_dim(inp, dim, rank, world_size, group):
         The input tensor to all-gather.
     dim: int
         The dimension to all-gather along.
-    rank: int
-        The rank of the current process.
     world_size: int
         The number of processes in the group.
     group: torch.distributed.ProcessGroup
@@ -37,13 +35,13 @@ def all_gather_along_dim(inp, dim, rank, world_size, group):
         temp = temp.contiguous()
         gather_shape = list(temp.shape)
         gather_shape[0] = world_size * gather_shape[0]
-        ret = torch.empty(gather_shape, dtype=temp.dtype).cuda(rank)
+        ret = torch.empty(gather_shape, dtype=temp.dtype).to(inp.device)
         dist.all_gather_into_tensor(ret, temp, group=group)
         ret = ret.transpose(0, dim).contiguous() if dim != 0 else ret
     else:
         # Fallback to all_gather. This may lead to suboptimal performance.
         parts = [
-            torch.empty(inp.shape, dtype=inp.dtype).cuda(rank)
+            torch.empty(inp.shape, dtype=inp.dtype).to(inp.device)
             for _ in range(world_size)
         ]
         dist.all_gather(parts, inp, group=group)
@@ -60,8 +58,7 @@ class _AllGatherForwardOutput(torch.autograd.Function):
         ctx.dim = dim
         ctx.group = group
         world_size = dist.get_world_size(group)
-        rank = dist.get_rank(group)
-        return all_gather_along_dim(inp, dim, rank, world_size, group)
+        return all_gather_along_dim(inp, dim, world_size, group)
 
     @staticmethod
     def backward(ctx, grad_output):
@@ -83,7 +80,6 @@ class _ReduceScatterForwardOutput(torch.autograd.Function):
         ctx.dim = dim
         ctx.group = group
         world_size = dist.get_world_size(group)
-        rank = dist.get_rank(group)
 
         # reduce_scatter always targets dim 0, so we transpose the target dim
         # to dim 0, and transpose the result back.
@@ -94,10 +90,9 @@ class _ReduceScatterForwardOutput(torch.autograd.Function):
         temp = inp.transpose(0, dim) if dim != 0 else inp
         temp = temp.contiguous()
         scatter_shape = list(temp.shape)
-        scatter_shape[0] = scatter_shape[0] // world_size
-        ret = torch.zeros(scatter_shape, dtype=inp.dtype).cuda(rank)
+        scatter_shape[0] //= world_size
+        ret = torch.zeros(scatter_shape, dtype=inp.dtype).to(inp.device)
 
-        print(f"=== {inp.shape} -> {temp.shape} -> {scatter_shape}", flush=True)
         dist.reduce_scatter_tensor(ret, temp, group=group)
         if dim != 0:
             ret = ret.transpose(0, dim).contiguous()
@@ -108,9 +103,8 @@ class _ReduceScatterForwardOutput(torch.autograd.Function):
         dim = ctx.dim
         group = ctx.group
         world_size = dist.get_world_size(group)
-        rank = dist.get_rank(group)
         return (
-            all_gather_along_dim(grad_output, dim, rank, world_size, group),
+            all_gather_along_dim(grad_output, dim, world_size, group),
             None,
             None,
         )

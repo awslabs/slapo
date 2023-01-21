@@ -30,13 +30,6 @@ def init_dist(request):
     request.addfinalizer(destory_dist)
 
 
-def sync_model_params(model):
-    rank = dist.get_rank()
-    model = model.cuda(rank)
-    for param in model.parameters():
-        dist.broadcast(param, src=0)
-
-
 def gather_grad(model, param_path_and_gather_axis):
     world_size = dist.get_world_size()
     local_rank = int(os.environ["LOCAL_RANK"])
@@ -168,10 +161,9 @@ def test_seq_para():
             return out
 
     rank = dist.get_rank()
+    local_rank = int(os.environ["LOCAL_RANK"])
+    torch.cuda.set_device(local_rank)
     model = Model()
-
-    # Broadcast parameters to make sure all ranks have the same model.
-    sync_model_params(model)
 
     sch = slapo.create_schedule(copy.deepcopy(model))
     sch["linear1"].shard("weight", axis=0)
@@ -262,8 +254,6 @@ def test_conv():
     local_rank = int(os.environ["LOCAL_RANK"])
     torch.cuda.set_device(local_rank)
     model = Model()
-
-    sync_model_params(model)
 
     sch = slapo.create_schedule(copy.deepcopy(model))
     # Layout of input/weight: (N, C, H, W), (O, I, H, W)

@@ -72,9 +72,9 @@ def test_multigpu_consolidation():
     sch = slapo.create_schedule(copy.deepcopy(model))
     sch["linear1"].shard("weight", axis=0)
     sch["linear1"].shard("bias", axis=0)
-    sch["linear1"].sync(mode="backward")
+    sch["linear1"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
     sch["linear2"].shard("weight", axis=1)
-    sch["linear2"].sync(mode="forward")
+    sch["linear2"].sync(mode="fwd_post", sync_op_or_fn="all_reduce")
     sch_model, _ = slapo.build(sch, init_weights=init_module)
 
     sch_model.cuda(local_rank)

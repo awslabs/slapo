@@ -873,6 +873,11 @@ def consolidate_model(
             )
 
     def _consolidate_and_broadcast(sch: Schedule):
+        if isinstance(sch.mod, torch.jit.ScriptModule):
+            # Scripted module requires the parameters have been initialized,
+            # and the original methods are not preserved, so no need to consolidate
+            return
+
         if hasattr(sch, "partition_idx"):
             curr_part_idx = sch.partition_idx
             # topology stores the global ranks

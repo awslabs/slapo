@@ -46,6 +46,7 @@ def schedule_model(
     group=None,
     bcast_input=False,
     pipeline_cuts=None,
+    fuse_conv=False,
 ):
     if fp16:
         logger.info("Change model dtype to fp16", ranks=0)
@@ -54,7 +55,7 @@ def schedule_model(
     sch = slapo.create_schedule(model, group=group)
     logger.info(f"Scheduling Wide-ResNet with TP={sch.world_size}", ranks=0)
 
-    if dist.get_world_size() == 1:  # not only counting the TP devices
+    if fuse_conv:
         fuse_conv_bn(sch[prefix], config)
 
     if sch.world_size > 1:

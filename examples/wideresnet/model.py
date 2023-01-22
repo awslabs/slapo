@@ -6,7 +6,6 @@ import inspect
 
 import torch
 from torch.nn import Module
-import torch.distributed as dist
 from torchvision.models.resnet import Bottleneck, ResNet
 from transformers.utils import ModelOutput
 

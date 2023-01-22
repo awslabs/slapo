@@ -92,6 +92,7 @@ def train(args):
             group=group,
             fp16=args.fp16,
             pipeline_cuts=pipeline_cuts,
+            fuse_conv=(dist.get_world_size() == 1),
         )
 
     if enable_pipeline:

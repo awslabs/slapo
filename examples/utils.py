@@ -15,7 +15,7 @@ def get_ds_config(
     batch_size, micro_batch_size_per_gpu, fp16=True, zero3=False, desc="", bf16=False
 ):
     # https://github.com/microsoft/DeepSpeed/blob/ff42743/tests/unit/model_parallelism/test_configurable_parallel_pp.py#L20
-    assert fp16 ^ bf16, f"Either fp16={fp16} or bf16={bf16} needs to be turned on"
+    logger.info(f"fp16={fp16}, bf16={bf16}")
     config_dict = {
         "help": desc,
         "steps_per_print": 10,

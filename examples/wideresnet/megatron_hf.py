@@ -59,6 +59,7 @@ def get_model(
             prefix="model",
             fp16=fp16,
             ckpt_ratio=ckpt_ratio,
+            fuse_conv=(dist.get_world_size() == 1),
         )
         model, _ = slapo.build(sch)
 

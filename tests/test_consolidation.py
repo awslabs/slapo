@@ -5,21 +5,13 @@
 Test sharding primitive. Note that this test has to be invoked by torchrun. For example:
 torchrun --nproc_per_node 2 -m pytest test_shard.py
 """
+# pylint: disable=unused-argument
 import os
 import copy
 import pytest
 
 import torch
-import torch.distributed as dist
 import slapo
-
-
-def init_dist():
-    torch.manual_seed(9999)
-    try:
-        dist.init_process_group(backend="nccl")
-    except Exception:
-        pytest.skip(f"Skip {__file__} because torch.distributed is not initialized")
 
 
 def verify_weights(module: torch.nn.Module):
@@ -48,21 +40,8 @@ class Model(torch.nn.Module):
         return out
 
 
-def test_singlegpu_consolidation():
-    device = 0
-    torch.cuda.set_device(device)
-    with slapo.init_empty_weights(enable=True):
-        model = Model()
-
-    sch = slapo.create_schedule(copy.deepcopy(model))
-    sch_model, _ = slapo.build(sch, init_weights=init_module)
-
-    sch_model.cuda(device)
-    verify_weights(sch_model)
-
-
-def test_multigpu_consolidation():
-    init_dist()
+@pytest.mark.parametrize("ngpu", ["single", "multi"])
+def test_consolidation(init_dist, ngpu):
 
     local_rank = int(os.environ["LOCAL_RANK"])
     torch.cuda.set_device(local_rank)
@@ -70,11 +49,16 @@ def test_multigpu_consolidation():
         model = Model()
 
     sch = slapo.create_schedule(copy.deepcopy(model))
-    sch["linear1"].shard("weight", axis=0)
-    sch["linear1"].shard("bias", axis=0)
-    sch["linear1"].sync(mode="backward")
-    sch["linear2"].shard("weight", axis=1)
-    sch["linear2"].sync(mode="forward")
+    if ngpu == "multi":
+        # Tensor parallelism.
+        sch["linear1"].shard("weight", axis=0)
+        sch["linear1"].shard("bias", axis=0)
+        sch["linear1"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
+        sch["linear2"].shard("weight", axis=1)
+        sch["linear2"].sync(mode="fwd_post", sync_op_or_fn="all_reduce")
+    else:
+        # Data parallelism.
+        pass
     sch_model, _ = slapo.build(sch, init_weights=init_module)
 
     sch_model.cuda(local_rank)

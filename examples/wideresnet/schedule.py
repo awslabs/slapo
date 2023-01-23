@@ -75,7 +75,7 @@ def shard_layers(sch, config):
             # Forward: partitioned output.
             # Backward: allreduce.
             sub_sch["conv1"].shard("weight", axis=0)
-            sub_sch["conv1"].sync(mode="backward")
+            sub_sch["conv1"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
 
             # We choose not allgather, so we need to shard bn as well.
             sub_sch["bn1"].shard("weight", axis=0)
@@ -86,12 +86,13 @@ def shard_layers(sch, config):
             # Forward: partial output (need allreduce)
             # Backward: do nothing.
             sub_sch["conv2"].shard("weight", axis=1)
-            sub_sch["conv2"].sync(mode="forward")  # forward allreduce only
+            sub_sch["conv2"].sync(mode="fwd_post", sync_op_or_fn="all_reduce")
 
             # Forward: partitioned output (followed by allgather).
             # Backward: allreduce.
             sub_sch["conv3"].shard("weight", axis=0)
-            sub_sch["conv3"].sync(mode="both")
+            sub_sch["conv3"].sync(mode="fwd_post", sync_op_or_fn="all_gather")
+            sub_sch["conv3"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
 
 
 def checkpoint(sch, config, ckpt_ratio=1.0):
@@ -121,4 +122,4 @@ def broadcast_input(sch):
             dist.broadcast(inp, src=0, group=sch.group)
         return inputs
 
-    sch.hook("fw_pre", broadcast_input)
+    sch.sync(mode="fwd_pre", sync_op_or_fn=broadcast_input)

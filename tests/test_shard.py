@@ -5,35 +5,16 @@
 Test sharding primitive. Note that this test has to be invoked by torchrun. For example:
 torchrun --nproc_per_node 2 -m pytest test_shard.py
 """
+# pylint: disable=unused-argument
 import os
 import copy
 import pytest
 
 import torch
 import torch.distributed as dist
+from torch.nn import functional as F
 from torch.autograd import Variable
 import slapo
-
-
-@pytest.fixture(scope="session", autouse=True)
-def init_dist(request):
-    torch.manual_seed(9999)
-    try:
-        dist.init_process_group(backend="nccl")
-    except Exception:
-        pytest.skip(f"Skip {__file__} because torch.distributed is not initialized")
-
-    def destory_dist():
-        dist.destroy_process_group()
-
-    request.addfinalizer(destory_dist)
-
-
-def sync_model_params(model):
-    rank = dist.get_rank()
-    model = model.cuda(rank)
-    for param in model.parameters():
-        dist.broadcast(param, src=0)
 
 
 def gather_grad(model, param_path_and_gather_axis):
@@ -93,14 +74,15 @@ def verify_grads(ref_model, path_and_grads, tol=1e-5):
         torch.testing.assert_close(
             grad,
             param.grad,
-            msg=lambda msg: f"{path}.grad mismatch\n{msg}",  # pylint: disable=cell-var-from-loop
+            # pylint: disable=cell-var-from-loop
+            msg=lambda msg: f"{path}.grad mismatch\n{msg}",
             atol=tol,
             rtol=tol,
         )
         print(f"{path}.grad verified")
 
 
-def test_linear():
+def test_linear(init_dist):
     class Model(torch.nn.Module):
         def __init__(self):
             super().__init__()
@@ -123,9 +105,9 @@ def test_linear():
     sch = slapo.create_schedule(copy.deepcopy(model))
     sch["linear1"].shard("weight", axis=0)
     sch["linear1"].shard("bias", axis=0)
-    sch["linear1"].sync(mode="backward")  # backward allreduce only
+    sch["linear1"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
     sch["linear2"].shard("weight", axis=1)
-    sch["linear2"].sync(mode="forward")  # forward allreduce only
+    sch["linear2"].sync(mode="fwd_post", sync_op_or_fn="all_reduce")
     sch_model, _ = slapo.build(sch)
 
     sch_model.cuda(local_rank)
@@ -152,8 +134,62 @@ def test_linear():
         verify_grads(model, path_and_grads)
 
 
+def test_seq_para(init_dist):
+    class Model(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.linear1 = torch.nn.Linear(30, 30)
+            self.linear2 = torch.nn.Linear(30, 30, bias=False)
+
+        def forward(self, data):
+            out = self.linear1(data)
+            out = self.linear2(out)
+            out = F.relu(out)
+            return out
+
+    rank = dist.get_rank()
+    local_rank = int(os.environ["LOCAL_RANK"])
+    torch.cuda.set_device(local_rank)
+    model = Model()
+
+    sch = slapo.create_schedule(copy.deepcopy(model))
+    sch["linear1"].shard("weight", axis=0)
+    sch["linear1"].shard("bias", axis=0)
+    sch["linear1"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
+    sch["linear2"].shard("weight", axis=1)
+
+    # forward reduce_scatter, and allgather at the end of the top module.
+    sch["linear2"].sync(mode="fwd_post", sync_op_or_fn="reduce_scatter", axis=1)
+    sch.sync(mode="fwd_post", sync_op_or_fn="all_gather", axis=1)
+
+    sch_model, _ = slapo.build(sch)
+    sch_model.cuda(local_rank)
+
+    data = torch.randn((3, 16, 30), requires_grad=True).cuda(local_rank)
+    dist.broadcast(data, src=0)
+    out = sch_model(data)
+    out.mean().backward()
+
+    param_path_and_gather_axis = {
+        "linear1.weight": 0,
+        "linear1.bias": 0,
+        "linear2.weight": 1,
+    }
+    path_and_grads = gather_grad(sch_model, param_path_and_gather_axis)
+
+    gather_and_copy_model(sch_model, model, param_path_and_gather_axis)
+
+    if rank == 0:
+        model.cuda(local_rank)
+        out_ref = model(data)
+        out_ref.mean().backward()
+
+        torch.testing.assert_close(out, out_ref)
+        verify_grads(model, path_and_grads)
+
+
 @pytest.mark.skip(reason="Flaky test")
-def test_conv():
+def test_conv(init_dist):
     """Test conv2d sharding. The workload is from WideResNet from torchvision."""
     expansion = 4
     inplanes = planes = 64
@@ -208,15 +244,13 @@ def test_conv():
     torch.cuda.set_device(local_rank)
     model = Model()
 
-    sync_model_params(model)
-
     sch = slapo.create_schedule(copy.deepcopy(model))
     # Layout of input/weight: (N, C, H, W), (O, I, H, W)
 
     # Forward: partitioned output (optional allgather).
     # Backward: allreduce.
     sch["conv1"].shard("weight", axis=0)
-    sch["conv1"].sync(mode="backward")
+    sch["conv1"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
 
     # We choose not allgather, so we need to shard bn as well.
     sch["bn1"].shard("weight", axis=0)
@@ -227,21 +261,24 @@ def test_conv():
     # Forward: partial output (need allreduce)
     # Backward: do nothing.
     sch["conv2"].shard("weight", axis=1)
-    sch["conv2"].sync(mode="forward")  # forward allreduce only
+    sch["conv2"].sync(
+        mode="fwd_post", sync_op_or_fn="all_reduce"
+    )  # forward allreduce only
 
     # Forward: partitioned output (optional allgather).
     # Backward: allreduce.
     sch["conv3"].shard("weight", axis=0)
-    sch["conv3"].sync(mode="backward")
+    sch["conv3"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
 
     # We choose not allgather, so we need to shard bn as well.
-    # If we choose allgather (sch["conv3"].sync("both")), then we don't need to
+    # If we choose allgather, then we don't need to
     # worry about bn.
     sch["bn3"].shard("weight", axis=0)
     sch["bn3"].shard("bias", axis=0)
     sch["bn3"].shard("running_mean", axis=0)
     sch["bn3"].shard("running_var", axis=0)
-    sch["bn3"].sync("both")
+    sch["bn3"].sync(mode="fwd_post", sync_op_or_fn="all_gather", axis=1)
+    sch["bn3"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
     sch_model, _ = slapo.build(sch, init_required=False)
 
     sch_model.cuda(local_rank)

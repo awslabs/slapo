@@ -323,7 +323,8 @@ class Schedule:
             hook function.
         kwargs: Dict[str, Any]
             Additional arguments. For example, if sync_op_or_fn is specified,
-            axis is required for reduce_scatter and all_gather.
+            axis is required for reduce_scatter and all_gather. Note that the axis
+            is the axis of the output tensor, not the input or weight tensor.
         """
 
         def validate_sync_op(mode, sync_op_or_fn, axis=None):

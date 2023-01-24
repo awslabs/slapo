@@ -40,7 +40,7 @@ def get_dialect_cls(cls_type, target, allow_none=False):
     if target not in DIALECTS[cls_type]:
         if allow_none:
             if "default" in DIALECTS[cls_type]:
-                return DIALECTS[cls_type]["default"]
+                target = "default"
             else:
                 raise ValueError(
                     f"Target {target} does not register default dialect for {cls_type}"

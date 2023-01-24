@@ -252,7 +252,7 @@ class Schedule:
             else:
                 new_param = nn.Parameter(new_tensor)
             self.mod.register_parameter(tensor_name, new_param)
-        except AttributeError as err:
+        except AttributeError:
             buffer = self.mod.get_buffer(tensor_name)
             new_buffer, sharded_size = _shard(tensor_name, buffer)
             self.mod.register_buffer(tensor_name, new_buffer)

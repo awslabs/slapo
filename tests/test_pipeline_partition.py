@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Test pipeline partition related logic."""
+# pylint: disable=duplicate-code
 import pytest
 from mock import MagicMock
 
@@ -65,7 +66,7 @@ def test_analyze_tie_weights():
     assert ("linear.weight", 2) in val
 
 
-def test_analyze_tie_ranks():
+def test_deepspeed_analyze_tie_ranks():
     # Mock deepspeed.runtime.pipe.topology.PipeModelDataParallelTopology
     # This mocked topology assumes pp=4, tp=2, dp=1.
     topology = MagicMock()

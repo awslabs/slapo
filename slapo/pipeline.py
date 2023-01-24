@@ -4,7 +4,6 @@
 import operator
 from collections import OrderedDict
 
-import torch
 from torch import fx
 from torch.fx.passes.split_module import split_module
 

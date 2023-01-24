@@ -173,6 +173,7 @@ def unflatten(args, metadata):
 def analyze_tie_ranks(tie_weight_groups, topology):
     """Analyze the ranks of the tied weights for DeepSpeed pipeline."""
     tie_ranks = []
+    tie_stages = []
     for tie_weight_set in tie_weight_groups:
         tie_stage_ranks = []
         for _, stage_id in tie_weight_set:
@@ -188,7 +189,10 @@ def analyze_tie_ranks(tie_weight_groups, topology):
                 sub_group_ranks.append(tie_stage_ranks[j][i])
             group_ranks.append(sorted(sub_group_ranks))
         tie_ranks.append(group_ranks)
-    return tie_ranks
+
+        # Record the stage IDs of this tied weight.
+        tie_stages.append(sorted([stage_id for _, stage_id in tie_weight_set]))
+    return tie_ranks, tie_stages
 
 
 @register_model_dialect("deepspeed", "pipeline_stage")
@@ -324,6 +328,25 @@ def deepspeed_pipe_engine(
     stage_modules,
     **kwargs,
 ):
+    """DeepSpeed pipeline engine.
+
+    Parameters
+    ----------
+    sch_metadata : ScheduleMetadata
+        The schedule metadata.
+
+    stage_modules : List[nn.Module]
+        The list of pipeline stage modules.
+
+    **kwargs
+        The keyword arguments. Should include DeepSpeed related information,
+        such as "config", "loss_fn", "topology", "fp16".
+
+    Returns
+    -------
+    model : PipelineModule
+        The DeepSpeed pipeline module.
+    """
     from deepspeed import pipe
 
     # Sanity check
@@ -347,8 +370,8 @@ def deepspeed_pipe_engine(
         param_dtype=param_dtype,
     )
 
-    tie_weight_groups = list(sch.metadata.tie_weights.values())
-    if not tie_weight_groups:
+    tie_weights = list(sch.metadata.tie_weights.values())
+    if not tie_weights:
         return model
 
     # Tie weights if needed.
@@ -360,53 +383,70 @@ def deepspeed_pipe_engine(
         return model
 
     # Tie ranks and self stage ID.
-    tie_ranks = analyze_tie_ranks(tie_weight_groups, topology)
-    print(tie_ranks)
-    assert len(tie_ranks) == 1
+    tie_ranks, tie_stages = analyze_tie_ranks(tie_weights, topology)
     global_rank = dist.get_rank()
-    my_stage_id = -1
-    for ranks in tie_ranks[0]:
-        # Ranks is a list of global ranks that includes one device per stage.
-        # Suppose we have 8 GPUs with TP=4 and PP=2, then tie_ranks would be
-        # [[0, 4], [1, 5], [2, 6], [3, 7]]. This means the rank 0, 1, 2, 3 are
-        # in the stage 0; while the rank 4, 5, 6, 7 are in the stage 1.
-        try:
-            my_stage_id = ranks.index(global_rank)
-            break
-        except ValueError:
-            pass
 
-    # If this device is not in any stage, no need to tie weights.
-    if my_stage_id == -1:
-        return model
-
-    for tie_weight_set in tie_weight_groups:
+    assert len(tie_ranks) == len(tie_weights)
+    for tie_rank, tie_stage, tie_weight in zip(tie_ranks, tie_stages, tie_weights):
+        # The group key for this tie weight set. Since this key is used
+        # in PyTorch ModuleDict, it cannot contain ".".
+        group_key = list(tie_weight)[0][0].replace(".", "_")
         logger.info(
             "Tie weights of %s",
-            ",".join([f"{name} in stage {sid}" for name, sid in tie_weight_set]),
-            ranks=0
+            ",".join([f"{name} in stage {sid}" for name, sid in tie_weight]),
+            ranks=0,
         )
+        my_stage_id = -1
+
+        # Identify the stage ID of this device.
+        # Ranks is a list of global ranks that includes one device per stage.
+        # Suppose we have 8 GPUs with TP=4 and PP=2, the device topology is
+        # Stage0: GPU0, GPU1
+        # Stage1: GPU2, GPU3
+        # Stage2: GPU4, GPU5
+        # Stage3: GPU6, GPU7
+        # Then when we tie weights in stage 0 and stage 3, the tie ranks would be
+        # [[0, 6], [1, 7]]. This means the rank 0, 1 are in the tie_stage[0];
+        # while the rank 6, 7 are in the tie_stage[1].
+        for ranks in tie_rank:
+            assert len(tie_stage) == len(ranks)
+            try:
+                stage_id_idx = ranks.index(global_rank)
+                my_stage_id = tie_stage[stage_id_idx]
+                break
+            except ValueError:
+                pass
+
         # Identify which weight in the stage of this device to tie. Suppose
-        # we tie wte.weight in stage 0 and linear.weight in stage 1, then
+        # we tie wte.weight in stage 0 and linear.weight in stage 3, then
         # rank 0 should have (module, weight_name) = (model.stage0.wte, "weight");
-        # rank 1 should have (module, weight_name) = (model.stage1.linear, "weight").
+        # rank 3 should have (module, weight_name) = (model.stage3.linear, "weight");
+        # other ranks should have (module, weight_name) = (None, None).
         module, weight_name = None, None
-        group_key = list(tie_weight_set)[0][0]
         found = False
-        for full_name, stage_id in tie_weight_set:
+        for full_name, stage_id in tie_weight:
             if stage_id == my_stage_id:
                 if found:
                     raise RuntimeError(
                         f"More than one tie weights found in the same stage"
                     )
-                module = stage_modules[stage_id]
+                assert isinstance(stage_modules[stage_id], DeepSpeedPipeStageWrapper)
+                module = stage_modules[stage_id].mod
                 for token in full_name.split(".")[:-1]:
                     module = getattr(module, token)
                 weight_name = full_name.split(".")[-1]
                 found = True
 
-        assert module is not None and weight_name is not None
-        model.register_tie_weights(
-            pipe.TiedWeight(group_key, tie_ranks, weight_name, module)
-        )
+        if found:
+            # This device owns the stage that has this tie weight.
+            # Register the tie weight with the corresponding module and weight
+            # on this device.
+            assert module is not None and weight_name is not None
+            model.register_tied_weights(
+                pipe.TiedWeight(group_key, tie_rank, weight_name, module)
+            )
+        else:
+            # Even this device is not in any stage, we have to register a tie
+            # weight to make sure all devices join the dist group.
+            model.register_tied_weights(pipe.TiedWeight(group_key, tie_rank, "", None))
     return model

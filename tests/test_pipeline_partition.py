@@ -67,9 +67,9 @@ def test_analyze_tie_weights():
 
 def test_analyze_tie_ranks():
     # Mock deepspeed.runtime.pipe.topology.PipeModelDataParallelTopology
-    # This mocked topology assumes pp=2, tp=1, dp=1.
+    # This mocked topology assumes pp=4, tp=2, dp=1.
     topology = MagicMock()
-    topology.filter_match = lambda pipe: [pipe]
+    topology.filter_match = lambda pipe: [pipe * 2, pipe * 2 + 1]
 
     class Stage0(nn.Module):
         def __init__(self):
@@ -93,24 +93,35 @@ def test_analyze_tie_ranks():
             super().__init__()
             self.stage0 = Stage0()
             self.stage1 = StageN()
+            self.stage2 = StageN()
+            self.stage3 = StageN()
 
         def forward(self, x):
-            return self.stage1(self.stage0(x))
+            return self.stage3(self.stage2(self.stage1(self.stage0(x))))
 
     with slapo.init_empty_weights():
         model = Model()
         # Tie weights
-        model.stage1.linear.weight = model.stage0.wte.weight
+        model.stage3.linear.weight = model.stage0.wte.weight
+        model.stage2.linear.weight = model.stage1.linear.weight
 
     tie_weights = list(slapo.pipeline.analyze_tie_weights(model, True).values())
-    tie_ranks = slapo.model_dialect.deepspeed.pipeline.analyze_tie_ranks(
+    tie_ranks, tie_stages = slapo.model_dialect.deepspeed.pipeline.analyze_tie_ranks(
         tie_weights, topology
     )
 
-    assert len(tie_ranks) == 1
-    assert len(tie_ranks[0]) == 1
+    # Expected tie_ranks (order may vary): [[[0, 6], [1, 7]], [[2, 4], [3, 5]]]
+    assert len(tie_ranks) == 2
+    assert len(tie_ranks[0]) == 2
     assert len(tie_ranks[0][0]) == 2
-    assert tie_ranks[0][0] == [0, 1]
+    assert [[0, 6], [1, 7]] in tie_ranks
+    assert [[2, 4], [3, 5]] in tie_ranks
+
+    # Expected tie_stages (order should be the same as tie_ranks): [[0, 3], [1, 2]]
+    assert len(tie_stages) == 2
+    assert len(tie_stages[0]) == 2
+    assert tie_stages[tie_ranks.index([[0, 6], [1, 7]])] == [0, 3]
+    assert tie_stages[tie_ranks.index([[2, 4], [3, 5]])] == [1, 2]
 
 
 if __name__ == "__main__":

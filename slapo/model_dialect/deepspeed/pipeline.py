@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from enum import Enum
 import torch
+from torch import distributed as dist
 from torch import fx
 import torch.nn as nn
 
@@ -169,6 +170,27 @@ def unflatten(args, metadata):
     return tupleize(unordered_args)
 
 
+def analyze_tie_ranks(tie_weight_groups, topology):
+    """Analyze the ranks of the tied weights for DeepSpeed pipeline."""
+    tie_ranks = []
+    for tie_weight_set in tie_weight_groups:
+        tie_stage_ranks = []
+        for _, stage_id in tie_weight_set:
+            stage_ranks = topology.filter_match(pipe=stage_id)
+            tie_stage_ranks.append(stage_ranks)
+
+        num_ranks_same_stage = len(tie_stage_ranks[0])
+        num_stages = len(tie_stage_ranks)
+        group_ranks = []
+        for i in range(num_ranks_same_stage):
+            sub_group_ranks = []
+            for j in range(num_stages):
+                sub_group_ranks.append(tie_stage_ranks[j][i])
+            group_ranks.append(sorted(sub_group_ranks))
+        tie_ranks.append(group_ranks)
+    return tie_ranks
+
+
 @register_model_dialect("deepspeed", "pipeline_stage")
 class DeepSpeedPipeStageWrapper(nn.Module):
     def __init__(
@@ -298,12 +320,24 @@ class DeepSpeedPipeStageWrapper(nn.Module):
 
 @register_model_dialect("deepspeed", "pipeline_engine")
 def deepspeed_pipe_engine(
+    sch,
     stage_modules,
-    topology,
-    param_dtype,
     **kwargs,
 ):
     from deepspeed import pipe
+
+    # Sanity check
+    assert "config" in kwargs
+    if "topology" not in kwargs:
+        raise ValueError("Must provide topology for deepspeed pipeline")
+    topology = kwargs["topology"]
+
+    if "loss_fn" not in kwargs:
+        raise ValueError("Must provide loss_fn for deepspeed pipeline")
+    if "fp16" not in kwargs["config"] or not kwargs["config"]["fp16"]["enabled"]:
+        param_dtype = torch.float
+    else:
+        param_dtype = torch.float16
 
     model = pipe.PipelineModule(
         stage_modules,
@@ -312,7 +346,65 @@ def deepspeed_pipe_engine(
         loss_fn=kwargs.get("loss_fn", None),
         param_dtype=param_dtype,
     )
-    # TODO: tie weights
-    # tie_weight_groups=kwargs.get("tie_weight_groups", None)
-    # model.register_tie_weights()
+
+    tie_weight_groups = list(sch.metadata.tie_weights.values())
+    if not tie_weight_groups:
+        return model
+
+    # Tie weights if needed.
+    if not hasattr(pipe, "TiedWeight"):
+        logger.warning(
+            "DeepSpeed pipeline runtime does not support TiedWeight. "
+            "The tie weight will be ignored."
+        )
+        return model
+
+    # Tie ranks and self stage ID.
+    tie_ranks = analyze_tie_ranks(tie_weight_groups, topology)
+    print(tie_ranks)
+    assert len(tie_ranks) == 1
+    global_rank = dist.get_rank()
+    my_stage_id = -1
+    for ranks in tie_ranks[0]:
+        # Ranks is a list of global ranks that includes one device per stage.
+        # Suppose we have 8 GPUs with TP=4 and PP=2, then tie_ranks would be
+        # [[0, 4], [1, 5], [2, 6], [3, 7]]. This means the rank 0, 1, 2, 3 are
+        # in the stage 0; while the rank 4, 5, 6, 7 are in the stage 1.
+        try:
+            my_stage_id = ranks.index(global_rank)
+            break
+        except ValueError:
+            pass
+    else:
+        raise RuntimeError(f"Cannot identify the stage ID of global rank {global_rank}")
+
+    for tie_weight_set in tie_weight_groups:
+        logger.info(
+            "Tie weights of %s",
+            ",".join([f"{name} in stage {sid}" for name, sid in tie_weight_set]),
+            ranks=0
+        )
+        # Identify which weight in the stage of this device to tie. Suppose
+        # we tie wte.weight in stage 0 and linear.weight in stage 1, then
+        # rank 0 should have (module, weight_name) = (model.stage0.wte, "weight");
+        # rank 1 should have (module, weight_name) = (model.stage1.linear, "weight").
+        module, weight_name = None, None
+        group_key = list(tie_weight_set)[0][0]
+        found = False
+        for full_name, stage_id in tie_weight_set:
+            if stage_id == my_stage_id:
+                if found:
+                    raise RuntimeError(
+                        f"More than one tie weights found in the same stage"
+                    )
+                module = stage_modules[stage_id]
+                for token in full_name.split(".")[:-1]:
+                    module = getattr(module, token)
+                weight_name = full_name.split(".")[-1]
+                found = True
+
+        assert module is not None and weight_name is not None
+        model.register_tie_weights(
+            pipe.TiedWeight(group_key, tie_ranks, weight_name, module)
+        )
     return model

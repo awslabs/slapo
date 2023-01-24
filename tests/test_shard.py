@@ -12,6 +12,7 @@ import pytest
 
 import torch
 import torch.distributed as dist
+from torch import nn
 from torch.nn import functional as F
 from torch.autograd import Variable
 import slapo
@@ -311,6 +312,58 @@ def test_conv(init_dist):
         torch.testing.assert_close(out, out_ref)
         torch.testing.assert_allclose(data_grad, data.grad)
         verify_grads(model, path_and_grads)
+
+
+def test_tie_weights(init_dist):
+    """Test whether the tie weights are preserved after sharding."""
+
+    class Stage0(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.wte = nn.Embedding(10, 10)
+            self.linear = nn.Linear(10, 10, bias=False)
+
+        def forward(self, x):
+            return self.linear(self.wte(x))
+
+    class StageN(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.linear = nn.Linear(10, 10, bias=False)
+
+        def forward(self, x):
+            return self.linear(x)
+
+    class Model(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.stage0 = Stage0()
+            self.stage1 = StageN()
+            self.stage2 = StageN()
+
+        def forward(self, x):
+            return self.stage2(self.stage1(self.stage0(x)))
+
+    with slapo.init_empty_weights():
+        model = Model()
+        # Tie weights
+        model.stage1.linear.weight = model.stage0.wte.weight
+        model.stage2.linear.weight = model.stage0.wte.weight
+
+    sch = slapo.create_schedule(model)
+    print(sch.metadata.tie_weights)
+
+    assert id(sch.mod.stage0.wte.weight) == id(sch.mod.stage1.linear.weight)
+    assert id(sch.mod.stage0.wte.weight) == id(sch.mod.stage2.linear.weight)
+
+    sch["stage0.wte"].shard("weight", axis=0)
+    sch["stage0.wte"].sync(mode="fwd_post", sync_op_or_fn="all_gather", axis=0)
+    sch["stage0.wte"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
+    sch["stage1.linear"].shard("weight", axis=0)
+    sch["stage2.linear"].shard("weight", axis=0)
+
+    assert id(sch.mod.stage0.wte.weight) == id(sch.mod.stage1.linear.weight)
+    assert id(sch.mod.stage0.wte.weight) == id(sch.mod.stage2.linear.weight)
 
 
 if __name__ == "__main__":

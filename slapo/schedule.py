@@ -20,10 +20,10 @@ from torch import fx, nn
 from torch.utils import checkpoint
 
 from .logger import get_logger
+from .model_dialect import get_dialect_cls
 from .pipeline import (
     analyze_tie_weights,
-    analyze_tie_ranks,
-    generate_pipeline_modules,
+    build_pipeline_model,
     generate_pipeline_partition,
 )
 from .sharding import (
@@ -71,6 +71,14 @@ class ScheduleMetadata:
     # FIXME: 1) A mechanism to let each primitive register their metadata.
     # 2) Let each primitive derive metadata class.
     shard: dict[str, Any] = field(default_factory=lambda: DictWithValidation())
+
+    # Tie weight analysis only at the top level module.
+    # tie_weights is a mapping from parameter object to the same
+    # parameter object. Note that the value may be changed during
+    # scheduling (e.g., sharding).
+    tie_weights: dict[nn.Parameter, nn.Parameter] = field(
+        default_factory=lambda: OrderedDict()
+    )
 
     # A set of paths to the modules that includes pipeline cutting annotations.
     # Note that we use ordered set to keep the order of the modules.
@@ -140,9 +148,21 @@ class Schedule:
         self.parent = parent
         self.child = {}
         self.metadata = ScheduleMetadata()
-        # record original shape
+
+        # Record original shapes.
         for param_name, param in mod.named_parameters():
             self.metadata.base_params[param_name] = param.shape
+
+        if parent is None:
+            # Tie weight analysis only at the top level module.
+            # tie_weights is a mapping from parameter object to the same
+            # parameter object. Note that the value may be changed during
+            # scheduling (e.g., sharding).
+            for param in analyze_tie_weights(mod, False):
+                self.metadata.tie_weights[param] = param
+        else:
+            # Inherit tie_weights from parent.
+            self.metadata.tie_weights = parent.metadata.tie_weights
 
         self.finalized = False
 
@@ -211,9 +231,28 @@ class Schedule:
 
         try:
             param = self.mod.get_parameter(tensor_name)
-            new_param, sharded_size = _shard(tensor_name, param)
-            self.mod.register_parameter(tensor_name, nn.Parameter(new_param))
-        except AttributeError:
+            new_tensor, sharded_size = _shard(tensor_name, param)
+            if param in self.metadata.tie_weights:
+                if id(self.metadata.tie_weights[param]) != id(param):
+                    # This parameter is tied to another parameter, and the other
+                    # parameter is already sharded. In this case we directly
+                    # register the sharded parameter to the module to keep them tied.
+                    if new_tensor.shape != self.metadata.tie_weights[param].shape:
+                        raise RuntimeError(
+                            f"Parameter {tensor_name} in {self.path} is tied, "
+                            "but they have different sharded shapes: "
+                            f"{new_tensor.shape} vs "
+                            f"{self.metadata.tie_weights[param].shape}"
+                        )
+                    new_param = self.metadata.tie_weights[param]
+                else:
+                    # The first parameter in this tie group is sharded.
+                    new_param = nn.Parameter(new_tensor)
+                    self.metadata.tie_weights[param] = new_param
+            else:
+                new_param = nn.Parameter(new_tensor)
+            self.mod.register_parameter(tensor_name, new_param)
+        except AttributeError as err:
             buffer = self.mod.get_buffer(tensor_name)
             new_buffer, sharded_size = _shard(tensor_name, buffer)
             self.mod.register_buffer(tensor_name, new_buffer)
@@ -828,13 +867,27 @@ def create_schedule(
 
 def consolidate_model(
     sch: Schedule,
-    topology=None,
+    target: str,
     param_init_fn: Optional[Callable[[nn.Module], None]] = None,
+    **kwargs,
 ):
+    """Consolidate the model weights.
+    FIXME: When pipeline is enabled, this function only supports DeepSpeed
+    runtime because it relies on DeepSpeed topology. We should use dialects
+    in this function to make it general applicable.
+    """
+    topology = kwargs.get("topology", None)
     if dist.is_initialized() and dist.get_world_size() > sch.world_size:
-        assert (
-            topology is not None
-        ), f"topology={topology} must be given when there are multiple tensor paralel groups or pipeline parallelism is used"
+        if topology is None:
+            raise ValueError(
+                "topology must be given when there are multiple "
+                "tensor paralel groups or pipeline parallelism is used"
+            )
+        if target != "deepspeed":
+            raise ValueError(
+                "Only deepspeed runtime is supported for now when there are multiple "
+                "tensor paralel groups or pipeline parallelism is used"
+            )
 
     cnt_meta, cnt_materialized = 0, 0
     # Since some parameters are attached to non-leaf modules, we need to
@@ -853,8 +906,9 @@ def consolidate_model(
     global_ranks = [None]
     if cnt_meta != 0 or cnt_materialized != 0:
         if dist.is_initialized():
-            # tackle with pipeline modules
-            # even the model does not use meta device, we still need to broadcast the weights to ensure consistency
+            # Tackle with pipeline modules.
+            # Even the model does not use meta device, we still need to broadcast
+            # the weights to ensure consistency
             global_rank = dist.get_rank()
             if topology is not None:
                 # 1st DP: devices in the same bracket are in the same TP group
@@ -899,7 +953,9 @@ def consolidate_model(
             sch.mod.reset_parameters()
         else:
             raise RuntimeError(
-                f"Module {sch.name} should have `reset_parameters` or `_init_weights` method or param_init_fn={param_init_fn} needs to be provided in order to support delay initialization"
+                f"Module {sch.name} should have `reset_parameters` or "
+                "`_init_weights` method or param_init_fn={param_init_fn} needs "
+                "to be provided in order to support delay initialization"
             )
 
     def _consolidate_and_broadcast(sch: Schedule):
@@ -975,64 +1031,43 @@ def consolidate_model(
     return sch
 
 
+def init_target_engine(sch, target, **kwargs):
+    """Initialize the runtime engine for a specific target framework."""
+    init_engine_fn = get_dialect_cls("runtime_engine", target, allow_none=True)
+    return init_engine_fn(
+        sch,
+        **kwargs,
+    )
+
+
 def build(
     sch: Schedule,
-    topology=None,
     target=None,
     init_weights: Optional[Union[bool, Callable]] = True,
     **kwargs,
 ):
-    optimizer = None
     if sch.metadata.pipeline_cutting_paths:
         # pipeline stages will be wrapped into PipeStageWrapper
         sch = generate_pipeline_partition(sch)
-        # Analyzie tie weights before consolidation.
-        tie_weight_groups = analyze_tie_weights(sch.mod)
-        tie_ranks = analyze_tie_ranks(tie_weight_groups, topology)
-        for _, _ in tie_ranks:
-            pass
+        # Re-analyzie tie weights before consolidation.
+        sch.metadata.tie_weights = analyze_tie_weights(
+            sch.mod, is_pipeline_partitioned=True
+        )
+        print(f"tie_weight_groups: {sch.metadata.tie_weights}")
 
     # delay initialization
     if init_weights:
         init_weight_fn = init_weights if isinstance(init_weights, Callable) else None
-        sch = consolidate_model(sch, topology, init_weight_fn)
+        sch = consolidate_model(sch, target, init_weight_fn, **kwargs)
 
-    if target == "deepspeed":
-        assert "config" in kwargs
-        import deepspeed
-
-        if sch.metadata.pipeline_cutting_paths:
-            # Sanity check
-            if topology is None:
-                raise ValueError("Must provide topology for deepspeed pipeline")
-            if "loss_fn" not in kwargs:
-                raise ValueError("Must provide loss_fn for deepspeed pipeline")
-            if (
-                "fp16" not in kwargs["config"]
-                or not kwargs["config"]["fp16"]["enabled"]
-            ):
-                param_dtype = torch.float
-            else:
-                param_dtype = torch.float16
-
-            model = generate_pipeline_modules(
-                sch,
-                target,
-                topology,
-                param_dtype,
-                tie_weight_groups=tie_weight_groups,
-                **kwargs,
-            )
-        else:
-            model = sch.mod
-
-        # pylint: disable=unbalanced-tuple-unpacking
-        model, optimizer, _, _ = deepspeed.initialize(
-            model=model,
-            config=kwargs["config"],
-            model_parameters=[p for p in model.parameters() if p.requires_grad],
+    if sch.metadata.pipeline_cutting_paths:
+        # Generate pipeline modules for a particular target.
+        model = build_pipeline_model(
+            sch,
+            target,
+            **kwargs,
         )
     else:
         model = sch.mod
 
-    return model, optimizer
+    return init_target_engine(model, target, **kwargs)

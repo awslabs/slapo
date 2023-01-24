@@ -3,9 +3,9 @@
 
 """Test pipeline partition related logic."""
 import pytest
+from mock import MagicMock
 
 from torch import nn
-from deepspeed.runtime.pipe.topology import PipeModelDataParallelTopology
 import slapo
 
 
@@ -43,17 +43,33 @@ def test_analyze_tie_weights():
         model.stage1.linear.weight = model.stage0.wte.weight
         model.stage2.linear.weight = model.stage0.wte.weight
 
-    tie_weights = slapo.pipeline.analyze_tie_weights(model)
+    # Analyze tie weights for a normal model.
+    tie_weights = slapo.pipeline.analyze_tie_weights(model, False)
 
     assert len(tie_weights) == 1
-    assert len(tie_weights[0]) == 3
-    assert ("stage0.wte.weight", 0) in tie_weights[0]
-    assert ("stage1.linear.weight", 1) in tie_weights[0]
-    assert ("stage2.linear.weight", 2) in tie_weights[0]
+    val = list(tie_weights.values())[0]
+    assert len(val) == 3
+    assert ("stage0.wte.weight", 0) in val
+    assert ("stage1.linear.weight", 0) in val
+    assert ("stage2.linear.weight", 0) in val
+
+    # Analyze tie weights for a pipeline model. In this case,
+    # the forward in top module only runs each pipeline stage sequentially.
+    tie_weights = slapo.pipeline.analyze_tie_weights(model, True)
+
+    assert len(tie_weights) == 1
+    val = list(tie_weights.values())[0]
+    assert len(val) == 3
+    assert ("wte.weight", 0) in val
+    assert ("linear.weight", 1) in val
+    assert ("linear.weight", 2) in val
 
 
 def test_analyze_tie_ranks():
-    topology = PipeModelDataParallelTopology(num_pp=2, num_mp=1, num_dp=1)
+    # Mock deepspeed.runtime.pipe.topology.PipeModelDataParallelTopology
+    # This mocked topology assumes pp=2, tp=1, dp=1.
+    topology = MagicMock()
+    topology.filter_match = lambda pipe: [pipe]
 
     class Stage0(nn.Module):
         def __init__(self):
@@ -86,9 +102,10 @@ def test_analyze_tie_ranks():
         # Tie weights
         model.stage1.linear.weight = model.stage0.wte.weight
 
-    tie_weights = slapo.pipeline.analyze_tie_weights(model)
-
-    tie_ranks = slapo.pipeline.analyze_tie_ranks(tie_weights, topology)
+    tie_weights = list(slapo.pipeline.analyze_tie_weights(model, True).values())
+    tie_ranks = slapo.model_dialect.deepspeed.pipeline.analyze_tie_ranks(
+        tie_weights, topology
+    )
 
     assert len(tie_ranks) == 1
     assert len(tie_ranks[0]) == 1

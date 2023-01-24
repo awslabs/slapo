@@ -52,12 +52,14 @@ def test_end2end(model, impl, n_gpu, batch_size, seq_len, ckpt_ratio):
     print(cmd, flush=True)
     os.system(cmd)
     print("\n", flush=True)
-    error_code, samples_per_sec, _ = parse_log(impl, "log.txt")
+    error_code, samples_per_sec, text = parse_log(impl, "log.txt")
     print(f"\tThroughput: {samples_per_sec:.2f}")
     if error_code == 1:
-        print("na\toom\toom\toom")
+        print("oom")
+        print(text)
     elif error_code == 2:
-        print("na\tfail\tfail\tfail")
+        print("fail")
+        print(text)
     assert error_code == 0
 
 

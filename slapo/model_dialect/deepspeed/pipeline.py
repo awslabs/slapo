@@ -429,9 +429,7 @@ def deepspeed_pipe_engine(
         for full_name, stage_id in tie_weight:
             if stage_id == my_stage_id:
                 if found:
-                    raise RuntimeError(
-                        f"Cannot tie two weights in the same stage"
-                    )
+                    raise RuntimeError(f"Cannot tie two weights in the same stage")
                 assert isinstance(stage_modules[stage_id], DeepSpeedPipeStageWrapper)
                 module = stage_modules[stage_id].mod
                 for token in full_name.split(".")[:-1]:

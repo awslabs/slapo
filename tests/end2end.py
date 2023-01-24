@@ -5,22 +5,22 @@
 End-to-end tests
 """
 
-import pytest
 import os
+import pytest
 
 from slapo.model_dialect import get_dialect_cls
 
 
 def parse_log(impl, log_file):
-    with open(log_file) as f:
+    with open(log_file, "r", encoding="utf-8") as f:
         text = f.read()
 
-    if impl in ["slapo-megatron", "megatron"]:
+    if impl in {"slapo-megatron", "megatron"}:
         parser = get_dialect_cls("log_parser", "megatron")
-        param_per_gpu, samples_per_sec, gpu_mem, error_code = parser.parse_log(log_file)
-    elif impl in ["slapo-deepspeed", "deepspeed"]:
+        _, samples_per_sec, _, error_code = parser.parse_log(log_file)
+    elif impl in {"slapo-deepspeed", "deepspeed"}:
         parser = get_dialect_cls("log_parser", "deepspeed")
-        param_per_gpu, samples_per_sec, gpu_mem, error_code = parser.parse_log(log_file)
+        _, samples_per_sec, _, error_code = parser.parse_log(log_file)
     else:
         raise RuntimeError("Please provide correct `impl`")
     return (error_code, samples_per_sec, text)
@@ -38,7 +38,7 @@ def parse_log(impl, log_file):
 ])
 # fmt: on
 def test_end2end(model, impl, n_gpu, batch_size, ckpt_ratio):
-    if any(m in model for m in ["opt", "t5", "gpt"]):
+    if any(m in model for m in ("opt", "t5", "gpt")):
         seq_len = 1024
     else:
         seq_len = 512
@@ -53,11 +53,11 @@ def test_end2end(model, impl, n_gpu, batch_size, ckpt_ratio):
         cmd += " --seq-len-dec 512"
     cmd += f" --batch-size {batch_size}"
     cmd += f" --gradient-checkpoint {ckpt_ratio}"
-    cmd += f" > run_script.log 2>&1"
+    cmd += " > run_script.log 2>&1"
     print(cmd, flush=True)
     os.system(cmd)
     print("\n", flush=True)
-    error_code, samples_per_sec, text = parse_log(impl, "benchmark/log.txt")
+    error_code, samples_per_sec, _ = parse_log(impl, "benchmark/log.txt")
     print(f"\tThroughput: {samples_per_sec:.2f}")
     assert error_code == 0
 

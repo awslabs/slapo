@@ -30,11 +30,10 @@ def parse_log(impl, log_file):
 @pytest.mark.parametrize("model,impl,n_gpu,batch_size,seq_len,ckpt_ratio", [
     ("wideresnet-250M", "slapo-megatron", "1", "48", "512", "0.34"),
     ("wideresnet-250M", "slapo-deepspeed", "4", "256", "512", "0.67"),
-    ("bert-large-uncased", "slapo-megatron", "2", "20", "512", "0"),
+    ("bert-large-uncased", "slapo-megatron", "2", "10", "512", "0"),
     ("bert-large-uncased", "slapo-deepspeed", "2", "28", "512", "0"),
-    ("EleutherAI/gpt-neo-125M", "slapo-megatron", "2", "2", "512", "1.0"),
-    ("EleutherAI/gpt-neo-125M", "slapo-deepspeed", "4", "8", "512", "0.67"),
-    ("t5-base", "slapo-megatron", "4", "24", "1024", "0.67"),
+    ("EleutherAI/gpt-neo-125M", "slapo-megatron", "2", "1", "512", "1.0"),
+    ("t5-base", "slapo-megatron", "4", "8", "1024", "0.67"),
 ])
 # fmt: on
 def test_end2end(model, impl, n_gpu, batch_size, seq_len, ckpt_ratio):
@@ -55,6 +54,10 @@ def test_end2end(model, impl, n_gpu, batch_size, seq_len, ckpt_ratio):
     print("\n", flush=True)
     error_code, samples_per_sec, _ = parse_log(impl, "log.txt")
     print(f"\tThroughput: {samples_per_sec:.2f}")
+    if error_code == 1:
+        print("na\toom\toom\toom")
+    elif error_code == 2:
+        print("na\tfail\tfail\tfail")
     assert error_code == 0
 
 

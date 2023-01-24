@@ -27,21 +27,17 @@ def parse_log(impl, log_file):
 
 
 # fmt: off
-@pytest.mark.parametrize("model,impl,n_gpu,batch_size,ckpt_ratio", [
-    ("wideresnet-250M", "slapo-megatron", "1", "48", "0.34"),
-    ("wideresnet-250M", "slapo-deepspeed", "4", "256", "0.67"),
-    ("bert-large-uncased", "slapo-megatron", "2", "20", "0"),
-    ("bert-large-uncased", "slapo-deepspeed", "2", "28", "0"),
-    ("EleutherAI/gpt-neo-1.3B", "slapo-megatron", "2", "2", "1.0"),
-    ("EleutherAI/gpt-neo-1.3B", "slapo-deepspeed", "4", "8", "0.67"),
-    ("t5-large", "slapo-megatron", "4", "24", "0.67"),
+@pytest.mark.parametrize("model,impl,n_gpu,batch_size,seq_len,ckpt_ratio", [
+    ("wideresnet-250M", "slapo-megatron", "1", "48", "512", "0.34"),
+    ("wideresnet-250M", "slapo-deepspeed", "4", "256", "512", "0.67"),
+    ("bert-large-uncased", "slapo-megatron", "2", "20", "512", "0"),
+    ("bert-large-uncased", "slapo-deepspeed", "2", "28", "512", "0"),
+    ("EleutherAI/gpt-neo-125M", "slapo-megatron", "2", "2", "512", "1.0"),
+    ("EleutherAI/gpt-neo-125M", "slapo-deepspeed", "4", "8", "512", "0.67"),
+    ("t5-base", "slapo-megatron", "4", "24", "1024", "0.67"),
 ])
 # fmt: on
-def test_end2end(model, impl, n_gpu, batch_size, ckpt_ratio):
-    if any(m in model for m in ("opt", "t5", "gpt")):
-        seq_len = 1024
-    else:
-        seq_len = 512
+def test_end2end(model, impl, n_gpu, batch_size, seq_len, ckpt_ratio):
     print(f"Running {impl} on {model} with {n_gpu} GPU", flush=True)
     if impl == "deepspeed":
         ckpt_ratio = "1.0"
@@ -49,7 +45,7 @@ def test_end2end(model, impl, n_gpu, batch_size, ckpt_ratio):
         ckpt_ratio = "full"
     cmd = f"cd benchmark && python3 bench_single_node.py {impl}"
     cmd += f" --model {model} --gpus {n_gpu} --seq-len {seq_len}"
-    if model == "t5":
+    if "t5" in model:
         cmd += " --seq-len-dec 512"
     cmd += f" --batch-size {batch_size}"
     cmd += f" --gradient-checkpoint {ckpt_ratio}"

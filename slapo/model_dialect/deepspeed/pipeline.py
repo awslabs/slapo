@@ -375,8 +375,10 @@ def deepspeed_pipe_engine(
             break
         except ValueError:
             pass
-    else:
-        raise RuntimeError(f"Cannot identify the stage ID of global rank {global_rank}")
+
+    # If this device is not in any stage, no need to tie weights.
+    if my_stage_id == -1:
+        return model
 
     for tie_weight_set in tie_weight_groups:
         logger.info(

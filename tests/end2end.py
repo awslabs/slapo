@@ -53,7 +53,8 @@ def test_end2end(model, impl, n_gpu, batch_size, seq_len, ckpt_ratio):
     print(cmd, flush=True)
     os.system(cmd)
     print("\n", flush=True)
-    error_code, samples_per_sec, _ = parse_log(impl, "log.txt")
+    os.system("pwd")
+    error_code, samples_per_sec, _ = parse_log(impl, "benchmark/log.txt")
     print(f"\tThroughput: {samples_per_sec:.2f}")
     assert error_code == 0
 

@@ -18,4 +18,4 @@ cd benchmark
 bash download_benchmark_dataset.sh
 cd ..
 echo "Running end-to-end tests..."
-python3 -m pytest tests/end2end.py
+python3 -m pytest -s tests/end2end.py

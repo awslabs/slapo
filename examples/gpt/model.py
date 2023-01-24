@@ -64,8 +64,8 @@ def schedule_model(
     # Shard other parameters if MP group > 1.
     if sch.world_size > 1:
         replace_and_shard_mlp(sch[prefix], config, delay_init=delay_init)
-        tie_sch = sch["lm_head"] if "lm_head" in sch else None
-        shard_word_embedding(sch[prefix], tie_sch, config.vocab_size)
+        head_sch = sch["lm_head"] if "lm_head" in sch else None
+        shard_word_embedding(sch[prefix], head_sch, config.vocab_size)
 
         # Broadcast input to all devices within the MP group.
         # This is not required when running on Megatron.

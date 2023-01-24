@@ -203,7 +203,7 @@ def remove_cast(sch, config, attn_path="h.N.attn.attention"):
     return cnt
 
 
-def shard_word_embedding(sch, tie_sch, vocab_size, word_embed_name="wte"):
+def shard_word_embedding(sch, head_sch, vocab_size, word_embed_name="wte"):
     if sch.world_size == 1:
         return
 
@@ -232,10 +232,8 @@ def shard_word_embedding(sch, tie_sch, vocab_size, word_embed_name="wte"):
 
     sch[word_embed_name].sync(mode="fwd_post", sync_op_or_fn=fwd_post_hook)
 
-    # Since word embedding is tied to the output embedding, we have to
-    # shard it as well if presents.
-    if tie_sch:
-        tie_sch.shard("weight", axis=0)
+    # Shard output embedding.
+    head_sch.shard("weight", axis=0)
 
 
 def shard_qkv(

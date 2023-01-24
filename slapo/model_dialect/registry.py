@@ -39,8 +39,8 @@ def get_dialect_cls(cls_type, target, allow_none=False):
         raise ValueError(f"Only support {DIALECTS.keys()}, but got {cls_type}")
     if target not in DIALECTS[cls_type]:
         if allow_none:
-            if "default" in DIALECTS[cls_type]:
-                target = "default"
+            if None in DIALECTS[cls_type]:
+                target = None
             else:
                 raise ValueError(
                     f"Target {target} does not register default dialect for {cls_type}"

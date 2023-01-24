@@ -357,10 +357,12 @@ def deepspeed_pipe_engine(
 
     if "loss_fn" not in kwargs:
         raise ValueError("Must provide loss_fn for deepspeed pipeline")
-    if "fp16" not in kwargs["config"] or not kwargs["config"]["fp16"]["enabled"]:
-        param_dtype = torch.float
-    else:
+    if "fp16" in kwargs["config"] and kwargs["config"]["fp16"]["enabled"]:
         param_dtype = torch.float16
+    elif "bf16" in kwargs["config"] and kwargs["config"]["bf16"]["enabled"]:
+        param_dtype = torch.bfloat16
+    else:
+        param_dtype = torch.float
 
     model = pipe.PipelineModule(
         stage_modules,
@@ -400,7 +402,7 @@ def deepspeed_pipe_engine(
 
         # Identify the stage ID of this device.
         # Ranks is a list of global ranks that includes one device per stage.
-        # Suppose we have 8 GPUs with TP=4 and PP=2, the device topology is
+        # Suppose we have 8 GPUs with TP=2 and PP=4, the device topology is
         # Stage0: GPU0, GPU1
         # Stage1: GPU2, GPU3
         # Stage2: GPU4, GPU5
@@ -428,7 +430,7 @@ def deepspeed_pipe_engine(
             if stage_id == my_stage_id:
                 if found:
                     raise RuntimeError(
-                        f"More than one tie weights found in the same stage"
+                        f"Cannot tie two weights in the same stage"
                     )
                 assert isinstance(stage_modules[stage_id], DeepSpeedPipeStageWrapper)
                 module = stage_modules[stage_id].mod

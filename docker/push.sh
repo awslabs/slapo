@@ -23,7 +23,7 @@ shift 1
 PASSWORD="$1"
 shift 1
 
-LOCAL_IMAGE_NAME=slapo:latest
+LOCAL_IMAGE_NAME=slapo-ci:latest
 REMOTE_IMAGE_NAME_VER=${DOCKER_HUB_ACCOUNT}/slapo:ci-${VERSION}
 REMOTE_IMAGE_NAME_LST=${DOCKER_HUB_ACCOUNT}/slapo:ci-latest
 

@@ -427,7 +427,7 @@ def build_pipeline_model(sch, target, **kwargs):
 
     pipe_engine_fn = get_dialect_cls("pipeline_engine", target)
     return pipe_engine_fn(
-        sch,
+        sch.metadata,
         res_partition,
         **kwargs,
     )

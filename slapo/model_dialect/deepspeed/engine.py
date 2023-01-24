@@ -5,7 +5,6 @@ from __future__ import annotations
 from ..registry import register_model_dialect
 from ...logger import get_logger, INFO
 
-# Change INFO to DEBUG for more verbose logging.
 logger = get_logger("DS-Engine", INFO)
 
 

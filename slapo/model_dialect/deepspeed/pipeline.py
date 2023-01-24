@@ -324,7 +324,7 @@ class DeepSpeedPipeStageWrapper(nn.Module):
 
 @register_model_dialect("deepspeed", "pipeline_engine")
 def deepspeed_pipe_engine(
-    sch,
+    sch_metadata,
     stage_modules,
     **kwargs,
 ):
@@ -370,7 +370,7 @@ def deepspeed_pipe_engine(
         param_dtype=param_dtype,
     )
 
-    tie_weights = list(sch.metadata.tie_weights.values())
+    tie_weights = list(sch_metadata.tie_weights.values())
     if not tie_weights:
         return model
 

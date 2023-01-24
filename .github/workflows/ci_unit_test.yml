@@ -112,7 +112,7 @@ jobs:
             --source-ref ${{ needs.check_status.outputs.ref }} \
             --repo ${{ needs.check_status.outputs.repo }} \
             --wait \
-            --command "bash ./ci/task_unit_test.sh"
+            --command "bash ./ci/install_test_pkgs.sh; bash ./ci/task_unit_test.sh"
   update_ci_badge:
     needs: [unit_test]
     # Run this job whatever the unit tests were success or not.

@@ -193,11 +193,21 @@ class Schedule:
 
         curr_sch = self
         for token in self.tokenize_module_path(full_path):
-            if token not in curr_sch.child:
-                raise KeyError(
-                    f"The schedule of '{full_path}' is not a child of {curr_sch.name}"
-                )
-            curr_sch = curr_sch.child[token]
+            try:  # nn.Sequential
+                new_sch = curr_sch
+                for subtoken in token.split("."):
+                    if subtoken not in new_sch.child:
+                        raise KeyError(
+                            f"Try to find nn.Sequential modules, but the schedule of '{full_path}' ({subtoken}) is not a child of {new_sch.name}"
+                        )
+                    new_sch = new_sch.child[subtoken]
+                curr_sch = new_sch
+            except Exception as exc:  # nn.Module/nn.ModuleList
+                if token not in curr_sch.child:
+                    raise KeyError(
+                        f"The schedule of '{full_path}' ({token}) is not a child of {curr_sch.name}"
+                    ) from exc
+                curr_sch = curr_sch.child[token]
             if not curr_sch:
                 raise KeyError(f"Module '{full_path}' is not found")
         return curr_sch

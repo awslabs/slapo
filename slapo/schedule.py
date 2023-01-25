@@ -193,9 +193,15 @@ class Schedule:
 
         curr_sch = self
         for token in self.tokenize_module_path(full_path):
+            sub_tokens = token.split(".")
+            if len(sub_tokens) == 2 and sub_tokens[0] in curr_sch.child:
+                # If this token is in the format of "layer.0" and "layer" is a child of curr_sch,
+                # then "layer" is nn.Sequential. In this case, we have to first get the nn.Sequential module first.
+                curr_sch = curr_sch.child[sub_tokens[0]]
+                token = sub_tokens[1]
             if token not in curr_sch.child:
                 raise KeyError(
-                    f"The schedule of '{full_path}' is not a child of {curr_sch.name}"
+                    f"The schedule of '{full_path}' ({token}) is not a child of {curr_sch.name}"
                 )
             curr_sch = curr_sch.child[token]
             if not curr_sch:

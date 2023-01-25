@@ -35,4 +35,4 @@ jobs:
         run: |
           echo "Publish to PyPI"
           ls -ltr dist/
-          python -m twine upload --verbose dist/*
+          python3 -m twine upload --verbose dist/*

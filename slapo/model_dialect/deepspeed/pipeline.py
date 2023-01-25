@@ -1,12 +1,12 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
+# pylint: disable=logging-fstring-interpolation
 from __future__ import annotations
 
 from enum import Enum
 import torch
 from torch import distributed as dist
-from torch import fx
-import torch.nn as nn
+from torch import fx, nn
 
 from ..registry import register_model_dialect
 from ...logger import get_logger, DEBUG, INFO
@@ -75,6 +75,7 @@ def unwrap_torch_tensor(tensor, desired_type):
         return tensor.tolist()
     if desired_type == WrappedTypeCode.TUPLE:
         return tuple(tensor.tolist())
+    raise ValueError(f"Unsupported type code {desired_type}")
 
 
 def flat_and_name_tensor_list(data, name, suffix):
@@ -86,7 +87,7 @@ def flat_and_name_tensor_list(data, name, suffix):
     values = data.values() if isinstance(data, dict) else data
 
     if isinstance(values, (list, tuple)) and any(
-        [isinstance(t, torch.Tensor) for t in values]
+        isinstance(t, torch.Tensor) for t in values
     ):
         for idx, tensor in enumerate(values):
             name_n_value.extend(
@@ -237,7 +238,7 @@ class DeepSpeedPipeStageWrapper(nn.Module):
             for arg in args:
                 assert not isinstance(arg, dict)
                 if isinstance(arg, tuple):
-                    unordered_args.extend([item for item in arg])
+                    unordered_args.extend(list(arg))
                 else:
                     unordered_args.append(arg)
         else:
@@ -429,7 +430,7 @@ def deepspeed_pipe_engine(
         for full_name, stage_id in tie_weight:
             if stage_id == my_stage_id:
                 if found:
-                    raise RuntimeError(f"Cannot tie two weights in the same stage")
+                    raise RuntimeError("Cannot tie two weights in the same stage")
                 assert isinstance(stage_modules[stage_id], DeepSpeedPipeStageWrapper)
                 module = stage_modules[stage_id].mod
                 for token in full_name.split(".")[:-1]:

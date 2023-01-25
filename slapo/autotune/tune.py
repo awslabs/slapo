@@ -154,12 +154,12 @@ class Space:
                     count = _run(space.clone(), count)
                 return count
 
-            logger.info(f"\t{self.cfg_dict_to_str(space.to_dict())}")
+            logger.info("\t%s", self.cfg_dict_to_str(space.to_dict()))
             return count + 1
 
         logger.info("Enumerating the search space:")
         count = _run(self.clone())
-        logger.info(f"Space size: {count}")
+        logger.info("Space size: %d", count)
 
     def __repr__(self):
         ret = "Space(\n"
@@ -178,22 +178,22 @@ class Database:
         self.db_file_name = db_file_name
         self.db = {}
         if self.db_file_name:
-            logger.info(f"Tuning records will be saved to {self.db_file_name}")
+            logger.info("Tuning records will be saved to %s", self.db_file_name)
 
     def load(self):
         """Load the database from the file."""
         if self.db_file_name and os.path.exists(self.db_file_name):
-            with open(self.db_file_name, "r") as filep:
+            with open(self.db_file_name, "r", encoding="utf-8") as filep:
                 self.db = json.load(filep)
             logger.info(
-                f"Loaded {len(self.db)} tuning records from {self.db_file_name}"
+                "Loaded %d tuning records from %s", len(self.db), self.db_file_name
             )
 
     def commit(self, key, data):
         """Commit the data to the database and update the DB file."""
         self.db[key] = data
         if self.db_file_name:
-            with open(self.db_file_name, "w") as filep:
+            with open(self.db_file_name, "w", encoding="utf-8") as filep:
                 json.dump(self.db, filep, indent=2)
 
 
@@ -284,7 +284,7 @@ def run_training_script(args, tuneable_cfg):
 
     cmd = f"{env} python3 {args.training_script} {train_script_args}"
     cmd += " > run_script.log 2>&1"
-    logger.info(f"\tRunning command: {cmd}")
+    logger.info("\tRunning command: %s", cmd)
     os.system(cmd)
     return "run_script.log"
 
@@ -306,23 +306,25 @@ def tune(args, get_bs_range, eval_fn):
 
     def binary_search(data, cfg_dict, key, curr_best, lt=0, rt=None):
         nonlocal early_stopping_patience
-        logger.info(f"Binary searching {key} without OOM")
+        logger.info("Binary searching %s without OOM", key)
         if rt is None:
             rt = len(data) - 1
         while lt <= rt:
             mid = (lt + rt) // 2
             cfg_dict[key] = data[mid]
-            logger.info(f"- Evaluating {cfg_dict}")
+            logger.info("- Evaluating %s", str(cfg_dict))
             # early pruning
             if is_valid(cfg_dict):
                 thrpt = eval_fn(cfg_dict)
             else:
                 thrpt = 0.0
                 logger.info(
-                    f"Invalid configuration point {cfg_dict}, n_gpu={training_script_args['gpus']}"
+                    "Invalid configuration point %s, n_gpu=%s",
+                    str(cfg_dict),
+                    training_script_args["gpus"],
                 )
             time.sleep(0.5)
-            logger.info(f"\tThroughput: {thrpt:.2f}")
+            logger.info("\tThroughput: %.2f", thrpt)
             # TODO: threshold should be a larger value used for pruning
             # maybe provide an interface for the users
             if thrpt < 0.01:
@@ -338,7 +340,9 @@ def tune(args, get_bs_range, eval_fn):
             if early_stopping_patience >= 5:
                 return mid, None, curr_best
             logger.info(
-                f"\tCurrent best config: {curr_best[0]}, " f"thrpt: {curr_best[1]:.2f}"
+                "\tCurrent best config: %s, thrpt: %.2f",
+                str(curr_best[0]),
+                curr_best[1],
             )
         if thrpt < 0.01:
             mid = mid - 1
@@ -351,10 +355,10 @@ def tune(args, get_bs_range, eval_fn):
             ckpt_ratio = 1.0
         cfg_dict = {"batch_size": max_bs, "ckpt_ratio": ckpt_ratio}
         # suppose the user given minimum bs is always executable
-        logger.info(f"Evaluating inital config...")
-        logger.info(f"- Evaluating {cfg_dict}")
+        logger.info("Evaluating inital config...")
+        logger.info("- Evaluating %s", str(cfg_dict))
         thrpt = eval_fn(cfg_dict)
-        logger.info(f"\tThroughput: {thrpt:.2f}")
+        logger.info("\tThroughput: %.2f", thrpt)
         curr_best = (cfg_dict.copy(), thrpt)
         if thrpt == 0:  # OOM
             mid, thrpt, curr_best = binary_search(
@@ -363,7 +367,7 @@ def tune(args, get_bs_range, eval_fn):
             max_bs = bs_range[mid]
         else:
             mid = 0
-        logger.info(f"Maximum batch size without OOM: {max_bs}")
+        logger.info("Maximum batch size without OOM: %d", max_bs)
         if (
             "slapo-megatron" in training_script_args
             or "slapo-deepspeed" in training_script_args
@@ -394,15 +398,15 @@ def load_config(config_file):
 
 
 def parse_log(args, log_file):
-    with open(log_file) as f:
+    with open(log_file, "r", encoding="utf-8") as f:
         text = f.read()
 
     if "slapo-megatron" in args or "megatron" in args:
         parser = get_dialect_cls("log_parser", "megatron")
-        param_per_gpu, samples_per_sec, gpu_mem, error_code = parser.parse_log(log_file)
+        _, samples_per_sec, _, error_code = parser.parse_log(log_file)
     elif "slapo-deepspeed" in args or "deepspeed" in args:
         parser = get_dialect_cls("log_parser", "deepspeed")
-        param_per_gpu, samples_per_sec, gpu_mem, error_code = parser.parse_log(log_file)
+        _, samples_per_sec, _, error_code = parser.parse_log(log_file)
     else:
         raise RuntimeError("Please provide correct `impl`")
     return (error_code, samples_per_sec, text)
@@ -419,7 +423,7 @@ def main():
         error_code, thrpt, memo = parse_log(
             convert_nargs_to_dict(args.training_script_args), "log.txt"
         )
-        with open(log_file, "r") as filep:
+        with open(log_file, "r", encoding="utf-8") as filep:
             log_file_ctx = filep.read()
         db.commit(
             Space.cfg_dict_to_str(cfg),
@@ -435,7 +439,7 @@ def main():
         return thrpt if error_code == 0 else 0
 
     curr_best = tune(args, get_bs_range, eval_fn)
-    logger.info(f"Best config: {curr_best}")
+    logger.info("Best config: %s", curr_best)
 
 
 if __name__ == "__main__":

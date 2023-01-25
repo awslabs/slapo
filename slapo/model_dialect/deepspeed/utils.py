@@ -10,11 +10,11 @@ from ..registry import register_model_dialect
 class DeepSpeedLogParser:
     @staticmethod
     def parse_log(log_filename):
-        with open(log_filename) as f:
+        with open(log_filename, "r", encoding="utf-8") as f:
             text = f.read()
         # Find the last number after the key, returns 0 if not exists
         def query(key, last_only=True):
-            values = re.findall(key + "=+([\d\.]+)", text)
+            values = re.findall(key + r"=+([\d\.]+)", text)
             if not values:
                 return None
             if last_only:

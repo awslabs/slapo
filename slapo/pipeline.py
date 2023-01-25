@@ -4,7 +4,6 @@
 import operator
 from collections import OrderedDict
 
-import torch
 from torch import fx
 from torch.fx.passes.split_module import split_module
 
@@ -275,7 +274,7 @@ def analyze_pipeline_module(top_mod):
     return stage_id_2_arg_names, stage_id_2_name, liveness
 
 
-def analyze_tie_weights(top_mod):
+def analyze_tie_weights(top_mod, is_pipeline_partitioned):
     """Analyze if there is any tie weights (two weights in different module
     share the same memory) partitioned into different pipeline stages.
 
@@ -286,17 +285,22 @@ def analyze_tie_weights(top_mod):
         1) it should already be traced and partitioned, and
         2) it should have a number of submodules that matches pipeline stages.
 
+    is_pipeline_partitioned : bool
+        Whether the module is partitioned for pipeline or not. If not,
+        then all tie weights will have stage ID 0.
+
     Returns
     -------
-    tie_groups : Dict[str, Set[Tuple[str, int]]]
+    tie_groups : Dict[int, Set[Tuple[str, int]]]
+        Mapping from the nn.Parameter object to the set of parameter names
+        that are tied to it. The set of parameter names is a tuple of
+        (parameter name, stage ID). The stage ID is 0 if the module is not
+        partitioned for pipeline.
     """
-    # Mapping from parameter name to (the pipeline stage ID, the parameter object ID).
+    # Mapping from parameter name to (the pipeline stage ID, the parameter object).
     params = {}
-    # Mapping from the primary key (i.e., the first parameter name)
-    # of a tie group to the tie group.
+    # The result tie groups.
     tie_groups = {}
-    # Mapping from paramter name to the primary key of the tie group.
-    param_name_2_group_key = {}
 
     def _traverse_children(stage_id, prefix, curr_mod_name, curr_mod):
         full_prefix = f"{prefix}.{curr_mod_name}" if prefix else curr_mod_name
@@ -306,69 +310,58 @@ def analyze_tie_weights(top_mod):
         # only show up once in named_parameters. In other words, we cannot
         # identify tie weights with named_parameters(recurse=True).
         for curr_param_name, curr_param in curr_mod.named_parameters():
-            curr_param_full_name = f"{full_prefix}.{curr_param_name}"
-            curr_param_id = id(curr_param)
+            curr_param_full_name = (
+                f"{full_prefix}.{curr_param_name}" if full_prefix else curr_param_name
+            )
             if curr_param_full_name in params:
                 continue
 
             # Check if this parameter is tie to another one in a different stage.
             for target_param_full_name, (
                 target_stage,
-                target_param_id,
+                target_param,
             ) in params.items():
-                if stage_id != target_stage and curr_param_id == target_param_id:
-                    if target_param_full_name in param_name_2_group_key:
+                if is_pipeline_partitioned and stage_id == target_stage:
+                    continue
+                if id(curr_param) == id(target_param):
+                    if curr_param in tie_groups:
                         # Get the tie group of the target parameter.
-                        tie_group_key = param_name_2_group_key[target_param_full_name]
-                        tie_group = tie_groups[tie_group_key]
+                        tie_group = tie_groups[curr_param]
                     else:
                         # Create a new tie group, and use the target parameter name
                         # as the primary key.
-                        param_name_2_group_key[
-                            target_param_full_name
-                        ] = target_param_full_name
                         tie_group = set([(target_param_full_name, target_stage)])
-                        tie_groups[target_param_full_name] = tie_group
+                        tie_groups[curr_param] = tie_group
 
                     # Add the current parameter to the tie group.
-                    param_name_2_group_key[
-                        curr_param_full_name
-                    ] = target_param_full_name
                     tie_group.add((curr_param_full_name, stage_id))
 
             # Add this parameter for the rest analysis.
-            params[curr_param_full_name] = (stage_id, id(curr_param))
+            params[curr_param_full_name] = (stage_id, curr_param)
 
         # Traverse children.
         for name, mod in curr_mod.named_children():
             _traverse_children(stage_id, f"{full_prefix}", name, mod)
 
-    for stage_id, (mod_name, stage_mod) in enumerate(top_mod.named_children()):
-        _traverse_children(stage_id, "", mod_name, stage_mod)
+    if is_pipeline_partitioned:
+        for stage_id, (mod_name, stage_mod) in enumerate(top_mod.named_children()):
+            _traverse_children(stage_id, "", mod_name, stage_mod)
+    else:
+        _traverse_children(0, "", "", top_mod)
 
     # Explicitly delete the reference to parameters for safety.
     del params
-    return list(tie_groups.values())
 
+    # Remove module name.
+    if is_pipeline_partitioned:
+        ret = {}
+        for param, tie_group_set in tie_groups.items():
+            group = [(name[name.find(".") + 1 :], sid) for name, sid in tie_group_set]
+            ret[param] = group
+    else:
+        ret = tie_groups
 
-def analyze_tie_ranks(tie_weight_groups, topology):
-    tie_ranks = []
-    for tie_weight_set in tie_weight_groups:
-        tie_stage_ranks = []
-        for _, stage_id in tie_weight_set:
-            stage_ranks = topology.filter_match(pipe=stage_id)
-            tie_stage_ranks.append(stage_ranks)
-
-        num_ranks_same_stage = len(tie_stage_ranks[0])
-        num_stages = len(tie_stage_ranks)
-        group_ranks = []
-        for i in range(num_ranks_same_stage):
-            sub_group_ranks = []
-            for j in range(num_stages):
-                sub_group_ranks.append(tie_stage_ranks[j][i])
-            group_ranks.append(sorted(sub_group_ranks))
-        tie_ranks.append(group_ranks)
-    return tie_ranks
+    return ret
 
 
 def generate_pipeline_partition(sch):
@@ -405,9 +398,7 @@ def generate_pipeline_partition(sch):
     return sch
 
 
-def generate_pipeline_modules(
-    sch, target, topology=None, param_dtype=torch.float16, **kwargs
-):
+def build_pipeline_model(sch, target, **kwargs):
     # Analyze pipelien module for liveness and arguments.
     partitioned_mod = sch.mod
     (
@@ -436,8 +427,7 @@ def generate_pipeline_modules(
 
     pipe_engine_fn = get_dialect_cls("pipeline_engine", target)
     return pipe_engine_fn(
+        sch.metadata,
         res_partition,
-        topology,
-        param_dtype,
         **kwargs,
     )

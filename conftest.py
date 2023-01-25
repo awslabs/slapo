@@ -22,10 +22,12 @@ def init_dist(request):
     try:
         dist.init_process_group(backend="nccl")
     except Exception as err:
-        print(f"Skip === {str(err)}")
-        pytest.skip(f"Skip {__file__} because torch.distributed is not initialized")
+        print(f"Skip initializing dist group: {str(err)}")
 
     def destory_dist():
-        dist.destroy_process_group()
+        try:
+            dist.destroy_process_group()
+        except Exception:
+            pass
 
     request.addfinalizer(destory_dist)

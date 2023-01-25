@@ -15,7 +15,7 @@ def pytest_collection_modifyitems(items):
     items.sort(key=lambda item: item.name)
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="session")
 def init_dist(request):
     """Initialize the distributed group once in the entire test session."""
     torch.manual_seed(9999)

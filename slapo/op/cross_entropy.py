@@ -4,23 +4,22 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import torch
-import torch.nn as nn
 import torch.distributed as dist
+from torch import nn
 
 
-def vocab_range_from_per_partition_vocab_size(
-    per_partition_vocab_size, rank, world_size
-):
+def vocab_range_from_per_partition_vocab_size(per_partition_vocab_size, rank, _):
     index_f = rank * per_partition_vocab_size
     index_l = index_f + per_partition_vocab_size
     return index_f, index_l
 
 
 class _VocabParallelCrossEntropy(torch.autograd.Function):
+    # pylint: disable=abstract-method, arguments-differ
+
     @staticmethod
     def forward(ctx, vocab_parallel_logits, target, label_smoothing=0.0, group=None):
 
-        global_vocab_size = vocab_parallel_logits.shape[-1]
         # Maximum value along vocab dimension across all GPUs.
         logits_max = torch.max(vocab_parallel_logits, dim=-1)[0]
         dist.all_reduce(logits_max, op=dist.ReduceOp.MAX, group=group)
@@ -70,15 +69,13 @@ class _VocabParallelCrossEntropy(torch.autograd.Function):
 
         vocab_size = exp_logits.size(-1)
         if label_smoothing > 0:
-            """
-            We'd like to assign 1 / (K - 1) probability mass to every index that is not the ground truth.
-            = (1 - alpha) * y_gt + alpha * mean(y_{i for i != gt})
-            = (1 - alpha) * y_gt + (alpha / (K - 1)) * \sum_{i != gt} y_i
-            = ((K - 1) * (1 - alpha) / (K - 1)) * y_gt + (alpha / (K - 1)) * \sum_{i != gt} y_i
-            = (K * (1 - alpha) - 1) / (K - 1)) * y_gt  + (alpha / (K - 1)) * \sum_{i} y_i
-            = (1 - (alpha * K) / (K - 1)) * y_gt + ( (alpha * K) / (K - 1) ) * \sum_{i} y_i / K
-            From: https://github.com/NVIDIA/NeMo/blob/main/nemo/collections/common/losses/smoothed_cross_entropy.py
-            """
+            # We'd like to assign 1 / (K - 1) probability mass to every index that is not the ground truth.
+            # = (1 - alpha) * y_gt + alpha * mean(y_{i for i != gt})
+            # = (1 - alpha) * y_gt + (alpha / (K - 1)) * \sum_{i != gt} y_i
+            # = ((K - 1) * (1 - alpha) / (K - 1)) * y_gt + (alpha / (K - 1)) * \sum_{i != gt} y_i
+            # = (K * (1 - alpha) - 1) / (K - 1)) * y_gt  + (alpha / (K - 1)) * \sum_{i} y_i
+            # = (1 - (alpha * K) / (K - 1)) * y_gt + ( (alpha * K) / (K - 1) ) * \sum_{i} y_i / K
+            # From: https://github.com/NVIDIA/NeMo/blob/main/nemo/collections/common/losses/smoothed_cross_entropy.py
             assert 1.0 > label_smoothing > 0.0
             smoothing = label_smoothing * vocab_size / (vocab_size - 1)
 
@@ -136,9 +133,11 @@ def vocab_parallel_cross_entropy(
         vocab_parallel_logits: logits split across tensor parallel ranks
                                dimension is [sequence_length, batch_size, hidden_size]
         target: correct vocab ids of dimseion [sequence_length, micro_batch_size]
-        lobal_smoothing: smoothing factor, must be in range [0.0, 1.0)
+        label_smoothing: smoothing factor, must be in range [0.0, 1.0)
                          default is no smoothing (=0.0)
+        group: torch.distributed group
     """
+    # pylint: disable=missing-type-doc
     return _VocabParallelCrossEntropy.apply(
         vocab_parallel_logits, target, label_smoothing, group
     )
@@ -146,7 +145,7 @@ def vocab_parallel_cross_entropy(
 
 class ParallelCrossEntropy(nn.Module):
     def __init__(self, group=None):
-        super(ParallelCrossEntropy, self).__init__()
+        super().__init__()
         self.group = group
 
     def forward(self, outputs, labels):

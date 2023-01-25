@@ -1,0 +1,38 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+name: Release
+
+on:
+  release:
+    types: [created]
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  TWINE_USERNAME: "__token__"
+  TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    container:
+        image: metaprojdev/slapo:ci-latest
+        options: --user root
+    steps:
+      - uses: actions/checkout@v3
+      - name: Build wheels
+        run: |
+          bash ./scripts/build_wheel.sh
+      - name: Install dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          pip3 install twine
+      - name: Publish to Pypi
+        run: |
+          echo "Publish to PyPI"
+          ls -ltr dist/
+          python3 -m twine upload --verbose dist/*

@@ -23,7 +23,15 @@ Slapo highlights the following features:
 
 ### Installation
 
-We currently only support installation from source, and will provide pip-wheel in the future. Please make sure you have installed [PyTorch](https://pytorch.org/) (>= v1.13) in advance.
+There are two approaches to install Slapo:
+
+1. Install from PYPI
+
+```bash
+pip3 install slapo
+```
+
+2. Install from source
 
 ```bash
 git clone https://github.com/awslabs/slapo.git slapo
@@ -31,7 +39,8 @@ cd slapo
 pip3 install -e ".[dev]"
 ```
 
-You can optionally install [HuggingFace Transformers](https://github.com/huggingface/transformers) (>= v4.25.1) to retrieve models. Also, we support the following frameworks. You can run the scheduled models on these frameworks if needed.
+In addition, you can optionally install [HuggingFace Transformers](https://github.com/huggingface/transformers) (>= v4.25.1) to retrieve models.
+Also, Slapo currently supports the following frameworks, so you can run the scheduled models on these frameworks if needed.
 * [Megatron-LM](https://github.com/NVIDIA/Megatron-LM) >= 3.0.2
 * [DeepSpeed](https://github.com/microsoft/DeepSpeed) >= 0.7.7
 

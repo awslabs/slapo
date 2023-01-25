@@ -233,7 +233,8 @@ def shard_word_embedding(sch, head_sch, vocab_size, word_embed_name="wte"):
     sch[word_embed_name].sync(mode="fwd_post", sync_op_or_fn=fwd_post_hook)
 
     # Shard output embedding.
-    head_sch.shard("weight", axis=0)
+    if head_sch is not None:
+        head_sch.shard("weight", axis=0)
 
 
 def shard_qkv(

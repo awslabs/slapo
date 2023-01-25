@@ -280,6 +280,11 @@ RUN cd $HOME/epoi && git fetch && git checkout b2e2e98 && pip3 install -e ".[dev
 RUN git clone https://github.com/huggingface/transformers.git $HOME/transformers
 RUN cd $HOME/transformers && git checkout 2bdd9fa && pip3 install -e ".[dev]" --no-deps
 
+# FIXME Install official DeepSpeed
+USER root
+RUN pip3 install deepspeed==0.6.5
+USER deepspeed
+
 # Fix dependencies
 RUN pip3 install huggingface-hub tokenizers numpy==1.23.4 datasets
 

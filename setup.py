@@ -1,47 +1,44 @@
-#!/usr/bin/env python3
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 import os
+import re
 import setuptools
 
-PROJ_NAME = "slapo"
-this_dir = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.dirname(__file__)
 
 
-if os.getenv("BUILD_VERSION"):
-    version = os.getenv("BUILD_VERSION")
-else:
-    version_txt = os.path.join(this_dir, "version.txt")
-    with open(version_txt) as filep:
-        version = filep.readline().strip()
-
-
-def write_version_file():
-    version_path = os.path.join(this_dir, PROJ_NAME, "version.py")
-    with open(version_path, "w") as f:
-        f.write("# noqa: C801\n")
-        f.write(f'__version__ = "{version}"\n')
-        tag = os.getenv("GIT_TAG")
-        if tag is not None:
-            f.write(f'git_tag = "{tag}"\n')
+def get_version():
+    with open(os.path.join(ROOT_DIR, "slapo", "version.py")) as fp:
+        version_match = re.search(
+            r"^__version__ = ['\"]([^'\"]*)['\"]", fp.read(), re.M
+        )
+        if version_match:
+            return version_match.group(1)
+    raise RuntimeError("Unable to find version string")
 
 
 def setup():
-    write_version_file()
+    with open("README.md", encoding="utf-8") as fp:
+        long_description = fp.read()
+
     setuptools.setup(
-        name=PROJ_NAME,
+        name="slapo",
         description="Slapo: A Scahedule LAnguage for Progressive Optimization.",
-        version=version,
+        version=get_version(),
+        author="Slapo Community",
+        long_description=long_description,
+        long_description_content_type="text/markdown",
         setup_requires=[],
         install_requires=[],
         packages=setuptools.find_packages(),
-        url="TBA",
+        url="https://github.com/awslabs/slapo",
         python_requires=">=3.7",
         classifiers=[
             "Programming Language :: Python :: 3.7",
             "Programming Language :: Python :: 3.8",
             "Programming Language :: Python :: 3.9",
+            "Programming Language :: Python :: 3.10",
             "Topic :: Scientific/Engineering :: Artificial Intelligence",
             "Operating System :: OS Independent",
         ],

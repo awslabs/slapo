@@ -8,7 +8,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
+      with:
+        ref: docs
     # This step uses ammaraskar's Sphinx Build Action: https://github.com/ammaraskar/sphinx-action
     - uses: ammaraskar/sphinx-action@master
       with:

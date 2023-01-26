@@ -204,10 +204,10 @@ def all_gather_forward_output(inp, dim, group, tensor_parallel_output_grad=True)
         The dimension to all-gather along.
     group: torch.distributed.ProcessGroup
         The process group to all-gather.
-    tensor_parallel_output_grad: If the operator following the gather operation is
-        sharded, output gradients need to be reduce
-        scattered and whereas if the operator is duplicated,
-        output gradients only need to be scattered.
+    tensor_parallel_output_grad: bool
+        If the operator following the gather operation is sharded,
+        output gradients need to be reduce scattered and whereas
+        if the operator is duplicated, output gradients only need to be scattered.
 
     Returns
     -------

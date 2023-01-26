@@ -1,7 +1,9 @@
 """
 .. currentmodule:: slapo
+
 Quick Start
 ===========
+
 This guide walks through the key functionality of Slapo.
 """
 # %%

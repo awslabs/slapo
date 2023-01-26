@@ -1,9 +1,0 @@
-sphinx
-sphinx-gallery
-sphinx_rtd_theme
-autodocsumm
-sphinx-book-theme
-matplotlib
-sphinxcontrib-bibtex
-sphinxcontrib-googleanalytics
-pandas

@@ -15,16 +15,10 @@
     specific language governing permissions and limitations
     under the License.
 
-####################
-Slapo Documentation
-####################
+.. _setup:
 
-***********
-Get Started
-***********
-.. toctree::
-   :maxdepth: 1
+############
+Setup Slapo
+############
 
-   setup/index
-   tutorials/index
-   contribute/index
+Slapo is a schedule language for large model training.

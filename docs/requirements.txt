@@ -1,0 +1,8 @@
+sphinx
+sphinx-gallery
+sphinx-copybutton
+autodocsumm
+sphinx-book-theme
+matplotlib
+sphinxcontrib-bibtex
+sphinxcontrib-googleanalytics

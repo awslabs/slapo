@@ -17,11 +17,6 @@ jobs:
         docs-folder: "docs/"
         # list of shell commands to prepare environment before build
         pre-build-command: "pip install -r docs/requirements.txt && pip install ."
-    # Create an artifact of the html output using Github action: https://github.com/actions/upload-artifact
-    - uses: actions/upload-artifact@v1
-      with:
-        name: DocumentationHTML
-        path: docs/build/html/
     - name: Deploy docs
       uses: JamesIves/github-pages-deploy-action@releases/v3
       if: github.event_name == 'push'

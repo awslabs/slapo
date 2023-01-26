@@ -101,7 +101,7 @@ html_theme_options = {
     "repository_url": "https://github.com/awslabs/slapo",
     "use_repository_button": True,
     'logo_only': True,
-    "extra_navbar": r"<a href=/netron target=_blank>Customized Netron</a>",
+    "extra_navbar": r"",
     "show_navbar_depth": 1,
     # "home_page_in_toc": True
 }

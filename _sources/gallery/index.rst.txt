@@ -11,7 +11,7 @@ Gallery
 
 .. raw:: html
 
-    <div class="sphx-glr-thumbcontainer" tooltip="This guide walks through the key functionality of Slapo.">
+    <div class="sphx-glr-thumbcontainer" tooltip="This guide walks through the key functionality of Slapo. We will use the BERT model in `Hugging...">
 
 .. only:: html
 

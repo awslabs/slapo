@@ -1,0 +1,1342 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>slapo.schedule &#8212; Slapo Documentation</title>
+    
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=1999514e3f237ded88cf" rel="stylesheet">
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=1999514e3f237ded88cf" rel="stylesheet">
+
+    
+  <link rel="stylesheet"
+    href="../../_static/vendor/fontawesome/5.13.0/css/all.min.css">
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+    href="../../_static/vendor/fontawesome/5.13.0/webfonts/fa-solid-900.woff2">
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+    href="../../_static/vendor/fontawesome/5.13.0/webfonts/fa-brands-400.woff2">
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" href="../../_static/styles/sphinx-book-theme.css?digest=5115cc725059bd94278eecd172e13a965bf8f5a9" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-binder.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-dataframe.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-rendered-html.css" />
+    
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=1999514e3f237ded88cf">
+
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/clipboard.min.js"></script>
+    <script src="../../_static/copybutton.js"></script>
+    <script src="../../_static/scripts/sphinx-book-theme.js?digest=9c920249402e914e316237a7dbc6769907cce411"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="docsearch:language" content="None">
+    
+
+    <!-- Google Analytics -->
+    
+  </head>
+  <body data-spy="scroll" data-target="#bd-toc-nav" data-offset="60">
+<!-- Checkboxes to toggle the left sidebar -->
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle navigation sidebar">
+<label class="overlay overlay-navbar" for="__navigation">
+    <div class="visually-hidden">Toggle navigation sidebar</div>
+</label>
+<!-- Checkboxes to toggle the in-page toc -->
+<input type="checkbox" class="sidebar-toggle" name="__page-toc" id="__page-toc" aria-label="Toggle in-page Table of Contents">
+<label class="overlay overlay-pagetoc" for="__page-toc">
+    <div class="visually-hidden">Toggle in-page Table of Contents</div>
+</label>
+<!-- Headers at the top -->
+<div class="announcement header-item noprint"></div>
+<div class="header header-item noprint"></div>
+
+    
+    <div class="container-fluid" id="banner"></div>
+
+    
+
+    <div class="container-xl">
+      <div class="row">
+          
+<!-- Sidebar -->
+<div class="bd-sidebar noprint" id="site-navigation">
+    <div class="bd-sidebar__content">
+        <div class="bd-sidebar__top"><div class="navbar-brand-box">
+    <a class="navbar-brand text-wrap" href="../../index.html">
+      
+      
+      
+    </a>
+</div><form class="bd-search d-flex align-items-center" action="../../search.html" method="get">
+  <i class="icon fas fa-search"></i>
+  <input type="search" class="form-control" name="q" id="search-input" placeholder="Search the docs ..." aria-label="Search the docs ..." autocomplete="off" >
+</form><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item active">
+        <p aria-level="2" class="caption" role="heading">
+ <span class="caption-text">
+  Getting Started
+ </span>
+</p>
+<ul class="nav bd-sidenav">
+ <li class="toctree-l1">
+  <a class="reference internal" href="../../setup/index.html">
+   Installation
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="../../gallery/quick-start.html">
+   Quick Start
+  </a>
+ </li>
+</ul>
+<p aria-level="2" class="caption" role="heading">
+ <span class="caption-text">
+  Reference
+ </span>
+</p>
+<ul class="nav bd-sidenav">
+ <li class="toctree-l1 has-children">
+  <a class="reference internal" href="../../python_api/index.html">
+   Python API
+  </a>
+  <input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/>
+  <label for="toctree-checkbox-1">
+   <i class="fas fa-chevron-down">
+   </i>
+  </label>
+  <ul>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../../python_api/root.html">
+     slapo
+    </a>
+   </li>
+  </ul>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="../../genindex.html">
+   Index
+  </a>
+ </li>
+</ul>
+
+    </div>
+</nav></div>
+        <div class="bd-sidebar__bottom">
+             <!-- To handle the deprecated key -->
+            
+        </div>
+    </div>
+    <div id="rtd-footer-container"></div>
+</div>
+
+
+          
+
+
+          
+<!-- A tiny helper pixel to detect if we've scrolled -->
+<div class="sbt-scroll-pixel-helper"></div>
+<!-- Main content -->
+<div class="col py-0 content-container">
+    
+    <div class="header-article row sticky-top noprint">
+        
+
+
+
+<div class="col py-1 d-flex header-article-main">
+    <div class="header-article__left">
+        
+        <label for="__navigation"
+  class="headerbtn"
+  data-toggle="tooltip"
+data-placement="right"
+title="Toggle navigation"
+>
+  
+
+<span class="headerbtn__icon-container">
+  <i class="fas fa-bars"></i>
+  </span>
+
+</label>
+
+        
+    </div>
+    <div class="header-article__right">
+<button onclick="toggleFullScreen()"
+  class="headerbtn"
+  data-toggle="tooltip"
+data-placement="bottom"
+title="Fullscreen mode"
+>
+  
+
+<span class="headerbtn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+<a href="https://github.com/awslabs/slapo"
+   class="headerbtn"
+   data-toggle="tooltip"
+data-placement="bottom"
+title="Source repository"
+>
+  
+
+<span class="headerbtn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+
+</a>
+
+    </div>
+</div>
+
+<!-- Table of contents -->
+<div class="col-md-3 bd-toc show noprint">
+</div>
+    </div>
+    <div class="article row">
+        <div class="col pl-md-3 pl-lg-5 content-container">
+            <!-- Table of contents that is only displayed when printing the page -->
+            <div id="jb-print-docs-body" class="onlyprint">
+                <h1></h1>
+                <!-- Table of contents -->
+                <div id="print-main-content">
+                    <div id="jb-print-toc">
+                        
+                    </div>
+                </div>
+            </div>
+            <main id="main-content" role="main">
+                
+              <div>
+                
+  <h1>Source code for slapo.schedule</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.</span>
+<span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span> <span class="nn">inspect</span>
+<span class="kn">import</span> <span class="nn">operator</span>
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">gc</span>
+<span class="kn">from</span> <span class="nn">abc</span> <span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">OrderedDict</span>
+<span class="kn">from</span> <span class="nn">collections.abc</span> <span class="kn">import</span> <span class="n">Callable</span>
+<span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
+<span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">partial</span>
+<span class="kn">from</span> <span class="nn">types</span> <span class="kn">import</span> <span class="n">FunctionType</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">import</span> <span class="nn">torch.distributed</span> <span class="k">as</span> <span class="nn">dist</span>
+<span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">fx</span><span class="p">,</span> <span class="n">nn</span>
+<span class="kn">from</span> <span class="nn">torch.utils</span> <span class="kn">import</span> <span class="n">checkpoint</span>
+
+<span class="kn">from</span> <span class="nn">.logger</span> <span class="kn">import</span> <span class="n">get_logger</span>
+<span class="kn">from</span> <span class="nn">.model_dialect</span> <span class="kn">import</span> <span class="n">get_dialect_cls</span>
+<span class="kn">from</span> <span class="nn">.pipeline</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">analyze_tie_weights</span><span class="p">,</span>
+    <span class="n">build_pipeline_model</span><span class="p">,</span>
+    <span class="n">generate_pipeline_partition</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">.sharding</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">all_gather_forward_output</span><span class="p">,</span>
+    <span class="n">get_output_type_after_sharding</span><span class="p">,</span>
+    <span class="n">reduce_scatter_forward_output</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">.tracer</span> <span class="kn">import</span> <span class="n">trace</span> <span class="k">as</span> <span class="n">trace_module</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">()</span>
+
+
+<span class="k">def</span> <span class="nf">_get_unique_module_name</span><span class="p">(</span><span class="n">gm_or_modules</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">gm_or_modules</span><span class="p">,</span> <span class="n">fx</span><span class="o">.</span><span class="n">GraphModule</span><span class="p">):</span>
+        <span class="n">named_module</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">gm_or_modules</span><span class="o">.</span><span class="n">named_modules</span><span class="p">())</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">named_module</span> <span class="o">=</span> <span class="n">gm_or_modules</span>
+    <span class="n">num</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">new_name</span> <span class="o">=</span> <span class="n">name</span> <span class="o">+</span> <span class="s2">&quot;_0&quot;</span>
+    <span class="k">while</span> <span class="n">new_name</span> <span class="ow">in</span> <span class="n">named_module</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="n">new_name</span> <span class="o">=</span> <span class="n">name</span> <span class="o">+</span> <span class="s2">&quot;_&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">num</span><span class="p">)</span>
+        <span class="n">num</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="k">return</span> <span class="n">new_name</span>
+
+
+<div class="viewcode-block" id="Pattern"><a class="viewcode-back" href="../../python_api/root.html#slapo.Pattern">[docs]</a><span class="k">class</span> <span class="nc">Pattern</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">pass</span>
+
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">starting_point</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parent_name</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+
+<div class="viewcode-block" id="DictWithValidation"><a class="viewcode-back" href="../../python_api/root.html#slapo.DictWithValidation">[docs]</a><span class="k">class</span> <span class="nc">DictWithValidation</span><span class="p">(</span><span class="nb">dict</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__setitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span> <span class="ow">and</span> <span class="bp">self</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">!=</span> <span class="n">value</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{key}</span><span class="s2">:</span><span class="si">{value}</span><span class="s2"> conflicts exists value </span><span class="si">{self[key]}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__setitem__</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ScheduleMetadata"><a class="viewcode-back" href="../../python_api/root.html#slapo.ScheduleMetadata">[docs]</a><span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">ScheduleMetadata</span><span class="p">:</span>
+    <span class="c1"># pylint: disable=unnecessary-lambda</span>
+    <span class="c1"># FIXME: 1) A mechanism to let each primitive register their metadata.</span>
+    <span class="c1"># 2) Let each primitive derive metadata class.</span>
+    <span class="n">shard</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="n">DictWithValidation</span><span class="p">())</span>
+
+    <span class="c1"># Tie weight analysis only at the top level module.</span>
+    <span class="c1"># tie_weights is a mapping from parameter object to the same</span>
+    <span class="c1"># parameter object. Note that the value may be changed during</span>
+    <span class="c1"># scheduling (e.g., sharding).</span>
+    <span class="n">tie_weights</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">,</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span>
+        <span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="n">OrderedDict</span><span class="p">()</span>
+    <span class="p">)</span>
+
+    <span class="c1"># A set of paths to the modules that includes pipeline cutting annotations.</span>
+    <span class="c1"># Note that we use ordered set to keep the order of the modules.</span>
+    <span class="n">pipeline_cutting_paths</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span>
+        <span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="n">OrderedDict</span><span class="p">()</span>
+    <span class="p">)</span>
+
+    <span class="c1"># A mapping from parameter name to original shape</span>
+    <span class="c1"># Used for delay initialization</span>
+    <span class="n">base_params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="n">DictWithValidation</span><span class="p">())</span></div>
+
+
+<div class="viewcode-block" id="register_primitive"><a class="viewcode-back" href="../../python_api/root.html#slapo.register_primitive">[docs]</a><span class="k">def</span> <span class="nf">register_primitive</span><span class="p">(</span><span class="n">need_dist</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">finalize</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Wrap a schedule primitive to annotate attributes:</span>
+<span class="sd">        finalize: Whether the primitive will finalize the schedule.</span>
+<span class="sd">        doc: TODO</span>
+
+<span class="sd">    TODO:</span>
+<span class="sd">    1. Record invoked primitives to be a tape for later replay.</span>
+<span class="sd">    2. Print primitive status.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">dectorator</span><span class="p">(</span><span class="n">func</span><span class="p">):</span>
+        <span class="k">def</span> <span class="nf">wrapper</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">need_dist</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">dist</span><span class="o">.</span><span class="n">is_initialized</span><span class="p">():</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Schedule </span><span class="si">{func.__name__}</span><span class="s2"> requires distribution, &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;but torch.distributed is not initialized&quot;</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">finalized</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Schedule for </span><span class="si">{self.path}</span><span class="s2"> is already finalized &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;and cannot apply </span><span class="si">{func.__name__}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+            <span class="n">ret</span> <span class="o">=</span> <span class="n">func</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">finalized</span> <span class="o">=</span> <span class="n">finalize</span>
+            <span class="k">return</span> <span class="n">ret</span>
+
+        <span class="k">return</span> <span class="n">wrapper</span>
+
+    <span class="k">return</span> <span class="n">dectorator</span></div>
+
+
+<span class="k">class</span> <span class="nc">Schedule</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">mod</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+        <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+        <span class="n">parent</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="s2">&quot;Schedule&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">group</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">dist</span><span class="o">.</span><span class="n">ProcessGroup</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="k">if</span> <span class="n">dist</span><span class="o">.</span><span class="n">is_initialized</span><span class="p">():</span>
+            <span class="n">world_size</span> <span class="o">=</span> <span class="n">dist</span><span class="o">.</span><span class="n">get_world_size</span><span class="p">(</span><span class="n">group</span><span class="p">)</span>
+            <span class="n">rank</span> <span class="o">=</span> <span class="n">dist</span><span class="o">.</span><span class="n">get_rank</span><span class="p">(</span><span class="n">group</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">world_size</span> <span class="o">=</span> <span class="mi">1</span>
+            <span class="n">rank</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">group</span> <span class="o">=</span> <span class="n">group</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">world_size</span> <span class="o">=</span> <span class="n">world_size</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rank</span> <span class="o">=</span> <span class="n">rank</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">mod</span> <span class="o">=</span> <span class="n">mod</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">path</span> <span class="o">=</span> <span class="n">path</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">parent</span> <span class="o">=</span> <span class="n">parent</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">child</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span> <span class="o">=</span> <span class="n">ScheduleMetadata</span><span class="p">()</span>
+
+        <span class="c1"># Record original shapes.</span>
+        <span class="k">for</span> <span class="n">param_name</span><span class="p">,</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">mod</span><span class="o">.</span><span class="n">named_parameters</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">base_params</span><span class="p">[</span><span class="n">param_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">param</span><span class="o">.</span><span class="n">shape</span>
+
+        <span class="k">if</span> <span class="n">parent</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># Tie weight analysis only at the top level module.</span>
+            <span class="c1"># tie_weights is a mapping from parameter object to the same</span>
+            <span class="c1"># parameter object. Note that the value may be changed during</span>
+            <span class="c1"># scheduling (e.g., sharding).</span>
+            <span class="k">for</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">analyze_tie_weights</span><span class="p">(</span><span class="n">mod</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">tie_weights</span><span class="p">[</span><span class="n">param</span><span class="p">]</span> <span class="o">=</span> <span class="n">param</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Inherit tie_weights from parent.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">tie_weights</span> <span class="o">=</span> <span class="n">parent</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">tie_weights</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">finalized</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">tokenize_module_path</span><span class="p">(</span><span class="n">module_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="n">tokens</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">token</span> <span class="ow">in</span> <span class="n">module_path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">list_idx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">token</span><span class="p">)</span>
+                <span class="k">assert</span> <span class="n">tokens</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Invalid module path: </span><span class="si">{module_path}</span><span class="s2">&quot;</span>
+                <span class="n">tokens</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{tokens[-1]}</span><span class="s2">.</span><span class="si">{list_idx}</span><span class="s2">&quot;</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                <span class="n">tokens</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">token</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">tokens</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">update_submodule</span><span class="p">(</span><span class="n">mod</span><span class="p">,</span> <span class="n">submod_name</span><span class="p">,</span> <span class="n">new_submod</span><span class="p">):</span>
+        <span class="k">if</span> <span class="s2">&quot;.&quot;</span> <span class="ow">in</span> <span class="n">submod_name</span><span class="p">:</span>
+            <span class="c1"># The submodule is a module list.</span>
+            <span class="n">submod_name</span><span class="p">,</span> <span class="n">list_idx</span> <span class="o">=</span> <span class="n">submod_name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)</span>
+            <span class="nb">getattr</span><span class="p">(</span><span class="n">mod</span><span class="p">,</span> <span class="n">submod_name</span><span class="p">)[</span><span class="nb">int</span><span class="p">(</span><span class="n">list_idx</span><span class="p">)]</span> <span class="o">=</span> <span class="n">new_submod</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">setattr</span><span class="p">(</span><span class="n">mod</span><span class="p">,</span> <span class="n">submod_name</span><span class="p">,</span> <span class="n">new_submod</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">full_path</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">full_path</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span>
+
+        <span class="n">curr_sch</span> <span class="o">=</span> <span class="bp">self</span>
+        <span class="k">for</span> <span class="n">token</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">tokenize_module_path</span><span class="p">(</span><span class="n">full_path</span><span class="p">):</span>
+            <span class="n">sub_tokens</span> <span class="o">=</span> <span class="n">token</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">sub_tokens</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="n">sub_tokens</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">in</span> <span class="n">curr_sch</span><span class="o">.</span><span class="n">child</span><span class="p">:</span>
+                <span class="c1"># If this token is in the format of &quot;layer.0&quot; and &quot;layer&quot; is a child of curr_sch,</span>
+                <span class="c1"># then &quot;layer&quot; is nn.Sequential. In this case, we have to first get the nn.Sequential module first.</span>
+                <span class="n">curr_sch</span> <span class="o">=</span> <span class="n">curr_sch</span><span class="o">.</span><span class="n">child</span><span class="p">[</span><span class="n">sub_tokens</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
+                <span class="n">token</span> <span class="o">=</span> <span class="n">sub_tokens</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">token</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">curr_sch</span><span class="o">.</span><span class="n">child</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;The schedule of &#39;</span><span class="si">{full_path}</span><span class="s2">&#39; (</span><span class="si">{token}</span><span class="s2">) is not a child of </span><span class="si">{curr_sch.name}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+            <span class="n">curr_sch</span> <span class="o">=</span> <span class="n">curr_sch</span><span class="o">.</span><span class="n">child</span><span class="p">[</span><span class="n">token</span><span class="p">]</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">curr_sch</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Module &#39;</span><span class="si">{full_path}</span><span class="s2">&#39; is not found&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">curr_sch</span>
+
+    <span class="k">def</span> <span class="fm">__contains__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">full_path</span><span class="p">):</span>
+        <span class="n">curr_sch</span> <span class="o">=</span> <span class="bp">self</span>
+        <span class="k">for</span> <span class="n">token</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">tokenize_module_path</span><span class="p">(</span><span class="n">full_path</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">token</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">curr_sch</span><span class="o">.</span><span class="n">child</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">False</span>
+            <span class="n">curr_sch</span> <span class="o">=</span> <span class="n">curr_sch</span><span class="o">.</span><span class="n">child</span><span class="p">[</span><span class="n">token</span><span class="p">]</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">curr_sch</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="kc">True</span>
+
+    <span class="nd">@register_primitive</span><span class="p">(</span><span class="n">need_dist</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">shard</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tensor_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">axis</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="k">def</span> <span class="nf">_shard</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">tensor</span><span class="p">):</span>
+            <span class="k">assert</span> <span class="n">axis</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">tensor</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+            <span class="c1"># TODO: Support arbitrary size sharding</span>
+            <span class="k">if</span> <span class="n">tensor</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="n">axis</span><span class="p">]</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">world_size</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Parameter/Buffer </span><span class="si">{name}</span><span class="s2"> in </span><span class="si">{self.path}</span><span class="s2"> cannot be sharded &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;along axis </span><span class="si">{axis}</span><span class="s2"> with size </span><span class="si">{tensor.shape[axis]}</span><span class="s2"> &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;by </span><span class="si">{self.world_size}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+            <span class="n">sharded_size</span> <span class="o">=</span> <span class="n">tensor</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="n">axis</span><span class="p">]</span> <span class="o">//</span> <span class="bp">self</span><span class="o">.</span><span class="n">world_size</span>
+            <span class="k">return</span> <span class="p">(</span>
+                <span class="n">tensor</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">sharded_size</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="n">axis</span><span class="p">)[</span><span class="bp">self</span><span class="o">.</span><span class="n">rank</span><span class="p">]</span><span class="o">.</span><span class="n">contiguous</span><span class="p">(),</span>
+                <span class="n">sharded_size</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">param</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">get_parameter</span><span class="p">(</span><span class="n">tensor_name</span><span class="p">)</span>
+            <span class="n">new_tensor</span><span class="p">,</span> <span class="n">sharded_size</span> <span class="o">=</span> <span class="n">_shard</span><span class="p">(</span><span class="n">tensor_name</span><span class="p">,</span> <span class="n">param</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">param</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">tie_weights</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">id</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">tie_weights</span><span class="p">[</span><span class="n">param</span><span class="p">])</span> <span class="o">!=</span> <span class="nb">id</span><span class="p">(</span><span class="n">param</span><span class="p">):</span>
+                    <span class="c1"># This parameter is tied to another parameter, and the other</span>
+                    <span class="c1"># parameter is already sharded. In this case we directly</span>
+                    <span class="c1"># register the sharded parameter to the module to keep them tied.</span>
+                    <span class="k">if</span> <span class="n">new_tensor</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">tie_weights</span><span class="p">[</span><span class="n">param</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">:</span>
+                        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">&quot;Parameter </span><span class="si">{tensor_name}</span><span class="s2"> in </span><span class="si">{self.path}</span><span class="s2"> is tied, &quot;</span>
+                            <span class="s2">&quot;but they have different sharded shapes: &quot;</span>
+                            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{new_tensor.shape}</span><span class="s2"> vs &quot;</span>
+                            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{self.metadata.tie_weights[param].shape}</span><span class="s2">&quot;</span>
+                        <span class="p">)</span>
+                    <span class="n">new_param</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">tie_weights</span><span class="p">[</span><span class="n">param</span><span class="p">]</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="c1"># The first parameter in this tie group is sharded.</span>
+                    <span class="n">new_param</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">new_tensor</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">tie_weights</span><span class="p">[</span><span class="n">param</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_param</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">new_param</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">new_tensor</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">register_parameter</span><span class="p">(</span><span class="n">tensor_name</span><span class="p">,</span> <span class="n">new_param</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+            <span class="n">buffer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">get_buffer</span><span class="p">(</span><span class="n">tensor_name</span><span class="p">)</span>
+            <span class="n">new_buffer</span><span class="p">,</span> <span class="n">sharded_size</span> <span class="o">=</span> <span class="n">_shard</span><span class="p">(</span><span class="n">tensor_name</span><span class="p">,</span> <span class="n">buffer</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="n">tensor_name</span><span class="p">,</span> <span class="n">new_buffer</span><span class="p">)</span>
+
+        <span class="c1"># Add metadata for sync and check. FIXME: A validation mechanism to check this.</span>
+        <span class="c1"># 1. Whether the param is already sharded in different axis.</span>
+        <span class="c1"># 2. Whether the output syncing method is conflict.</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">shard</span><span class="p">[</span><span class="n">tensor_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">axis</span>
+        <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Parameter/Buffer </span><span class="si">{tensor_name}</span><span class="s2"> in </span><span class="si">{self.path}</span><span class="s2"> is already &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;sharded along axis </span><span class="si">{self.metadata.shard[tensor_name]}</span><span class="s2">&quot;</span>
+            <span class="p">)</span> <span class="kn">from</span> <span class="bp">None</span>
+
+        <span class="k">def</span> <span class="nf">set_output_type</span><span class="p">(</span><span class="n">output_type</span><span class="p">,</span> <span class="n">gather_axis</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">shard</span><span class="p">[</span><span class="s2">&quot;output_type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">output_type</span>
+            <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Output type of </span><span class="si">{self.path}</span><span class="s2"> is already &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{self.metadata.shard[&#39;output_type&#39;]}</span><span class="s2">, but &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{output_type}</span><span class="s2"> is requested&quot;</span>
+                <span class="p">)</span> <span class="kn">from</span> <span class="bp">None</span>
+
+            <span class="k">if</span> <span class="n">gather_axis</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">shard</span><span class="p">[</span><span class="s2">&quot;gather_axis&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">gather_axis</span>
+                <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Output of </span><span class="si">{self.path}</span><span class="s2"> has to be gathered along axis &quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{self.metadata.shard[&#39;gather_axis&#39;]}</span><span class="s2">, but &quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{gather_axis}</span><span class="s2"> is requested&quot;</span>
+                    <span class="p">)</span> <span class="kn">from</span> <span class="bp">None</span>
+
+        <span class="n">out_type</span><span class="p">,</span> <span class="n">out_part_axis</span> <span class="o">=</span> <span class="n">get_output_type_after_sharding</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="p">,</span> <span class="n">sharded_size</span><span class="p">,</span> <span class="n">axis</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">out_type</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">set_output_type</span><span class="p">(</span><span class="n">out_type</span><span class="p">,</span> <span class="n">gather_axis</span><span class="o">=</span><span class="n">out_part_axis</span><span class="p">)</span>
+
+    <span class="nd">@register_primitive</span><span class="p">(</span><span class="n">need_dist</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">sync</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mode</span><span class="p">,</span> <span class="n">sync_op_or_fn</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Synchronize the tensor across multiple devices.</span>
+<span class="sd">        Since the underlying implementation is registering a PyTorch hook</span>
+<span class="sd">        to the target module, the mode could be &quot;fwd_pre&quot;, &quot;fwd_post&quot;, &quot;bwd_post&quot;.</span>
+<span class="sd">        The following are some example use cases:</span>
+
+<span class="sd">        Case 1: (replica x, shard_out w) -&gt; partition output -&gt; allgather</span>
+<span class="sd">                -&gt; full output -&gt; (replica x, shard_out w).</span>
+<span class="sd">            In this case, since forward uses all-gather to get a full output,</span>
+<span class="sd">            backward must have a split to match the shape, and</span>
+<span class="sd">            allreduce is also required for x.grad, so we use:</span>
+<span class="sd">            ```python</span>
+<span class="sd">            sch[&quot;out_prj&quot;].shard(&quot;weight&quot;, axis=0)</span>
+<span class="sd">            sch[&quot;out_prj&quot;].sync(mode=&quot;fwd_post&quot;, sync_op_or_fn=&quot;all_gather&quot;, axis=1)</span>
+<span class="sd">            sch[&quot;out_prj&quot;].sync(mode=&quot;bwd_post&quot;, sync_op_or_fn=&quot;all_reduce&quot;)</span>
+<span class="sd">            ```</span>
+
+<span class="sd">        Case 2: (replica x, shard_out w) -&gt; partition output -&gt; (shard x, shard_in w).</span>
+<span class="sd">            In this case, backward still needs allrecuce, so we use:</span>
+<span class="sd">            ```python</span>
+<span class="sd">            sch[&quot;out_prj&quot;].shard(&quot;weight&quot;, axis=0)</span>
+<span class="sd">            sch[&quot;out_prj&quot;].sync(mode=&quot;bwd_post&quot;, sync_op_or_fn=&quot;all_reduce&quot;)</span>
+<span class="sd">            ```</span>
+
+<span class="sd">        Case 3: (shard x, shard_in w) -&gt; partial sum -&gt; allreduce</span>
+<span class="sd">                -&gt; (replica x, shard_out w).</span>
+<span class="sd">            In this case, backward does not need allreduce, so mode should be &#39;forward&#39;.</span>
+<span class="sd">            ```python</span>
+<span class="sd">            sch[&quot;out_prj&quot;].shard(&quot;weight&quot;, axis=1)</span>
+<span class="sd">            sch[&quot;out_prj&quot;].sync(mode=&quot;fwd_post&quot;, sync_op_or_fn=&quot;all_reduce&quot;)</span>
+<span class="sd">            ```</span>
+
+<span class="sd">        Case 4: (shard x, shard_in w) -&gt; partial sum -&gt; reduce-scatter</span>
+<span class="sd">                -&gt; ... -&gt; allgather -&gt; full output.</span>
+<span class="sd">            This case breaks the allreduce in case 3 to reduce-scatter and allgather,</span>
+<span class="sd">            which is called &quot;sequence parallelism&quot;. In this case, we also need</span>
+<span class="sd">            to specify the allgather point in kwargs, so we use:</span>
+<span class="sd">            ```python</span>
+<span class="sd">            sch[&quot;out_prj&quot;].shard(&quot;weight&quot;, axis=1)</span>
+<span class="sd">            sch[&quot;out_prj&quot;].sync(mode=&quot;fwd_post&quot;, sync_op_or_fn=&quot;reduce_scatter&quot;, axis=1)</span>
+<span class="sd">            sch[&quot;dropout&quot;].sync(mode=&quot;fwd_post&quot;, sync_op_or_fn=&quot;all_gather&quot;, axis=1)</span>
+<span class="sd">            ```</span>
+
+<span class="sd">        Case 5: Custom sync function.</span>
+<span class="sd">            We may need additional logic when syncing the output. In this case,</span>
+<span class="sd">            we could use a custom sync function. Here is an example of sharding</span>
+<span class="sd">            a word embedding:</span>
+<span class="sd">            ```python</span>
+<span class="sd">            sch[&quot;wte&quot;].shard(&quot;weight&quot;, axis=0)</span>
+
+<span class="sd">            def fwd_pre_hook(_module, _input):</span>
+<span class="sd">                ...</span>
+<span class="sd">            def fwd_post_hook(_module, _input, output):</span>
+<span class="sd">                ...</span>
+<span class="sd">            sch[&quot;wte&quot;].sync(mode=&quot;fw_pre&quot;, sync_op_or_fn=fwd_pre_hook)</span>
+<span class="sd">            sch[&quot;wte&quot;].sync(mode=&quot;fw_post&quot;, sync_op_or_fn=fwd_post_hook)</span>
+<span class="sd">            ```</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        mode: str</span>
+<span class="sd">            Where to sync the output. Could be &quot;fwd_pre&quot;, &quot;fwd_post&quot;, or &quot;bwd_post&quot;.</span>
+<span class="sd">        sync_op_or_fn: Union[str, Callable]</span>
+<span class="sd">            The sync_op_or_fn (e.g., all_gather, all_reduce, reduce_scatter) or</span>
+<span class="sd">            hook function.</span>
+<span class="sd">        kwargs: Dict[str, Any]</span>
+<span class="sd">            Additional arguments. For example, if sync_op_or_fn is specified,</span>
+<span class="sd">            axis is required for reduce_scatter and all_gather. Note that the axis</span>
+<span class="sd">            is the axis of the output tensor, not the input or weight tensor.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">def</span> <span class="nf">validate_sync_op</span><span class="p">(</span><span class="n">mode</span><span class="p">,</span> <span class="n">sync_op_or_fn</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+            <span class="sd">&quot;&quot;&quot;A helper function to validate the user given sync_op_or_fn.&quot;&quot;&quot;</span>
+            <span class="k">if</span> <span class="s2">&quot;output_type&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">shard</span><span class="p">:</span>
+                <span class="k">return</span>
+            <span class="n">output_type</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">shard</span><span class="p">[</span><span class="s2">&quot;output_type&quot;</span><span class="p">]</span>
+
+            <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;fwd_post&quot;</span> <span class="ow">and</span> <span class="n">sync_op_or_fn</span> <span class="o">==</span> <span class="s2">&quot;all_gather&quot;</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">output_type</span> <span class="o">==</span> <span class="s2">&quot;partition&quot;</span><span class="p">:</span>
+                    <span class="n">gather_axis</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">shard</span><span class="p">[</span><span class="s2">&quot;gather_axis&quot;</span><span class="p">]</span>
+                    <span class="k">if</span> <span class="n">gather_axis</span> <span class="o">!=</span> <span class="n">axis</span><span class="p">:</span>
+                        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">&quot;Output of </span><span class="si">{self.path}</span><span class="s2"> has to be gathered along axis &quot;</span>
+                            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{gather_axis}</span><span class="s2">, but </span><span class="si">{axis}</span><span class="s2"> is requested&quot;</span>
+                        <span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot all-gather a full output&quot;</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;fwd_post&quot;</span> <span class="ow">and</span> <span class="n">sync_op_or_fn</span> <span class="o">==</span> <span class="s2">&quot;reduce_scatter&quot;</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">output_type</span> <span class="o">==</span> <span class="s2">&quot;partition&quot;</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot reduce-scatter a partition output&quot;</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">sync_op_or_fn</span> <span class="o">==</span> <span class="s2">&quot;all_reduce&quot;</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;fwd_post&quot;</span> <span class="ow">and</span> <span class="n">output_type</span> <span class="o">==</span> <span class="s2">&quot;partition&quot;</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot all-reduce a partition output&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Generate the hook if sync_op_or_fn is a string.</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sync_op_or_fn</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;fwd_post&quot;</span><span class="p">:</span>
+                <span class="n">sync_fn</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="n">axis</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;axis&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">sync_op_or_fn</span> <span class="o">==</span> <span class="s2">&quot;all_gather&quot;</span><span class="p">:</span>
+                    <span class="n">validate_sync_op</span><span class="p">(</span><span class="n">mode</span><span class="p">,</span> <span class="n">sync_op_or_fn</span><span class="p">,</span> <span class="n">axis</span><span class="p">)</span>
+                    <span class="n">sync_fn</span> <span class="o">=</span> <span class="n">partial</span><span class="p">(</span>
+                        <span class="n">all_gather_forward_output</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="n">axis</span><span class="p">,</span> <span class="n">group</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">group</span>
+                    <span class="p">)</span>
+                <span class="k">elif</span> <span class="n">sync_op_or_fn</span> <span class="o">==</span> <span class="s2">&quot;reduce_scatter&quot;</span><span class="p">:</span>
+                    <span class="n">validate_sync_op</span><span class="p">(</span><span class="n">mode</span><span class="p">,</span> <span class="n">sync_op_or_fn</span><span class="p">)</span>
+                    <span class="n">sync_fn</span> <span class="o">=</span> <span class="n">partial</span><span class="p">(</span>
+                        <span class="n">reduce_scatter_forward_output</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="n">axis</span><span class="p">,</span> <span class="n">group</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">group</span>
+                    <span class="p">)</span>
+                <span class="k">elif</span> <span class="n">sync_op_or_fn</span> <span class="o">==</span> <span class="s2">&quot;all_reduce&quot;</span><span class="p">:</span>
+                    <span class="n">validate_sync_op</span><span class="p">(</span><span class="n">mode</span><span class="p">,</span> <span class="n">sync_op_or_fn</span><span class="p">)</span>
+                    <span class="n">sync_fn</span> <span class="o">=</span> <span class="n">partial</span><span class="p">(</span>
+                        <span class="n">dist</span><span class="o">.</span><span class="n">all_reduce</span><span class="p">,</span> <span class="n">op</span><span class="o">=</span><span class="n">dist</span><span class="o">.</span><span class="n">ReduceOp</span><span class="o">.</span><span class="n">SUM</span><span class="p">,</span> <span class="n">group</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">group</span>
+                    <span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Invalid sync_op_or_fn </span><span class="si">{sync_op_or_fn}</span><span class="s2"> for mode </span><span class="si">{mode}</span><span class="s2"> &quot;</span>
+                        <span class="s2">&quot;in </span><span class="si">{self.path}</span><span class="s2">.&quot;</span>
+                    <span class="p">)</span>
+
+                <span class="k">def</span> <span class="nf">hook_fn</span><span class="p">(</span><span class="n">_module</span><span class="p">,</span> <span class="n">_input</span><span class="p">,</span> <span class="n">output</span><span class="p">):</span>
+                    <span class="n">output</span> <span class="o">=</span> <span class="n">sync_fn</span><span class="p">(</span><span class="n">output</span><span class="p">)</span>
+                    <span class="k">return</span> <span class="n">output</span>
+
+            <span class="k">elif</span> <span class="n">sync_op_or_fn</span> <span class="o">==</span> <span class="s2">&quot;all_reduce&quot;</span><span class="p">:</span>
+                <span class="n">validate_sync_op</span><span class="p">(</span><span class="n">mode</span><span class="p">,</span> <span class="n">sync_op_or_fn</span><span class="p">)</span>
+
+                <span class="c1"># pylint: disable=unused-argument</span>
+                <span class="k">def</span> <span class="nf">hook_fn</span><span class="p">(</span><span class="n">_module</span><span class="p">,</span> <span class="n">_input</span><span class="p">,</span> <span class="n">output</span><span class="p">):</span>
+                    <span class="c1"># Allreduce dx.</span>
+                    <span class="n">dist</span><span class="o">.</span><span class="n">all_reduce</span><span class="p">(</span>
+                        <span class="n">_input</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">contiguous</span><span class="p">(),</span>
+                        <span class="n">op</span><span class="o">=</span><span class="n">dist</span><span class="o">.</span><span class="n">ReduceOp</span><span class="o">.</span><span class="n">SUM</span><span class="p">,</span>
+                        <span class="n">group</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">group</span><span class="p">,</span>
+                    <span class="p">)</span>
+
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Unsupported combination of mode </span><span class="si">{mode}</span><span class="s2"> and &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;sync_op_or_fn </span><span class="si">{sync_op_or_fn}</span><span class="s2">. Please specify &quot;</span>
+                    <span class="s2">&quot;sync_op_or_fn as a hook function.&quot;</span>
+                <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">hook_fn</span> <span class="o">=</span> <span class="n">sync_op_or_fn</span>
+
+        <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;fwd_pre&quot;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">register_forward_pre_hook</span><span class="p">(</span><span class="n">hook_fn</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;fwd_post&quot;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">register_forward_hook</span><span class="p">(</span><span class="n">hook_fn</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;bwd_post&quot;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">register_full_backward_hook</span><span class="p">(</span><span class="n">hook_fn</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported mode </span><span class="si">{mode}</span><span class="s2">.&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">get_module</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">named_modules</span><span class="p">())[</span><span class="n">name</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">find_node</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pattern</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;pattern: lambda node: ...&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">trace</span><span class="p">()</span>
+
+        <span class="n">res</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">mod</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">named_modules</span><span class="p">():</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">mod</span><span class="p">,</span> <span class="n">fx</span><span class="o">.</span><span class="n">GraphModule</span><span class="p">):</span>
+                <span class="k">continue</span>
+
+            <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">mod</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">nodes</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">pattern</span><span class="p">(</span><span class="n">node</span><span class="p">):</span>
+                    <span class="n">res</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">name</span><span class="p">,</span> <span class="n">node</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">res</span>
+
+    <span class="k">def</span> <span class="nf">find_subgraph</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mod_name_pat</span><span class="p">,</span> <span class="n">func_pattern</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="c1"># TODO: Support matching subgraphs with multiple inputs</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">mod_name_pat</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">func_pattern</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">func_pattern</span><span class="p">,</span> <span class="n">FunctionType</span><span class="p">)</span>
+
+        <span class="c1"># Example:</span>
+        <span class="c1"># Current graph         Target graph</span>
+        <span class="c1">#    A                      B</span>
+        <span class="c1">#    B                    C   D</span>
+        <span class="c1">#  C   D</span>
+        <span class="c1">#  E</span>
+        <span class="c1"># curr_node = B         target_node = B</span>
+        <span class="k">def</span> <span class="nf">find_match_subgraphs</span><span class="p">(</span><span class="n">curr</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">subgraphs</span><span class="p">):</span>
+            <span class="n">matched</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="k">for</span> <span class="n">cusr</span><span class="p">,</span> <span class="n">tusr</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">curr</span><span class="o">.</span><span class="n">users</span><span class="p">,</span> <span class="n">target</span><span class="o">.</span><span class="n">users</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">tusr</span><span class="o">.</span><span class="n">target</span> <span class="o">==</span> <span class="s2">&quot;output&quot;</span><span class="p">:</span>
+                    <span class="c1"># &quot;output&quot; always matches.</span>
+                    <span class="k">return</span> <span class="kc">True</span>
+                <span class="k">if</span> <span class="n">cusr</span><span class="o">.</span><span class="n">target</span> <span class="o">!=</span> <span class="n">tusr</span><span class="o">.</span><span class="n">target</span><span class="p">:</span>
+                    <span class="c1"># Not matched.</span>
+                    <span class="k">return</span> <span class="kc">False</span>
+                <span class="k">if</span> <span class="n">cusr</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">subgraph</span><span class="p">:</span>
+                    <span class="c1"># New matched.</span>
+                    <span class="n">subgraphs</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">parent_name</span><span class="p">,</span> <span class="n">cusr</span><span class="p">))</span>
+                <span class="c1"># DFS traverse. If any subgraph is not matched, the whole graph</span>
+                <span class="c1"># is not matched.</span>
+                <span class="n">matched</span> <span class="o">=</span> <span class="n">matched</span> <span class="ow">and</span> <span class="n">find_match_subgraphs</span><span class="p">(</span><span class="n">cusr</span><span class="p">,</span> <span class="n">tusr</span><span class="p">,</span> <span class="n">subgraphs</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">matched</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">trace</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">func_pattern</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># pylint: disable=exec-used</span>
+            <span class="c1"># FIXME: Find a safer way to do it</span>
+            <span class="n">sig</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">signature</span><span class="p">(</span><span class="n">func_pattern</span><span class="p">)</span>
+            <span class="n">param_str</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">sig</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+            <span class="n">exec</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">class SubgraphWrapper(nn.Module):</span>
+<span class="s2">    def __init__(self, pattern):</span>
+<span class="s2">        super(SubgraphWrapper, self).__init__()</span>
+<span class="s2">        self.pattern = pattern</span>
+
+<span class="s2">    def forward(self, </span><span class="si">{param_str}</span><span class="s2">):</span>
+<span class="s2">        return self.pattern(</span><span class="si">{param_str}</span><span class="s2">)</span>
+<span class="s2">&quot;&quot;&quot;</span><span class="p">,</span>
+                <span class="nb">globals</span><span class="p">(),</span>
+            <span class="p">)</span>
+
+            <span class="c1"># SubgraphWrapper.__signature__ = inspect.signature(func_pattern)</span>
+            <span class="c1"># pylint: disable=undefined-variable</span>
+            <span class="n">pattern_mod</span> <span class="o">=</span> <span class="n">fx</span><span class="o">.</span><span class="n">symbolic_trace</span><span class="p">(</span><span class="n">SubgraphWrapper</span><span class="p">(</span><span class="n">func_pattern</span><span class="p">))</span>
+
+        <span class="n">res</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">parent_name</span><span class="p">,</span> <span class="n">submod</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">named_modules</span><span class="p">():</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">submod</span><span class="p">,</span> <span class="n">fx</span><span class="o">.</span><span class="n">GraphModule</span><span class="p">):</span>
+                <span class="k">continue</span>
+
+            <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">submod</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">nodes</span><span class="p">:</span>
+                <span class="n">name</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{parent_name}</span><span class="s2">.</span><span class="si">{node.target}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="n">parent_name</span> <span class="o">!=</span> <span class="s2">&quot;&quot;</span> <span class="k">else</span> <span class="n">node</span><span class="o">.</span><span class="n">target</span>
+                <span class="p">)</span>
+                <span class="k">if</span> <span class="p">(</span>
+                    <span class="n">node</span><span class="o">.</span><span class="n">op</span> <span class="o">==</span> <span class="s2">&quot;placeholder&quot;</span>
+                    <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
+                    <span class="ow">or</span> <span class="ow">not</span> <span class="n">re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">mod_name_pat</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+                <span class="p">):</span>
+                    <span class="k">continue</span>
+
+                <span class="k">if</span> <span class="n">func_pattern</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="c1"># only find module</span>
+                    <span class="n">res</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">parent_name</span><span class="p">,</span> <span class="n">node</span><span class="p">))</span>
+                    <span class="k">continue</span>
+
+                <span class="n">subgraph</span> <span class="o">=</span> <span class="p">[(</span><span class="n">parent_name</span><span class="p">,</span> <span class="n">node</span><span class="p">)]</span>
+                <span class="k">for</span> <span class="n">target_node</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">pattern_mod</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">nodes</span><span class="p">):</span>
+                    <span class="c1"># get the first placeholder,</span>
+                    <span class="c1"># i.e., the input of the target graph</span>
+                    <span class="k">if</span> <span class="n">target_node</span><span class="o">.</span><span class="n">op</span> <span class="o">==</span> <span class="s2">&quot;placeholder&quot;</span><span class="p">:</span>
+                        <span class="n">curr_node</span> <span class="o">=</span> <span class="n">node</span>
+                        <span class="k">if</span> <span class="n">find_match_subgraphs</span><span class="p">(</span><span class="n">curr_node</span><span class="p">,</span> <span class="n">target_node</span><span class="p">,</span> <span class="n">subgraph</span><span class="p">):</span>
+                            <span class="n">res</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">subgraph</span><span class="p">)</span>
+                        <span class="k">break</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Cannot find the first placeholder&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">res</span>
+
+    <span class="k">def</span> <span class="nf">find</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node_pattern</span><span class="p">,</span> <span class="n">func_pattern</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node_pattern</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">find_subgraph</span><span class="p">(</span><span class="n">node_pattern</span><span class="p">,</span> <span class="n">func_pattern</span><span class="o">=</span><span class="n">func_pattern</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node_pattern</span><span class="p">,</span> <span class="n">FunctionType</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">find_node</span><span class="p">(</span><span class="n">node_pattern</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unrecognized pattern </span><span class="si">{node_pattern}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">replace_function</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">func</span><span class="p">,</span> <span class="n">target_op</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Do NOT directly call this function, use `.replace()` instead&quot;&quot;&quot;</span>
+        <span class="n">node</span> <span class="o">=</span> <span class="n">target_op</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">inserting_after</span><span class="p">(</span><span class="n">node</span><span class="p">):</span>
+            <span class="n">new_node</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">call_function</span><span class="p">(</span><span class="n">func</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">args</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="n">node</span><span class="o">.</span><span class="n">replace_all_uses_with</span><span class="p">(</span><span class="n">new_node</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">erase_node</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">replace_module</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_mod</span><span class="p">,</span> <span class="n">subgraphs</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Do NOT directly call this function, use `.replace()` instead&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">subgraphs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># If target_ops is None, replace the whole self module and the schedule.</span>
+            <span class="n">new_sch</span> <span class="o">=</span> <span class="n">create_schedule</span><span class="p">(</span>
+                <span class="n">new_mod</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">path</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">group</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mod</span> <span class="o">=</span> <span class="n">new_sch</span><span class="o">.</span><span class="n">mod</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">child</span> <span class="o">=</span> <span class="n">new_sch</span><span class="o">.</span><span class="n">child</span>
+            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">sch</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">child</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">sch</span><span class="o">.</span><span class="n">parent</span> <span class="o">=</span> <span class="bp">self</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">update_submodule</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">mod</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">new_mod</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Otherwise, replace target forward subgraphs with the new module.</span>
+            <span class="c1"># Note that this requires the current module in torch.fx so it</span>
+            <span class="c1"># has to be traced.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">trace</span><span class="p">()</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="n">_get_unique_module_name</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="p">,</span> <span class="n">new_mod</span><span class="o">.</span><span class="n">_get_name</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">subgraphs</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;Should have at least one operator to replace&quot;</span>
+            <span class="n">node_or_lst</span> <span class="o">=</span> <span class="n">subgraphs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node_or_lst</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+                <span class="c1"># horizontal fusion, e.g.,</span>
+                <span class="c1">#     x</span>
+                <span class="c1">#   / | \</span>
+                <span class="c1">#  s0 s1 s2</span>
+                <span class="c1">#  v0 v1 v2</span>
+                <span class="c1">#  [[s0, v0], [s1, v1], [s2, v2]]</span>
+                <span class="n">path</span><span class="p">,</span> <span class="n">node</span> <span class="o">=</span> <span class="n">node_or_lst</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">target_mod</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mod</span>
+                <span class="k">if</span> <span class="n">path</span><span class="p">:</span>
+                    <span class="k">assert</span> <span class="nb">hasattr</span><span class="p">(</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="p">,</span> <span class="n">path</span>
+                    <span class="p">),</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{path}</span><span class="s2"> is not an attribute of </span><span class="si">{self.mod}</span><span class="s2">&quot;</span>
+                    <span class="n">target_mod</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
+
+                <span class="n">target_mod</span><span class="o">.</span><span class="n">add_module</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">new_mod</span><span class="p">)</span>
+                <span class="k">with</span> <span class="n">target_mod</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">inserting_before</span><span class="p">(</span><span class="n">node</span><span class="p">):</span>
+                    <span class="n">new_node</span> <span class="o">=</span> <span class="n">target_mod</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">call_module</span><span class="p">(</span>
+                        <span class="n">name</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">args</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">kwargs</span>
+                    <span class="p">)</span>
+                <span class="k">with</span> <span class="n">target_mod</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">inserting_after</span><span class="p">(</span><span class="n">new_node</span><span class="p">):</span>
+                    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">sublst</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">subgraphs</span><span class="p">):</span>
+                        <span class="n">getitem</span> <span class="o">=</span> <span class="n">target_mod</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">call_function</span><span class="p">(</span>
+                            <span class="n">operator</span><span class="o">.</span><span class="n">getitem</span><span class="p">,</span> <span class="p">(</span><span class="n">new_node</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
+                        <span class="p">)</span>
+                        <span class="n">sublst</span> <span class="o">=</span> <span class="p">[</span><span class="n">sublst</span><span class="p">]</span> <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sublst</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="k">else</span> <span class="n">sublst</span>
+                        <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">node</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="n">sublst</span><span class="p">):</span>
+                            <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">users</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">sublst</span><span class="p">:</span>
+                                <span class="n">node</span><span class="o">.</span><span class="n">replace_all_uses_with</span><span class="p">(</span><span class="n">getitem</span><span class="p">)</span>
+                            <span class="n">target_mod</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">erase_node</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># vertical fusion, e.g.,</span>
+                <span class="c1"># s0-&gt;v0</span>
+                <span class="c1"># [s0, v0]</span>
+                <span class="n">path</span><span class="p">,</span> <span class="n">first_node</span> <span class="o">=</span> <span class="n">node_or_lst</span>
+                <span class="n">target_mod</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mod</span>
+                <span class="k">if</span> <span class="n">path</span><span class="p">:</span>
+                    <span class="k">assert</span> <span class="nb">hasattr</span><span class="p">(</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="p">,</span> <span class="n">path</span>
+                    <span class="p">),</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{path}</span><span class="s2"> is not an attribute of </span><span class="si">{self.mod}</span><span class="s2">&quot;</span>
+                    <span class="n">target_mod</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
+
+                <span class="n">target_mod</span><span class="o">.</span><span class="n">add_module</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">new_mod</span><span class="p">)</span>
+                <span class="k">with</span> <span class="n">target_mod</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">inserting_before</span><span class="p">(</span><span class="n">first_node</span><span class="p">):</span>
+                    <span class="n">new_node</span> <span class="o">=</span> <span class="n">target_mod</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">call_module</span><span class="p">(</span>
+                        <span class="n">name</span><span class="p">,</span> <span class="n">first_node</span><span class="o">.</span><span class="n">args</span><span class="p">,</span> <span class="n">first_node</span><span class="o">.</span><span class="n">kwargs</span>
+                    <span class="p">)</span>
+                <span class="n">_</span><span class="p">,</span> <span class="n">last_node</span> <span class="o">=</span> <span class="n">subgraphs</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+                <span class="n">last_node</span><span class="o">.</span><span class="n">replace_all_uses_with</span><span class="p">(</span><span class="n">new_node</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">node</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="n">subgraphs</span><span class="p">):</span>
+                    <span class="n">target_mod</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">erase_node</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+
+    <span class="nd">@register_primitive</span><span class="p">()</span>
+    <span class="k">def</span> <span class="nf">replace</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_mod_or_func</span><span class="p">,</span> <span class="n">target_ops</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Replace one of the following scenarios:</span>
+<span class="sd">        1. Replace an entire module (new_mod_or_func is the new module object, target_ops=None).</span>
+<span class="sd">        2. Replace a part of the forward function (target_ops) with a new module or function.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">new_mod_or_func</span><span class="p">,</span> <span class="n">FunctionType</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">target_ops</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">target_ops</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">&quot;Cannot replace multiple subgraphs in forward with one function&quot;</span>
+                <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">replace_function</span><span class="p">(</span><span class="n">new_mod_or_func</span><span class="p">,</span> <span class="n">target_ops</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">replace_module</span><span class="p">(</span><span class="n">new_mod_or_func</span><span class="p">,</span> <span class="n">target_ops</span><span class="p">)</span>
+
+        <span class="c1"># Clean up and update the schedule child list.</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="p">,</span> <span class="n">fx</span><span class="o">.</span><span class="n">GraphModule</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">eliminate_dead_code</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">delete_all_unused_submodules</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">lint</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">recompile</span><span class="p">()</span>
+
+            <span class="c1"># Remove OOD child.</span>
+            <span class="n">named_children</span> <span class="o">=</span> <span class="p">[</span><span class="n">name</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">named_children</span><span class="p">()]</span>
+            <span class="n">to_be_removed</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">child_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">child</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">child_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">named_children</span><span class="p">:</span>
+                    <span class="n">to_be_removed</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">child_name</span><span class="p">)</span>
+
+            <span class="k">for</span> <span class="n">child_name</span> <span class="ow">in</span> <span class="n">to_be_removed</span><span class="p">:</span>
+                <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">child</span><span class="p">[</span><span class="n">child_name</span><span class="p">]</span>
+
+            <span class="c1"># Add new child.</span>
+            <span class="k">for</span> <span class="n">child_name</span><span class="p">,</span> <span class="n">submod</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">named_children</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">child_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">child</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">child</span><span class="p">[</span><span class="n">child_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">create_schedule</span><span class="p">(</span>
+                        <span class="n">submod</span><span class="p">,</span>
+                        <span class="n">child_name</span><span class="p">,</span>
+                        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{self.path}</span><span class="s2">.</span><span class="si">{child_name}</span><span class="s2">&quot;</span><span class="p">,</span>
+                        <span class="bp">self</span><span class="p">,</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">group</span><span class="p">,</span>
+                    <span class="p">)</span>
+
+    <span class="nd">@register_primitive</span><span class="p">()</span>
+    <span class="k">def</span> <span class="nf">checkpoint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order_args_fn</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">class</span> <span class="nc">CheckPointWrapper</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+            <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mod</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">mod</span> <span class="o">=</span> <span class="n">mod</span>
+
+            <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+                <span class="n">ordered_args</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="k">if</span> <span class="n">order_args_fn</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">ordered_args</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+                        <span class="n">ordered_args</span> <span class="o">+=</span> <span class="p">[</span><span class="n">value</span><span class="p">]</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">ordered_args</span> <span class="o">=</span> <span class="n">order_args_fn</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+                <span class="c1"># Note: checkpoint cannot accept kwargs</span>
+                <span class="k">return</span> <span class="n">checkpoint</span><span class="o">.</span><span class="n">checkpoint</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="p">,</span> <span class="o">*</span><span class="n">ordered_args</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">CheckPointWrapper</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="p">))</span>
+
+    <span class="nd">@register_primitive</span><span class="p">()</span>
+    <span class="k">def</span> <span class="nf">cut_pipeline_stage</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">parent_sch</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span>
+
+        <span class="c1"># Sanity check.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">parent_sch</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot cut the top module&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">parent_sch</span><span class="o">.</span><span class="n">mod</span><span class="p">,</span> <span class="n">fx</span><span class="o">.</span><span class="n">GraphModule</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                <span class="s2">&quot;Parent module has not been traced. &quot;</span>
+                <span class="s2">&quot;Please use &#39;trace_for_pipeline&#39; to trace until &quot;</span>
+                <span class="s2">&quot;the level you want to cut pipeline stages.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Find the corresponding call node in the parent module</span>
+        <span class="c1"># and annotate it with pipeline partition.</span>
+        <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">parent_sch</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">nodes</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">op</span> <span class="o">==</span> <span class="s2">&quot;call_module&quot;</span> <span class="ow">and</span> <span class="n">node</span><span class="o">.</span><span class="n">target</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">:</span>
+                <span class="n">node</span><span class="o">.</span><span class="n">meta</span><span class="p">[</span><span class="s2">&quot;partition&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+
+        <span class="c1"># Propogate the pipeline cutting level to the root.</span>
+        <span class="n">root_sch</span> <span class="o">=</span> <span class="n">parent_sch</span>
+        <span class="k">while</span> <span class="n">root_sch</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">root_sch</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">pipeline_cutting_paths</span><span class="p">[</span><span class="n">parent_sch</span><span class="o">.</span><span class="n">path</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="n">root_sch</span> <span class="o">=</span> <span class="n">root_sch</span><span class="o">.</span><span class="n">parent</span>
+
+    <span class="k">def</span> <span class="nf">trace_for_pipeline</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">paths</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Trace from the top module until the sub-module specified in path,</span>
+<span class="sd">        so that we can cut pipeline stages at the level.&quot;&quot;&quot;</span>
+        <span class="c1"># Sanity check.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;trace_for_pipeline can only be called on the top module&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="p">,</span> <span class="n">fx</span><span class="o">.</span><span class="n">GraphModule</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Top module has been traced&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Add all child modules to the leaf modules.</span>
+        <span class="n">leaf_modules</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">paths</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">paths</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="k">else</span> <span class="p">[</span><span class="n">paths</span><span class="p">]:</span>
+            <span class="n">leaf_modules</span> <span class="o">+=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="p">[</span><span class="n">path</span><span class="p">]</span><span class="o">.</span><span class="n">child</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+
+        <span class="n">tracer</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;tracer&quot;</span><span class="p">,</span> <span class="s2">&quot;pytorch&quot;</span><span class="p">)</span>
+        <span class="n">concrete_args</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;concrete_args&quot;</span><span class="p">,</span> <span class="p">{})</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">trace</span><span class="p">(</span>
+            <span class="n">recursive</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">leaf_modules</span><span class="o">=</span><span class="n">leaf_modules</span><span class="p">,</span>
+            <span class="n">tracer</span><span class="o">=</span><span class="n">tracer</span><span class="p">,</span>
+            <span class="n">concrete_args</span><span class="o">=</span><span class="n">concrete_args</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">trace</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">recursive</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="p">,</span> <span class="n">fx</span><span class="o">.</span><span class="n">GraphModule</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">True</span>
+
+        <span class="n">failed_msg</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">gm</span> <span class="o">=</span> <span class="n">trace_module</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="p">,</span> <span class="n">recursive</span><span class="o">=</span><span class="n">recursive</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
+            <span class="n">failed_msg</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">failed_msg</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">gm</span><span class="p">,</span> <span class="n">fx</span><span class="o">.</span><span class="n">GraphModule</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">gm</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">True</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+            <span class="s2">&quot;Failed to trace </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">. Please explicitly &quot;</span>
+            <span class="s2">&quot;use sch[&#39;</span><span class="si">%s</span><span class="s2">&#39;].trace(...) to provide necessary information. &quot;</span>
+            <span class="s2">&quot;If you encounter this error with sch[&#39;</span><span class="si">%s</span><span class="s2">&#39;].trace(...), it is &quot;</span>
+            <span class="s2">&quot;either due to the incorrect tracer/concrete args, or the limtation &quot;</span>
+            <span class="s2">&quot;in torch.fx.&quot;</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">path</span><span class="p">,</span>
+            <span class="n">failed_msg</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">path</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">path</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="kc">False</span>
+
+
+<span class="k">def</span> <span class="nf">create_schedule</span><span class="p">(</span>
+    <span class="n">root</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+    <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+    <span class="n">parent</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Schedule</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">group</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">dist</span><span class="o">.</span><span class="n">ProcessGroup</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="k">def</span> <span class="nf">is_leaf</span><span class="p">(</span><span class="n">module</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="n">module</span><span class="o">.</span><span class="vm">__module__</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;torch.nn&quot;</span><span class="p">)</span>
+            <span class="ow">or</span> <span class="n">module</span><span class="o">.</span><span class="vm">__module__</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;torch.ao.nn&quot;</span><span class="p">)</span>
+        <span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">is_module_list</span><span class="p">(</span><span class="n">module</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;A module list will become nn.Module or fx.GraphModule after tracing,</span>
+<span class="sd">        but we still want to treat it as a module list in the schedule.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="nb">isinstance</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">fx</span><span class="o">.</span><span class="n">GraphModule</span><span class="p">)</span>
+            <span class="ow">and</span> <span class="n">parent</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">parent</span><span class="o">.</span><span class="n">mod</span><span class="p">,</span> <span class="n">fx</span><span class="o">.</span><span class="n">GraphModule</span><span class="p">)</span>
+        <span class="p">):</span>
+            <span class="c1"># If the module and its parent are both traced, we can check</span>
+            <span class="c1"># the caller in the parent. If there is a caller that directly</span>
+            <span class="c1"># calls this module, then this is not a module list.</span>
+            <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">parent</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">nodes</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">op</span> <span class="o">==</span> <span class="s2">&quot;call_module&quot;</span> <span class="ow">and</span> <span class="n">node</span><span class="o">.</span><span class="n">target</span> <span class="o">==</span> <span class="n">name</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="c1"># If all above cannot work, we could only chacke if its children are indexed by</span>
+        <span class="c1"># sequential integers, and treat it as a module list if so.</span>
+        <span class="n">child_names</span> <span class="o">=</span> <span class="p">[</span><span class="n">name</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">module</span><span class="o">.</span><span class="n">named_children</span><span class="p">()]</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">child_names</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">child_names</span> <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">n</span><span class="p">)</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">child_names</span><span class="p">]</span>
+            <span class="k">return</span> <span class="n">child_names</span> <span class="o">==</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">child_names</span><span class="p">)))</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+    <span class="n">root_sch</span> <span class="o">=</span> <span class="n">Schedule</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">parent</span><span class="p">,</span> <span class="n">group</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">is_leaf</span><span class="p">(</span><span class="n">root</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">root_sch</span>
+
+    <span class="n">child_schedules</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">child_name</span><span class="p">,</span> <span class="n">submod</span> <span class="ow">in</span> <span class="n">root</span><span class="o">.</span><span class="n">named_children</span><span class="p">():</span>
+        <span class="n">next_path</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{path}</span><span class="s2">.</span><span class="si">{child_name}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="n">path</span> <span class="k">else</span> <span class="n">child_name</span>
+        <span class="k">if</span> <span class="n">is_module_list</span><span class="p">(</span><span class="n">submod</span><span class="p">):</span>
+            <span class="c1"># We assume ModuleList will be iteratively traversed in forward function.</span>
+            <span class="c1"># For example:</span>
+            <span class="c1"># In __init__: self.layers = nn.ModuleList([nn.Linear(10, 10) for _ in range(3)])</span>
+            <span class="c1"># In forwrad :</span>
+            <span class="c1">#     for layer in self.layers:</span>
+            <span class="c1">#         x = layer(x)</span>
+            <span class="c1"># In this case, we register submodule as layer.0, layer.1, etc.</span>
+            <span class="k">for</span> <span class="n">name_idx</span><span class="p">,</span> <span class="n">layer</span> <span class="ow">in</span> <span class="n">submod</span><span class="o">.</span><span class="n">named_children</span><span class="p">():</span>
+                <span class="n">child_schedules</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{child_name}</span><span class="s2">.</span><span class="si">{name_idx}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">create_schedule</span><span class="p">(</span>
+                    <span class="n">layer</span><span class="p">,</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{child_name}</span><span class="s2">.</span><span class="si">{name_idx}</span><span class="s2">&quot;</span><span class="p">,</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{next_path}</span><span class="s2">.</span><span class="si">{name_idx}</span><span class="s2">&quot;</span><span class="p">,</span>
+                    <span class="n">root_sch</span><span class="p">,</span>
+                    <span class="n">group</span><span class="p">,</span>
+                    <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+                <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># For other submodules including nn.Sequential, we assume they are directly</span>
+            <span class="c1"># called in forward function. For example:</span>
+            <span class="c1"># In __init__: self.block = nn.Sequential(...)</span>
+            <span class="c1"># In forward : out = self.block(x)</span>
+            <span class="c1"># In this case, fx IR will create directly call the submodule such as block.</span>
+            <span class="n">child_schedules</span><span class="p">[</span><span class="n">child_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">create_schedule</span><span class="p">(</span>
+                <span class="n">submod</span><span class="p">,</span> <span class="n">child_name</span><span class="p">,</span> <span class="n">next_path</span><span class="p">,</span> <span class="n">root_sch</span><span class="p">,</span> <span class="n">group</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+            <span class="p">)</span>
+
+    <span class="n">root_sch</span><span class="o">.</span><span class="n">child</span> <span class="o">=</span> <span class="n">child_schedules</span>
+    <span class="k">return</span> <span class="n">root_sch</span>
+
+
+<div class="viewcode-block" id="consolidate_model"><a class="viewcode-back" href="../../python_api/root.html#slapo.consolidate_model">[docs]</a><span class="k">def</span> <span class="nf">consolidate_model</span><span class="p">(</span>
+    <span class="n">sch</span><span class="p">:</span> <span class="n">Schedule</span><span class="p">,</span>
+    <span class="n">target</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">param_init_fn</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">],</span> <span class="kc">None</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Consolidate the model weights.</span>
+<span class="sd">    FIXME: When pipeline is enabled, this function only supports DeepSpeed</span>
+<span class="sd">    runtime because it relies on DeepSpeed topology. We should use dialects</span>
+<span class="sd">    in this function to make it general applicable.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">topology</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;topology&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">dist</span><span class="o">.</span><span class="n">is_initialized</span><span class="p">()</span> <span class="ow">and</span> <span class="n">dist</span><span class="o">.</span><span class="n">get_world_size</span><span class="p">()</span> <span class="o">&gt;</span> <span class="n">sch</span><span class="o">.</span><span class="n">world_size</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">topology</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;topology must be given when there are multiple &quot;</span>
+                <span class="s2">&quot;tensor paralel groups or pipeline parallelism is used&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">target</span> <span class="o">!=</span> <span class="s2">&quot;deepspeed&quot;</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Only deepspeed runtime is supported for now when there are multiple &quot;</span>
+                <span class="s2">&quot;tensor paralel groups or pipeline parallelism is used&quot;</span>
+            <span class="p">)</span>
+
+    <span class="n">cnt_meta</span><span class="p">,</span> <span class="n">cnt_materialized</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span>
+    <span class="c1"># Since some parameters are attached to non-leaf modules, we need to</span>
+    <span class="c1"># fix them layer-by-layer. See the following example:</span>
+    <span class="c1"># https://github.com/huggingface/transformers/blob/v4.25.1/src/transformers/models/bert/modeling_bert.py#L693</span>
+    <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">named_parameters</span><span class="p">(</span><span class="n">recurse</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">param</span><span class="o">.</span><span class="n">device</span> <span class="o">==</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s2">&quot;meta&quot;</span><span class="p">):</span>
+            <span class="n">cnt_meta</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">cnt_materialized</span> <span class="o">+=</span> <span class="mi">1</span>
+
+    <span class="n">stage_groups</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="c1"># local rank means the rank in a node</span>
+    <span class="n">local_rank</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">current_device</span><span class="p">()</span>
+    <span class="n">global_rank</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">global_ranks</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">cnt_meta</span> <span class="o">!=</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">cnt_materialized</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">dist</span><span class="o">.</span><span class="n">is_initialized</span><span class="p">():</span>
+            <span class="c1"># Tackle with pipeline modules.</span>
+            <span class="c1"># Even the model does not use meta device, we still need to broadcast</span>
+            <span class="c1"># the weights to ensure consistency</span>
+            <span class="n">global_rank</span> <span class="o">=</span> <span class="n">dist</span><span class="o">.</span><span class="n">get_rank</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">topology</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="c1"># 1st DP: devices in the same bracket are in the same TP group</span>
+                <span class="c1">#         vertical lines separate different PP stages</span>
+                <span class="c1"># [0, 1] |</span>
+                <span class="c1">#        | [4, 5]</span>
+                <span class="c1"># 2nd DP</span>
+                <span class="c1"># [2, 3] |</span>
+                <span class="c1">#        | [6, 7]</span>
+                <span class="c1"># &gt;&gt;&gt; topo = PipeModelDataParallelTopology(2, 2, 2)</span>
+                <span class="c1"># &gt;&gt;&gt; topo.get_axis_comm_lists(&quot;model&quot;)</span>
+                <span class="c1"># [[0, 1], [2, 3], [4, 5], [6, 7]]</span>
+                <span class="c1"># &gt;&gt;&gt; topo.get_axis_comm_lists(&quot;pipe&quot;)</span>
+                <span class="c1"># [[0, 4], [1, 5], [2, 6], [3, 7]]</span>
+                <span class="c1"># &gt;&gt;&gt; topo.get_axis_comm_lists(&quot;data&quot;)</span>
+                <span class="c1"># [[0, 2], [1, 3], [4, 6], [5, 7]]</span>
+                <span class="c1"># &gt;&gt;&gt; topo.filter_match(pipe=0)</span>
+                <span class="c1"># [0, 1, 2, 3]</span>
+                <span class="c1"># create dist group for broadcasting</span>
+                <span class="n">num_pp</span> <span class="o">=</span> <span class="n">topology</span><span class="o">.</span><span class="n">get_dim</span><span class="p">(</span><span class="s2">&quot;pipe&quot;</span><span class="p">)</span>
+                <span class="c1"># each group contains the devices on the same stage</span>
+                <span class="n">stage_groups</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_pp</span><span class="p">):</span>
+                    <span class="n">stage_groups</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                        <span class="n">dist</span><span class="o">.</span><span class="n">new_group</span><span class="p">(</span><span class="n">ranks</span><span class="o">=</span><span class="n">topology</span><span class="o">.</span><span class="n">filter_match</span><span class="p">(</span><span class="n">pipe</span><span class="o">=</span><span class="n">i</span><span class="p">))</span>
+                    <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">stage_groups</span> <span class="o">=</span> <span class="p">[</span><span class="n">dist</span><span class="o">.</span><span class="n">new_group</span><span class="p">()]</span>
+
+            <span class="n">global_ranks</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">dist</span><span class="o">.</span><span class="n">get_world_size</span><span class="p">()))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">sch</span>
+
+    <span class="k">def</span> <span class="nf">_init_module</span><span class="p">(</span><span class="n">sch</span><span class="p">:</span> <span class="n">Schedule</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">param_init_fn</span><span class="p">:</span>
+            <span class="n">param_init_fn</span><span class="p">(</span><span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="p">,</span> <span class="s2">&quot;_init_weights&quot;</span><span class="p">):</span>
+            <span class="c1"># `_init_weights` is a HF specific API, see</span>
+            <span class="c1"># https://github.com/huggingface/transformers/blob/v4.25.1/src/transformers/models/bert/modeling_bert.py#L748</span>
+            <span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">_init_weights</span><span class="p">(</span><span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="p">,</span> <span class="s2">&quot;reset_parameters&quot;</span><span class="p">):</span>
+            <span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">reset_parameters</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Module </span><span class="si">{sch.name}</span><span class="s2"> should have `reset_parameters` or &quot;</span>
+                <span class="s2">&quot;`_init_weights` method or param_init_fn=</span><span class="si">{param_init_fn}</span><span class="s2"> needs &quot;</span>
+                <span class="s2">&quot;to be provided in order to support delay initialization&quot;</span>
+            <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_consolidate_and_broadcast</span><span class="p">(</span><span class="n">sch</span><span class="p">:</span> <span class="n">Schedule</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">):</span>
+            <span class="c1"># Scripted module requires the parameters to be initialized in advance,</span>
+            <span class="c1"># so no need to consolidate</span>
+            <span class="k">return</span>
+
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">sch</span><span class="p">,</span> <span class="s2">&quot;partition_idx&quot;</span><span class="p">):</span>
+            <span class="n">curr_part_idx</span> <span class="o">=</span> <span class="n">sch</span><span class="o">.</span><span class="n">partition_idx</span>
+            <span class="c1"># topology stores the global ranks</span>
+            <span class="n">curr_stage_devices</span> <span class="o">=</span> <span class="n">topology</span><span class="o">.</span><span class="n">filter_match</span><span class="p">(</span><span class="n">pipe</span><span class="o">=</span><span class="n">curr_part_idx</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">curr_part_idx</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="n">curr_stage_devices</span> <span class="o">=</span> <span class="n">global_ranks</span>
+
+        <span class="k">if</span> <span class="n">global_rank</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">curr_stage_devices</span><span class="p">:</span>
+            <span class="c1"># do nothing if the target module is NOT on this device group</span>
+            <span class="k">return</span>
+
+        <span class="c1"># copy out new params after sharding</span>
+        <span class="n">num_params</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">new_param_shapes</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">param_name</span><span class="p">,</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">named_parameters</span><span class="p">(</span><span class="n">recurse</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+            <span class="n">num_params</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="n">new_param_shapes</span><span class="p">[</span><span class="n">param_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">param</span><span class="o">.</span><span class="n">shape</span>
+            <span class="k">assert</span> <span class="n">param_name</span> <span class="ow">in</span> <span class="n">sch</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">base_params</span>
+            <span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">register_parameter</span><span class="p">(</span>
+                <span class="n">param_name</span><span class="p">,</span>
+                <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span>
+                    <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span>
+                        <span class="n">sch</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">base_params</span><span class="p">[</span><span class="n">param_name</span><span class="p">],</span>
+                        <span class="n">dtype</span><span class="o">=</span><span class="n">param</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span>
+                        <span class="n">device</span><span class="o">=</span><span class="n">local_rank</span><span class="p">,</span>
+                    <span class="p">)</span>
+                <span class="p">),</span>
+            <span class="p">)</span>
+
+        <span class="c1"># use original shape to initialize parameters</span>
+        <span class="k">if</span> <span class="n">global_rank</span> <span class="o">==</span> <span class="n">curr_stage_devices</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">and</span> <span class="n">num_params</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># only the first device in the PP group needs to initialize the weights</span>
+            <span class="n">_init_module</span><span class="p">(</span><span class="n">sch</span><span class="p">)</span>
+
+        <span class="c1"># need to broadcast params from rank 0 to make sure all the TP+DP ranks take the same params</span>
+        <span class="k">if</span> <span class="n">dist</span><span class="o">.</span><span class="n">is_initialized</span><span class="p">():</span>
+            <span class="n">curr_stage_group</span> <span class="o">=</span> <span class="n">stage_groups</span><span class="p">[</span><span class="n">curr_part_idx</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">named_parameters</span><span class="p">(</span><span class="n">recurse</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+                <span class="n">dist</span><span class="o">.</span><span class="n">broadcast</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="n">src</span><span class="o">=</span><span class="n">curr_stage_devices</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">group</span><span class="o">=</span><span class="n">curr_stage_group</span><span class="p">)</span>
+
+        <span class="c1"># discard redundant values</span>
+        <span class="n">tp_rank</span> <span class="o">=</span> <span class="n">sch</span><span class="o">.</span><span class="n">rank</span>
+        <span class="k">for</span> <span class="n">param_name</span><span class="p">,</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">named_parameters</span><span class="p">(</span><span class="n">recurse</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+            <span class="n">is_found</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">new_size</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">new_param_shapes</span><span class="p">[</span><span class="n">param_name</span><span class="p">]):</span>
+                <span class="k">if</span> <span class="n">new_size</span> <span class="o">!=</span> <span class="n">param</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="n">idx</span><span class="p">]:</span>
+                    <span class="k">assert</span> <span class="ow">not</span> <span class="n">is_found</span><span class="p">,</span> <span class="s2">&quot;Cannot have two sharded dimensions!&quot;</span>
+                    <span class="n">sharded_size</span> <span class="o">=</span> <span class="n">new_size</span>
+                    <span class="n">axis</span> <span class="o">=</span> <span class="n">idx</span>
+                    <span class="n">is_found</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="k">if</span> <span class="n">is_found</span><span class="p">:</span>
+                <span class="n">new_param</span> <span class="o">=</span> <span class="n">param</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">sharded_size</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="n">axis</span><span class="p">)[</span><span class="n">tp_rank</span><span class="p">]</span>
+                <span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">register_parameter</span><span class="p">(</span><span class="n">param_name</span><span class="p">,</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">new_param</span><span class="p">))</span>
+
+        <span class="k">for</span> <span class="n">subsch</span> <span class="ow">in</span> <span class="n">sch</span><span class="o">.</span><span class="n">child</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+            <span class="n">_consolidate_and_broadcast</span><span class="p">(</span><span class="n">subsch</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">cnt_meta</span> <span class="o">!=</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">cnt_materialized</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">_consolidate_and_broadcast</span><span class="p">(</span><span class="n">sch</span><span class="p">)</span>
+
+    <span class="n">gc</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+    <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">empty_cache</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">sch</span></div>
+
+
+<div class="viewcode-block" id="init_target_engine"><a class="viewcode-back" href="../../python_api/root.html#slapo.init_target_engine">[docs]</a><span class="k">def</span> <span class="nf">init_target_engine</span><span class="p">(</span><span class="n">sch</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Initialize the runtime engine for a specific target framework.&quot;&quot;&quot;</span>
+    <span class="n">init_engine_fn</span> <span class="o">=</span> <span class="n">get_dialect_cls</span><span class="p">(</span><span class="s2">&quot;runtime_engine&quot;</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">allow_none</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">init_engine_fn</span><span class="p">(</span>
+        <span class="n">sch</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">build</span><span class="p">(</span>
+    <span class="n">sch</span><span class="p">:</span> <span class="n">Schedule</span><span class="p">,</span>
+    <span class="n">target</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">init_weights</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="n">Callable</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="k">if</span> <span class="n">sch</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">pipeline_cutting_paths</span><span class="p">:</span>
+        <span class="c1"># pipeline stages will be wrapped into PipeStageWrapper</span>
+        <span class="n">sch</span> <span class="o">=</span> <span class="n">generate_pipeline_partition</span><span class="p">(</span><span class="n">sch</span><span class="p">)</span>
+        <span class="c1"># Re-analyzie tie weights before consolidation.</span>
+        <span class="n">sch</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">tie_weights</span> <span class="o">=</span> <span class="n">analyze_tie_weights</span><span class="p">(</span>
+            <span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="p">,</span> <span class="n">is_pipeline_partitioned</span><span class="o">=</span><span class="kc">True</span>
+        <span class="p">)</span>
+
+    <span class="c1"># delay initialization</span>
+    <span class="k">if</span> <span class="n">init_weights</span><span class="p">:</span>
+        <span class="n">init_weight_fn</span> <span class="o">=</span> <span class="n">init_weights</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">init_weights</span><span class="p">,</span> <span class="n">Callable</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="n">sch</span> <span class="o">=</span> <span class="n">consolidate_model</span><span class="p">(</span><span class="n">sch</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">init_weight_fn</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">sch</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">pipeline_cutting_paths</span><span class="p">:</span>
+        <span class="c1"># Generate pipeline modules for a particular target.</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">build_pipeline_model</span><span class="p">(</span>
+            <span class="n">sch</span><span class="p">,</span>
+            <span class="n">target</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">sch</span><span class="o">.</span><span class="n">mod</span>
+
+    <span class="k">return</span> <span class="n">init_target_engine</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+</pre></div>
+
+              </div>
+              
+            </main>
+            <footer class="footer-article noprint">
+                
+    <!-- Previous / next buttons -->
+<div class='prev-next-area'>
+</div>
+            </footer>
+        </div>
+    </div>
+    <div class="footer-content row">
+        <footer class="col footer"><p>
+  
+    By Amazon<br/>
+  
+      &copy; Copyright 2023, Amazon.<br/>
+</p>
+        </footer>
+    </div>
+    
+</div>
+
+
+      </div>
+    </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../../_static/scripts/pydata-sphinx-theme.js?digest=1999514e3f237ded88cf"></script>
+
+
+  </body>
+</html>

@@ -1,0 +1,814 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>slapo.tracer &#8212; Slapo Documentation</title>
+    
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=1999514e3f237ded88cf" rel="stylesheet">
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=1999514e3f237ded88cf" rel="stylesheet">
+
+    
+  <link rel="stylesheet"
+    href="../../_static/vendor/fontawesome/5.13.0/css/all.min.css">
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+    href="../../_static/vendor/fontawesome/5.13.0/webfonts/fa-solid-900.woff2">
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+    href="../../_static/vendor/fontawesome/5.13.0/webfonts/fa-brands-400.woff2">
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" href="../../_static/styles/sphinx-book-theme.css?digest=5115cc725059bd94278eecd172e13a965bf8f5a9" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-binder.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-dataframe.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-rendered-html.css" />
+    
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=1999514e3f237ded88cf">
+
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/clipboard.min.js"></script>
+    <script src="../../_static/copybutton.js"></script>
+    <script src="../../_static/scripts/sphinx-book-theme.js?digest=9c920249402e914e316237a7dbc6769907cce411"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="docsearch:language" content="None">
+    
+
+    <!-- Google Analytics -->
+    
+  </head>
+  <body data-spy="scroll" data-target="#bd-toc-nav" data-offset="60">
+<!-- Checkboxes to toggle the left sidebar -->
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle navigation sidebar">
+<label class="overlay overlay-navbar" for="__navigation">
+    <div class="visually-hidden">Toggle navigation sidebar</div>
+</label>
+<!-- Checkboxes to toggle the in-page toc -->
+<input type="checkbox" class="sidebar-toggle" name="__page-toc" id="__page-toc" aria-label="Toggle in-page Table of Contents">
+<label class="overlay overlay-pagetoc" for="__page-toc">
+    <div class="visually-hidden">Toggle in-page Table of Contents</div>
+</label>
+<!-- Headers at the top -->
+<div class="announcement header-item noprint"></div>
+<div class="header header-item noprint"></div>
+
+    
+    <div class="container-fluid" id="banner"></div>
+
+    
+
+    <div class="container-xl">
+      <div class="row">
+          
+<!-- Sidebar -->
+<div class="bd-sidebar noprint" id="site-navigation">
+    <div class="bd-sidebar__content">
+        <div class="bd-sidebar__top"><div class="navbar-brand-box">
+    <a class="navbar-brand text-wrap" href="../../index.html">
+      
+      
+      
+    </a>
+</div><form class="bd-search d-flex align-items-center" action="../../search.html" method="get">
+  <i class="icon fas fa-search"></i>
+  <input type="search" class="form-control" name="q" id="search-input" placeholder="Search the docs ..." aria-label="Search the docs ..." autocomplete="off" >
+</form><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item active">
+        <p aria-level="2" class="caption" role="heading">
+ <span class="caption-text">
+  Getting Started
+ </span>
+</p>
+<ul class="nav bd-sidenav">
+ <li class="toctree-l1">
+  <a class="reference internal" href="../../setup/index.html">
+   Installation
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="../../gallery/quick-start.html">
+   Quick Start
+  </a>
+ </li>
+</ul>
+<p aria-level="2" class="caption" role="heading">
+ <span class="caption-text">
+  Reference
+ </span>
+</p>
+<ul class="nav bd-sidenav">
+ <li class="toctree-l1 has-children">
+  <a class="reference internal" href="../../python_api/index.html">
+   Python API
+  </a>
+  <input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/>
+  <label for="toctree-checkbox-1">
+   <i class="fas fa-chevron-down">
+   </i>
+  </label>
+  <ul>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../../python_api/root.html">
+     slapo
+    </a>
+   </li>
+  </ul>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="../../genindex.html">
+   Index
+  </a>
+ </li>
+</ul>
+
+    </div>
+</nav></div>
+        <div class="bd-sidebar__bottom">
+             <!-- To handle the deprecated key -->
+            
+        </div>
+    </div>
+    <div id="rtd-footer-container"></div>
+</div>
+
+
+          
+
+
+          
+<!-- A tiny helper pixel to detect if we've scrolled -->
+<div class="sbt-scroll-pixel-helper"></div>
+<!-- Main content -->
+<div class="col py-0 content-container">
+    
+    <div class="header-article row sticky-top noprint">
+        
+
+
+
+<div class="col py-1 d-flex header-article-main">
+    <div class="header-article__left">
+        
+        <label for="__navigation"
+  class="headerbtn"
+  data-toggle="tooltip"
+data-placement="right"
+title="Toggle navigation"
+>
+  
+
+<span class="headerbtn__icon-container">
+  <i class="fas fa-bars"></i>
+  </span>
+
+</label>
+
+        
+    </div>
+    <div class="header-article__right">
+<button onclick="toggleFullScreen()"
+  class="headerbtn"
+  data-toggle="tooltip"
+data-placement="bottom"
+title="Fullscreen mode"
+>
+  
+
+<span class="headerbtn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+<a href="https://github.com/awslabs/slapo"
+   class="headerbtn"
+   data-toggle="tooltip"
+data-placement="bottom"
+title="Source repository"
+>
+  
+
+<span class="headerbtn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+
+</a>
+
+    </div>
+</div>
+
+<!-- Table of contents -->
+<div class="col-md-3 bd-toc show noprint">
+</div>
+    </div>
+    <div class="article row">
+        <div class="col pl-md-3 pl-lg-5 content-container">
+            <!-- Table of contents that is only displayed when printing the page -->
+            <div id="jb-print-docs-body" class="onlyprint">
+                <h1></h1>
+                <!-- Table of contents -->
+                <div id="print-main-content">
+                    <div id="jb-print-toc">
+                        
+                    </div>
+                </div>
+            </div>
+            <main id="main-content" role="main">
+                
+              <div>
+                
+  <h1>Source code for slapo.tracer</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.</span>
+<span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span> <span class="nn">copy</span>
+<span class="kn">import</span> <span class="nn">inspect</span>
+<span class="kn">import</span> <span class="nn">operator</span>
+<span class="kn">import</span> <span class="nn">random</span>
+<span class="kn">import</span> <span class="nn">traceback</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span>
+
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">import</span> <span class="nn">torch.utils._pytree</span> <span class="k">as</span> <span class="nn">pytree</span>
+<span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">fx</span><span class="p">,</span> <span class="n">nn</span>
+<span class="kn">from</span> <span class="nn">torch.fx._symbolic_trace</span> <span class="kn">import</span> <span class="p">(</span><span class="n">HAS_VARSTUFF</span><span class="p">,</span> <span class="n">PH</span><span class="p">,</span> <span class="n">_assert_is_none</span><span class="p">,</span>
+                                      <span class="n">_patch_function</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">torch.fx.graph</span> <span class="kn">import</span> <span class="n">_PyTreeCodeGen</span><span class="p">,</span> <span class="n">_PyTreeInfo</span>
+<span class="kn">from</span> <span class="nn">torch.fx.node</span> <span class="kn">import</span> <span class="n">base_types</span>
+<span class="kn">from</span> <span class="nn">transformers.utils.fx</span> <span class="kn">import</span> <span class="p">(</span><span class="n">_IS_IN_DEBUG_MODE</span><span class="p">,</span> <span class="n">_MANUAL_META_OVERRIDES</span><span class="p">,</span>
+                                   <span class="n">Proxy</span><span class="p">,</span> <span class="n">_proxies_to_metas</span><span class="p">)</span>
+
+<span class="kn">from</span> <span class="nn">.logger</span> <span class="kn">import</span> <span class="n">get_logger</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">()</span>
+
+
+<span class="k">def</span> <span class="nf">fix_hf_module</span><span class="p">(</span>
+    <span class="n">root</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span> <span class="n">root_graph</span><span class="p">:</span> <span class="n">fx</span><span class="o">.</span><span class="n">Graph</span><span class="p">,</span> <span class="n">submods</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">fx</span><span class="o">.</span><span class="n">GraphModule</span><span class="p">]</span>
+<span class="p">):</span>
+    <span class="c1"># Fix tensor constants</span>
+    <span class="k">for</span> <span class="n">target</span> <span class="ow">in</span> <span class="nb">dir</span><span class="p">(</span><span class="n">root</span><span class="p">):</span>
+        <span class="k">if</span> <span class="s2">&quot;_tensor_constant&quot;</span> <span class="ow">in</span> <span class="n">target</span> <span class="ow">or</span> <span class="n">target</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;position_ids&quot;</span><span class="p">,</span> <span class="s2">&quot;token_type_ids&quot;</span><span class="p">}:</span>
+            <span class="n">submods</span><span class="p">[</span><span class="n">target</span><span class="p">]</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
+    <span class="n">nodes_to_fix</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">root_graph</span><span class="o">.</span><span class="n">nodes</span><span class="p">:</span>
+        <span class="c1"># Add submodule&#39;s attributes to parent module if it is used</span>
+        <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">op</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;call_module&quot;</span><span class="p">,</span> <span class="s2">&quot;get_attr&quot;</span><span class="p">}</span> <span class="ow">and</span> <span class="n">node</span><span class="o">.</span><span class="n">target</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">submods</span><span class="p">:</span>
+            <span class="n">attr_itr</span> <span class="o">=</span> <span class="n">root</span>
+            <span class="n">atoms</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">target</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">atom</span> <span class="ow">in</span> <span class="n">atoms</span><span class="p">:</span>
+                <span class="n">attr_itr</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">attr_itr</span><span class="p">,</span> <span class="n">atom</span><span class="p">)</span>
+            <span class="n">submods</span><span class="p">[</span><span class="n">node</span><span class="o">.</span><span class="n">target</span><span class="p">]</span> <span class="o">=</span> <span class="n">attr_itr</span>
+        <span class="c1"># Fix SelfAttention naming</span>
+        <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">op</span> <span class="o">==</span> <span class="s2">&quot;call_module&quot;</span> <span class="ow">and</span> <span class="s2">&quot;self&quot;</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">target</span><span class="p">:</span>
+            <span class="n">nodes_to_fix</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+    <span class="c1"># Fix conflicting Python keyword</span>
+    <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">nodes_to_fix</span><span class="p">:</span>
+        <span class="n">old_target</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">target</span>
+        <span class="n">new_target</span> <span class="o">=</span> <span class="n">old_target</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;self&quot;</span><span class="p">,</span> <span class="s2">&quot;self_m&quot;</span><span class="p">)</span>
+        <span class="k">with</span> <span class="n">root_graph</span><span class="o">.</span><span class="n">inserting_after</span><span class="p">(</span><span class="n">node</span><span class="p">):</span>
+            <span class="n">new_node</span> <span class="o">=</span> <span class="n">root_graph</span><span class="o">.</span><span class="n">call_module</span><span class="p">(</span><span class="n">new_target</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">args</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="n">node</span><span class="o">.</span><span class="n">replace_all_uses_with</span><span class="p">(</span><span class="n">new_node</span><span class="p">)</span>
+        <span class="n">root_graph</span><span class="o">.</span><span class="n">erase_node</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+        <span class="n">submods</span><span class="p">[</span><span class="n">new_target</span><span class="p">]</span> <span class="o">=</span> <span class="n">submods</span><span class="p">[</span><span class="n">old_target</span><span class="p">]</span>
+    <span class="c1"># Fix arguments</span>
+    <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">root_graph</span><span class="o">.</span><span class="n">nodes</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">op</span> <span class="o">==</span> <span class="s2">&quot;call_module&quot;</span><span class="p">:</span>
+            <span class="n">args</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">args</span>
+            <span class="n">kwargs</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">kwargs</span>
+
+            <span class="c1"># Checkpoint wrapper has a unified interface (*args, **kwargs)</span>
+            <span class="c1"># which ruins the argument matching.</span>
+            <span class="n">orig_forward</span> <span class="o">=</span> <span class="n">submods</span><span class="p">[</span><span class="n">node</span><span class="o">.</span><span class="n">target</span><span class="p">]</span><span class="o">.</span><span class="n">forward</span>
+            <span class="k">if</span> <span class="n">submods</span><span class="p">[</span><span class="n">node</span><span class="o">.</span><span class="n">target</span><span class="p">]</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;CheckPointWrapper&quot;</span><span class="p">:</span>
+                <span class="n">orig_forward</span> <span class="o">=</span> <span class="n">submods</span><span class="p">[</span><span class="n">node</span><span class="o">.</span><span class="n">target</span><span class="p">]</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">forward</span>
+
+            <span class="n">sig</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">signature</span><span class="p">(</span><span class="n">orig_forward</span><span class="p">)</span>
+            <span class="n">target_args</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">sig</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+            <span class="n">res_kwargs</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">target_args</span><span class="p">:</span>
+                    <span class="n">res_kwargs</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+                    <span class="n">target_args</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+            <span class="n">node</span><span class="o">.</span><span class="n">args</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">args</span><span class="p">[:</span> <span class="nb">len</span><span class="p">(</span><span class="n">target_args</span><span class="p">)])</span>
+            <span class="n">node</span><span class="o">.</span><span class="n">kwargs</span> <span class="o">=</span> <span class="n">res_kwargs</span>
+    <span class="c1"># FIXME: Dirty hack for getitem</span>
+    <span class="c1"># https://github.com/huggingface/transformers/blob/main/src/transformers/models/bert/modeling_bert.py#L1021-L1033</span>
+    <span class="c1"># https://github.com/huggingface/transformers/blob/main/src/transformers/models/bert/modeling_bert.py#L1042-L1045</span>
+    <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">root_graph</span><span class="o">.</span><span class="n">nodes</span><span class="p">:</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="c1"># pylint: disable=comparison-with-callable</span>
+            <span class="n">node</span><span class="o">.</span><span class="n">op</span> <span class="o">==</span> <span class="s2">&quot;call_function&quot;</span>
+            <span class="ow">and</span> <span class="n">node</span><span class="o">.</span><span class="n">target</span> <span class="o">==</span> <span class="n">operator</span><span class="o">.</span><span class="n">getitem</span>
+            <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">args</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span>
+            <span class="ow">and</span> <span class="n">node</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">target</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;encoder&quot;</span><span class="p">,</span> <span class="s2">&quot;decoder&quot;</span><span class="p">,</span> <span class="s2">&quot;bert&quot;</span><span class="p">,</span> <span class="s2">&quot;transformer&quot;</span><span class="p">}</span>
+            <span class="ow">and</span> <span class="n">node</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span>
+        <span class="p">):</span>
+            <span class="n">node</span><span class="o">.</span><span class="n">args</span> <span class="o">=</span> <span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s2">&quot;last_hidden_state&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="c1"># pylint: disable=comparison-with-callable</span>
+            <span class="n">node</span><span class="o">.</span><span class="n">op</span> <span class="o">==</span> <span class="s2">&quot;call_function&quot;</span>
+            <span class="ow">and</span> <span class="n">node</span><span class="o">.</span><span class="n">target</span> <span class="o">==</span> <span class="nb">getattr</span>
+            <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">args</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span>
+            <span class="ow">and</span> <span class="n">node</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">target</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;encoder&quot;</span><span class="p">,</span> <span class="s2">&quot;decoder&quot;</span><span class="p">,</span> <span class="s2">&quot;bert&quot;</span><span class="p">,</span> <span class="s2">&quot;transformer&quot;</span><span class="p">}</span>
+        <span class="p">):</span>
+            <span class="n">node</span><span class="o">.</span><span class="n">op</span> <span class="o">=</span> <span class="s2">&quot;call_method&quot;</span>
+            <span class="n">node</span><span class="o">.</span><span class="n">target</span> <span class="o">=</span> <span class="s2">&quot;get&quot;</span>
+            <span class="n">node</span><span class="o">.</span><span class="n">args</span> <span class="o">=</span> <span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">node</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">root_graph</span>
+
+
+<span class="k">def</span> <span class="nf">generate_hf_tracer_inputs</span><span class="p">(</span>
+    <span class="n">root</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span>
+    <span class="n">tracer</span><span class="p">:</span> <span class="n">fx</span><span class="o">.</span><span class="n">Tracer</span><span class="p">,</span>
+    <span class="n">is_top</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+    <span class="n">call_node</span><span class="p">:</span> <span class="n">fx</span><span class="o">.</span><span class="n">Node</span><span class="p">,</span>
+    <span class="n">kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+<span class="p">):</span>
+    <span class="c1"># generate random shape</span>
+    <span class="n">batch_size</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">20</span><span class="p">)</span>
+    <span class="n">sequence_length</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">20</span><span class="p">)</span>
+    <span class="n">shape</span> <span class="o">=</span> <span class="p">[</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">sequence_length</span><span class="p">]</span>
+    <span class="c1"># generate concrete_args and dummy_inputs</span>
+    <span class="k">if</span> <span class="n">is_top</span><span class="p">:</span>
+        <span class="n">sig</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">signature</span><span class="p">(</span>
+            <span class="n">root</span><span class="o">.</span><span class="n">forward</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">)</span> <span class="k">else</span> <span class="n">root</span>
+        <span class="p">)</span>
+        <span class="k">assert</span> <span class="s2">&quot;concrete_args&quot;</span> <span class="ow">in</span> <span class="n">kwargs</span>
+        <span class="n">concrete_args</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;concrete_args&quot;</span><span class="p">]</span>  <span class="c1"># those are args having None value</span>
+        <span class="n">input_names</span> <span class="o">=</span> <span class="n">sig</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="o">-</span> <span class="n">concrete_args</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+        <span class="n">inputs</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">input_name</span> <span class="ow">in</span> <span class="n">input_names</span><span class="p">:</span>
+            <span class="n">inputs</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">tracer</span><span class="o">.</span><span class="n">_generate_dummy_input</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">input_name</span><span class="p">,</span> <span class="n">shape</span><span class="p">))</span>
+        <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;dummy_inputs&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">inputs</span>
+        <span class="n">dummy_inputs</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="n">call_node</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="n">sig</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">signature</span><span class="p">(</span><span class="n">root</span><span class="o">.</span><span class="n">forward</span><span class="p">)</span>
+        <span class="n">arg_names</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">sig</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="n">dummy_inputs</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">arg</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">call_node</span><span class="o">.</span><span class="n">args</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">arg</span><span class="p">,</span> <span class="n">fx</span><span class="o">.</span><span class="n">Node</span><span class="p">):</span>
+                <span class="c1"># FIXME: shape and dtype do affect the control flow branches</span>
+                <span class="n">dummy_inputs</span><span class="p">[</span><span class="n">arg_names</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># ignore value=None</span>
+                <span class="k">pass</span>
+        <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">arg</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">call_node</span><span class="o">.</span><span class="n">kwargs</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span> <span class="nb">len</span><span class="p">(</span><span class="n">call_node</span><span class="o">.</span><span class="n">args</span><span class="p">)):</span>
+            <span class="k">assert</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">arg_names</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">arg</span><span class="p">,</span> <span class="n">fx</span><span class="o">.</span><span class="n">Node</span><span class="p">):</span>
+                <span class="n">dummy_inputs</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+        <span class="n">concrete_args</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">p</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">p</span><span class="o">.</span><span class="n">default</span>
+            <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">sig</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">dummy_inputs</span>
+        <span class="p">}</span>
+    <span class="k">return</span> <span class="n">concrete_args</span><span class="p">,</span> <span class="n">dummy_inputs</span>
+
+
+<span class="k">def</span> <span class="nf">trace_submodule</span><span class="p">(</span>
+    <span class="n">root</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span>
+    <span class="n">tracer_class</span><span class="p">,</span>
+    <span class="n">is_top</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">call_node</span><span class="p">:</span> <span class="n">fx</span><span class="o">.</span><span class="n">Node</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="c1"># generate top graph module</span>
+    <span class="n">named_children</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">root</span><span class="o">.</span><span class="n">named_children</span><span class="p">())</span>
+    <span class="n">leaf_modules</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;leaf_modules&quot;</span><span class="p">,</span> <span class="p">[])</span>
+
+    <span class="n">recursive</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;recursive&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># Create a tracer with the original leaf modules. This is only used</span>
+    <span class="c1"># to judge whether a submodule is really a leaf or not.</span>
+    <span class="n">tracer_with_orig_leaf</span> <span class="o">=</span> <span class="n">tracer_class</span><span class="p">(</span><span class="n">leaf_modules</span><span class="o">=</span><span class="n">leaf_modules</span><span class="p">)</span>
+
+    <span class="c1"># Add all children module (submodule) to be leaf module to prevent</span>
+    <span class="c1"># the tracer from tracing into them, because we will trace submodules</span>
+    <span class="c1"># separately to maintain the module hierarchy.</span>
+    <span class="n">leaf_modules</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">leaf_modules</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">leaf_mod</span> <span class="ow">in</span> <span class="n">named_children</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">leaf_mod</span><span class="p">,</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">):</span>
+            <span class="n">leaf_modules</span> <span class="o">+=</span> <span class="p">[</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{key}</span><span class="s2">.</span><span class="si">{s}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="n">leaf_mod</span><span class="o">.</span><span class="n">named_children</span><span class="p">())</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+            <span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">leaf_modules</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+    <span class="n">tracer</span> <span class="o">=</span> <span class="n">tracer_class</span><span class="p">(</span><span class="n">leaf_modules</span><span class="o">=</span><span class="n">leaf_modules</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">tracer</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;huggingface&quot;</span><span class="p">:</span>
+        <span class="n">concrete_args</span><span class="p">,</span> <span class="n">dummy_inputs</span> <span class="o">=</span> <span class="n">generate_hf_tracer_inputs</span><span class="p">(</span>
+            <span class="n">root</span><span class="p">,</span> <span class="n">tracer</span><span class="p">,</span> <span class="n">is_top</span><span class="p">,</span> <span class="n">call_node</span><span class="p">,</span> <span class="n">kwargs</span>
+        <span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">root_graph</span> <span class="o">=</span> <span class="n">tracer</span><span class="o">.</span><span class="n">trace</span><span class="p">(</span>
+                <span class="n">root</span><span class="p">,</span> <span class="n">concrete_args</span><span class="o">=</span><span class="n">concrete_args</span><span class="p">,</span> <span class="n">dummy_inputs</span><span class="o">=</span><span class="n">dummy_inputs</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="n">traceback</span><span class="o">.</span><span class="n">format_exc</span><span class="p">())</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Cannot trace module </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">root</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">root</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">concrete_args</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;concrete_args&quot;</span><span class="p">,</span> <span class="p">{})</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">root_graph</span> <span class="o">=</span> <span class="n">tracer</span><span class="o">.</span><span class="n">trace</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">concrete_args</span><span class="o">=</span><span class="n">concrete_args</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="n">traceback</span><span class="o">.</span><span class="n">format_exc</span><span class="p">())</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Cannot trace module </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">root</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">root</span>
+    <span class="n">call_arg_map</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">root_graph</span><span class="o">.</span><span class="n">nodes</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">op</span> <span class="o">==</span> <span class="s2">&quot;call_module&quot;</span><span class="p">:</span>
+            <span class="n">call_arg_map</span><span class="p">[</span><span class="n">node</span><span class="o">.</span><span class="n">target</span><span class="p">]</span> <span class="o">=</span> <span class="n">node</span>
+
+    <span class="c1"># Trace submodules</span>
+    <span class="n">submods</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">submod</span> <span class="ow">in</span> <span class="n">named_children</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">submod</span><span class="p">,</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">):</span>
+            <span class="c1"># We assume ModuleList will be iteratively traversed in forward function.</span>
+            <span class="c1"># For example:</span>
+            <span class="c1"># In __init__:</span>
+            <span class="c1">#     self.layers = nn.ModuleList([nn.Linear(10, 10) for _ in range(3)])</span>
+            <span class="c1"># In forwrad :</span>
+            <span class="c1">#     for layer in self.layers:</span>
+            <span class="c1">#         x = layer(x)</span>
+            <span class="c1"># In this case, fx IR will create a unique name for each layer,</span>
+            <span class="c1"># such as layer.0, layer.1, etc. We follow this convention to</span>
+            <span class="c1"># trace each layer in ModuleList to register the submodule name.</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">layer</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">submod</span><span class="p">):</span>
+                <span class="n">module_qualified_name</span> <span class="o">=</span> <span class="n">tracer</span><span class="o">.</span><span class="n">path_of_module</span><span class="p">(</span><span class="n">layer</span><span class="p">)</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">recursive</span> <span class="ow">or</span> <span class="n">tracer_with_orig_leaf</span><span class="o">.</span><span class="n">is_leaf_module</span><span class="p">(</span>
+                    <span class="n">layer</span><span class="p">,</span> <span class="n">module_qualified_name</span>
+                <span class="p">):</span>
+                    <span class="n">gm_submod</span> <span class="o">=</span> <span class="n">layer</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">gm_submod</span> <span class="o">=</span> <span class="n">trace_submodule</span><span class="p">(</span>
+                        <span class="n">layer</span><span class="p">,</span>
+                        <span class="n">tracer_class</span><span class="p">,</span>
+                        <span class="n">is_top</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                        <span class="n">call_node</span><span class="o">=</span><span class="n">call_arg_map</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{name}</span><span class="s2">.</span><span class="si">{i}</span><span class="s2">&quot;</span><span class="p">],</span>
+                        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+                    <span class="p">)</span>
+                <span class="n">submods</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{name}</span><span class="s2">.</span><span class="si">{i}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">gm_submod</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># For other submodules including nn.Sequential, we assume they are directly</span>
+            <span class="c1"># called in forward function. For example:</span>
+            <span class="c1"># In __init__: self.block = nn.Sequential(...)</span>
+            <span class="c1"># In forward : out = self.block(x)</span>
+            <span class="c1"># In this case, fx IR will create directly call the submodule such as block.</span>
+            <span class="n">module_qualified_name</span> <span class="o">=</span> <span class="n">tracer</span><span class="o">.</span><span class="n">path_of_module</span><span class="p">(</span><span class="n">submod</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">recursive</span> <span class="ow">or</span> <span class="n">tracer_with_orig_leaf</span><span class="o">.</span><span class="n">is_leaf_module</span><span class="p">(</span>
+                <span class="n">submod</span><span class="p">,</span> <span class="n">module_qualified_name</span>
+            <span class="p">):</span>
+                <span class="c1"># If it is a real leaf module, stop tracing.</span>
+                <span class="n">gm_submod</span> <span class="o">=</span> <span class="n">submod</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">gm_submod</span> <span class="o">=</span> <span class="n">trace_submodule</span><span class="p">(</span>
+                    <span class="n">submod</span><span class="p">,</span>
+                    <span class="n">tracer_class</span><span class="p">,</span>
+                    <span class="n">is_top</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                    <span class="n">call_node</span><span class="o">=</span><span class="n">call_arg_map</span><span class="p">[</span><span class="n">name</span><span class="p">],</span>
+                    <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="n">submods</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">gm_submod</span>
+    <span class="k">if</span> <span class="n">tracer</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;huggingface&quot;</span><span class="p">:</span>
+        <span class="n">root_graph</span> <span class="o">=</span> <span class="n">fix_hf_module</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">root_graph</span><span class="p">,</span> <span class="n">submods</span><span class="p">)</span>
+    <span class="n">final_gm</span> <span class="o">=</span> <span class="n">fx</span><span class="o">.</span><span class="n">GraphModule</span><span class="p">(</span><span class="n">submods</span><span class="p">,</span> <span class="n">root_graph</span><span class="p">)</span>
+    <span class="c1"># remove redundant code</span>
+    <span class="n">final_gm</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">eliminate_dead_code</span><span class="p">()</span>
+    <span class="n">final_gm</span><span class="o">.</span><span class="n">delete_all_unused_submodules</span><span class="p">()</span>
+    <span class="n">final_gm</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">lint</span><span class="p">()</span>
+    <span class="n">final_gm</span><span class="o">.</span><span class="n">recompile</span><span class="p">()</span>
+    <span class="c1"># remove meta tensors generated by HF tracer</span>
+    <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="nb">dict</span><span class="p">(</span><span class="n">final_gm</span><span class="o">.</span><span class="n">named_buffers</span><span class="p">()):</span>
+        <span class="k">if</span> <span class="s2">&quot;tensor_constant&quot;</span> <span class="ow">in</span> <span class="n">name</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">final_gm</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+            <span class="n">final_gm</span><span class="o">.</span><span class="fm">__delattr__</span><span class="p">(</span><span class="n">name</span><span class="p">)</span> <span class="c1"># pylint: disable=unnecessary-dunder-call</span>
+    <span class="k">return</span> <span class="n">final_gm</span>
+
+
+<div class="viewcode-block" id="trace"><a class="viewcode-back" href="../../python_api/root.html#slapo.trace">[docs]</a><span class="k">def</span> <span class="nf">trace</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]):</span>
+    <span class="sd">&quot;&quot;&quot;Traces a model to a GraphModule.&quot;&quot;&quot;</span>
+    <span class="n">tracer_cls_name</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;tracer&quot;</span><span class="p">,</span> <span class="s2">&quot;pytorch&quot;</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Tracer: </span><span class="si">%s</span><span class="s2"> Model: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">tracer_cls_name</span><span class="p">,</span> <span class="n">model</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tracer_cls_name</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">tracer_cls_name</span> <span class="o">==</span> <span class="s2">&quot;huggingface&quot;</span><span class="p">:</span>
+            <span class="kn">from</span> <span class="nn">transformers.utils.fx</span> <span class="kn">import</span> <span class="n">HFTracer</span>
+
+            <span class="k">assert</span> <span class="p">(</span>
+                <span class="s2">&quot;concrete_args&quot;</span> <span class="ow">in</span> <span class="n">kwargs</span>
+            <span class="p">),</span> <span class="s2">&quot;Please provide concrete_args for HF tracer&quot;</span>
+            <span class="n">concrete_args</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;concrete_args&quot;</span><span class="p">)</span>
+
+            <span class="k">class</span> <span class="nc">TracerWrapper</span><span class="p">(</span><span class="n">HFTracer</span><span class="p">):</span>
+                <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;huggingface&quot;</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">leaf_modules</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;leaf_modules&quot;</span><span class="p">,</span> <span class="p">[])</span>
+
+                <span class="k">def</span> <span class="nf">create_proxy</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="p">,</span>
+                    <span class="n">kind</span><span class="p">,</span>
+                    <span class="n">target</span><span class="p">,</span>
+                    <span class="n">args</span><span class="p">,</span>
+                    <span class="n">kwargs</span><span class="p">,</span>
+                    <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                    <span class="n">type_expr</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                    <span class="n">proxy_factory_fn</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                <span class="p">):</span>
+                    <span class="n">rv</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">create_proxy</span><span class="p">(</span>
+                        <span class="n">kind</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">type_expr</span><span class="p">,</span> <span class="n">proxy_factory_fn</span>
+                    <span class="p">)</span>  <span class="c1"># grandparent method</span>
+
+                    <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">&quot;placeholder&quot;</span> <span class="ow">and</span> <span class="n">target</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">meta_args</span><span class="p">:</span>
+                        <span class="n">rv</span><span class="o">.</span><span class="n">install_metadata</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">meta_args</span><span class="p">[</span><span class="n">target</span><span class="p">])</span>
+                        <span class="k">return</span> <span class="n">rv</span>
+
+                    <span class="k">if</span> <span class="n">target</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">orig_fns</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="s2">&quot;device&quot;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+                            <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;device&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;meta&quot;</span>
+
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="n">args_metas</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">fx</span><span class="o">.</span><span class="n">node</span><span class="o">.</span><span class="n">map_aggregate</span><span class="p">(</span>
+                            <span class="n">args</span><span class="p">,</span> <span class="n">_proxies_to_metas</span>
+                        <span class="p">)</span>
+                        <span class="n">kwargs_metas</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">fx</span><span class="o">.</span><span class="n">node</span><span class="o">.</span><span class="n">map_aggregate</span><span class="p">(</span>
+                            <span class="n">kwargs</span><span class="p">,</span> <span class="n">_proxies_to_metas</span>
+                        <span class="p">)</span>
+
+                        <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">&quot;call_function&quot;</span><span class="p">:</span>
+                            <span class="n">meta_target</span> <span class="o">=</span> <span class="n">_MANUAL_META_OVERRIDES</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
+                            <span class="n">meta_out</span> <span class="o">=</span> <span class="n">meta_target</span><span class="p">(</span><span class="o">*</span><span class="n">args_metas</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs_metas</span><span class="p">)</span>
+                            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">meta_out</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+                                <span class="n">meta_out</span> <span class="o">=</span> <span class="n">meta_out</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="s2">&quot;meta&quot;</span><span class="p">)</span>
+                        <span class="k">elif</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">&quot;call_method&quot;</span><span class="p">:</span>
+                            <span class="n">method</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">args_metas</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="vm">__class__</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
+                            <span class="n">meta_target</span> <span class="o">=</span> <span class="n">_MANUAL_META_OVERRIDES</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">method</span><span class="p">,</span> <span class="n">method</span><span class="p">)</span>
+                            <span class="n">meta_out</span> <span class="o">=</span> <span class="n">meta_target</span><span class="p">(</span><span class="o">*</span><span class="n">args_metas</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs_metas</span><span class="p">)</span>
+                        <span class="k">elif</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">&quot;call_module&quot;</span><span class="p">:</span>
+                            <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;orig_forward&quot;</span><span class="p">):</span>
+                                <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span>
+                                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{self}</span><span class="s2"> does not have an attribute &quot;</span>
+                                    <span class="s2">&quot;called orig_forward&quot;</span>
+                                <span class="p">)</span>
+                            <span class="k">return</span> <span class="n">rv</span>  <span class="c1"># delete original code here</span>
+                        <span class="k">elif</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">&quot;get_attr&quot;</span><span class="p">:</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">_disable_module_getattr</span> <span class="o">=</span> <span class="kc">True</span>
+                            <span class="k">try</span><span class="p">:</span>
+                                <span class="n">attr_itr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">root</span>
+                                <span class="n">atoms</span> <span class="o">=</span> <span class="n">target</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)</span>
+                                <span class="k">for</span> <span class="n">atom</span> <span class="ow">in</span> <span class="n">atoms</span><span class="p">:</span>
+                                    <span class="n">attr_itr</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">attr_itr</span><span class="p">,</span> <span class="n">atom</span><span class="p">)</span>
+                                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">attr_itr</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+                                    <span class="n">meta_out</span> <span class="o">=</span> <span class="n">attr_itr</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="s2">&quot;meta&quot;</span><span class="p">)</span>
+                                <span class="k">else</span><span class="p">:</span>
+                                    <span class="n">meta_out</span> <span class="o">=</span> <span class="n">attr_itr</span>
+                            <span class="k">finally</span><span class="p">:</span>
+                                <span class="bp">self</span><span class="o">.</span><span class="n">_disable_module_getattr</span> <span class="o">=</span> <span class="kc">False</span>
+                        <span class="k">else</span><span class="p">:</span>
+                            <span class="k">return</span> <span class="n">rv</span>
+
+                        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">rv</span><span class="p">,</span> <span class="n">Proxy</span><span class="p">):</span>
+                            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Don&#39;t support composite output yet&quot;</span><span class="p">)</span>
+                        <span class="n">rv</span><span class="o">.</span><span class="n">install_metadata</span><span class="p">(</span><span class="n">meta_out</span><span class="p">)</span>
+                    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="n">_IS_IN_DEBUG_MODE</span><span class="p">:</span>
+                            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                                <span class="s2">&quot;Could not compute metadata for </span><span class="si">%s</span><span class="s2"> target </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                                <span class="n">kind</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">e</span>
+                            <span class="p">)</span>
+
+                    <span class="k">return</span> <span class="n">rv</span>
+
+                <span class="k">def</span> <span class="nf">is_leaf_module</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="p">,</span> <span class="n">m</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span> <span class="n">module_qualified_name</span><span class="p">:</span> <span class="nb">str</span>
+                <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">t</span> <span class="ow">in</span> <span class="nb">type</span><span class="p">(</span><span class="n">m</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">leaf_modules</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">any</span><span class="p">(</span>
+                        <span class="n">t</span> <span class="o">==</span> <span class="n">module_qualified_name</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">leaf_modules</span>
+                    <span class="p">):</span>
+                        <span class="k">return</span> <span class="kc">True</span>
+                    <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">is_leaf_module</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">module_qualified_name</span><span class="p">)</span>
+
+            <span class="n">top_gm</span> <span class="o">=</span> <span class="n">trace_submodule</span><span class="p">(</span>
+                <span class="n">model</span><span class="p">,</span>
+                <span class="n">TracerWrapper</span><span class="p">,</span>
+                <span class="n">is_top</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">concrete_args</span><span class="o">=</span><span class="n">concrete_args</span><span class="p">,</span>
+                <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="k">elif</span> <span class="n">tracer_cls_name</span> <span class="o">==</span> <span class="s2">&quot;pytorch&quot;</span><span class="p">:</span>
+
+            <span class="k">class</span> <span class="nc">TracerWrapper</span><span class="p">(</span><span class="n">fx</span><span class="o">.</span><span class="n">Tracer</span><span class="p">):</span>
+                <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">param_shapes_constant</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">leaf_modules</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;leaf_modules&quot;</span><span class="p">,</span> <span class="p">[])</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;pytorch&quot;</span>
+
+                <span class="k">def</span> <span class="nf">is_leaf_module</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="p">,</span> <span class="n">m</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span> <span class="n">module_qualified_name</span><span class="p">:</span> <span class="nb">str</span>
+                <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">t</span> <span class="ow">in</span> <span class="nb">type</span><span class="p">(</span><span class="n">m</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">leaf_modules</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">any</span><span class="p">(</span>
+                        <span class="n">t</span> <span class="o">==</span> <span class="n">module_qualified_name</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">leaf_modules</span>
+                    <span class="p">):</span>
+                        <span class="k">return</span> <span class="kc">True</span>
+                    <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">is_leaf_module</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">module_qualified_name</span><span class="p">)</span>
+
+                <span class="k">def</span> <span class="nf">create_args_for_root</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">root_fn</span><span class="p">,</span> <span class="n">is_module</span><span class="p">,</span> <span class="n">concrete_args</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+                    <span class="sd">&quot;&quot;&quot;Override this method to make sure the argument names are the same</span>
+<span class="sd">                    as the original module, so that the traced module can be injected.</span>
+<span class="sd">                    FIXME: Implement a fx pass that fixes the argument names, so that we</span>
+<span class="sd">                    don&#39;t need to override this method.</span>
+<span class="sd">                    &quot;&quot;&quot;</span>
+                    <span class="c1"># In some cases, a function or method has been decorated with</span>
+                    <span class="c1"># a wrapper defined via ``functools.wraps``. In this case,</span>
+                    <span class="c1"># the outer code object will likely not contain the actual</span>
+                    <span class="c1"># parameters we care about, so unwrap the function to get to</span>
+                    <span class="c1"># the innermost callable.</span>
+                    <span class="n">fn_for_analysis</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">unwrap</span><span class="p">(</span><span class="n">root_fn</span><span class="p">)</span>
+                    <span class="n">co</span> <span class="o">=</span> <span class="n">fn_for_analysis</span><span class="o">.</span><span class="vm">__code__</span>
+                    <span class="n">total_args</span> <span class="o">=</span> <span class="n">co</span><span class="o">.</span><span class="n">co_argcount</span> <span class="o">+</span> <span class="n">co</span><span class="o">.</span><span class="n">co_kwonlyargcount</span>
+                    <span class="n">orig_args</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">co</span><span class="o">.</span><span class="n">co_varnames</span><span class="p">)</span>
+                    <span class="n">names_iter</span> <span class="o">=</span> <span class="nb">iter</span><span class="p">(</span><span class="n">co</span><span class="o">.</span><span class="n">co_varnames</span><span class="p">)</span>
+                    <span class="n">args</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+                    <span class="n">skip_arg_idx</span> <span class="o">=</span> <span class="mi">0</span>
+                    <span class="k">if</span> <span class="n">is_module</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="n">total_args</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                                <span class="s2">&quot;``self`` argument cannot be part of *args expansion!&quot;</span>
+                            <span class="p">)</span>
+                        <span class="n">skip_arg_idx</span> <span class="o">=</span> <span class="mi">1</span>
+                        <span class="nb">next</span><span class="p">(</span><span class="n">names_iter</span><span class="p">)</span>  <span class="c1"># skip self</span>
+                        <span class="n">args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="p">)</span>
+
+                    <span class="n">sig</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">signature</span><span class="p">(</span><span class="n">fn_for_analysis</span><span class="p">)</span>
+
+                    <span class="k">def</span> <span class="nf">proxy_placeholder</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+                        <span class="k">if</span> <span class="n">concrete_args</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">concrete_args</span><span class="p">:</span>
+                            <span class="n">cnt</span> <span class="o">=</span> <span class="mi">0</span>
+
+                            <span class="k">def</span> <span class="nf">replace_ph</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+                                <span class="k">nonlocal</span> <span class="n">cnt</span>
+                                <span class="n">cnt</span> <span class="o">+=</span> <span class="mi">1</span>
+                                <span class="n">param</span> <span class="o">=</span> <span class="n">sig</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+                                <span class="n">default</span> <span class="o">=</span> <span class="p">(</span>
+                                    <span class="p">()</span>
+                                    <span class="k">if</span> <span class="n">param</span><span class="o">.</span><span class="n">default</span> <span class="ow">is</span> <span class="n">inspect</span><span class="o">.</span><span class="n">Parameter</span><span class="o">.</span><span class="n">empty</span>
+                                    <span class="k">else</span> <span class="p">(</span><span class="n">param</span><span class="o">.</span><span class="n">default</span><span class="p">,)</span>
+                                <span class="p">)</span>
+                                <span class="n">proxy_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{name}</span><span class="s2">_{str(cnt)}&quot;</span> <span class="k">if</span> <span class="n">cnt</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">name</span>
+                                <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_proxy</span><span class="p">(</span>
+                                    <span class="s2">&quot;placeholder&quot;</span><span class="p">,</span> <span class="n">proxy_name</span><span class="p">,</span> <span class="n">default</span><span class="p">,</span> <span class="p">{}</span>
+                                <span class="p">)</span>
+                                <span class="k">if</span> <span class="n">x</span> <span class="o">==</span> <span class="n">PH</span><span class="p">:</span>
+                                    <span class="k">return</span> <span class="n">out</span>
+                                <span class="c1"># Union[int, bool] == bool in Python &lt;= 3.6</span>
+                                <span class="k">if</span> <span class="p">(</span>
+                                    <span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="p">(</span><span class="nb">bool</span><span class="p">,</span> <span class="n">base_types</span><span class="p">))</span>
+                                    <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span>
+                                <span class="p">):</span>
+                                    <span class="n">torch</span><span class="o">.</span><span class="n">_assert</span><span class="p">(</span>
+                                        <span class="n">out</span> <span class="o">==</span> <span class="n">x</span><span class="p">,</span>
+                                        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{name}</span><span class="s2"> has been specialized to have value &quot;</span>
+                                        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{x}</span><span class="s2"> but got another value&quot;</span><span class="p">,</span>
+                                    <span class="p">)</span>
+                                <span class="k">elif</span> <span class="n">x</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                                    <span class="n">args</span> <span class="o">=</span> <span class="p">(</span>
+                                        <span class="n">out</span><span class="p">,</span>
+                                        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{name}</span><span class="s2"> has been specialized to have value &quot;</span>
+                                        <span class="s2">&quot;None but got another value&quot;</span><span class="p">,</span>
+                                    <span class="p">)</span>
+                                    <span class="bp">self</span><span class="o">.</span><span class="n">create_proxy</span><span class="p">(</span>
+                                        <span class="s2">&quot;call_function&quot;</span><span class="p">,</span> <span class="n">_assert_is_none</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="p">{}</span>
+                                    <span class="p">)</span>
+                                <span class="k">else</span><span class="p">:</span>
+                                    <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                                        <span class="s2">&quot;Was not able to add assertion to guarantee &quot;</span>
+                                        <span class="s2">&quot;correct input </span><span class="si">%s</span><span class="s2"> to &quot;</span>
+                                        <span class="s2">&quot;specialized function. It is up to the user &quot;</span>
+                                        <span class="s2">&quot;to make sure that your inputs match the &quot;</span>
+                                        <span class="s2">&quot;inputs you specialized the function with.&quot;</span><span class="p">,</span>
+                                        <span class="n">name</span>
+                                    <span class="p">)</span>
+
+                                <span class="k">return</span> <span class="n">x</span>
+
+                            <span class="k">return</span> <span class="n">pytree</span><span class="o">.</span><span class="n">tree_map</span><span class="p">(</span><span class="n">replace_ph</span><span class="p">,</span> <span class="n">concrete_args</span><span class="p">[</span><span class="n">name</span><span class="p">])</span>
+                        <span class="k">if</span> <span class="n">name</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;*&quot;</span><span class="p">:</span>
+                            <span class="n">default</span> <span class="o">=</span> <span class="p">()</span>
+                        <span class="k">else</span><span class="p">:</span>
+                            <span class="n">param</span> <span class="o">=</span> <span class="n">sig</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+                            <span class="n">default</span> <span class="o">=</span> <span class="p">(</span>
+                                <span class="p">()</span>
+                                <span class="k">if</span> <span class="n">param</span><span class="o">.</span><span class="n">default</span> <span class="ow">is</span> <span class="n">inspect</span><span class="o">.</span><span class="n">Parameter</span><span class="o">.</span><span class="n">empty</span>
+                                <span class="k">else</span> <span class="p">(</span><span class="n">param</span><span class="o">.</span><span class="n">default</span><span class="p">,)</span>
+                            <span class="p">)</span>
+                        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_proxy</span><span class="p">(</span>
+                            <span class="s2">&quot;placeholder&quot;</span><span class="p">,</span>
+                            <span class="n">name</span><span class="p">,</span>
+                            <span class="n">default</span><span class="p">,</span>
+                            <span class="p">{},</span>
+                            <span class="n">type_expr</span><span class="o">=</span><span class="n">fn_for_analysis</span><span class="o">.</span><span class="vm">__annotations__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+                        <span class="p">)</span>
+
+                    <span class="n">arg_names</span> <span class="o">=</span> <span class="p">[</span>
+                        <span class="nb">next</span><span class="p">(</span><span class="n">names_iter</span><span class="p">)</span> <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">skip_arg_idx</span><span class="p">,</span> <span class="n">total_args</span><span class="p">)</span>
+                    <span class="p">]</span>
+                    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">concrete_args</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+                        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">arg_names</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">concrete_args</span><span class="p">):</span>
+                            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                                <span class="sa">f</span><span class="s2">&quot;Tracing expected {len(arg_names)} arguments but &quot;</span>
+                                <span class="sa">f</span><span class="s2">&quot;got {len(concrete_args)} concrete arguments&quot;</span>
+                            <span class="p">)</span>
+                        <span class="n">concrete_args</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">arg_names</span><span class="p">,</span> <span class="n">concrete_args</span><span class="p">))</span>
+                    <span class="n">args</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">proxy_placeholder</span><span class="p">(</span><span class="n">names</span><span class="p">)</span> <span class="k">for</span> <span class="n">names</span> <span class="ow">in</span> <span class="n">arg_names</span><span class="p">)</span>
+
+                    <span class="k">if</span> <span class="n">co</span><span class="o">.</span><span class="n">co_kwonlyargcount</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">co</span><span class="o">.</span><span class="n">co_flags</span> <span class="o">&amp;</span> <span class="n">HAS_VARSTUFF</span><span class="p">:</span>
+                        <span class="c1"># TODO: type annotations for *args and **kwargs</span>
+                        <span class="k">if</span> <span class="n">co</span><span class="o">.</span><span class="n">co_flags</span> <span class="o">&amp;</span> <span class="n">inspect</span><span class="o">.</span><span class="n">CO_VARARGS</span><span class="p">:</span>
+                            <span class="n">args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">proxy_placeholder</span><span class="p">(</span><span class="s2">&quot;*&quot;</span> <span class="o">+</span> <span class="nb">next</span><span class="p">(</span><span class="n">names_iter</span><span class="p">)))</span>
+                        <span class="k">if</span> <span class="n">co</span><span class="o">.</span><span class="n">co_flags</span> <span class="o">&amp;</span> <span class="n">inspect</span><span class="o">.</span><span class="n">CO_VARKEYWORDS</span><span class="p">:</span>
+                            <span class="n">args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">proxy_placeholder</span><span class="p">(</span><span class="s2">&quot;**&quot;</span> <span class="o">+</span> <span class="nb">next</span><span class="p">(</span><span class="n">names_iter</span><span class="p">)))</span>
+                        <span class="n">root_fn</span> <span class="o">=</span> <span class="n">_patch_function</span><span class="p">(</span><span class="n">root_fn</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">))</span>
+
+                    <span class="n">flat_args</span><span class="p">,</span> <span class="n">in_spec</span> <span class="o">=</span> <span class="n">pytree</span><span class="o">.</span><span class="n">tree_flatten</span><span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="n">args</span><span class="p">))</span>
+                    <span class="k">if</span> <span class="nb">any</span><span class="p">(</span>
+                        <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">pytree</span><span class="o">.</span><span class="n">LeafSpec</span><span class="p">)</span>
+                        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">in_spec</span><span class="o">.</span><span class="n">children_specs</span>
+                    <span class="p">):</span>
+                        <span class="c1"># In the case that we have pytree-flattened inputs in</span>
+                        <span class="c1"># `concrete_args`, generate a flattening wrapper around the</span>
+                        <span class="c1"># original root function and return that.</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">_codegen</span> <span class="o">=</span> <span class="n">_PyTreeCodeGen</span><span class="p">(</span>
+                            <span class="n">_PyTreeInfo</span><span class="p">(</span><span class="n">orig_args</span><span class="p">[:</span><span class="n">total_args</span><span class="p">],</span> <span class="n">in_spec</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+                        <span class="p">)</span>
+
+                        <span class="k">def</span> <span class="nf">flatten_fn</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">):</span>
+                            <span class="n">tree_args</span> <span class="o">=</span> <span class="n">pytree</span><span class="o">.</span><span class="n">tree_unflatten</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">args</span><span class="p">),</span> <span class="n">in_spec</span><span class="p">)</span>
+                            <span class="n">tree_out</span> <span class="o">=</span> <span class="n">root_fn</span><span class="p">(</span><span class="o">*</span><span class="n">tree_args</span><span class="p">)</span>
+                            <span class="n">out_args</span><span class="p">,</span> <span class="n">out_spec</span> <span class="o">=</span> <span class="n">pytree</span><span class="o">.</span><span class="n">tree_flatten</span><span class="p">(</span><span class="n">tree_out</span><span class="p">)</span>
+                            <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">_codegen</span><span class="p">,</span> <span class="n">_PyTreeCodeGen</span><span class="p">)</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">_codegen</span><span class="o">.</span><span class="n">pytree_info</span> <span class="o">=</span> <span class="p">(</span>
+                                <span class="bp">self</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">_codegen</span><span class="o">.</span><span class="n">pytree_info</span><span class="o">.</span><span class="n">_replace</span><span class="p">(</span>
+                                    <span class="n">out_spec</span><span class="o">=</span><span class="n">out_spec</span>
+                                <span class="p">)</span>
+                            <span class="p">)</span>
+                            <span class="k">return</span> <span class="n">out_args</span>
+
+                        <span class="k">return</span> <span class="n">flatten_fn</span><span class="p">,</span> <span class="n">flat_args</span>
+                    <span class="k">return</span> <span class="n">root_fn</span><span class="p">,</span> <span class="n">args</span>
+
+            <span class="n">top_gm</span> <span class="o">=</span> <span class="n">trace_submodule</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">TracerWrapper</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown tracer: </span><span class="si">{tracer_cls_name}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># A custom tracer class.</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Not supported yet&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">top_gm</span></div>
+</pre></div>
+
+              </div>
+              
+            </main>
+            <footer class="footer-article noprint">
+                
+    <!-- Previous / next buttons -->
+<div class='prev-next-area'>
+</div>
+            </footer>
+        </div>
+    </div>
+    <div class="footer-content row">
+        <footer class="col footer"><p>
+  
+    By Amazon<br/>
+  
+      &copy; Copyright 2023, Amazon.<br/>
+</p>
+        </footer>
+    </div>
+    
+</div>
+
+
+      </div>
+    </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../../_static/scripts/pydata-sphinx-theme.js?digest=1999514e3f237ded88cf"></script>
+
+
+  </body>
+</html>

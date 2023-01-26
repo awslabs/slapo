@@ -1,0 +1,1078 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>slapo &#8212; Slapo Documentation</title>
+    
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=1999514e3f237ded88cf" rel="stylesheet">
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=1999514e3f237ded88cf" rel="stylesheet">
+
+    
+  <link rel="stylesheet"
+    href="../_static/vendor/fontawesome/5.13.0/css/all.min.css">
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+    href="../_static/vendor/fontawesome/5.13.0/webfonts/fa-solid-900.woff2">
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+    href="../_static/vendor/fontawesome/5.13.0/webfonts/fa-brands-400.woff2">
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" href="../_static/styles/sphinx-book-theme.css?digest=5115cc725059bd94278eecd172e13a965bf8f5a9" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="../_static/graphviz.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-binder.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-dataframe.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-rendered-html.css" />
+    
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=1999514e3f237ded88cf">
+
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/clipboard.min.js"></script>
+    <script src="../_static/copybutton.js"></script>
+    <script src="../_static/scripts/sphinx-book-theme.js?digest=9c920249402e914e316237a7dbc6769907cce411"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Index" href="../genindex.html" />
+    <link rel="prev" title="Python API" href="index.html" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="docsearch:language" content="None">
+    
+
+    <!-- Google Analytics -->
+    
+  </head>
+  <body data-spy="scroll" data-target="#bd-toc-nav" data-offset="60">
+<!-- Checkboxes to toggle the left sidebar -->
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle navigation sidebar">
+<label class="overlay overlay-navbar" for="__navigation">
+    <div class="visually-hidden">Toggle navigation sidebar</div>
+</label>
+<!-- Checkboxes to toggle the in-page toc -->
+<input type="checkbox" class="sidebar-toggle" name="__page-toc" id="__page-toc" aria-label="Toggle in-page Table of Contents">
+<label class="overlay overlay-pagetoc" for="__page-toc">
+    <div class="visually-hidden">Toggle in-page Table of Contents</div>
+</label>
+<!-- Headers at the top -->
+<div class="announcement header-item noprint"></div>
+<div class="header header-item noprint"></div>
+
+    
+    <div class="container-fluid" id="banner"></div>
+
+    
+
+    <div class="container-xl">
+      <div class="row">
+          
+<!-- Sidebar -->
+<div class="bd-sidebar noprint" id="site-navigation">
+    <div class="bd-sidebar__content">
+        <div class="bd-sidebar__top"><div class="navbar-brand-box">
+    <a class="navbar-brand text-wrap" href="../index.html">
+      
+      
+      
+    </a>
+</div><form class="bd-search d-flex align-items-center" action="../search.html" method="get">
+  <i class="icon fas fa-search"></i>
+  <input type="search" class="form-control" name="q" id="search-input" placeholder="Search the docs ..." aria-label="Search the docs ..." autocomplete="off" >
+</form><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item active">
+        <p aria-level="2" class="caption" role="heading">
+ <span class="caption-text">
+  Getting Started
+ </span>
+</p>
+<ul class="nav bd-sidenav">
+ <li class="toctree-l1">
+  <a class="reference internal" href="../setup/index.html">
+   Installation
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="../gallery/quick-start.html">
+   Quick Start
+  </a>
+ </li>
+</ul>
+<p aria-level="2" class="caption" role="heading">
+ <span class="caption-text">
+  Reference
+ </span>
+</p>
+<ul class="current nav bd-sidenav">
+ <li class="toctree-l1 current active has-children">
+  <a class="reference internal" href="index.html">
+   Python API
+  </a>
+  <input checked="" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/>
+  <label for="toctree-checkbox-1">
+   <i class="fas fa-chevron-down">
+   </i>
+  </label>
+  <ul class="current">
+   <li class="toctree-l2 current active">
+    <a class="current reference internal" href="#">
+     slapo
+    </a>
+   </li>
+  </ul>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="../genindex.html">
+   Index
+  </a>
+ </li>
+</ul>
+
+    </div>
+</nav></div>
+        <div class="bd-sidebar__bottom">
+             <!-- To handle the deprecated key -->
+            
+        </div>
+    </div>
+    <div id="rtd-footer-container"></div>
+</div>
+
+
+          
+
+
+          
+<!-- A tiny helper pixel to detect if we've scrolled -->
+<div class="sbt-scroll-pixel-helper"></div>
+<!-- Main content -->
+<div class="col py-0 content-container">
+    
+    <div class="header-article row sticky-top noprint">
+        
+
+
+
+<div class="col py-1 d-flex header-article-main">
+    <div class="header-article__left">
+        
+        <label for="__navigation"
+  class="headerbtn"
+  data-toggle="tooltip"
+data-placement="right"
+title="Toggle navigation"
+>
+  
+
+<span class="headerbtn__icon-container">
+  <i class="fas fa-bars"></i>
+  </span>
+
+</label>
+
+        
+    </div>
+    <div class="header-article__right">
+<button onclick="toggleFullScreen()"
+  class="headerbtn"
+  data-toggle="tooltip"
+data-placement="bottom"
+title="Fullscreen mode"
+>
+  
+
+<span class="headerbtn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+<a href="https://github.com/awslabs/slapo"
+   class="headerbtn"
+   data-toggle="tooltip"
+data-placement="bottom"
+title="Source repository"
+>
+  
+
+<span class="headerbtn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+
+</a>
+
+<div class="menu-dropdown menu-dropdown-download-buttons">
+  <button class="headerbtn menu-dropdown__trigger"
+      aria-label="Download this page">
+      <i class="fas fa-download"></i>
+  </button>
+  <div class="menu-dropdown__content">
+    <ul>
+      <li>
+        <a href="../_sources/python_api/root.rst.txt"
+   class="headerbtn"
+   data-toggle="tooltip"
+data-placement="left"
+title="Download source file"
+>
+  
+
+<span class="headerbtn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="headerbtn__text-container">.rst</span>
+</a>
+
+      </li>
+      
+      <li>
+        
+<button onclick="printPdf(this)"
+  class="headerbtn"
+  data-toggle="tooltip"
+data-placement="left"
+title="Print to PDF"
+>
+  
+
+<span class="headerbtn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="headerbtn__text-container">.pdf</span>
+</button>
+
+      </li>
+      
+    </ul>
+  </div>
+</div>
+
+    </div>
+</div>
+
+<!-- Table of contents -->
+<div class="col-md-3 bd-toc show noprint">
+</div>
+    </div>
+    <div class="article row">
+        <div class="col pl-md-3 pl-lg-5 content-container">
+            <!-- Table of contents that is only displayed when printing the page -->
+            <div id="jb-print-docs-body" class="onlyprint">
+                <h1>slapo</h1>
+                <!-- Table of contents -->
+                <div id="print-main-content">
+                    <div id="jb-print-toc">
+                        
+                    </div>
+                </div>
+            </div>
+            <main id="main-content" role="main">
+                
+              <div>
+                
+  <div class="section" id="module-slapo">
+<span id="slapo"></span><h1>slapo<a class="headerlink" href="#module-slapo" title="Permalink to this headline"><span>¶</span></a></h1>
+<p><strong>Classes:</strong></p>
+<table class="autosummary longtable table autosummary">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.Database" title="slapo.Database"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Database</span></code></a>([db_file_name])</p></td>
+<td><p>A simple database to store the results of tuning in Dict.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.Space" title="slapo.Space"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Space</span></code></a>()</p></td>
+<td><p>The tuning space.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.Symbol" title="slapo.Symbol"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Symbol</span></code></a>(name, vals)</p></td>
+<td><p>A tunable symbol.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.ABC" title="slapo.ABC"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ABC</span></code></a>()</p></td>
+<td><p>Helper class that provides a standard way to create an ABC using inheritance.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.DictWithValidation" title="slapo.DictWithValidation"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DictWithValidation</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.FunctionType" title="slapo.FunctionType"><code class="xref py py-obj docutils literal notranslate"><span class="pre">FunctionType</span></code></a></p></td>
+<td><p>alias of <code class="xref py py-class docutils literal notranslate"><span class="pre">function</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.OrderedDict" title="slapo.OrderedDict"><code class="xref py py-obj docutils literal notranslate"><span class="pre">OrderedDict</span></code></a></p></td>
+<td><p>Dictionary that remembers insertion order</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.Pattern" title="slapo.Pattern"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Pattern</span></code></a>()</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.Proxy" title="slapo.Proxy"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Proxy</span></code></a>(node[, tracer])</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">Proxy</span></code> objects are <code class="docutils literal notranslate"><span class="pre">Node</span></code> wrappers that flow through the program during symbolic tracing and record all the operations (<code class="docutils literal notranslate"><span class="pre">torch</span></code> function calls, method calls, operators) that they touch into the growing FX Graph.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.ScheduleMetadata" title="slapo.ScheduleMetadata"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ScheduleMetadata</span></code></a>(shard, tie_weights, ...)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.partial" title="slapo.partial"><code class="xref py py-obj docutils literal notranslate"><span class="pre">partial</span></code></a></p></td>
+<td><p>partial(func, <a href="#id1"><span class="problematic" id="id2">*</span></a>args, <a href="#id3"><span class="problematic" id="id4">**</span></a>keywords) - new function with partial application of the given arguments and keywords.</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Functions:</strong></p>
+<table class="autosummary longtable table autosummary">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.init_empty_weights" title="slapo.init_empty_weights"><code class="xref py py-obj docutils literal notranslate"><span class="pre">init_empty_weights</span></code></a>([enable, include_buffers])</p></td>
+<td><p>A context manager under which models are initialized with all parameters on the meta device, therefore creating an empty model.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.get_logger" title="slapo.get_logger"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_logger</span></code></a>([name, level])</p></td>
+<td><p>Attach to the default logger.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.abstractmethod" title="slapo.abstractmethod"><code class="xref py py-obj docutils literal notranslate"><span class="pre">abstractmethod</span></code></a>(funcobj)</p></td>
+<td><p>A decorator indicating abstract methods.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.all_gather_forward_output" title="slapo.all_gather_forward_output"><code class="xref py py-obj docutils literal notranslate"><span class="pre">all_gather_forward_output</span></code></a>(inp, dim, group)</p></td>
+<td><p>The custom all gather op used for forward hook.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.analyze_tie_weights" title="slapo.analyze_tie_weights"><code class="xref py py-obj docutils literal notranslate"><span class="pre">analyze_tie_weights</span></code></a>(top_mod, ...)</p></td>
+<td><p>Analyze if there is any tie weights (two weights in different module share the same memory) partitioned into different pipeline stages.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.consolidate_model" title="slapo.consolidate_model"><code class="xref py py-obj docutils literal notranslate"><span class="pre">consolidate_model</span></code></a>(sch, target[, param_init_fn])</p></td>
+<td><p>Consolidate the model weights.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.dataclass" title="slapo.dataclass"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataclass</span></code></a>([cls, init, repr, eq, order, ...])</p></td>
+<td><p>Returns the same class as was passed in, with dunder methods added based on the fields defined in the class.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.field" title="slapo.field"><code class="xref py py-obj docutils literal notranslate"><span class="pre">field</span></code></a>(*[, default, default_factory, init, ...])</p></td>
+<td><p>Return an object to identify dataclass fields.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.get_dialect_cls" title="slapo.get_dialect_cls"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_dialect_cls</span></code></a>(cls_type, target[, allow_none])</p></td>
+<td><p>Get the framework model dialect class.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.get_output_type_after_sharding" title="slapo.get_output_type_after_sharding"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_output_type_after_sharding</span></code></a>(module, ...)</p></td>
+<td><p>Get the output type (partition or partial) after sharding the module along the given axis.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.init_target_engine" title="slapo.init_target_engine"><code class="xref py py-obj docutils literal notranslate"><span class="pre">init_target_engine</span></code></a>(sch, target, **kwargs)</p></td>
+<td><p>Initialize the runtime engine for a specific target framework.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.reduce_scatter_forward_output" title="slapo.reduce_scatter_forward_output"><code class="xref py py-obj docutils literal notranslate"><span class="pre">reduce_scatter_forward_output</span></code></a>(inp, dim, group)</p></td>
+<td><p>The custom reduce scatter op used for forward hook.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.register_primitive" title="slapo.register_primitive"><code class="xref py py-obj docutils literal notranslate"><span class="pre">register_primitive</span></code></a>([need_dist, finalize])</p></td>
+<td><p>Wrap a schedule primitive to annotate attributes:</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.trace" title="slapo.trace"><code class="xref py py-obj docutils literal notranslate"><span class="pre">trace</span></code></a>(model, **kwargs)</p></td>
+<td><p>Traces a model to a GraphModule.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.trace_module" title="slapo.trace_module"><code class="xref py py-obj docutils literal notranslate"><span class="pre">trace_module</span></code></a>(model, **kwargs)</p></td>
+<td><p>Traces a model to a GraphModule.</p></td>
+</tr>
+</tbody>
+</table>
+<dl class="py class">
+<dt class="sig sig-object py" id="slapo.Database">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">Database</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">db_file_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/autotune/tune.html#Database"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.Database" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>A simple database to store the results of tuning in Dict.</p>
+<p><strong>Methods:</strong></p>
+<table class="autosummary longtable table autosummary">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.Database.load" title="slapo.Database.load"><code class="xref py py-obj docutils literal notranslate"><span class="pre">load</span></code></a>()</p></td>
+<td><p>Load the database from the file.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.Database.commit" title="slapo.Database.commit"><code class="xref py py-obj docutils literal notranslate"><span class="pre">commit</span></code></a>(key, data)</p></td>
+<td><p>Commit the data to the database and update the DB file.</p></td>
+</tr>
+</tbody>
+</table>
+<dl class="py method">
+<dt class="sig sig-object py" id="slapo.Database.load">
+<span class="sig-name descname"><span class="pre">load</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/autotune/tune.html#Database.load"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.Database.load" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Load the database from the file.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="slapo.Database.commit">
+<span class="sig-name descname"><span class="pre">commit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">key</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/autotune/tune.html#Database.commit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.Database.commit" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Commit the data to the database and update the DB file.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="slapo.Space">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">Space</span></span><a class="reference internal" href="../_modules/slapo/autotune/tune.html#Space"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.Space" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>The tuning space.</p>
+<p><strong>Methods:</strong></p>
+<table class="autosummary longtable table autosummary">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.Space.create_symbol" title="slapo.Space.create_symbol"><code class="xref py py-obj docutils literal notranslate"><span class="pre">create_symbol</span></code></a>(name, vals)</p></td>
+<td><p>Create a symbol in the space. If the symbol already exists: 1) If the symbol is fixed, do nothing; 2) Otherwise re-create the symbol, because its candidate values may change    due to other fixed symbols.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.Space.next" title="slapo.Space.next"><code class="xref py py-obj docutils literal notranslate"><span class="pre">next</span></code></a>()</p></td>
+<td><p>Get the next symbol to fix.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.Space.reset" title="slapo.Space.reset"><code class="xref py py-obj docutils literal notranslate"><span class="pre">reset</span></code></a>()</p></td>
+<td><p>Reset the space to the initial state.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.Space.to_dict" title="slapo.Space.to_dict"><code class="xref py py-obj docutils literal notranslate"><span class="pre">to_dict</span></code></a>()</p></td>
+<td><p>Convert the space to a dict.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.Space.clone" title="slapo.Space.clone"><code class="xref py py-obj docutils literal notranslate"><span class="pre">clone</span></code></a>()</p></td>
+<td><p>Clone the space.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.Space.cfg_dict_to_str" title="slapo.Space.cfg_dict_to_str"><code class="xref py py-obj docutils literal notranslate"><span class="pre">cfg_dict_to_str</span></code></a>(cfg_dict)</p></td>
+<td><p>Convert a config dict to a string for logging and debugging.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.Space.log_space" title="slapo.Space.log_space"><code class="xref py py-obj docutils literal notranslate"><span class="pre">log_space</span></code></a>(training_script_args, update_space_fn)</p></td>
+<td><p>Print the tuning space for logging.</p></td>
+</tr>
+</tbody>
+</table>
+<dl class="py method">
+<dt class="sig sig-object py" id="slapo.Space.create_symbol">
+<span class="sig-name descname"><span class="pre">create_symbol</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vals</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/autotune/tune.html#Space.create_symbol"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.Space.create_symbol" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Create a symbol in the space. If the symbol already exists:
+1) If the symbol is fixed, do nothing;
+2) Otherwise re-create the symbol, because its candidate values may change</p>
+<blockquote>
+<div><p>due to other fixed symbols.</p>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="slapo.Space.next">
+<span class="sig-name descname"><span class="pre">next</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/autotune/tune.html#Space.next"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.Space.next" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Get the next symbol to fix.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="slapo.Space.reset">
+<span class="sig-name descname"><span class="pre">reset</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/autotune/tune.html#Space.reset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.Space.reset" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Reset the space to the initial state.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="slapo.Space.to_dict">
+<span class="sig-name descname"><span class="pre">to_dict</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/autotune/tune.html#Space.to_dict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.Space.to_dict" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Convert the space to a dict. Note that all symbols must be fixed
+before calling this function.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="slapo.Space.clone">
+<span class="sig-name descname"><span class="pre">clone</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/autotune/tune.html#Space.clone"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.Space.clone" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Clone the space.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="slapo.Space.cfg_dict_to_str">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">cfg_dict_to_str</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cfg_dict</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/autotune/tune.html#Space.cfg_dict_to_str"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.Space.cfg_dict_to_str" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Convert a config dict to a string for logging and debugging.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="slapo.Space.log_space">
+<span class="sig-name descname"><span class="pre">log_space</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">training_script_args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">update_space_fn</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/autotune/tune.html#Space.log_space"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.Space.log_space" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Print the tuning space for logging.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="slapo.Symbol">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">Symbol</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vals</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/autotune/tune.html#Symbol"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.Symbol" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>A tunable symbol.</p>
+<p><strong>Methods:</strong></p>
+<table class="autosummary longtable table autosummary">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.Symbol.add" title="slapo.Symbol.add"><code class="xref py py-obj docutils literal notranslate"><span class="pre">add</span></code></a>(val)</p></td>
+<td><p>Add a value to the symbol.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.Symbol.fix_at" title="slapo.Symbol.fix_at"><code class="xref py py-obj docutils literal notranslate"><span class="pre">fix_at</span></code></a>(idx)</p></td>
+<td><p>Fix the value of this symbol at the given index.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.Symbol.is_fixed" title="slapo.Symbol.is_fixed"><code class="xref py py-obj docutils literal notranslate"><span class="pre">is_fixed</span></code></a>()</p></td>
+<td><p>Check if the value of this symbol has been fixed.</p></td>
+</tr>
+</tbody>
+</table>
+<dl class="py method">
+<dt class="sig sig-object py" id="slapo.Symbol.add">
+<span class="sig-name descname"><span class="pre">add</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">val</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/autotune/tune.html#Symbol.add"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.Symbol.add" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Add a value to the symbol. If the value is already in the symbol, do nothing.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="slapo.Symbol.fix_at">
+<span class="sig-name descname"><span class="pre">fix_at</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">idx</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/autotune/tune.html#Symbol.fix_at"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.Symbol.fix_at" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Fix the value of this symbol at the given index.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="slapo.Symbol.is_fixed">
+<span class="sig-name descname"><span class="pre">is_fixed</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/autotune/tune.html#Symbol.is_fixed"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.Symbol.is_fixed" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Check if the value of this symbol has been fixed.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="slapo.init_empty_weights">
+<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">init_empty_weights</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">enable</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">include_buffers</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/initialization.html#init_empty_weights"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.init_empty_weights" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>A context manager under which models are initialized with all parameters on the
+meta device, therefore creating an
+empty model. Useful when just initializing the model would blow the available RAM.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>enable</strong> (<em>bool</em>) – Whether or not to enable this context manager.</p></li>
+<li><p><strong>include_buffers</strong> (<em>bool</em>) – Whether or not to also put all buffers on the meta device while initializing.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="slapo.get_logger">
+<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">get_logger</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Slapo'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">level</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/logger.html#get_logger"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.get_logger" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Attach to the default logger.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="slapo.ABC">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">ABC</span></span><a class="reference internal" href="../_modules/abc.html#ABC"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.ABC" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Helper class that provides a standard way to create an ABC using
+inheritance.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="slapo.DictWithValidation">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">DictWithValidation</span></span><a class="reference internal" href="../_modules/slapo/schedule.html#DictWithValidation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.DictWithValidation" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="slapo.FunctionType">
+<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">FunctionType</span></span><a class="headerlink" href="#slapo.FunctionType" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>alias of <code class="xref py py-class docutils literal notranslate"><span class="pre">function</span></code></p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="slapo.OrderedDict">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">OrderedDict</span></span><a class="reference internal" href="../_modules/collections.html#OrderedDict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.OrderedDict" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Dictionary that remembers insertion order</p>
+<p><strong>Methods:</strong></p>
+<table class="autosummary longtable table autosummary">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.OrderedDict.clear" title="slapo.OrderedDict.clear"><code class="xref py py-obj docutils literal notranslate"><span class="pre">clear</span></code></a>()</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.OrderedDict.popitem" title="slapo.OrderedDict.popitem"><code class="xref py py-obj docutils literal notranslate"><span class="pre">popitem</span></code></a>([last])</p></td>
+<td><p>Remove and return a (key, value) pair from the dictionary.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.OrderedDict.move_to_end" title="slapo.OrderedDict.move_to_end"><code class="xref py py-obj docutils literal notranslate"><span class="pre">move_to_end</span></code></a>(key[, last])</p></td>
+<td><p>Move an existing element to the end (or beginning if last is false).</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.OrderedDict.update" title="slapo.OrderedDict.update"><code class="xref py py-obj docutils literal notranslate"><span class="pre">update</span></code></a>([E, ]**F)</p></td>
+<td><p>If E is present and has a .keys() method, then does:  for k in E: D[k] = E[k] If E is present and lacks a .keys() method, then does:  for k, v in E: D[k] = v In either case, this is followed by: for k in F:  D[k] = F[k]</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.OrderedDict.keys" title="slapo.OrderedDict.keys"><code class="xref py py-obj docutils literal notranslate"><span class="pre">keys</span></code></a>()</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.OrderedDict.items" title="slapo.OrderedDict.items"><code class="xref py py-obj docutils literal notranslate"><span class="pre">items</span></code></a>()</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.OrderedDict.values" title="slapo.OrderedDict.values"><code class="xref py py-obj docutils literal notranslate"><span class="pre">values</span></code></a>()</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.OrderedDict.pop" title="slapo.OrderedDict.pop"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pop</span></code></a>(k[,d])</p></td>
+<td><p>value.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.OrderedDict.setdefault" title="slapo.OrderedDict.setdefault"><code class="xref py py-obj docutils literal notranslate"><span class="pre">setdefault</span></code></a>(key[, default])</p></td>
+<td><p>Insert key with a value of default if key is not in the dictionary.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.OrderedDict.copy" title="slapo.OrderedDict.copy"><code class="xref py py-obj docutils literal notranslate"><span class="pre">copy</span></code></a>()</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.OrderedDict.fromkeys" title="slapo.OrderedDict.fromkeys"><code class="xref py py-obj docutils literal notranslate"><span class="pre">fromkeys</span></code></a>([value])</p></td>
+<td><p>Create a new ordered dictionary with keys from iterable and values set to value.</p></td>
+</tr>
+</tbody>
+</table>
+<dl class="py method">
+<dt class="sig sig-object py" id="slapo.OrderedDict.clear">
+<span class="sig-name descname"><span class="pre">clear</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None.</span>&#160; <span class="pre">Remove</span> <span class="pre">all</span> <span class="pre">items</span> <span class="pre">from</span> <span class="pre">od.</span></span></span><a class="headerlink" href="#slapo.OrderedDict.clear" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="slapo.OrderedDict.popitem">
+<span class="sig-name descname"><span class="pre">popitem</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">last</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#slapo.OrderedDict.popitem" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Remove and return a (key, value) pair from the dictionary.</p>
+<p>Pairs are returned in LIFO order if last is true or FIFO order if false.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="slapo.OrderedDict.move_to_end">
+<span class="sig-name descname"><span class="pre">move_to_end</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">key</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">last</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#slapo.OrderedDict.move_to_end" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Move an existing element to the end (or beginning if last is false).</p>
+<p>Raise KeyError if the element does not exist.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="slapo.OrderedDict.update">
+<span class="sig-name descname"><span class="pre">update</span></span><span class="sig-paren">(</span><span class="optional">[</span><em class="sig-param"><span class="n"><span class="pre">E</span></span></em>, <span class="optional">]</span><em class="sig-param"><span class="n"><span class="pre">**F</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None.</span>&#160; <span class="pre">Update</span> <span class="pre">D</span> <span class="pre">from</span> <span class="pre">dict/iterable</span> <span class="pre">E</span> <span class="pre">and</span> <span class="pre">F.</span></span></span><a class="headerlink" href="#slapo.OrderedDict.update" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>If E is present and has a .keys() method, then does:  for k in E: D[k] = E[k]
+If E is present and lacks a .keys() method, then does:  for k, v in E: D[k] = v
+In either case, this is followed by: for k in F:  D[k] = F[k]</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="slapo.OrderedDict.keys">
+<span class="sig-name descname"><span class="pre">keys</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">a</span> <span class="pre">set-like</span> <span class="pre">object</span> <span class="pre">providing</span> <span class="pre">a</span> <span class="pre">view</span> <span class="pre">on</span> <span class="pre">D's</span> <span class="pre">keys</span></span></span><a class="headerlink" href="#slapo.OrderedDict.keys" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="slapo.OrderedDict.items">
+<span class="sig-name descname"><span class="pre">items</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">a</span> <span class="pre">set-like</span> <span class="pre">object</span> <span class="pre">providing</span> <span class="pre">a</span> <span class="pre">view</span> <span class="pre">on</span> <span class="pre">D's</span> <span class="pre">items</span></span></span><a class="headerlink" href="#slapo.OrderedDict.items" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="slapo.OrderedDict.values">
+<span class="sig-name descname"><span class="pre">values</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">an</span> <span class="pre">object</span> <span class="pre">providing</span> <span class="pre">a</span> <span class="pre">view</span> <span class="pre">on</span> <span class="pre">D's</span> <span class="pre">values</span></span></span><a class="headerlink" href="#slapo.OrderedDict.values" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="slapo.OrderedDict.pop">
+<span class="sig-name descname"><span class="pre">pop</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">k</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">d</span></span></em><span class="optional">]</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">v,</span> <span class="pre">remove</span> <span class="pre">specified</span> <span class="pre">key</span> <span class="pre">and</span> <span class="pre">return</span> <span class="pre">the</span> <span class="pre">corresponding</span></span></span><a class="headerlink" href="#slapo.OrderedDict.pop" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>value.  If key is not found, d is returned if given, otherwise KeyError
+is raised.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="slapo.OrderedDict.setdefault">
+<span class="sig-name descname"><span class="pre">setdefault</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">key</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#slapo.OrderedDict.setdefault" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Insert key with a value of default if key is not in the dictionary.</p>
+<p>Return the value for key if key is in the dictionary, else default.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="slapo.OrderedDict.copy">
+<span class="sig-name descname"><span class="pre">copy</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">a</span> <span class="pre">shallow</span> <span class="pre">copy</span> <span class="pre">of</span> <span class="pre">od</span></span></span><a class="headerlink" href="#slapo.OrderedDict.copy" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="slapo.OrderedDict.fromkeys">
+<span class="sig-name descname"><span class="pre">fromkeys</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#slapo.OrderedDict.fromkeys" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Create a new ordered dictionary with keys from iterable and values set to value.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="slapo.Pattern">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">Pattern</span></span><a class="reference internal" href="../_modules/slapo/schedule.html#Pattern"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.Pattern" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="slapo.Proxy">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">Proxy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">node</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tracer</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/torch/fx/proxy.html#Proxy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.Proxy" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p><code class="docutils literal notranslate"><span class="pre">Proxy</span></code> objects are <code class="docutils literal notranslate"><span class="pre">Node</span></code> wrappers that flow through the
+program during symbolic tracing and record all the operations
+(<code class="docutils literal notranslate"><span class="pre">torch</span></code> function calls, method calls, operators) that they touch
+into the growing FX Graph.</p>
+<p>If you’re doing graph transforms, you can wrap your own <code class="docutils literal notranslate"><span class="pre">Proxy</span></code>
+method around a raw <code class="docutils literal notranslate"><span class="pre">Node</span></code> so that you can use the overloaded
+operators to add additional things to a <code class="docutils literal notranslate"><span class="pre">Graph</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">Proxy</span></code> objects cannot be iterated. In other words, the symbolic
+tracer will throw an error if a <code class="docutils literal notranslate"><span class="pre">Proxy</span></code> is used in a loop or as
+an <code class="docutils literal notranslate"><span class="pre">*args</span></code>/<code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> function argument.</p>
+<p>There are two main ways around this:
+1. Factor out the untraceable logic into a top-level function and
+use <code class="docutils literal notranslate"><span class="pre">fx.wrap</span></code> on it.
+2. If the control flow is static (i.e. the loop trip count is
+based on some hyperparameter), the code can be kept in its original
+position and refactored into something like:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">some_hyperparameter</span><span class="p">):</span>
+    <span class="n">indexed_item</span> <span class="o">=</span> <span class="n">proxied_value</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>For a more detailed description into the Proxy internals, check out
+the “Proxy” section in <cite>torch/fx/OVERVIEW.md</cite></p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Backwards-compatibility for this API is guaranteed.</p>
+</div>
+<p><strong>Methods:</strong></p>
+<table class="autosummary longtable table autosummary">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.Proxy.keys" title="slapo.Proxy.keys"><code class="xref py py-obj docutils literal notranslate"><span class="pre">keys</span></code></a>()</p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>node</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/fx.html#torch.fx.Node" title="(in PyTorch v1.13)"><em>torch.fx.node.Node</em></a>) – </p></li>
+<li><p><strong>tracer</strong> (<em>Optional</em><em>[</em><em>TracerBase</em><em>]</em>) – </p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="slapo.Proxy.keys">
+<span class="sig-name descname"><span class="pre">keys</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/torch/fx/proxy.html#Proxy.keys"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.Proxy.keys" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Backwards-compatibility for this API is guaranteed.</p>
+</div>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="slapo.ScheduleMetadata">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">ScheduleMetadata</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">shard:</span> <span class="pre">'dict[str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Any]'</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tie_weights:</span> <span class="pre">'dict[nn.Parameter</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nn.Parameter]'</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pipeline_cutting_paths:</span> <span class="pre">'dict[str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Any]'</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">base_params:</span> <span class="pre">'dict[str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tuple]'</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/schedule.html#ScheduleMetadata"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.ScheduleMetadata" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>shard</strong> (<em>dict</em><em>[</em><em>str</em><em>, </em><em>Any</em><em>]</em>) – </p></li>
+<li><p><strong>tie_weights</strong> (<em>dict</em><em>[</em><em>nn.Parameter</em><em>, </em><em>nn.Parameter</em><em>]</em>) – </p></li>
+<li><p><strong>pipeline_cutting_paths</strong> (<em>dict</em><em>[</em><em>str</em><em>, </em><em>Any</em><em>]</em>) – </p></li>
+<li><p><strong>base_params</strong> (<em>dict</em><em>[</em><em>str</em><em>, </em><em>tuple</em><em>]</em>) – </p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="slapo.abstractmethod">
+<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">abstractmethod</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">funcobj</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/abc.html#abstractmethod"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.abstractmethod" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>A decorator indicating abstract methods.</p>
+<p>Requires that the metaclass is ABCMeta or derived from it.  A
+class that has a metaclass derived from ABCMeta cannot be
+instantiated unless all of its abstract methods are overridden.
+The abstract methods can be called using any of the normal
+‘super’ call mechanisms.  abstractmethod() may be used to declare
+abstract methods for properties and descriptors.</p>
+<p>Usage:</p>
+<blockquote>
+<div><dl>
+<dt>class C(metaclass=ABCMeta):</dt><dd><p>&#64;abstractmethod
+def my_abstract_method(self, …):</p>
+<blockquote>
+<div><p>…</p>
+</div></blockquote>
+</dd>
+</dl>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="slapo.all_gather_forward_output">
+<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">all_gather_forward_output</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">inp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/sharding/utils.html#all_gather_forward_output"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.all_gather_forward_output" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>The custom all gather op used for forward hook.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>inp</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.13)"><em>torch.Tensor</em></a>) – The input tensor to all-gather.</p></li>
+<li><p><strong>dim</strong> (<em>int</em>) – The dimension to all-gather along.</p></li>
+<li><p><strong>group</strong> (<em>torch.distributed.ProcessGroup</em>) – The process group to all-gather.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>The gathered tensor.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.13)">torch.Tensor</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="slapo.analyze_tie_weights">
+<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">analyze_tie_weights</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">top_mod</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">is_pipeline_partitioned</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/pipeline.html#analyze_tie_weights"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.analyze_tie_weights" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Analyze if there is any tie weights (two weights in different module
+share the same memory) partitioned into different pipeline stages.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>top_mod</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch v1.13)"><em>torch.nn.Module</em></a>) – The top-level module. This should be a top pipeline module, so
+1) it should already be traced and partitioned, and
+2) it should have a number of submodules that matches pipeline stages.</p></li>
+<li><p><strong>is_pipeline_partitioned</strong> (<em>bool</em>) – Whether the module is partitioned for pipeline or not. If not,
+then all tie weights will have stage ID 0.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>tie_groups</strong> – Mapping from the nn.Parameter object to the set of parameter names
+that are tied to it. The set of parameter names is a tuple of
+(parameter name, stage ID). The stage ID is 0 if the module is not
+partitioned for pipeline.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Dict[int, Set[Tuple[str, int]]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="slapo.consolidate_model">
+<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">consolidate_model</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sch</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">param_init_fn</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/schedule.html#consolidate_model"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.consolidate_model" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Consolidate the model weights.
+FIXME: When pipeline is enabled, this function only supports DeepSpeed
+runtime because it relies on DeepSpeed topology. We should use dialects
+in this function to make it general applicable.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>sch</strong> (<em>Schedule</em>) – </p></li>
+<li><p><strong>target</strong> (<em>str</em>) – </p></li>
+<li><p><strong>param_init_fn</strong> (<em>Optional</em><em>[</em><em>Callable</em><em>[</em><em>[</em><em>nn.Module</em><em>]</em><em>, </em><em>None</em><em>]</em><em>]</em>) – </p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="slapo.dataclass">
+<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">dataclass</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cls</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">/</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">init</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">repr</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eq</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">unsafe_hash</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">frozen</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dataclasses.html#dataclass"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.dataclass" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Returns the same class as was passed in, with dunder methods
+added based on the fields defined in the class.</p>
+<p>Examines PEP 526 __annotations__ to determine fields.</p>
+<p>If init is true, an __init__() method is added to the class. If
+repr is true, a __repr__() method is added. If order is true, rich
+comparison dunder methods are added. If unsafe_hash is true, a
+__hash__() method function is added. If frozen is true, fields may
+not be assigned to after instance creation.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="slapo.field">
+<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">field</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default=&lt;dataclasses._MISSING_TYPE</span> <span class="pre">object&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default_factory=&lt;dataclasses._MISSING_TYPE</span> <span class="pre">object&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">init=True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">repr=True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hash=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">compare=True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata=None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dataclasses.html#field"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.field" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Return an object to identify dataclass fields.</p>
+<p>default is the default value of the field.  default_factory is a
+0-argument function called to initialize a field’s value.  If init
+is True, the field will be a parameter to the class’s __init__()
+function.  If repr is True, the field will be included in the
+object’s repr().  If hash is True, the field will be included in
+the object’s hash().  If compare is True, the field will be used
+in comparison functions.  metadata, if specified, must be a
+mapping which is stored but not otherwise examined by dataclass.</p>
+<p>It is an error to specify both default and default_factory.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="slapo.get_dialect_cls">
+<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">get_dialect_cls</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cls_type</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allow_none</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/model_dialect/registry.html#get_dialect_cls"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.get_dialect_cls" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Get the framework model dialect class.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="slapo.get_output_type_after_sharding">
+<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">get_output_type_after_sharding</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">module</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sharded_size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">axis</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/sharding/infer_type.html#get_output_type_after_sharding"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.get_output_type_after_sharding" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Get the output type (partition or partial) after sharding the module
+along the given axis.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>module</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch v1.13)"><em>torch.nn.Module</em></a>) – The module to shard.</p></li>
+<li><p><strong>sharded_size</strong> (<em>int</em>) – The size of the sharded dimension.</p></li>
+<li><p><strong>axis</strong> (<em>int</em>) – The axis to shard on.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>The output type and the axis (if the output is partitioned).
+The output type will be None if the output inference function is not
+registered.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>tuple</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="slapo.init_target_engine">
+<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">init_target_engine</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sch</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/schedule.html#init_target_engine"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.init_target_engine" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Initialize the runtime engine for a specific target framework.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="slapo.partial">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">partial</span></span><a class="reference internal" href="../_modules/functools.html#partial"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.partial" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>partial(func, <a href="#id5"><span class="problematic" id="id6">*</span></a>args, <a href="#id7"><span class="problematic" id="id8">**</span></a>keywords) - new function with partial application
+of the given arguments and keywords.</p>
+<p><strong>Attributes:</strong></p>
+<table class="autosummary longtable table autosummary">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.partial.args" title="slapo.partial.args"><code class="xref py py-obj docutils literal notranslate"><span class="pre">args</span></code></a></p></td>
+<td><p>tuple of arguments to future partial calls</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.partial.func" title="slapo.partial.func"><code class="xref py py-obj docutils literal notranslate"><span class="pre">func</span></code></a></p></td>
+<td><p>function object to use in future partial calls</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.partial.keywords" title="slapo.partial.keywords"><code class="xref py py-obj docutils literal notranslate"><span class="pre">keywords</span></code></a></p></td>
+<td><p>dictionary of keyword arguments to future partial calls</p></td>
+</tr>
+</tbody>
+</table>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="slapo.partial.args">
+<span class="sig-name descname"><span class="pre">args</span></span><a class="headerlink" href="#slapo.partial.args" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>tuple of arguments to future partial calls</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="slapo.partial.func">
+<span class="sig-name descname"><span class="pre">func</span></span><a class="headerlink" href="#slapo.partial.func" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>function object to use in future partial calls</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="slapo.partial.keywords">
+<span class="sig-name descname"><span class="pre">keywords</span></span><a class="headerlink" href="#slapo.partial.keywords" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>dictionary of keyword arguments to future partial calls</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="slapo.reduce_scatter_forward_output">
+<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">reduce_scatter_forward_output</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">inp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/sharding/utils.html#reduce_scatter_forward_output"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.reduce_scatter_forward_output" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>The custom reduce scatter op used for forward hook.
+:param inp: The input tensor to reduce-scatter.
+:type inp: torch.Tensor
+:param dim: The dimension to reduce-scatter along.
+:type dim: int
+:param group: The process group to reduce-scatter.
+:type group: torch.distributed.ProcessGroup</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>The reduced tensor.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.13)">torch.Tensor</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="slapo.register_primitive">
+<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">register_primitive</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">need_dist</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">finalize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/schedule.html#register_primitive"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.register_primitive" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><dl class="simple">
+<dt>Wrap a schedule primitive to annotate attributes:</dt><dd><p>finalize: Whether the primitive will finalize the schedule.
+doc: TODO</p>
+</dd>
+</dl>
+<p>TODO:
+1. Record invoked primitives to be a tape for later replay.
+2. Print primitive status.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="slapo.trace">
+<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">trace</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/tracer.html#trace"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.trace" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Traces a model to a GraphModule.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>model</strong> (<em>nn.Module</em>) – </p></li>
+<li><p><strong>kwargs</strong> (<em>dict</em><em>[</em><em>str</em><em>, </em><em>Any</em><em>]</em>) – </p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="slapo.trace_module">
+<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">trace_module</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#slapo.trace_module" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Traces a model to a GraphModule.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>model</strong> (<em>nn.Module</em>) – </p></li>
+<li><p><strong>kwargs</strong> (<em>dict</em><em>[</em><em>str</em><em>, </em><em>Any</em><em>]</em>) – </p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+
+
+              </div>
+              
+            </main>
+            <footer class="footer-article noprint">
+                
+    <!-- Previous / next buttons -->
+<div class='prev-next-area'>
+    <a class='left-prev' id="prev-link" href="index.html" title="previous page">
+        <i class="fas fa-angle-left"></i>
+        <div class="prev-next-info">
+            <p class="prev-next-subtitle">previous</p>
+            <p class="prev-next-title">Python API</p>
+        </div>
+    </a>
+    <a class='right-next' id="next-link" href="../genindex.html" title="next page">
+    <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Index</p>
+    </div>
+    <i class="fas fa-angle-right"></i>
+    </a>
+</div>
+            </footer>
+        </div>
+    </div>
+    <div class="footer-content row">
+        <footer class="col footer"><p>
+  
+    By Amazon<br/>
+  
+      &copy; Copyright 2023, Amazon.<br/>
+</p>
+        </footer>
+    </div>
+    
+</div>
+
+
+      </div>
+    </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../_static/scripts/pydata-sphinx-theme.js?digest=1999514e3f237ded88cf"></script>
+
+
+  </body>
+</html>

@@ -109,6 +109,23 @@
  </span>
 </p>
 <ul class="nav bd-sidenav">
+ <li class="toctree-l1 has-children">
+  <a class="reference internal" href="../python_api/index.html">
+   Python API
+  </a>
+  <input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/>
+  <label for="toctree-checkbox-1">
+   <i class="fas fa-chevron-down">
+   </i>
+  </label>
+  <ul>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../python_api/root.html">
+     slapo
+    </a>
+   </li>
+  </ul>
+ </li>
  <li class="toctree-l1">
   <a class="reference internal" href="../genindex.html">
    Index
@@ -259,12 +276,20 @@ title="Print to PDF"
                 
   <div class="section" id="installation">
 <span id="setup"></span><h1>Installation<a class="headerlink" href="#installation" title="Permalink to this headline"><span>¶</span></a></h1>
-<p>We provide two approaches to install Slapo. The easiest way is to install Slapo through PYPI:</p>
+<p>We provide two approaches to installing Slapo. The easiest way is to install Slapo through PYPI:</p>
 <div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> pip install slapo
 </pre></div>
 </div>
 <p>For developers, you can also install Slapo from source, and the change to the codebase will directly take effect when importing the package.</p>
-<p>To verify the installation, you can run the following command. If no output is printed, you installed Slapo successfully!</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> git clone https://github.com/awslabs/slapo.git slapo
+<span class="gp">$</span> <span class="nb">cd</span> slapo
+<span class="gp">$</span> pip install -e <span class="s2">&quot;.[dev]&quot;</span>
+</pre></div>
+</div>
+<p>To verify the installation, you can run the following command. If no output is printed, you have installed Slapo successfully!</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> python -c <span class="s2">&quot;import slapo&quot;</span>
+</pre></div>
+</div>
 </div>
 
 

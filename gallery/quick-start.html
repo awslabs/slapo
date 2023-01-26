@@ -40,7 +40,7 @@
     <script src="../_static/scripts/sphinx-book-theme.js?digest=9c920249402e914e316237a7dbc6769907cce411"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Index" href="../genindex.html" />
+    <link rel="next" title="Python API" href="../python_api/index.html" />
     <link rel="prev" title="Installation" href="../setup/index.html" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="docsearch:language" content="None">
@@ -109,6 +109,23 @@
  </span>
 </p>
 <ul class="nav bd-sidenav">
+ <li class="toctree-l1 has-children">
+  <a class="reference internal" href="../python_api/index.html">
+   Python API
+  </a>
+  <input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/>
+  <label for="toctree-checkbox-1">
+   <i class="fas fa-chevron-down">
+   </i>
+  </label>
+  <ul>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../python_api/root.html">
+     slapo
+    </a>
+   </li>
+  </ul>
+ </li>
  <li class="toctree-l1">
   <a class="reference internal" href="../genindex.html">
    Index
@@ -301,25 +318,35 @@ to download the full example code</p>
 </div>
 <div class="sphx-glr-example-title section" id="quick-start">
 <span id="sphx-glr-gallery-quick-start-py"></span><h1>Quick Start<a class="headerlink" href="#quick-start" title="Permalink to this headline"><span>¶</span></a></h1>
-<p>This guide walks through the key functionality of Slapo.</p>
+<p>This guide walks through the key functionality of Slapo.
+We will use the BERT model in <a class="reference external" href="https://github.com/huggingface/transformers">HuggingFace Hub</a> as an example and leverage Slapo to optimize its performance.</p>
 <div class="section" id="optimize-pytorch-model-with-slapo">
 <h2>Optimize PyTorch model with Slapo<a class="headerlink" href="#optimize-pytorch-model-with-slapo" title="Permalink to this headline"><span>¶</span></a></h2>
-<p>We first import the Slapo package.</p>
+<p>We first import the Slapo package. Make sure you have already installed the PyTorch package.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">slapo</span>
+</pre></div>
+</div>
+<p>We then load a BERT model implemented in PyTorch from HuggingFace Hub.
+This is the model definition part.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">transformers</span> <span class="kn">import</span> <a href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="torch.nn.Module" class="sphx-glr-backref-module-torch-nn sphx-glr-backref-type-py-class"><span class="n">BertLMHeadModel</span></a><span class="p">,</span> <span class="n">AutoConfig</span>
 
-<span class="c1"># Load a PyTorch model from HuggingFace Hub, TorchVision, etc.</span>
-<span class="kn">from</span> <span class="nn">transformers</span> <span class="kn">import</span> <a href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="torch.nn.Module" class="sphx-glr-backref-module-torch-nn sphx-glr-backref-type-py-class"><span class="n">BertLMHeadModel</span></a><span class="p">,</span> <span class="n">AutoConfig</span>
 <span class="n">config</span> <span class="o">=</span> <span class="n">AutoConfig</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="s2">&quot;bert-large-uncased&quot;</span><span class="p">)</span>
 <span class="n">bert</span> <span class="o">=</span> <a href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="torch.nn.Module" class="sphx-glr-backref-module-torch-nn sphx-glr-backref-type-py-class"><span class="n">BertLMHeadModel</span></a><span class="p">(</span><span class="n">config</span><span class="p">)</span>
-
-<span class="c1"># Create a default schedule</span>
-<span class="n">sch</span> <span class="o">=</span> <span class="n">slapo</span><span class="o">.</span><span class="n">create_schedule</span><span class="p">(</span><span class="n">bert</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="p">)</span>
 </pre></div>
 </div>
 <div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Downloading (…)lve/main/config.json:   0%|          | 0.00/571 [00:00&lt;?, ?B/s]
-Downloading (…)lve/main/config.json: 100%|##########| 571/571 [00:00&lt;00:00, 98.8kB/s]
-BertLMHeadModel(
+Downloading (…)lve/main/config.json: 100%|##########| 571/571 [00:00&lt;00:00, 186kB/s]
+</pre></div>
+</div>
+<p>After we have the model defintion, we can create a default schedule <cite>sch</cite>.
+Later on, all the optimizations will be conducted on this schedule,
+and we do not need to directly modify the original model.
+The original module is stored in the <code class="xref py py-class docutils literal notranslate"><span class="pre">Schedule</span></code>, and can be accessed by <cite>sch.mod</cite>.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sch</span> <span class="o">=</span> <span class="n">slapo</span><span class="o">.</span><span class="n">create_schedule</span><span class="p">(</span><span class="n">bert</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>BertLMHeadModel(
   (bert): BertModel(
     (embeddings): BertEmbeddings(
       (word_embeddings): Embedding(30522, 1024, padding_idx=0)
@@ -922,7 +949,34 @@ BertLMHeadModel(
 )
 </pre></div>
 </div>
-<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> ( 0 minutes  8.709 seconds)</p>
+<p>From the above output, we can see that the original hierachical structure
+is preserved in Slapo schedule. Actually, since we have not added any
+optimizations, the model should be exactly the same as the vanilla PyTorch one.
+Users can leverage this structure to access the inner modules to
+conduct optimizations. For example, we can use the following code to access
+the first attention layer.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">subsch</span> <span class="o">=</span> <span class="n">sch</span><span class="p">[</span><span class="s2">&quot;bert.encoder.layer.0.attention&quot;</span><span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">subsch</span><span class="o">.</span><span class="n">mod</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>BertAttention(
+  (self): BertSelfAttention(
+    (query): Linear(in_features=1024, out_features=1024, bias=True)
+    (key): Linear(in_features=1024, out_features=1024, bias=True)
+    (value): Linear(in_features=1024, out_features=1024, bias=True)
+    (dropout): Dropout(p=0.1, inplace=False)
+  )
+  (output): BertSelfOutput(
+    (dense): Linear(in_features=1024, out_features=1024, bias=True)
+    (LayerNorm): LayerNorm((1024,), eps=1e-12, elementwise_affine=True)
+    (dropout): Dropout(p=0.1, inplace=False)
+  )
+)
+</pre></div>
+</div>
+<p>The output submodule is just a part of the original one, but this helps users
+to quickly locate the submodule they need.</p>
+<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> ( 0 minutes  7.433 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-gallery-quick-start-py">
 <div class="sphx-glr-download sphx-glr-download-python docutils container">
 <p><a class="reference download internal" download="" href="../_downloads/02a1305de2ffa9a1ed991794ae6d8504/quick-start.py"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Python</span> <span class="pre">source</span> <span class="pre">code:</span> <span class="pre">quick-start.py</span></code></a></p>
@@ -950,10 +1004,10 @@ BertLMHeadModel(
             <p class="prev-next-title">Installation</p>
         </div>
     </a>
-    <a class='right-next' id="next-link" href="../genindex.html" title="next page">
+    <a class='right-next' id="next-link" href="../python_api/index.html" title="next page">
     <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Index</p>
+        <p class="prev-next-title">Python API</p>
     </div>
     <i class="fas fa-angle-right"></i>
     </a>

@@ -68,6 +68,7 @@ def get_dataloader(model_name, micro_batch_size, enable_pipeline, cache_dir=None
         batch_size=micro_batch_size,
         sampler=DistributedSampler(train_dataset),
         collate_fn=get_data_move_and_group_fn(enable_pipeline),
+        drop_last=True,
     )
 
     val_loader = DataLoader(
@@ -75,6 +76,7 @@ def get_dataloader(model_name, micro_batch_size, enable_pipeline, cache_dir=None
         batch_size=micro_batch_size,
         sampler=DistributedSampler(val_dataset),
         collate_fn=get_data_move_and_group_fn(enable_pipeline),
+        drop_last=True,
     )
     return train_loader, val_loader
 

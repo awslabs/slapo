@@ -16,7 +16,6 @@
 import os
 import sys
 
-# Workaround for issue https://github.com/sphinx-contrib/googleanalytics/issues/2
 # Note that a warning still will be issued "unsupported object from its setup() function"
 # Remove this workaround when the issue has been resolved upstream
 import sphinx.application
@@ -50,7 +49,6 @@ extensions = [
     'sphinx.ext.graphviz',
     'sphinx.ext.doctest',
     "sphinx_gallery.gen_gallery",
-    'sphinxcontrib.googleanalytics',
     'sphinx_copybutton',
     'autodocsumm',
     'sphinxcontrib.bibtex',
@@ -109,6 +107,8 @@ html_theme_options = {
 html_title = "Slapo Documentation"
 html_permalinks_icon = "<span>¶</span>"
 
+bibtex_default_style = 'unsrt'
+bibtex_bibfiles = ['references.bib']
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,

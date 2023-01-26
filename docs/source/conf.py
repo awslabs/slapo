@@ -1,3 +1,6 @@
+# Modification:
+# https://github.com/hidet-org/hidet/blob/main/docs/source/conf.py
+
 # Configuration file for the Sphinx documentation builder.
 #
 # This file only contains a selection of the most common options. For a full
@@ -10,19 +13,22 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
+import os
 import sys
-from pathlib import Path
 
-# find project
-sys.path.insert(0, str(Path(__file__).parents[1]))
+# Workaround for issue https://github.com/sphinx-contrib/googleanalytics/issues/2
+# Note that a warning still will be issued "unsupported object from its setup() function"
+# Remove this workaround when the issue has been resolved upstream
+import sphinx.application
+import sphinx.errors
+sphinx.application.ExtensionError = sphinx.errors.ExtensionError
 
-from sphinx_gallery.sorting import FileNameSortKey
 
 # -- Project information -----------------------------------------------------
 
-project = 'slapo'
-copyright = '2023, Amazon'
+project = 'Slapo'
 author = 'Amazon'
+copyright = '2023, Amazon'
 
 # The full version, including alpha/beta/rc tags
 release = '0.0.1'
@@ -34,11 +40,21 @@ release = '0.0.1'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    'sphinx.ext.autodoc',
-    'sphinx_gallery.gen_gallery',
-    'sphinx.ext.napoleon',
+    "sphinx.ext.napoleon",
+    "sphinx.ext.autodoc",
+    "sphinx.ext.autosummary",
     'sphinx.ext.intersphinx',
-    ]
+    'sphinx.ext.viewcode',
+    'sphinx.ext.coverage',
+    'sphinx.ext.todo',
+    'sphinx.ext.graphviz',
+    'sphinx.ext.doctest',
+    "sphinx_gallery.gen_gallery",
+    'sphinxcontrib.googleanalytics',
+    'sphinx_copybutton',
+    'autodocsumm',
+    'sphinxcontrib.bibtex',
+]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -46,39 +62,69 @@ templates_path = ['_templates']
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+exclude_patterns = []
 
+pygments_style = "sphinx"
+
+# Configuration of sphinx.ext.coverage
+coverage_show_missing_items = True
+
+autosummary_generate = True
+
+# If true, the current module name will be prepended to all description
+# unit titles (such as .. function::).
+# add_module_names = False
+
+# If true, the todo role would be rendered.
+todo_include_todos = True
+
+autodoc_typehints = 'description'
+autodoc_default_options = {
+    'member-order': 'bysource',
+}
+
+intersphinx_mapping = {
+    'torch': ('https://pytorch.org/docs/stable', None),
+    'torchvision': ('https://pytorch.org/vision/stable', None),
+    'numpy': ('https://numpy.org/doc/stable', None),
+}
 
 # -- Options for HTML output -------------------------------------------------
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
+# html_logo = '_static/logo.svg'
+# html_favicon = '_static/favicon.svg'
 html_theme = 'sphinx_book_theme'
+# html_theme = 'sphinx_rtd_theme'
+html_theme_options = {
+    "repository_url": "https://github.com/awslabs/slapo",
+    "use_repository_button": True,
+    'logo_only': True,
+    "extra_navbar": r"<a href=/netron target=_blank>Customized Netron</a>",
+    "show_navbar_depth": 1,
+    # "home_page_in_toc": True
+}
+html_title = "Slapo Documentation"
+html_permalinks_icon = "<span>¶</span>"
+
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
+html_css_files = ['custom.css']
 
-# sphinx-gallery configuration
+
 sphinx_gallery_conf = {
-    # path to your example scripts
-    'examples_dirs': [],
-    # path to where to save gallery generated output
-    'gallery_dirs': [],
-    # specify that examples should be ordered according to filename
-    'within_subsection_order': FileNameSortKey,
-    # directory where function granular galleries are stored
-    'backreferences_dir': 'gen_modules/backreferences',
-    # Modules for which function level galleries are created.  In
-    # this case sphinx_gallery and numpy in a tuple of strings.
-    # 'doc_module': ('SampleModule'),
+    'examples_dirs': '../../gallery',    # path to gallery scripts
+    'gallery_dirs': 'gallery',  # path to where to save gallery generated output
+    'filename_pattern': r'/*\.py',
+    "download_all_examples": False,
 }
 
-# configuration for intersphinx: refer to the Python standard library.
-intersphinx_mapping = {
-    'python': ('https://docs.python.org/{.major}'.format(sys.version_info), None),
-    'matplotlib': ('https://matplotlib.org/', None),
-    'pandas': ('https://pandas.pydata.org/', None),
-}
+copybutton_prompt_text = r">>> |\.\.\. |\$ |In \[\d*\]: | {2,5}\.\.\.: | {5,8}: "
+copybutton_prompt_is_regexp = True
+
+graphviz_output_format = "svg"

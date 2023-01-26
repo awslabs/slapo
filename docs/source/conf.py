@@ -16,6 +16,8 @@
 import os
 import sys
 
+sys.path.insert(0, os.path.abspath("../../"))
+
 # Note that a warning still will be issued "unsupported object from its setup() function"
 # Remove this workaround when the issue has been resolved upstream
 import sphinx.application
@@ -113,7 +115,7 @@ bibtex_bibfiles = ['references.bib']
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
-html_css_files = ['custom.css']
+# html_css_files = ['custom.css']
 
 copybutton_prompt_text = r">>> |\.\.\. |\$ |In \[\d*\]: | {2,5}\.\.\.: | {5,8}: "
 copybutton_prompt_is_regexp = True

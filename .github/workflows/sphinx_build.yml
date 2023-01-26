@@ -16,7 +16,7 @@ jobs:
       with:
         docs-folder: "docs/"
         # list of shell commands to prepare environment before build
-        pre-build-command: "pip install -r docs/requirements.txt && pip install ."
+        pre-build-command: "pip install -r docs/requirements.txt && pip3 install --force-reinstall torch==1.13.0+cu117 torchvision==0.14.0+cu117 -f https://download.pytorch.org/whl/cu117/torch_stable.html && pip install ."
     # Create an artifact of the html output using Github action: https://github.com/actions/upload-artifact
     - uses: actions/upload-artifact@v1
       with:

@@ -19,10 +19,14 @@
 Slapo Documentation
 ####################
 
-***********
-Get Started
-***********
 .. toctree::
    :maxdepth: 1
+   :caption: Getting Started
 
    setup/index
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Reference
+
+   genindex

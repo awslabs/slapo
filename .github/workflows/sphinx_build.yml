@@ -21,9 +21,9 @@ jobs:
         name: DocumentationHTML
         path: docs/_build/html/
     - name: Deploy docs
-        uses: JamesIves/github-pages-deploy-action@releases/v3
-        if: github.event_name == 'push'
-        with:
-          ACCESS_TOKEN: ${{ secrets.DEPLOY_ACCESS_TOKEN }}
-          BRANCH: gh-pages
-          FOLDER: docs/_build/html
+      uses: JamesIves/github-pages-deploy-action@releases/v3
+      if: github.event_name == 'push'
+      with:
+        ACCESS_TOKEN: ${{ secrets.DEPLOY_ACCESS_TOKEN }}
+        BRANCH: gh-pages
+        FOLDER: docs/_build/html

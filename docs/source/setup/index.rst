@@ -21,7 +21,7 @@
 Installation
 ############
 
-We provide two approaches to install Slapo. The easiest way is to install Slapo through PYPI:
+We provide two approaches to installing Slapo. The easiest way is to install Slapo through PYPI:
 
 .. code-block:: console
 
@@ -30,11 +30,13 @@ We provide two approaches to install Slapo. The easiest way is to install Slapo 
 For developers, you can also install Slapo from source, and the change to the codebase will directly take effect when importing the package.
 
 .. code-block:: console
+
   $ git clone https://github.com/awslabs/slapo.git slapo
   $ cd slapo
   $ pip install -e ".[dev]"
 
-To verify the installation, you can run the following command. If no output is printed, you installed Slapo successfully!
+To verify the installation, you can run the following command. If no output is printed, you have installed Slapo successfully!
 
 .. code-block:: console
+
   $ python -c "import slapo"

@@ -21,8 +21,8 @@ from sphinx_gallery.sorting import FileNameSortKey
 # -- Project information -----------------------------------------------------
 
 project = 'slapo'
-copyright = '2023, awslabs'
-author = 'awslabs'
+copyright = '2023, Amazon'
+author = 'Amazon'
 
 # The full version, including alpha/beta/rc tags
 release = '0.0.1'
@@ -54,7 +54,7 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'sphinx_rtd_theme'
+html_theme = 'sphinx_book_theme'
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,

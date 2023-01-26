@@ -1059,7 +1059,6 @@ def build(
         sch.metadata.tie_weights = analyze_tie_weights(
             sch.mod, is_pipeline_partitioned=True
         )
-        print(f"tie_weight_groups: {sch.metadata.tie_weights}")
 
     # delay initialization
     if init_weights:

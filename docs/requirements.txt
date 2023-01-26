@@ -1,4 +1,4 @@
-sphinx
+sphinx==4.5.0
 sphinx-gallery
 sphinx-copybutton
 autodocsumm
@@ -6,3 +6,4 @@ sphinx-book-theme
 matplotlib
 sphinxcontrib-bibtex
 sphinxcontrib-googleanalytics
+sphinx_rtd_theme

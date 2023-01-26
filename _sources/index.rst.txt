@@ -26,5 +26,3 @@ Get Started
    :maxdepth: 1
 
    setup/index
-   tutorials/index
-   contribute/index

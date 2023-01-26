@@ -27,6 +27,7 @@ Slapo is a schedule language for progressive optimization of large model trainin
    :caption: Getting Started
 
    setup/index
+   gallery/quick-start
 
 .. toctree::
    :maxdepth: 1

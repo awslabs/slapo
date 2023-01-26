@@ -7,3 +7,4 @@ matplotlib
 sphinxcontrib-bibtex
 sphinxcontrib-googleanalytics
 sphinx_rtd_theme
+transformers  # Needed for gallery scripts

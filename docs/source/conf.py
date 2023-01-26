@@ -16,23 +16,32 @@
 import os
 import sys
 
-sys.path.insert(0, os.path.abspath("../../"))
+try:
+    # The gallery scripts require to import slapo module.
+    # We first try to import slapo from existing sys.path.
+    import slapo
+
+    # If successful, slapo is already installed.
+except ImportError:
+    # Otherwise, we might in a git repo, and we can import slapo from the repo by adding the repo root to sys.path.
+    sys.path.insert(0, os.path.abspath("../../python"))
 
 # Note that a warning still will be issued "unsupported object from its setup() function"
 # Remove this workaround when the issue has been resolved upstream
 import sphinx.application
 import sphinx.errors
+
 sphinx.application.ExtensionError = sphinx.errors.ExtensionError
 
 
 # -- Project information -----------------------------------------------------
 
-project = 'Slapo'
-author = 'Amazon'
-copyright = '2023, Amazon'
+project = "Slapo"
+author = "Amazon"
+copyright = "2023, Amazon"
 
 # The full version, including alpha/beta/rc tags
-release = '0.0.1'
+release = "0.0.1"
 
 
 # -- General configuration ---------------------------------------------------
@@ -44,19 +53,20 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
-    'sphinx.ext.intersphinx',
-    'sphinx.ext.viewcode',
-    'sphinx.ext.coverage',
-    'sphinx.ext.todo',
-    'sphinx.ext.graphviz',
-    'sphinx.ext.doctest',
-    'sphinx_copybutton',
-    'autodocsumm',
-    'sphinxcontrib.bibtex',
+    "sphinx.ext.intersphinx",
+    "sphinx.ext.viewcode",
+    "sphinx.ext.coverage",
+    "sphinx.ext.todo",
+    "sphinx.ext.graphviz",
+    "sphinx.ext.doctest",
+    "sphinx_gallery.gen_gallery",
+    "sphinx_copybutton",
+    "autodocsumm",
+    "sphinxcontrib.bibtex",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ['_templates']
+templates_path = ["_templates"]
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
@@ -77,15 +87,15 @@ autosummary_generate = True
 # If true, the todo role would be rendered.
 todo_include_todos = True
 
-autodoc_typehints = 'description'
+autodoc_typehints = "description"
 autodoc_default_options = {
-    'member-order': 'bysource',
+    "member-order": "bysource",
 }
 
 intersphinx_mapping = {
-    'torch': ('https://pytorch.org/docs/stable', None),
-    'torchvision': ('https://pytorch.org/vision/stable', None),
-    'numpy': ('https://numpy.org/doc/stable', None),
+    "torch": ("https://pytorch.org/docs/stable", None),
+    "torchvision": ("https://pytorch.org/vision/stable", None),
+    "numpy": ("https://numpy.org/doc/stable", None),
 }
 
 # -- Options for HTML output -------------------------------------------------
@@ -95,12 +105,12 @@ intersphinx_mapping = {
 #
 # html_logo = '_static/logo.svg'
 # html_favicon = '_static/favicon.svg'
-html_theme = 'sphinx_book_theme'
+html_theme = "sphinx_book_theme"
 # html_theme = 'sphinx_rtd_theme'
 html_theme_options = {
     "repository_url": "https://github.com/awslabs/slapo",
     "use_repository_button": True,
-    'logo_only': True,
+    "logo_only": True,
     "extra_navbar": r"",
     "show_navbar_depth": 1,
     # "home_page_in_toc": True
@@ -108,14 +118,21 @@ html_theme_options = {
 html_title = "Slapo Documentation"
 html_permalinks_icon = "<span>¶</span>"
 
-bibtex_default_style = 'unsrt'
-bibtex_bibfiles = ['references.bib']
+bibtex_default_style = "unsrt"
+bibtex_bibfiles = ["references.bib"]
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+html_static_path = ["_static"]
 # html_css_files = ['custom.css']
+
+sphinx_gallery_conf = {
+    'examples_dirs': 'gallery',    # path to gallery scripts
+    'gallery_dirs': 'gallery',  # path to where to save gallery generated output
+    'filename_pattern': r'/*\.py',
+    "download_all_examples": False,
+}
 
 copybutton_prompt_text = r">>> |\.\.\. |\$ |In \[\d*\]: | {2,5}\.\.\.: | {5,8}: "
 copybutton_prompt_is_regexp = True

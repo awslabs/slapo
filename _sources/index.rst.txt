@@ -19,11 +19,15 @@
 Slapo Documentation
 ####################
 
+Slapo is a schedule language for progressive optimization of large model training. It decouples model execution from definition, enabling users to use a set of schedule primitives to convert a PyTorch model for common model training optimizations without directly changing the model itself, and thus addresses the tension between training efficiency and usability.
+
+
 .. toctree::
    :maxdepth: 1
    :caption: Getting Started
 
    setup/index
+   gallery/quick-start
 
 .. toctree::
    :maxdepth: 1

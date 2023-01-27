@@ -49,14 +49,84 @@ def all_gather_along_dim(inp, dim, world_size, group):
     return ret
 
 
+def reduce_scatter_along_dim(inp, dim, world_size, group):
+    """reduce-scatter along the given dimension.
+
+    Paramters
+    ---------
+    inp: torch.Tensor
+        The input tensor to reduce-scatter.
+    dim: int
+        The dimension to all-gather along.
+    world_size: int
+        The number of processes in the group.
+    group: torch.distributed.ProcessGroup
+        The process group to all-gather.
+
+    Returns
+    -------
+    torch.Tensor
+        The reduce-scattered tensor.
+    """
+    # reduce_scatter always targets dim 0, so we transpose the target dim
+    # to dim 0, and transpose the result back.
+    assert inp.shape[dim] % world_size == 0, (
+        f"Reduce scatter dimension {dim} size {inp.shape} "
+        f"should be divisible by world size {world_size}"
+    )
+
+    temp = inp.transpose(0, dim) if dim != 0 else inp
+    temp = temp.contiguous()
+    scatter_shape = list(temp.shape)
+    scatter_shape[0] //= world_size
+    ret = torch.empty(scatter_shape, dtype=inp.dtype).to(inp.device)
+
+    dist.reduce_scatter_tensor(ret, temp, group=group)
+    if dim != 0:
+        ret = ret.transpose(0, dim).contiguous()
+    return ret
+
+
+def scatter_along_first_dim(inp, dim, world_size, group):
+    """scatter along the given dimension.
+
+    Paramters
+    ---------
+    inp: torch.Tensor
+        The input tensor to reduce-scatter.
+    dim: int
+        The dimension to all-gather along.
+    world_size: int
+        The number of processes in the group.
+    group: torch.distributed.ProcessGroup
+        The process group to all-gather.
+
+    Returns
+    -------
+    torch.Tensor
+        The scattered tensor.
+    """
+    assert inp.shape[dim] % world_size == 0, (
+        f"Scatter dimension {dim} size {inp.shape} "
+        f"should be divisible by world size {world_size}"
+    )
+
+    rank = dist.get_rank(group)
+    sharded_size = inp.shape[dim] // world_size
+    ret = inp.split(sharded_size, dim=dim)[rank].contiguous()
+
+    return ret
+
+
 class _AllGatherForwardOutput(torch.autograd.Function):
     """The cusom all gather op used for forward hook."""
 
     # pylint: disable=abstract-method, arguments-differ
     @staticmethod
-    def forward(ctx, inp, dim, group):
+    def forward(ctx, inp, dim, group, tensor_parallel_output_grad=True):
         ctx.dim = dim
         ctx.group = group
+        ctx.tensor_parallel_output_grad = tensor_parallel_output_grad
         world_size = dist.get_world_size(group)
         return all_gather_along_dim(inp, dim, world_size, group)
 
@@ -64,11 +134,15 @@ class _AllGatherForwardOutput(torch.autograd.Function):
     def backward(ctx, grad_output):
         dim = ctx.dim
         group = ctx.group
+        tensor_parallel_output_grad = ctx.tensor_parallel_output_grad
         world_size = dist.get_world_size(group)
-        rank = dist.get_rank(group)
-        sharded_size = grad_output.shape[dim] // world_size
-        ret = grad_output.split(sharded_size, dim=dim)[rank].contiguous()
-        return ret, None, None
+
+        if tensor_parallel_output_grad:
+            ret = reduce_scatter_along_dim(grad_output, dim, world_size, group)
+        else:
+            ret = scatter_along_first_dim(grad_output, dim, world_size, group)
+
+        return (ret, None, None, None)
 
 
 class _ReduceScatterForwardOutput(torch.autograd.Function):
@@ -81,22 +155,7 @@ class _ReduceScatterForwardOutput(torch.autograd.Function):
         ctx.group = group
         world_size = dist.get_world_size(group)
 
-        # reduce_scatter always targets dim 0, so we transpose the target dim
-        # to dim 0, and transpose the result back.
-        assert inp.shape[dim] % world_size == 0, (
-            f"Reduce scatter dimension {dim} size {inp.shape} "
-            f"should be divisible by world size {world_size}"
-        )
-        temp = inp.transpose(0, dim) if dim != 0 else inp
-        temp = temp.contiguous()
-        scatter_shape = list(temp.shape)
-        scatter_shape[0] //= world_size
-        ret = torch.zeros(scatter_shape, dtype=inp.dtype).to(inp.device)
-
-        dist.reduce_scatter_tensor(ret, temp, group=group)
-        if dim != 0:
-            ret = ret.transpose(0, dim).contiguous()
-        return ret
+        return reduce_scatter_along_dim(inp, dim, world_size, group)
 
     @staticmethod
     def backward(ctx, grad_output):
@@ -110,7 +169,31 @@ class _ReduceScatterForwardOutput(torch.autograd.Function):
         )
 
 
-def all_gather_forward_output(inp, dim, group):
+class _ScatterForwardOutput(torch.autograd.Function):
+    """The cusom reduce scatter op used for forward hook."""
+
+    # pylint: disable=abstract-method, arguments-differ
+    @staticmethod
+    def forward(ctx, inp, dim, group):
+        ctx.dim = dim
+        ctx.group = group
+        world_size = dist.get_world_size(group)
+
+        return scatter_along_first_dim(inp, dim, world_size, group)
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        dim = ctx.dim
+        group = ctx.group
+        world_size = dist.get_world_size(group)
+        return (
+            all_gather_along_dim(grad_output, dim, world_size, group),
+            None,
+            None,
+        )
+
+
+def all_gather_forward_output(inp, dim, group, tensor_parallel_output_grad=True):
     """The custom all gather op used for forward hook.
 
     Parameters
@@ -121,13 +204,17 @@ def all_gather_forward_output(inp, dim, group):
         The dimension to all-gather along.
     group: torch.distributed.ProcessGroup
         The process group to all-gather.
+    tensor_parallel_output_grad: If the operator following the gather operation is
+        sharded, output gradients need to be reduce
+        scattered and whereas if the operator is duplicated,
+        output gradients only need to be scattered.
 
     Returns
     -------
     torch.Tensor
         The gathered tensor.
     """
-    return _AllGatherForwardOutput.apply(inp, dim, group)
+    return _AllGatherForwardOutput.apply(inp, dim, group, tensor_parallel_output_grad)
 
 
 def reduce_scatter_forward_output(inp, dim, group):
@@ -147,3 +234,22 @@ def reduce_scatter_forward_output(inp, dim, group):
         The reduced tensor.
     """
     return _ReduceScatterForwardOutput.apply(inp, dim, group)
+
+
+def scatter_forward_output(inp, dim, group):
+    """The custom scatter op used for forward hook.
+    Parameters
+    ----------
+    inp: torch.Tensor
+        The input tensor to reduce-scatter.
+    dim: int
+        The dimension to reduce-scatter along.
+    group: torch.distributed.ProcessGroup
+        The process group to reduce-scatter.
+
+    Returns
+    -------
+    torch.Tensor
+        The scattered tensor.
+    """
+    return _ScatterForwardOutput.apply(inp, dim, group)

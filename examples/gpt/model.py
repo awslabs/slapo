@@ -32,6 +32,7 @@ def schedule_model(
     bcast_input=False,
     pipeline_cuts=None,
     delay_init=True,
+    sequence_parallel=False,
 ):
     assert "GPT2" not in config.architectures[0], "GPT-2 schedule is not working"
 
@@ -52,14 +53,25 @@ def schedule_model(
         config,
         delay_init=delay_init,
         disable_flash_attn=disable_flash_attn,
+        sequence_parallel=sequence_parallel
     )
     logger.info(f"Replace {cnt} attention patterns", ranks=0)
 
     # Shard other parameters if MP group > 1.
     if sch.world_size > 1:
-        replace_and_shard_mlp(sch[prefix], config, delay_init=delay_init)
+        replace_and_shard_mlp(
+            sch[prefix],
+            config,
+            delay_init=delay_init,
+            sequence_parallel=sequence_parallel,
+        )
         head_sch = sch["lm_head"] if "lm_head" in sch else None
-        shard_word_embedding(sch[prefix], head_sch, config.vocab_size)
+        shard_word_embedding(
+            sch[prefix],
+            head_sch,
+            config.vocab_size,
+            sequence_parallel=sequence_parallel,
+        )
 
         # Broadcast input to all devices within the MP group.
         # This is not required when running on Megatron.

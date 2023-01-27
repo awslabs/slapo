@@ -91,7 +91,12 @@ def shard_layers(sch, config):
             # Forward: partitioned output (followed by allgather).
             # Backward: allreduce.
             sub_sch["conv3"].shard("weight", axis=0)
-            sub_sch["conv3"].sync(mode="fwd_post", sync_op_or_fn="all_gather")
+            sub_sch["conv3"].sync(
+                mode="fwd_post",
+                sync_op_or_fn="all_gather",
+                axis=1,
+                tensor_parallel_output_grad=False,
+            )
             sub_sch["conv3"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
 
 

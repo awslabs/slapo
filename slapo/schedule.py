@@ -30,6 +30,7 @@ from .sharding import (
     all_gather_forward_output,
     get_output_type_after_sharding,
     reduce_scatter_forward_output,
+    scatter_forward_output,
 )
 from .tracer import trace as trace_module
 
@@ -319,7 +320,7 @@ class Schedule:
             ```
 
         Case 2: (replica x, shard_out w) -> partition output -> (shard x, shard_in w).
-            In this case, backward still needs allrecuce, so we use:
+            In this case, backward still needs allreduce, so we use:
             ```python
             sch["out_prj"].shard("weight", axis=0)
             sch["out_prj"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
@@ -374,6 +375,12 @@ class Schedule:
 
         def validate_sync_op(mode, sync_op_or_fn, axis=None):
             """A helper function to validate the user given sync_op_or_fn."""
+            if mode == "fwd_post" and sync_op_or_fn == "scatter":
+                if "output_type" in self.metadata.shard:
+                    raise ValueError(
+                        "Output of {self.path} cannot be scatter along axis {axis}, if the layer is sharded"
+                    )
+
             if "output_type" not in self.metadata.shard:
                 return
             output_type = self.metadata.shard["output_type"]
@@ -391,6 +398,11 @@ class Schedule:
             elif mode == "fwd_post" and sync_op_or_fn == "reduce_scatter":
                 if output_type == "partition":
                     raise ValueError("Cannot reduce-scatter a partition output")
+            elif mode == "fwd_pre" and sync_op_or_fn == "all_gather":
+                if output_type == "partial":
+                    raise ValueError(
+                        "Cannot all-gather a partition input when the layer weight is partitioned in the input dimension"
+                    )
             elif sync_op_or_fn == "all_reduce":
                 if mode == "fwd_post" and output_type == "partition":
                     raise ValueError("Cannot all-reduce a partition output")
@@ -401,14 +413,25 @@ class Schedule:
                 sync_fn = None
                 axis = kwargs.get("axis", 0)
                 if sync_op_or_fn == "all_gather":
+                    tensor_parallel_output_grad = kwargs.get(
+                        "tensor_parallel_output_grad", True
+                    )
                     validate_sync_op(mode, sync_op_or_fn, axis)
                     sync_fn = partial(
-                        all_gather_forward_output, dim=axis, group=self.group
+                        all_gather_forward_output,
+                        dim=axis,
+                        group=self.group,
+                        tensor_parallel_output_grad=tensor_parallel_output_grad,
                     )
                 elif sync_op_or_fn == "reduce_scatter":
                     validate_sync_op(mode, sync_op_or_fn)
                     sync_fn = partial(
                         reduce_scatter_forward_output, dim=axis, group=self.group
+                    )
+                elif sync_op_or_fn == "scatter":
+                    validate_sync_op(mode, sync_op_or_fn)
+                    sync_fn = partial(
+                        scatter_forward_output, dim=axis, group=self.group
                     )
                 elif sync_op_or_fn == "all_reduce":
                     validate_sync_op(mode, sync_op_or_fn)
@@ -424,6 +447,30 @@ class Schedule:
                 def hook_fn(_module, _input, output):
                     output = sync_fn(output)
                     return output
+
+            elif mode == "fwd_pre":
+                sync_fn = None
+                axis = kwargs.get("axis", 0)
+                if sync_op_or_fn == "all_gather":
+                    tensor_parallel_output_grad = kwargs.get(
+                        "tensor_parallel_output_grad", True
+                    )
+                    validate_sync_op(mode, sync_op_or_fn, axis)
+                    sync_fn = partial(
+                        all_gather_forward_output,
+                        dim=axis,
+                        group=self.group,
+                        tensor_parallel_output_grad=tensor_parallel_output_grad,
+                    )
+                else:
+                    raise ValueError(
+                        f"Invalid sync_op_or_fn {sync_op_or_fn} for mode {mode} "
+                        "in {self.path}."
+                    )
+
+                def hook_fn(_module, _input):
+                    _input = sync_fn(_input[0])
+                    return _input
 
             elif sync_op_or_fn == "all_reduce":
                 validate_sync_op(mode, sync_op_or_fn)

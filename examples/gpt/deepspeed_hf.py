@@ -117,6 +117,7 @@ def train(args):
             group=group,
             pipeline_cuts=pipeline_cuts,
             delay_init=enable_pipeline,
+            sequence_parallel=args.sequence_parallel,
         )
 
     if enable_pipeline:
@@ -237,15 +238,20 @@ if __name__ == "__main__":
         " it uses default value associated with the model name",
     )
     parser.add_argument(
-        "--nlayers", type=int, default=-1, help="number of transformer layers"
+        "--nlayers", type=int, default=-1, help="Number of transformer layers"
     )
     parser.add_argument(
-        "--num-attn-heads", type=int, default=-1, help="number of attention heads"
+        "--num-attn-heads", type=int, default=-1, help="Number of attention heads"
     )
     parser.add_argument(
-        "--pmp", type=int, default=2, help="pipeline model parallel size"
+        "--pmp", type=int, default=2, help="Pipeline model parallel size"
     )
-    parser.add_argument("--tmp", type=int, default=8, help="tensor parallel size")
+    parser.add_argument("--tmp", type=int, default=8, help="Tensor parallel size")
+    parser.add_argument(
+        "--sequence_parallel",
+        action="store_true",
+        help="Sequence parallelism is enabled",
+    )
     args = parser.parse_args()
 
     if args.hidden_size > 0:

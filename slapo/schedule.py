@@ -34,6 +34,8 @@ from .sharding import (
 )
 from .tracer import trace as trace_module
 from .utils.common import transfer_hooks
+from .initialization import init_empty_weights
+from .op.linear import LinearWithSeparateBias
 
 logger = get_logger()
 
@@ -439,6 +441,24 @@ class Schedule:
                     sync_fn = partial(
                         dist.all_reduce, op=dist.ReduceOp.SUM, group=self.group
                     )
+                    # Avoid multiple reductions of linear bias
+                    # See https://github.com/awslabs/slapo/issues/10
+                    if (
+                        isinstance(self.mod, nn.Linear)
+                        and self.metadata.shard["output_type"] == "partial"
+                    ):
+
+                        with init_empty_weights(
+                            enable=(self.mod.weight.device == torch.device("meta"))
+                        ):
+                            new_mod = LinearWithSeparateBias(
+                                self.mod.in_features,
+                                self.mod.out_features,
+                                self.world_size,
+                                self.mod.weight.device,
+                                self.mod.weight.dtype,
+                            )
+                            self.replace(new_mod)
                 else:
                     raise ValueError(
                         f"Invalid sync_op_or_fn {sync_op_or_fn} for mode {mode} "

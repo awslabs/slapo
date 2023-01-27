@@ -3,4 +3,8 @@
 """Sharding utilities."""
 
 from .infer_type import *
-from .utils import all_gather_forward_output, reduce_scatter_forward_output
+from .utils import (
+    all_gather_forward_output,
+    reduce_scatter_forward_output,
+    scatter_forward_output,
+)

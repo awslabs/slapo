@@ -82,6 +82,7 @@ def replace_and_shard_attention(
     attn_path="h.N.attn.attention",
     delay_init=True,
     disable_flash_attn=False,
+    sequence_parallel=False,
 ):
     from epoi.inject.policy.gpt import InjectHFGPTAttentionPolicy
     from epoi.ops.xformers_attn import GenericSelfAttention
@@ -174,16 +175,24 @@ def replace_and_shard_attention(
         if sch.world_size > 1:
             sub_sch["module.FusedQKV_0.fused_linear"].shard("weight", axis=0)
             sub_sch["module.FusedQKV_0.fused_linear"].shard("bias", axis=0)
-            sub_sch["module.FusedQKV_0.fused_linear"].sync(
-                mode="bwd_post", sync_op_or_fn="all_reduce"
-            )
             sub_sch["module.out_proj"].shard("weight", axis=1)
-            sub_sch["module.out_proj"].sync(
-                mode="fwd_post", sync_op_or_fn="reduce_scatter", axis=1
-            )
-            sub_sch["module.resid_dropout"].sync(
-                mode="fwd_post", sync_op_or_fn="all_gather", axis=1
-            )
+
+            if sequence_parallel:
+                sub_sch["module.FusedQKV_0.fused_linear"].sync(
+                    mode="fwd_pre", sync_op_or_fn="all_gather", axis=1
+                )
+
+                sub_sch["module.out_proj"].sync(
+                    mode="fwd_post", sync_op_or_fn="reduce_scatter", axis=1
+                )
+            else:
+                sub_sch["module.FusedQKV_0.fused_linear"].sync(
+                    mode="bwd_post", sync_op_or_fn="all_reduce"
+                )
+                sub_sch["module.out_proj"].sync(
+                    mode="fwd_post", sync_op_or_fn="all_reduce"
+                )
+
         cnt += 1
 
     return cnt
@@ -209,7 +218,15 @@ def remove_cast(sch, config, attn_path="h.N.attn.attention"):
     return cnt
 
 
-def shard_word_embedding(sch, head_sch, vocab_size, word_embed_name="wte"):
+def shard_word_embedding(
+    sch,
+    head_sch,
+    vocab_size,
+    word_embed_name="wte",
+    pos_embed_name="wpe",
+    final_ln_name="ln_f",
+    sequence_parallel=False,
+):
     if sch.world_size == 1:
         return
 
@@ -238,6 +255,16 @@ def shard_word_embedding(sch, head_sch, vocab_size, word_embed_name="wte"):
 
     sch[word_embed_name].sync(mode="fwd_post", sync_op_or_fn=fwd_post_hook)
 
+    if sequence_parallel:
+        sch[word_embed_name].sync(mode="fwd_post", sync_op_or_fn="scatter", axis=1)
+        sch[pos_embed_name].sync(mode="fwd_post", sync_op_or_fn="scatter", axis=1)
+        sch[final_ln_name].sync(
+            mode="fwd_post",
+            sync_op_or_fn="all_gather",
+            axis=1,
+            tensor_parallel_output_grad=False,
+        )
+
     # Shard output embedding.
     if head_sch is not None:
         head_sch.shard("weight", axis=0)
@@ -249,6 +276,7 @@ def shard_qkv(
     attn_path="h.N.attn.attention",
     qkv_name="FusedQKV_0",
     out_proj_name="out_proj",
+    sequence_parallel=False,
 ):
     """Untested."""
     num_layers = config.num_layers
@@ -277,19 +305,34 @@ def shard_qkv(
         prefix = attn_path.replace("N", str(idx))
         sch[f"{prefix}.{qkv_name}.fused_linear"].shard("weight", axis=0)
         sch[f"{prefix}.{qkv_name}.fused_linear"].shard("bias", axis=0)
-        sch[f"{prefix}.{qkv_name}.fused_linear"].sync(
-            mode="bwd_post", sync_op_or_fn="all_reduce"
-        )
 
         sch[f"{prefix}.{out_proj_name}"].shard("weight", axis=1)
-        sch[f"{prefix}.{out_proj_name}"].sync(
-            mode="fwd_post", sync_op_or_fn="all_reduce"
-        )
+
+        if sequence_parallel:
+            sch[f"{prefix}.{qkv_name}.fused_linear"].sync(
+                mode="fwd_pre", sync_op_or_fn="all_gather", axis=1
+            )
+            sch[f"{prefix}.{out_proj_name}"].sync(
+                mode="fwd_post", sync_op_or_fn="reduce_scatter", axis=1
+            )
+        else:
+            sch[f"{prefix}.{qkv_name}.fused_linear"].sync(
+                mode="bwd_post", sync_op_or_fn="all_reduce"
+            )
+            sch[f"{prefix}.{out_proj_name}"].sync(
+                mode="fwd_post", sync_op_or_fn="all_reduce"
+            )
+
         fix_shape_after_shard(prefix)
 
 
 def replace_and_shard_mlp(
-    sch, config, path="h.N.mlp", fc_names=["c_fc", "c_proj"], delay_init=True
+    sch,
+    config,
+    path="h.N.mlp",
+    fc_names=["c_fc", "c_proj"],
+    delay_init=True,
+    sequence_parallel=False,
 ):
     from epoi.inject.policy.gpt import InjectHFGPTMLPPolicy
 
@@ -305,19 +348,44 @@ def replace_and_shard_mlp(
             if sch.world_size > 1:
                 sub_sch["fc_in"].shard("weight", axis=0)
                 sub_sch["act"].shard("bias", axis=0)
-                sub_sch["fc_in"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
                 sub_sch["fc_out"].shard("weight", axis=1)
-                sub_sch["fc_out"].sync(mode="fwd_post", sync_op_or_fn="all_reduce")
+
+                if sequence_parallel:
+                    sub_sch["fc_in"].sync(
+                        mode="fwd_pre", sync_op_or_fn="all_gather", axis=1
+                    )
+                    sub_sch["fc_out"].sync(
+                        mode="fwd_post", sync_op_or_fn="reduce_scatter", axis=1
+                    )
+                else:
+                    sub_sch["fc_in"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
+                    sub_sch["fc_out"].sync(mode="fwd_post", sync_op_or_fn="all_reduce")
+
         elif sch.world_size > 1:
+            sch[f"{prefix}.{fc_names[0]}"].sync(
+                mode="fwd_pre", sync_op_or_fn="all_gather", axis=1
+            )
             sch[f"{prefix}.{fc_names[0]}"].shard("weight", axis=0)
             sch[f"{prefix}.{fc_names[0]}"].shard("bias", axis=0)
-            sch[f"{prefix}.{fc_names[0]}"].sync(
-                mode="bwd_post", sync_op_or_fn="all_reduce"
-            )
             sch[f"{prefix}.{fc_names[1]}"].shard("weight", axis=1)
             sch[f"{prefix}.{fc_names[1]}"].sync(
-                mode="fwd_post", sync_op_or_fn="all_reduce"
+                mode="fwd_post", sync_op_or_fn="reduce_scatter", axis=1
             )
+
+            if sequence_parallel:
+                sch[f"{prefix}.{fc_names[0]}"].sync(
+                    mode="fwd_pre", sync_op_or_fn="all_gather", axis=1
+                )
+                sch[f"{prefix}.{fc_names[1]}"].sync(
+                    mode="fwd_post", sync_op_or_fn="reduce_scatter", axis=1
+                )
+            else:
+                sch[f"{prefix}.{fc_names[0]}"].sync(
+                    mode="bwd_post", sync_op_or_fn="all_reduce"
+                )
+                sch[f"{prefix}.{fc_names[1]}"].sync(
+                    mode="fwd_post", sync_op_or_fn="all_reduce"
+                )
 
 
 def checkpoint(sch, config, path="h.N", ckpt_ratio=1.0):

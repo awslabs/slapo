@@ -153,7 +153,15 @@ def test_seq_para(init_dist):
     torch.cuda.set_device(local_rank)
     model = Model()
 
+    def sequence_partition(module, _input):
+        world_size = dist.get_world_size()
+        sharded_seq_len = _input[0].shape[1] // world_size
+        return _input[0].split(sharded_seq_len, dim=1)[rank].contiguous()
+
     sch = slapo.create_schedule(copy.deepcopy(model))
+    # The following two lines are used to test all_gather feature for pre-forward
+    sch["linear1"].sync(mode="fwd_pre", sync_op_or_fn=sequence_partition)
+    sch["linear1"].sync(mode="fwd_pre", sync_op_or_fn="all_gather", axis=1)
     sch["linear1"].shard("weight", axis=0)
     sch["linear1"].shard("bias", axis=0)
     sch["linear1"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
@@ -161,7 +169,12 @@ def test_seq_para(init_dist):
 
     # forward reduce_scatter, and allgather at the end of the top module.
     sch["linear2"].sync(mode="fwd_post", sync_op_or_fn="reduce_scatter", axis=1)
-    sch.sync(mode="fwd_post", sync_op_or_fn="all_gather", axis=1)
+    sch.sync(
+        mode="fwd_post",
+        sync_op_or_fn="all_gather",
+        axis=1,
+        tensor_parallel_output_grad=False,
+    )
 
     sch_model, _ = slapo.build(sch)
     sch_model.cuda(local_rank)
@@ -278,7 +291,12 @@ def test_conv(init_dist):
     sch["bn3"].shard("bias", axis=0)
     sch["bn3"].shard("running_mean", axis=0)
     sch["bn3"].shard("running_var", axis=0)
-    sch["bn3"].sync(mode="fwd_post", sync_op_or_fn="all_gather", axis=1)
+    sch["bn3"].sync(
+        mode="fwd_post",
+        sync_op_or_fn="all_gather",
+        axis=1,
+        tensor_parallel_output_grad=False,
+    )
     sch["bn3"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
     sch_model, _ = slapo.build(sch, init_required=False)
 
@@ -357,7 +375,12 @@ def test_tie_weights(init_dist):
     assert id(sch.mod.stage0.wte.weight) == id(sch.mod.stage2.linear.weight)
 
     sch["stage0.wte"].shard("weight", axis=0)
-    sch["stage0.wte"].sync(mode="fwd_post", sync_op_or_fn="all_gather", axis=0)
+    sch["stage0.wte"].sync(
+        mode="fwd_post",
+        sync_op_or_fn="all_gather",
+        axis=0,
+        tensor_parallel_output_grad=False,
+    )
     sch["stage0.wte"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
     sch["stage1.linear"].shard("weight", axis=0)
     sch["stage2.linear"].shard("weight", axis=0)

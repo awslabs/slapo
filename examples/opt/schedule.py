@@ -205,12 +205,7 @@ def replace_and_shard_attention(
                 mode="bwd_post", sync_op_or_fn="all_reduce"
             )
             sub_sch["module.out_proj"].shard("weight", axis=1)
-            sub_sch["module.out_proj"].sync(
-                mode="fwd_post", sync_op_or_fn="reduce_scatter", axis=1
-            )
-            sub_sch["module.resid_dropout"].sync(
-                mode="fwd_post", sync_op_or_fn="all_gather", axis=1
-            )
+            sub_sch["module.out_proj"].sync(mode="fwd_post", sync_op_or_fn="all_reduce")
         cnt += 1
 
     return cnt

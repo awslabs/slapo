@@ -206,7 +206,7 @@ def all_gather_forward_output(inp, dim, group, tensor_parallel_output_grad=True)
         The process group to all-gather.
     tensor_parallel_output_grad: bool
         If the operator following the gather operation is sharded,
-        output gradients need to be reduce scattered and whereas
+        output gradients need to be reduced and scattered; whereas
         if the operator is duplicated, output gradients only need to be scattered.
 
     Returns

@@ -53,7 +53,7 @@ def schedule_model(
         config,
         delay_init=delay_init,
         disable_flash_attn=disable_flash_attn,
-        sequence_parallel=sequence_parallel
+        sequence_parallel=sequence_parallel,
     )
     logger.info(f"Replace {cnt} attention patterns", ranks=0)
 

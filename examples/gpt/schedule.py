@@ -82,7 +82,7 @@ def replace_and_shard_attention(
     attn_path="h.N.attn.attention",
     delay_init=True,
     disable_flash_attn=False,
-    sequence_parallel=False
+    sequence_parallel=False,
 ):
     from epoi.inject.policy.gpt import InjectHFGPTAttentionPolicy
     from epoi.ops.xformers_attn import GenericSelfAttention

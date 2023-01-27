@@ -4,6 +4,7 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
+import torch.distributed as dist
 from torch import Tensor
 from torch.nn.parameter import Parameter
 
@@ -19,6 +20,7 @@ class LinearWithSeparateBias(nn.Linear):
         in_features: int,
         out_features: int,
         world_size: int,
+        group: dist.ProcessGroup,
         device=None,
         dtype=None,
     ) -> None:
@@ -27,11 +29,12 @@ class LinearWithSeparateBias(nn.Linear):
             in_features, out_features, bias=False, device=device, dtype=dtype
         )
         self.world_size = world_size
+        self.group = group
         self.bias = Parameter(torch.empty(out_features, **factory_kwargs))
         self.reset_parameters()
 
     def forward(self, x: Tensor) -> Tensor:
         x = F.linear(x, self.weight, None)
-        # Divide bias by world_size to avoid redundant summation in TP
-        x = x + self.bias / self.world_size
+        dist.all_reduce(x, op=dist.ReduceOp.SUM, group=self.group)
+        x = x + self.bias
         return x

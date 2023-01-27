@@ -455,10 +455,12 @@ class Schedule:
                                 self.mod.in_features,
                                 self.mod.out_features,
                                 self.world_size,
+                                self.group,
                                 self.mod.weight.device,
                                 self.mod.weight.dtype,
                             )
                             self.replace(new_mod)
+                        return
                 else:
                     raise ValueError(
                         f"Invalid sync_op_or_fn {sync_op_or_fn} for mode {mode} "

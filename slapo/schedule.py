@@ -411,6 +411,8 @@ class Schedule:
                     raise ValueError("Cannot all-reduce a partition output")
 
         def decouple_bias_from_linear(sch, sync_fn):
+            param = sch.mod.get_parameter("weight")
+            # Replace the linear module
             with init_empty_weights(
                 enable=(sch.mod.weight.device == torch.device("meta"))
             ):
@@ -422,6 +424,27 @@ class Schedule:
                     sch.mod.weight.dtype,
                 )
                 sch.replace(new_mod)
+            # Test if the original weight is tied to other modules
+            new_tensor = new_mod.weight.data
+            if param in sch.metadata.tie_weights:
+                if id(sch.metadata.tie_weights[param]) != id(param):
+                    # This parameter is tied to another parameter.
+                    # We directly register the sharded parameter to the module
+                    # to keep them tied.
+                    if new_tensor.shape != sch.metadata.tie_weights[param].shape:
+                        raise RuntimeError(
+                            f"Parameter weight in {sch.path} is tied, "
+                            "but they have different sharded shapes: "
+                            f"{new_tensor.shape} vs "
+                            f"{sch.metadata.tie_weights[param].shape}"
+                        )
+                    new_param = sch.metadata.tie_weights[param]
+                else:
+                    new_param = nn.Parameter(new_tensor)
+                    self.metadata.tie_weights[param] = new_param
+            else:
+                new_param = nn.Parameter(new_tensor)
+            sch.mod.register_parameter("weight", new_param)
 
         # Generate the hook if sync_op_or_fn is a string.
         if isinstance(sync_op_or_fn, str):
@@ -757,6 +780,7 @@ class SubgraphWrapper(nn.Module):
         1. Replace an entire module (new_mod_or_func is the new module object, target_ops=None).
         2. Replace a part of the forward function (target_ops) with a new module or function.
         """
+        # TODO: Need to check whether the module has been tie_weights
         if isinstance(new_mod_or_func, FunctionType):
             if target_ops is None and isinstance(target_ops, list):
                 raise ValueError(

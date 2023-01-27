@@ -44,7 +44,12 @@ def fix_position_bias_shape(sch, delay_init=True):
 
 
 def replace_and_shard_attention(
-    sch, config, attn_path, cross_attn=False, delay_init=True
+    sch,
+    config,
+    attn_path,
+    cross_attn=False,
+    delay_init=True,
+    disable_flash_attn=False,
 ):
     from epoi.inject.policy.t5 import InjectHFT5AttentionPolicy
     from epoi.ops.xformers_attn import T5Attention
@@ -62,6 +67,8 @@ def replace_and_shard_attention(
         prefix = attn_path.replace("N", str(idx))
         sub_sch = sch[f"{prefix}"]
         init_config = InjectHFT5AttentionPolicy.gen_init_config_from_object(sub_sch.mod)
+        if disable_flash_attn:
+            init_config["attn_op_name"] = "native"
         with init_empty_weights(enable=delay_init):
             new_mod = T5Attention(**init_config)
         sub_sch.replace(new_mod)

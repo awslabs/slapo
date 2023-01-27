@@ -56,6 +56,7 @@ def replace_and_shard_attention(
     config,
     attn_path="encoder.albert_layer_groups.N.albert_layers.N",
     delay_init=True,
+    disable_flash_attn=False,
 ):
     from epoi.inject.policy.bert import InjectHFBertSelfAttentionPolicy
     from epoi.ops.xformers_attn import GenericSelfAttention
@@ -151,6 +152,8 @@ def replace_and_shard_attention(
         init_config = InjectHFBertSelfAttentionPolicy.gen_init_config_from_object(
             sub_sch.mod
         )
+        if disable_flash_attn:
+            init_config["attn_op_name"] = "native"
         with init_empty_weights(enable=False):
             albert_layer = AlbertLayer(config, **init_config)
         sch[f"{prefix}"].replace(albert_layer)

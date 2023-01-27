@@ -39,11 +39,15 @@ def schedule_model(
 
     # Replace self attention with flash attention, and shard QKV/output
     # if MP group > 1.
-    if not disable_flash_attn:
-        cnt = replace_and_shard_attention(sch[prefix], config, delay_init=delay_init)
-        logger.info(f"Replace {cnt} attention patterns", ranks=0)
-    else:
-        raise NotImplementedError("Not implemented yet")
+    if disable_flash_attn:
+        logger.info("Disabled Flash Attention", rank=0)
+    cnt = replace_and_shard_attention(
+        sch[prefix],
+        config,
+        delay_init=delay_init,
+        disable_flash_attn=disable_flash_attn,
+    )
+    logger.info(f"Replace {cnt} attention patterns", ranks=0)
 
     # Shard other parameters if MP group > 1.
     if sch.world_size > 1:

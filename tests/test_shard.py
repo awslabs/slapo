@@ -3,7 +3,7 @@
 
 """
 Test sharding primitive. Note that this test has to be invoked by torchrun. For example:
-torchrun --nproc_per_node 2 -m pytest test_shard.py
+torchrun --nproc_per_node 2 -m pytest -s tests/test_shard.py
 """
 # pylint: disable=unused-argument
 import os
@@ -148,7 +148,7 @@ def test_seq_para(init_dist):
         def __init__(self):
             super().__init__()
             self.linear1 = torch.nn.Linear(30, 30)
-            self.linear2 = torch.nn.Linear(30, 30, bias=False)
+            self.linear2 = torch.nn.Linear(30, 30)
 
         def forward(self, data):
             out = self.linear1(data)
@@ -196,7 +196,7 @@ def test_seq_para(init_dist):
         "linear1.weight": 0,
         "linear1.bias": 0,
         "linear2.weight": 1,
-        # "linear2.bias": -1,
+        "linear2.bias": -1,
     }
     path_and_grads = gather_grad(sch_model, param_path_and_gather_axis)
 

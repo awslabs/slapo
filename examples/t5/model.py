@@ -40,43 +40,43 @@ def schedule_model(
 
     # Replace self attention with flash attention, and shard QKV/output
     # if MP group > 1.
-    if not disable_flash_attn:
-        cnt, fix_shape_cnt = replace_and_shard_attention(
-            sch[prefix],
-            config,
-            "encoder.block.N.layer.0.SelfAttention",
-            delay_init=delay_init,
-        )
-        logger.info(
-            f"Replace {cnt} encoder self attention patterns "
-            f"with {fix_shape_cnt} shape fixing",
-            ranks=0,
-        )
-        cnt, fix_shape_cnt = replace_and_shard_attention(
-            sch[prefix],
-            config,
-            "decoder.block.N.layer.0.SelfAttention",
-            delay_init=delay_init,
-        )
-        logger.info(
-            f"Replace {cnt} decoder self attention patterns "
-            f"with {fix_shape_cnt} shape fixing",
-            ranks=0,
-        )
-        cnt, fix_shape_cnt = replace_and_shard_attention(
-            sch[prefix],
-            config,
-            "decoder.block.N.layer.1.EncDecAttention",
-            cross_attn=True,
-            delay_init=delay_init,
-        )
-        logger.info(
-            f"Replace {cnt} decoder cross attention patterns "
-            f"with {fix_shape_cnt} shape fixing",
-            ranks=0,
-        )
-    else:
-        raise NotImplementedError("Not implemented yet")
+    cnt, fix_shape_cnt = replace_and_shard_attention(
+        sch[prefix],
+        config,
+        "encoder.block.N.layer.0.SelfAttention",
+        delay_init=delay_init,
+        disable_flash_attn=disable_flash_attn,
+    )
+    logger.info(
+        f"Replace {cnt} encoder self attention patterns "
+        f"with {fix_shape_cnt} shape fixing",
+        ranks=0,
+    )
+    cnt, fix_shape_cnt = replace_and_shard_attention(
+        sch[prefix],
+        config,
+        "decoder.block.N.layer.0.SelfAttention",
+        delay_init=delay_init,
+        disable_flash_attn=disable_flash_attn,
+    )
+    logger.info(
+        f"Replace {cnt} decoder self attention patterns "
+        f"with {fix_shape_cnt} shape fixing",
+        ranks=0,
+    )
+    cnt, fix_shape_cnt = replace_and_shard_attention(
+        sch[prefix],
+        config,
+        "decoder.block.N.layer.1.EncDecAttention",
+        cross_attn=True,
+        delay_init=delay_init,
+        disable_flash_attn=disable_flash_attn,
+    )
+    logger.info(
+        f"Replace {cnt} decoder cross attention patterns "
+        f"with {fix_shape_cnt} shape fixing",
+        ranks=0,
+    )
 
     # Shard other parameters if MP group > 1.
     if sch.world_size > 1:

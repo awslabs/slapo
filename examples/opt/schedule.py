@@ -100,7 +100,11 @@ def fix_attention_mask_shape(sch):
 
 
 def replace_and_shard_attention(
-    sch, config, attn_path="decoder.layers.N.self_attn", delay_init=True
+    sch,
+    config,
+    attn_path="decoder.layers.N.self_attn",
+    delay_init=True,
+    disable_flash_attn=False,
 ):
     from epoi.inject.policy.gpt import InjectHFGPTAttentionPolicy
     from epoi.ops.xformers_attn import GenericSelfAttention
@@ -141,6 +145,8 @@ def replace_and_shard_attention(
         init_config = InjectHFGPTAttentionPolicy.gen_init_config_from_object(
             sub_sch.mod
         )
+        if disable_flash_attn:
+            init_config["attn_op_name"] = "native"
         with init_empty_weights(enable=delay_init):
             new_mod = SelfAttention(**init_config)
         sub_sch.replace(new_mod)

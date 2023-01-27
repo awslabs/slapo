@@ -45,22 +45,15 @@ def schedule_model(
     # Replace self attention with flash attention, and shard QKV/output
     # if MP group > 1.
     attn_path, out_proj_name = "decoder.layers.N.self_attn", "out_proj"
-    if not disable_flash_attn:
-        cnt = replace_and_shard_attention(sch[prefix], config, delay_init=delay_init)
-        logger.info(f"Replace {cnt} attention patterns", ranks=0)
-    else:
-        # FIXME: This path is not working because our tracer cannot trace
-        # OPT without tracing the whole model.
-        raise NotImplementedError("OPT without fusion")
-        cnt = trace_attention(sch, config, attn_path)
-        logger.info(f"Traced {cnt} attention layesr", ranks=0)
-        assert cnt > 0
-        cnt = remove_cast(sch, config, attn_path)
-        logger.info(f"Remove {cnt} .to(torch.float32) ops", ranks=0)
-        cnt = replace_qkv(sch, config, attn_path)
-        logger.info(f"Replace {cnt} QKV patterns", ranks=0)
-        if sch.world_size > 1:
-            shard_qkv(sch, config, attn_path, out_proj_name=out_proj_name)
+    if disable_flash_attn:
+        logger.info("Disable Flash Attention", rank=0)
+    cnt = replace_and_shard_attention(
+        sch[prefix],
+        config,
+        delay_init=delay_init,
+        disable_flash_attn=disable_flash_attn,
+    )
+    logger.info(f"Replace {cnt} attention patterns", ranks=0)
 
     # Shard other parameters if MP group > 1.
     if sch.world_size > 1:

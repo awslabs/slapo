@@ -87,7 +87,7 @@ def reduce_scatter_along_dim(inp, dim, world_size, group):
     return ret
 
 
-def scatter_along_first_dim(inp, dim, world_size, group):
+def scatter_along_dim(inp, dim, world_size, group):
     """scatter along the given dimension.
 
     Paramters

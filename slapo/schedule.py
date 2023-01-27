@@ -378,7 +378,7 @@ class Schedule:
             if mode == "fwd_post" and sync_op_or_fn == "scatter":
                 if "output_type" in self.metadata.shard:
                     raise ValueError(
-                        "Output of {self.path} cannot be scatter along axis {axis}, if the layer is sharded"
+                        "Output of {self.path} cannot be scatter along axis {axis}, if its parameter is sharded"
                     )
 
             if "output_type" not in self.metadata.shard:
@@ -401,7 +401,7 @@ class Schedule:
             elif mode == "fwd_pre" and sync_op_or_fn == "all_gather":
                 if output_type == "partial":
                     raise ValueError(
-                        "Cannot all-gather a partition input when the layer weight is partitioned in the input dimension"
+                        "Cannot all-gather a partition input since the operator with parameter sharded in the input dimension expects partitioned input"
                     )
             elif sync_op_or_fn == "all_reduce":
                 if mode == "fwd_post" and output_type == "partition":

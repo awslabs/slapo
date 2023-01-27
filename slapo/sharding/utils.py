@@ -140,7 +140,7 @@ class _AllGatherForwardOutput(torch.autograd.Function):
         if tensor_parallel_output_grad:
             ret = reduce_scatter_along_dim(grad_output, dim, world_size, group)
         else:
-            ret = scatter_along_first_dim(grad_output, dim, world_size, group)
+            ret = scatter_along_dim(grad_output, dim, world_size, group)
 
         return (ret, None, None, None)
 
@@ -179,7 +179,7 @@ class _ScatterForwardOutput(torch.autograd.Function):
         ctx.group = group
         world_size = dist.get_world_size(group)
 
-        return scatter_along_first_dim(inp, dim, world_size, group)
+        return scatter_along_dim(inp, dim, world_size, group)
 
     @staticmethod
     def backward(ctx, grad_output):

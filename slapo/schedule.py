@@ -417,12 +417,14 @@ class Schedule:
                 enable=(sch.mod.weight.device == torch.device("meta"))
             ):
                 new_mod = LinearWithSeparateBias(
-                    sch.mod.in_features,
-                    sch.mod.out_features,
+                    sch.mod.weight.shape[1],
+                    sch.mod.weight.shape[0],
                     sync_fn,
                     sch.mod.weight.device,
                     sch.mod.weight.dtype,
                 )
+                new_mod.in_features = sch.mod.in_features
+                new_mod.out_features = sch.mod.out_features
                 sch.replace(new_mod)
             # Test if the original weight is tied to other modules
             new_tensor = new_mod.weight.data
@@ -440,10 +442,10 @@ class Schedule:
                         )
                     new_param = sch.metadata.tie_weights[param]
                 else:
-                    new_param = nn.Parameter(new_tensor)
+                    new_param = new_mod.weight
                     self.metadata.tie_weights[param] = new_param
             else:
-                new_param = nn.Parameter(new_tensor)
+                new_param = new_mod.weight
             sch.mod.register_parameter("weight", new_param)
 
         # Generate the hook if sync_op_or_fn is a string.
@@ -1145,7 +1147,9 @@ def consolidate_model(
             is_found = False
             for idx, new_size in enumerate(new_param_shapes[param_name]):
                 if new_size != param.shape[idx]:
-                    assert not is_found, "Cannot have two sharded dimensions!"
+                    assert (
+                        not is_found
+                    ), f"{sch.path}.{param_name} Cannot have two sharded dimensions {new_param_shapes[param_name]}  (sharded) vs {param.shape} (original)!"
                     sharded_size = new_size
                     axis = idx
                     is_found = True

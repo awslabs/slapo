@@ -365,7 +365,6 @@ def deepspeed_pipe_engine(
     else:
         param_dtype = torch.float
 
-    # pylint: disable=unexpected-keyword-arg
     model = pipe.PipelineModule(
         stage_modules,
         topology=topology,

@@ -196,6 +196,7 @@ def test_seq_para(init_dist):
         "linear1.weight": 0,
         "linear1.bias": 0,
         "linear2.weight": 1,
+        # "linear2.bias": -1,
     }
     path_and_grads = gather_grad(sch_model, param_path_and_gather_axis)
 

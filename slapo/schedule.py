@@ -431,6 +431,26 @@ class Schedule:
                     sync_fn = partial(
                         reduce_scatter_forward_output, dim=axis, group=self.group
                     )
+                    # Avoid multiple reductions of linear bias
+                    # See https://github.com/awslabs/slapo/issues/10
+                    if (
+                        isinstance(self.mod, nn.Linear)
+                        and self.mod.bias is not None
+                        and self.metadata.shard["output_type"] == "partial"
+                    ):
+
+                        with init_empty_weights(
+                            enable=(self.mod.weight.device == torch.device("meta"))
+                        ):
+                            new_mod = LinearWithSeparateBias(
+                                self.mod.in_features,
+                                self.mod.out_features,
+                                sync_fn,
+                                self.mod.weight.device,
+                                self.mod.weight.dtype,
+                            )
+                            self.replace(new_mod)
+                        return
                 elif sync_op_or_fn == "scatter":
                     validate_sync_op(mode, sync_op_or_fn)
                     sync_fn = partial(
@@ -445,6 +465,7 @@ class Schedule:
                     # See https://github.com/awslabs/slapo/issues/10
                     if (
                         isinstance(self.mod, nn.Linear)
+                        and self.mod.bias is not None
                         and self.metadata.shard["output_type"] == "partial"
                     ):
 
@@ -454,8 +475,7 @@ class Schedule:
                             new_mod = LinearWithSeparateBias(
                                 self.mod.in_features,
                                 self.mod.out_features,
-                                self.world_size,
-                                self.group,
+                                sync_fn,
                                 self.mod.weight.device,
                                 self.mod.weight.dtype,
                             )

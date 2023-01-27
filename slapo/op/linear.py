@@ -19,22 +19,24 @@ class LinearWithSeparateBias(nn.Linear):
         self,
         in_features: int,
         out_features: int,
-        world_size: int,
-        group: dist.ProcessGroup,
+        sync_fn,
         device=None,
         dtype=None,
     ) -> None:
         factory_kwargs = {"device": device, "dtype": dtype}
-        super(LinearWithSeparateBias, self).__init__(
+        super().__init__(
             in_features, out_features, bias=False, device=device, dtype=dtype
         )
-        self.world_size = world_size
-        self.group = group
+        self.sync_fn = sync_fn
         self.bias = Parameter(torch.empty(out_features, **factory_kwargs))
         self.reset_parameters()
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(self, x: Tensor) -> Tensor:  # pylint: disable=arguments-renamed
         x = F.linear(x, self.weight, None)
-        dist.all_reduce(x, op=dist.ReduceOp.SUM, group=self.group)
+        # pylint: disable=comparison-with-callable
+        if self.sync_fn.func == dist.all_reduce:
+            self.sync_fn(x)
+        else:
+            x = self.sync_fn(x)
         x = x + self.bias
         return x

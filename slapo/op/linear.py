@@ -1,12 +1,10 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-import torch
 from torch import nn
 import torch.nn.functional as F
 import torch.distributed as dist
 from torch import Tensor
-from torch.nn.parameter import Parameter
 
 
 class LinearWithSeparateBias(nn.Linear):
@@ -23,20 +21,27 @@ class LinearWithSeparateBias(nn.Linear):
         device=None,
         dtype=None,
     ) -> None:
-        factory_kwargs = {"device": device, "dtype": dtype}
+        """
+        Args:
+            in_features: int
+                size of each input sample
+            out_features: int
+                size of each output sample
+            sync_fc: Callable
+                The synchronization function (e.g., all_reduce, reduce_scatter)
+        """
         super().__init__(
-            in_features, out_features, bias=False, device=device, dtype=dtype
+            in_features, out_features, bias=True, device=device, dtype=dtype
         )
         self.sync_fn = sync_fn
-        self.bias = Parameter(torch.empty(out_features, **factory_kwargs))
-        self.reset_parameters()
 
     def forward(self, x: Tensor) -> Tensor:  # pylint: disable=arguments-renamed
+        # Delay bias add after synchronization
         x = F.linear(x, self.weight, None)
         # pylint: disable=comparison-with-callable
         if self.sync_fn.func == dist.all_reduce:
             self.sync_fn(x)
-        else:
+        else:  # reduce_scatter
             x = self.sync_fn(x)
         x = x + self.bias
         return x

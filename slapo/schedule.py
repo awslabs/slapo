@@ -410,6 +410,19 @@ class Schedule:
                 if mode == "fwd_post" and output_type == "partition":
                     raise ValueError("Cannot all-reduce a partition output")
 
+        def decouple_bias_from_linear(sch, sync_fn):
+            with init_empty_weights(
+                enable=(sch.mod.weight.device == torch.device("meta"))
+            ):
+                new_mod = LinearWithSeparateBias(
+                    sch.mod.in_features,
+                    sch.mod.out_features,
+                    sync_fn,
+                    sch.mod.weight.device,
+                    sch.mod.weight.dtype,
+                )
+                sch.replace(new_mod)
+
         # Generate the hook if sync_op_or_fn is a string.
         if isinstance(sync_op_or_fn, str):
             if mode == "fwd_post":
@@ -438,18 +451,7 @@ class Schedule:
                         and self.mod.bias is not None
                         and self.metadata.shard["output_type"] == "partial"
                     ):
-
-                        with init_empty_weights(
-                            enable=(self.mod.weight.device == torch.device("meta"))
-                        ):
-                            new_mod = LinearWithSeparateBias(
-                                self.mod.in_features,
-                                self.mod.out_features,
-                                sync_fn,
-                                self.mod.weight.device,
-                                self.mod.weight.dtype,
-                            )
-                            self.replace(new_mod)
+                        decouple_bias_from_linear(self, sync_fn)
                         return
                 elif sync_op_or_fn == "scatter":
                     validate_sync_op(mode, sync_op_or_fn)
@@ -468,18 +470,7 @@ class Schedule:
                         and self.mod.bias is not None
                         and self.metadata.shard["output_type"] == "partial"
                     ):
-
-                        with init_empty_weights(
-                            enable=(self.mod.weight.device == torch.device("meta"))
-                        ):
-                            new_mod = LinearWithSeparateBias(
-                                self.mod.in_features,
-                                self.mod.out_features,
-                                sync_fn,
-                                self.mod.weight.device,
-                                self.mod.weight.dtype,
-                            )
-                            self.replace(new_mod)
+                        decouple_bias_from_linear(self, sync_fn)
                         return
                 else:
                     raise ValueError(

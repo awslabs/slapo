@@ -18,6 +18,7 @@ import torch
 import torch.distributed as dist
 from torch import fx, nn
 from torch.utils import checkpoint
+from torch._utils import _flatten_dense_tensors, _unflatten_dense_tensors
 
 from .logger import get_logger
 from .model_dialect import get_dialect_cls
@@ -225,7 +226,7 @@ class Schedule:
                 return False
         return True
 
-    def get_params_if_tied(self, old_param, new_param):
+    def get_or_set_tied_param(self, old_param, new_param):
         if old_param in self.metadata.tie_weights:
             if id(self.metadata.tie_weights[old_param]) != id(old_param):
                 # This parameter is tied to another parameter.
@@ -263,7 +264,7 @@ class Schedule:
         try:
             param = self.mod.get_parameter(tensor_name)
             new_tensor, sharded_size = _shard(tensor_name, param)
-            new_param = self.get_params_if_tied(param, nn.Parameter(new_tensor))
+            new_param = self.get_or_set_tied_param(param, nn.Parameter(new_tensor))
             self.mod.register_parameter(tensor_name, new_param)
         except AttributeError:
             buffer = self.mod.get_buffer(tensor_name)
@@ -430,7 +431,7 @@ class Schedule:
                 new_mod.out_features = sch.mod.out_features
                 sch.replace(new_mod)
             # Test if the original weight is tied to other modules
-            new_param = self.get_params_if_tied(param, new_mod.weight)
+            new_param = self.get_or_set_tied_param(param, new_mod.weight)
             sch.mod.register_parameter("weight", new_param)
 
         # Generate the hook if sync_op_or_fn is a string.
@@ -1167,15 +1168,37 @@ def init_target_engine(sch, target, **kwargs):
 
 
 def reduce_model_grads(sch: Schedule):
-    def hook(grad):
-        dist.all_reduce(grad.contiguous(), dist.ReduceOp.SUM, group=sch.group)
-        return grad
+    grad_names = []
 
-    for param_name in sch.metadata.params_to_reduce:
-        param = sch.mod.get_parameter(param_name)
-        param.register_hook(hook)
-    for child_name in sch.child:
-        reduce_model_grads(sch[child_name])
+    def find_all_grad_to_reduce(subsch):
+        for param_name in subsch.metadata.params_to_reduce:
+            grad_names.append(f"{subsch.path}.{param_name}")
+        for child_name in subsch.child:
+            find_all_grad_to_reduce(subsch[child_name])
+
+    find_all_grad_to_reduce(sch)
+
+    if len(grad_names) == 0:
+        return
+
+    # Reference implementation:
+    # megatron/optimizer/optimizer.py/allreduce_layernorm_grads
+    # pylint: disable=unused-argument
+    def hook_fn(_module, _input, output):
+        grads = []
+        for name in grad_names:
+            param = _module.get_parameter(name)
+            grads.append(param.grad.data)
+        coalesced = _flatten_dense_tensors(grads)
+        dist.all_reduce(
+            coalesced,
+            op=dist.ReduceOp.SUM,
+            group=sch.group,
+        )
+        for buf, synced in zip(grads, _unflatten_dense_tensors(coalesced, grads)):
+            buf.copy_(synced)
+
+    sch.sync("bwd_post", hook_fn)
 
 
 def build(

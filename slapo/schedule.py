@@ -225,6 +225,24 @@ class Schedule:
                 return False
         return True
 
+    def get_params_if_tied(self, old_param, new_param):
+        if old_param in self.metadata.tie_weights:
+            if id(self.metadata.tie_weights[old_param]) != id(old_param):
+                # This parameter is tied to another parameter.
+                # We directly register the sharded parameter to the module
+                # to keep them tied.
+                if new_param.shape != self.metadata.tie_weights[old_param].shape:
+                    raise RuntimeError(
+                        f"Parameter weight in {self.path} is tied, "
+                        "but they have different sharded shapes: "
+                        f"{new_param.shape} vs "
+                        f"{self.metadata.tie_weights[old_param].shape}"
+                    )
+                new_param = self.metadata.tie_weights[old_param]
+            else:
+                self.metadata.tie_weights[old_param] = new_param
+        return new_param
+
     @register_primitive(need_dist=True)
     def shard(self, tensor_name: str, axis: int):
         def _shard(name, tensor):
@@ -245,25 +263,7 @@ class Schedule:
         try:
             param = self.mod.get_parameter(tensor_name)
             new_tensor, sharded_size = _shard(tensor_name, param)
-            if param in self.metadata.tie_weights:
-                if id(self.metadata.tie_weights[param]) != id(param):
-                    # This parameter is tied to another parameter, and the other
-                    # parameter is already sharded. In this case we directly
-                    # register the sharded parameter to the module to keep them tied.
-                    if new_tensor.shape != self.metadata.tie_weights[param].shape:
-                        raise RuntimeError(
-                            f"Parameter {tensor_name} in {self.path} is tied, "
-                            "but they have different sharded shapes: "
-                            f"{new_tensor.shape} vs "
-                            f"{self.metadata.tie_weights[param].shape}"
-                        )
-                    new_param = self.metadata.tie_weights[param]
-                else:
-                    # The first parameter in this tie group is sharded.
-                    new_param = nn.Parameter(new_tensor)
-                    self.metadata.tie_weights[param] = new_param
-            else:
-                new_param = nn.Parameter(new_tensor)
+            new_param = self.get_params_if_tied(param, nn.Parameter(new_tensor))
             self.mod.register_parameter(tensor_name, new_param)
         except AttributeError:
             buffer = self.mod.get_buffer(tensor_name)
@@ -430,25 +430,7 @@ class Schedule:
                 new_mod.out_features = sch.mod.out_features
                 sch.replace(new_mod)
             # Test if the original weight is tied to other modules
-            new_tensor = new_mod.weight.data
-            if param in sch.metadata.tie_weights:
-                if id(sch.metadata.tie_weights[param]) != id(param):
-                    # This parameter is tied to another parameter.
-                    # We directly register the sharded parameter to the module
-                    # to keep them tied.
-                    if new_tensor.shape != sch.metadata.tie_weights[param].shape:
-                        raise RuntimeError(
-                            f"Parameter weight in {sch.path} is tied, "
-                            "but they have different sharded shapes: "
-                            f"{new_tensor.shape} vs "
-                            f"{sch.metadata.tie_weights[param].shape}"
-                        )
-                    new_param = sch.metadata.tie_weights[param]
-                else:
-                    new_param = new_mod.weight
-                    self.metadata.tie_weights[param] = new_param
-            else:
-                new_param = new_mod.weight
+            new_param = self.get_params_if_tied(param, new_mod.weight)
             sch.mod.register_parameter("weight", new_param)
 
         # Generate the hook if sync_op_or_fn is a string.

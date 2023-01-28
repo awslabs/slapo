@@ -95,9 +95,6 @@ def test_linear(init_dist):
         def __init__(self):
             super().__init__()
             self.linear1 = torch.nn.Linear(20, 30)
-            # FIXME: Enable bias results in incorrect results with sharding,
-            # because when sharding the input dimension, bias should also
-            # be scaled by world size,
             self.linear2 = torch.nn.Linear(30, 40)
 
         def forward(self, data):
@@ -185,7 +182,6 @@ def test_seq_para(init_dist):
     )
 
     sch_model, _ = slapo.build(sch)
-    sch_model.cuda(local_rank)
 
     data = torch.randn((3, 16, 30), requires_grad=True).cuda(local_rank)
     dist.broadcast(data, src=0)

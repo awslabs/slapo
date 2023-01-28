@@ -94,6 +94,9 @@ class ScheduleMetadata:
     # Used for delay initialization
     base_params: dict[str, tuple] = field(default_factory=lambda: DictWithValidation())
 
+    # These parameters need to be reduced for each backward pass
+    params_to_reduce: list = field(default_factory=list)
+
 
 def register_primitive(need_dist=False, finalize=False):
     """
@@ -477,6 +480,9 @@ class Schedule:
                         and self.metadata.shard["output_type"] == "partial"
                     ):
                         decouple_bias_from_linear(self, sync_fn)
+                        # Record this bias whose gradient needs to be all_reduced
+                        # in backward pass
+                        self.metadata.params_to_reduce.append("bias")
                         return
                 elif sync_op_or_fn == "scatter":
                     validate_sync_op(mode, sync_op_or_fn)
@@ -1178,6 +1184,18 @@ def init_target_engine(sch, target, **kwargs):
     )
 
 
+def reduce_model_grads(sch: Schedule):
+    def hook(grad):
+        dist.all_reduce(grad.contiguous(), dist.ReduceOp.SUM, group=sch.group)
+        return grad
+
+    for param_name in sch.metadata.params_to_reduce:
+        param = sch.mod.get_parameter(param_name)
+        param.register_hook(hook)
+    for child_name in sch.child:
+        reduce_model_grads(sch[child_name])
+
+
 def build(
     sch: Schedule,
     target=None,
@@ -1196,6 +1214,9 @@ def build(
     if init_weights:
         init_weight_fn = init_weights if isinstance(init_weights, Callable) else None
         sch = consolidate_model(sch, target, init_weight_fn, **kwargs)
+
+    # Add extra hooks after the parameters are initialized
+    reduce_model_grads(sch)
 
     if sch.metadata.pipeline_cutting_paths:
         # Generate pipeline modules for a particular target.

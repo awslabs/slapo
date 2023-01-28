@@ -1146,4 +1146,4 @@ def build(
     else:
         model = sch.mod
 
-    return init_target_engine(model, target, **kwargs)
+    return init_target_engine(model, target, **kwargs), sch

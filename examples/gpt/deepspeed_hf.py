@@ -2,10 +2,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
+import random
+import numpy as np
 
 import deepspeed
 import torch
 import torch.distributed as dist
+from torch.distributed.distributed_c10d import _get_global_rank
 from deepspeed.utils import RepeatingLoader
 from transformers import GPTNeoForCausalLM, AutoConfig
 
@@ -114,6 +117,8 @@ def train(args):
             prefix="transformer",
             ckpt_ratio=args.checkpoint,
             bcast_input=True,
+            fp16=args.fp16,
+            bf16=args.bf16,
             group=group,
             pipeline_cuts=pipeline_cuts,
             delay_init=enable_pipeline,
@@ -125,19 +130,19 @@ def train(args):
         batch_size = 16 if batch_size is None else batch_size
         micro_batch_size = 4 if micro_batch_size is None else micro_batch_size
         ds_config_dict = get_ds_config(
-            batch_size, micro_batch_size, True, False, "Pipeline", False
+            batch_size, micro_batch_size, args.fp16, False, "Pipeline", args.bf16
         )
         loss_fct = ParallelCrossEntropy(group=group)
 
         def loss_fn(outputs, labels):
-            prediction_scores = outputs
-            shifted_prediction_scores = prediction_scores[:, :-1, :].contiguous()
-            labels = labels[:, 1:].contiguous()
+            prediction_scores = outputs.to(torch.float32)
+            shifted_prediction_scores = prediction_scores[..., :-1, :].contiguous()
+            labels = labels[..., 1:].contiguous()
             lm_loss = loss_fct(shifted_prediction_scores, labels)
             lm_loss = lm_loss.contiguous().mean()
             return lm_loss
 
-        model, _ = slapo.build(
+        (model, _), sch = slapo.build(
             sch,
             topology=topology,
             target="deepspeed",
@@ -145,6 +150,16 @@ def train(args):
             loss_fn=loss_fn,
             init_weights=model._init_weights,
         )
+
+        group_src_rank = _get_global_rank(sch.group, 0)
+
+        def broadcast_input(module, _inputs):
+            for inp in _inputs:
+                dist.broadcast(inp, src=group_src_rank, group=sch.group)
+            return _inputs
+
+        if model.mpu.get_pipe_parallel_rank() == 0:
+            sch["submod_0"].sync(mode="fwd_pre", sync_op_or_fn=broadcast_input)
     else:
         if batch_size is not None and micro_batch_size is None:
             micro_batch_size = batch_size // args.world_size
@@ -155,7 +170,7 @@ def train(args):
         ds_config_dict = get_ds_config(
             batch_size, micro_batch_size, True, True, "ZeRO-3"
         )
-        model, _ = slapo.build(
+        (model, _), sch = slapo.build(
             sch,
             topology=topology,
             target="deepspeed",
@@ -165,12 +180,23 @@ def train(args):
         model = model.to(device)
     report_memory(msg="After building model")
 
-    random_seed = 2000 + dist.get_rank()
+    if args.disable_pipeline or args.sequence_parallel:
+        random_seed = 2013 + dist.get_rank()
+    else:
+        random_seed = (
+            2013
+            + 100 * model.mpu.get_pipe_parallel_rank()
+            + 10 * model.mpu.get_data_parallel_rank()
+        )
+    random.seed(random_seed)
+    np.random.seed(random_seed)
     torch.manual_seed(random_seed)
 
     # for now always use seq_length 1024
     # TODO: make the dataloader generic to different sequence length
-    train_loader, _ = get_dataloader(args.model_name, micro_batch_size, enable_pipeline)
+    train_loader, _ = get_dataloader(
+        args.model_name, micro_batch_size, enable_pipeline, mpu=model.mpu
+    )
 
     loader = RepeatingLoader(train_loader)
 
@@ -252,12 +278,29 @@ if __name__ == "__main__":
         action="store_true",
         help="Sequence parallelism is enabled",
     )
+    parser.add_argument(
+        "--fp16",
+        action="store_true",
+        help="fp16 is enabled. fp16 is enabled by default",
+    )
+    parser.add_argument(
+        "--bf16",
+        action="store_true",
+        help="bf16 is enabled",
+    )
     args = parser.parse_args()
+
+    if args.fp16 and args.bf16:
+        raise ValueError(
+            f"fp16={args.fp16} and bf16={args.bf16} cannot be enabled at the same time"
+        )
+    elif not args.fp16 and not args.bf16:
+        args.fp16 = True
+        logger.info("fp16 is enabled by default", ranks=0)
 
     if args.hidden_size > 0:
         assert args.nlayers > 0, "must have nlayers > 0"
         assert args.num_attn_heads > 0, "must have num_attn_heads > 0"
 
-    args = parser.parse_args()
     # The main entry point is called directly without using subprocess
     train(args)

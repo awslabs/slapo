@@ -2,10 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 """Test operator fusion."""
 
-import pytest
 import copy
+import pytest
 import torch
-import torch.nn as nn
+from torch import nn
 import torch.nn.functional as F
 
 import slapo

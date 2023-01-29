@@ -756,7 +756,7 @@ class SubgraphWrapper(nn.Module):
 
             self.mod = new_sch.mod
             self.child = new_sch.child
-            for name, sch in self.child.items():
+            for _, sch in self.child.items():
                 sch.parent = self
             if self.parent:
                 self.update_submodule(self.parent.mod, self.name, new_mod)
@@ -864,7 +864,7 @@ class SubgraphWrapper(nn.Module):
             value_remap[node] = new_graph.node_copy(node, lambda n: value_remap[n])
         # Return output from new graph
         new_graph.output(value_remap[path_and_nodes[-1][1]])
-        new_gm = fx.GraphModule(dict(), new_graph)
+        new_gm = fx.GraphModule({}, new_graph)
         new_mod = torch.jit.script(new_gm)
         self.replace(new_mod, subgraph, name)
 

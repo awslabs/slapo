@@ -840,35 +840,6 @@ class SubgraphWrapper(nn.Module):
                     target_mod.graph.erase_node(node)
 
     @register_primitive()
-    def fuse(self, subgraph, compiler="TorchScript", name="FusedModule"):
-        assert (
-            compiler == "TorchScript"
-        ), "Only support TorchScript as the backend compiler for now"
-        assert (
-            len(subgraph) == 1 and len(subgraph[0]) > 1
-        ), "Only vertical fusion is supported"
-        # Construct a new fx.Graph
-        new_graph = fx.Graph()
-        # Since the extracted subgraph from .find() is a list of list,
-        # only the first element contains the nodes
-        path_and_nodes = subgraph[0]
-        assert (
-            len(path_and_nodes[0][1].args) == 1
-        ), "Only support single argument as input for now"
-        arg = path_and_nodes[0][1].args[0]
-        # Create input arguments for the new graph
-        value_remap = {}
-        value_remap[arg] = new_graph.placeholder(arg.name)
-        # Copy nodes from extracted subgraph to new graph
-        for _, node in path_and_nodes:
-            value_remap[node] = new_graph.node_copy(node, lambda n: value_remap[n])
-        # Return output from new graph
-        new_graph.output(value_remap[path_and_nodes[-1][1]])
-        new_gm = fx.GraphModule({}, new_graph)
-        new_mod = torch.jit.script(new_gm)
-        self.replace(new_mod, subgraph, name)
-
-    @register_primitive()
     def replace(self, new_mod_or_func, target_ops=None, name=None):
         """Replace one of the following scenarios:
         1. Replace an entire module (new_mod_or_func is the new module object, target_ops=None).
@@ -910,6 +881,35 @@ class SubgraphWrapper(nn.Module):
                         self,
                         self.group,
                     )
+
+    @register_primitive()
+    def fuse(self, subgraph, compiler="TorchScript", name="FusedModule"):
+        assert (
+            compiler == "TorchScript"
+        ), "Only support TorchScript as the backend compiler for now"
+        assert (
+            len(subgraph) == 1 and len(subgraph[0]) > 1
+        ), "Only vertical fusion is supported"
+        # Construct a new fx.Graph
+        new_graph = fx.Graph()
+        # Since the extracted subgraph from .find() is a list of list,
+        # only the first element contains the nodes
+        path_and_nodes = subgraph[0]
+        assert (
+            len(path_and_nodes[0][1].args) == 1
+        ), "Only support single argument as input for now"
+        arg = path_and_nodes[0][1].args[0]
+        # Create input arguments for the new graph
+        value_remap = {}
+        value_remap[arg] = new_graph.placeholder(arg.name)
+        # Copy nodes from extracted subgraph to new graph
+        for _, node in path_and_nodes:
+            value_remap[node] = new_graph.node_copy(node, lambda n: value_remap[n])
+        # Return output from new graph
+        new_graph.output(value_remap[path_and_nodes[-1][1]])
+        new_gm = fx.GraphModule({}, new_graph)
+        new_mod = torch.jit.script(new_gm)
+        self.replace(new_mod, subgraph, name)
 
     @register_primitive()
     def checkpoint(self, order_args_fn=None):

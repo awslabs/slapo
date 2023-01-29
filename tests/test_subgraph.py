@@ -261,7 +261,7 @@ class LeNet5(nn.Module):
         return out
 
 
-def test_whole_model_matching():
+def test_relu_bn():
     sch = slapo.create_schedule(LeNet5(10))
 
     class ReLUBNPattern(slapo.Pattern):
@@ -278,6 +278,55 @@ def test_whole_model_matching():
     assert len(subgraph) == 2
     assert isinstance(sch["layer2"].get_module(subgraph[0][1].target), nn.BatchNorm2d)
     assert isinstance(sch["layer2"].get_module(subgraph[1][1].target), nn.ReLU)
+
+
+def test_relu_bn_functional():
+    sch = slapo.create_schedule(LeNet5(10))
+
+    class ReLUBNPattern2(slapo.Pattern):
+        def __init__(self):
+            super().__init__()
+            self.bn = nn.BatchNorm2d(16)
+            self.relu = nn.ReLU()
+
+        # pylint: disable=arguments-differ
+        def forward(self, x: torch.Tensor):
+            return F.relu(self.bn(x))
+
+    subgraph = sch["layer1"].find("0", ReLUBNPattern2(), include_start_op=False)[0]
+    assert len(subgraph) == 2
+    assert isinstance(sch["layer1"].get_module(subgraph[0][1].target), nn.BatchNorm2d)
+    assert isinstance(sch["layer1"].get_module(subgraph[1][1].target), nn.ReLU)
+
+
+def test_linear_relu():
+    sch = slapo.create_schedule(LeNet5(10))
+
+    class LinearReLUPattern(slapo.Pattern):
+        def __init__(self):
+            super().__init__()
+            self.relu = nn.ReLU()
+
+        # pylint: disable=arguments-differ
+        def forward(self, out: torch.Tensor):
+            out = self.relu(out)
+            return out
+
+    subgraph = sch.find(r"fc.?", LinearReLUPattern())
+    assert len(subgraph) == 2
+    for i in range(2):
+        assert isinstance(sch.get_module(subgraph[i][0][1].target), nn.Linear)
+        assert isinstance(sch.get_module(subgraph[i][1][1].target), nn.ReLU)
+
+    def pattern(x: torch.Tensor):
+        x = F.relu(x)
+        return x
+
+    subgraph = sch.find(r"fc.?", pattern)
+    assert len(subgraph) == 2
+    for i in range(2):
+        assert isinstance(sch.get_module(subgraph[i][0][1].target), nn.Linear)
+        assert isinstance(sch.get_module(subgraph[i][1][1].target), nn.ReLU)
 
 
 if __name__ == "__main__":

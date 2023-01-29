@@ -746,7 +746,7 @@ class SubgraphWrapper(nn.Module):
             (module_name, node). If it is None, replace the whole module.
         """
         if subgraphs is None:
-            # If target_ops is None, replace the whole self module and the schedule.
+            # If subgraphs is None, replace the whole self module and the schedule.
             new_sch = create_schedule(
                 new_mod, self.name, self.path, self.parent, self.group
             )
@@ -765,17 +765,20 @@ class SubgraphWrapper(nn.Module):
             # Note that this requires the current module in torch.fx so it
             # has to be traced.
             self.trace()
-            name = _get_unique_module_name(self.mod, new_mod._get_name().split(".")[-1])
+            if isinstance(new_mod, torch.jit.ScriptModule):
+                new_name = "ScriptedModule"
+            else:
+                new_name = new_mod._get_name().split(".")[-1]
+            name = _get_unique_module_name(self.mod, new_name)
             assert len(subgraphs) > 0, "Should have at least one operator to replace"
-            node_or_lst = subgraphs[0]
-            if isinstance(node_or_lst, list):
+            if len(subgraphs) > 1:
                 # horizontal fusion, e.g.,
                 #     x
                 #   / | \
                 #  s0 s1 s2
                 #  v0 v1 v2
                 #  [[s0, v0], [s1, v1], [s2, v2]]
-                path, node = node_or_lst[0]
+                path, node = subgraphs[0][0]
                 target_mod = self.mod
                 if path:
                     assert hasattr(
@@ -784,6 +787,9 @@ class SubgraphWrapper(nn.Module):
                     target_mod = getattr(self.mod, path)
 
                 target_mod.add_module(name, new_mod)
+                # TODO: Need to handle the case where the replaced module
+                # has different numbers of arguments with the original module.
+                # Also need more tests.
                 with target_mod.graph.inserting_before(node):
                     new_node = target_mod.graph.call_module(
                         name, node.args, node.kwargs
@@ -801,8 +807,9 @@ class SubgraphWrapper(nn.Module):
             else:
                 # vertical fusion, e.g.,
                 # s0->v0
-                # [s0, v0]
-                path, first_node = node_or_lst
+                # [[s0, v0]]
+                ops = subgraphs[0]
+                path, first_node = ops[0]
                 target_mod = self.mod
                 if path:
                     assert hasattr(
@@ -812,13 +819,56 @@ class SubgraphWrapper(nn.Module):
 
                 target_mod.add_module(name, new_mod)
                 with target_mod.graph.inserting_before(first_node):
+                    sig = inspect.signature(new_mod.forward)
+                    assert len(sig.parameters) <= len(
+                        first_node.args
+                    ), f"The number of arguments of the replaced module should be less or equal to the number of the original subgraph inputs. Got {sig.parameters}, but expect {first_node.args}."
+                    default_args = {
+                        k: v.default
+                        for k, v in sig.parameters.items()
+                        if v.default is not inspect.Parameter.empty
+                    }
+                    new_kwargs = {}
+                    for key, value in default_args:
+                        if key in first_node.kwargs:
+                            new_kwargs[key] = value
+                    n_args = len(sig.parameters) - len(default_args)
                     new_node = target_mod.graph.call_module(
-                        name, first_node.args, first_node.kwargs
+                        name, first_node.args[:n_args], new_kwargs
                     )
-                _, last_node = subgraphs[-1]
+                _, last_node = ops[-1]
                 last_node.replace_all_uses_with(new_node)
-                for _, node in reversed(subgraphs):
+                for _, node in reversed(ops):
                     target_mod.graph.erase_node(node)
+
+    @register_primitive()
+    def fuse(self, subgraph, compiler="TorchScript"):
+        assert (
+            compiler == "TorchScript"
+        ), "Only support TorchScript as the backend compiler for now"
+        assert (
+            len(subgraph) == 1 and len(subgraph[0]) > 1
+        ), "Only vertical fusion is supported"
+        # Construct a new fx.Graph
+        new_graph = fx.Graph()
+        # Since the extracted subgraph from .find() is a list of list,
+        # only the first element contains the nodes
+        path_and_nodes = subgraph[0]
+        assert (
+            len(path_and_nodes[0][1].args) == 1
+        ), "Only support single argument as input for now"
+        arg = path_and_nodes[0][1].args[0]
+        # Create input arguments for the new graph
+        value_remap = {}
+        value_remap[arg] = new_graph.placeholder(arg.name)
+        # Copy nodes from extracted subgraph to new graph
+        for _, node in path_and_nodes:
+            value_remap[node] = new_graph.node_copy(node, lambda n: value_remap[n])
+        # Return output from new graph
+        new_graph.output(value_remap[path_and_nodes[-1][1]])
+        new_gm = fx.GraphModule(dict(), new_graph)
+        new_mod = torch.jit.script(new_gm)
+        self.replace(new_mod, subgraph)
 
     @register_primitive()
     def replace(self, new_mod_or_func, target_ops=None):

@@ -765,11 +765,9 @@ class SubgraphWrapper(nn.Module):
             # Note that this requires the current module in torch.fx so it
             # has to be traced.
             self.trace()
-            if isinstance(new_mod, torch.jit.ScriptModule):
-                new_name = "ScriptedModule"
-            else:
-                new_name = new_mod._get_name().split(".")[-1]
-            name = _get_unique_module_name(self.mod, new_name)
+            if name is None:
+                name = new_mod._get_name().split(".")[-1]
+            name = _get_unique_module_name(self.mod, name)
             assert len(subgraphs) > 0, "Should have at least one operator to replace"
             if len(subgraphs) > 1:
                 # horizontal fusion, e.g.,
@@ -842,7 +840,7 @@ class SubgraphWrapper(nn.Module):
                     target_mod.graph.erase_node(node)
 
     @register_primitive()
-    def fuse(self, subgraph, compiler="TorchScript"):
+    def fuse(self, subgraph, compiler="TorchScript", name="FusedModule"):
         assert (
             compiler == "TorchScript"
         ), "Only support TorchScript as the backend compiler for now"
@@ -868,10 +866,10 @@ class SubgraphWrapper(nn.Module):
         new_graph.output(value_remap[path_and_nodes[-1][1]])
         new_gm = fx.GraphModule(dict(), new_graph)
         new_mod = torch.jit.script(new_gm)
-        self.replace(new_mod, subgraph)
+        self.replace(new_mod, subgraph, name)
 
     @register_primitive()
-    def replace(self, new_mod_or_func, target_ops=None):
+    def replace(self, new_mod_or_func, target_ops=None, name=None):
         """Replace one of the following scenarios:
         1. Replace an entire module (new_mod_or_func is the new module object, target_ops=None).
         2. Replace a part of the forward function (target_ops) with a new module or function.
@@ -883,7 +881,7 @@ class SubgraphWrapper(nn.Module):
                 )
             self.replace_function(new_mod_or_func, target_ops)
         else:
-            self.replace_module(new_mod_or_func, target_ops)
+            self.replace_module(new_mod_or_func, target_ops, name)
 
         # Clean up and update the schedule child list.
         if isinstance(self.mod, fx.GraphModule):

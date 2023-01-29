@@ -1,6 +1,6 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Test fusion."""
+"""Test operator fusion."""
 
 import pytest
 import copy
@@ -32,7 +32,7 @@ def test_vertical_fusion():
         return x
 
     subgraph = sch.find("conv", pattern, include_start_op=False)
-    sch.fuse(subgraph)
+    sch.fuse(subgraph, compiler="TorchScript", name="FusedReLU")
 
     sch_model, _ = slapo.build(sch, init_weights=False)
     print(sch_model)

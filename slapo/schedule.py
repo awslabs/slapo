@@ -911,6 +911,25 @@ class SubgraphWrapper(nn.Module):
         new_mod = torch.jit.script(new_gm)
         self.replace(new_mod, subgraph, name)
 
+    # def decompose(self):
+    #     if not isinstance(self.mod, nn.Linear):
+    #         raise RuntimeError("Can only support decomposing a nn.Linear layer for now")
+    #     # Replace the linear module
+    #     with init_empty_weights(
+    #         enable=(sch.mod.weight.device == torch.device("meta"))
+    #     ):
+    #         new_mod = LinearWithSeparateBias(
+    #             sch.mod.weight.shape[1],
+    #             sch.mod.weight.shape[0],
+    #             sync_fn,
+    #             sch.mod.weight.device,
+    #             sch.mod.weight.dtype,
+    #         )
+    #         new_mod.in_features = sch.mod.in_features
+    #         new_mod.out_features = sch.mod.out_features
+    #         sch.replace(new_mod)
+    #     self.replace()
+
     @register_primitive()
     def checkpoint(self, order_args_fn=None):
         class CheckPointWrapper(nn.Module):

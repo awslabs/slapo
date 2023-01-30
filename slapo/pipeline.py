@@ -9,6 +9,7 @@ from torch.fx.passes.split_module import split_module
 
 from .logger import get_logger
 from .model_dialect import get_dialect_cls
+from .utils.common import transfer_hooks
 
 logger = get_logger()
 
@@ -424,6 +425,10 @@ def build_pipeline_model(sch, target, **kwargs):
                 stage_id_2_arg_names,
             )
         )
+
+    # Transfer hooks from the original module to the corresponding pipeline stage.
+    transfer_hooks(res_partition[0], partitioned_mod, ["fwd_pre", "bwd_post"])
+    transfer_hooks(res_partition[-1], partitioned_mod, ["fwd_post"])
 
     pipe_engine_fn = get_dialect_cls("pipeline_engine", target)
     return pipe_engine_fn(

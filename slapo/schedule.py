@@ -33,6 +33,7 @@ from .sharding import (
     scatter_forward_output,
 )
 from .tracer import trace as trace_module
+from .utils.common import transfer_hooks
 
 logger = get_logger()
 
@@ -614,7 +615,16 @@ class SubgraphWrapper(nn.Module):
         raise RuntimeError(f"Unrecognized pattern {node_pattern}")
 
     def replace_function(self, func, target_op):
-        """Do NOT directly call this function, use `.replace()` instead"""
+        """Replace a function, in terms of a call_function node in fx graph.
+        Do NOT directly call this function, use `.replace()` instead
+
+        Parameters
+        ----------
+        func : Callable
+            The new function to replace the current function.
+        target_op : torch.fx.Node
+            The call_function node to be replaced.
+        """
         node = target_op
         with self.mod.graph.inserting_after(node):
             new_node = self.mod.graph.call_function(func, node.args, node.kwargs)
@@ -622,12 +632,26 @@ class SubgraphWrapper(nn.Module):
         self.mod.graph.erase_node(node)
 
     def replace_module(self, new_mod, subgraphs=None):
-        """Do NOT directly call this function, use `.replace()` instead"""
+        """Replace an entire module with a new one.
+        Do NOT directly call this function, use `.replace()` instead.
+
+        Parameters
+        ----------
+        new_mod : torch.nn.Module
+            The new module to replace the current module.
+        subgraphs : Optional[List[Tuple[str, torch.fx.Node]]]
+            The list of subgraphs to replace. Each subgraph is a tuple of
+            (module_name, node). If it is None, replace the whole module.
+        """
         if subgraphs is None:
             # If target_ops is None, replace the whole self module and the schedule.
             new_sch = create_schedule(
                 new_mod, self.name, self.path, self.parent, self.group
             )
+
+            # Transfer hooks from the old module to the new module.
+            transfer_hooks(self.mod, new_sch.mod)
+
             self.mod = new_sch.mod
             self.child = new_sch.child
             for name, sch in self.child.items():

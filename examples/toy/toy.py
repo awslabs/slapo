@@ -130,7 +130,7 @@ def train(rank, args):
     else:
         report_memory()
         # Apply schedule and regenerate module
-        (opt_model, optimizer), sch = slapo.build(sch)
+        opt_model, optimizer = slapo.build(sch)
         print(sch.gm)
         opt_model.cuda(rank)
         report_memory()

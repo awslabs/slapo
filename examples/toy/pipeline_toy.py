@@ -74,7 +74,7 @@ def train(args):
         "train_micro_batch_size_per_gpu": 1,
         "optimizer": {"type": "AdamW", "params": {"lr": 0.0001}},
     }
-    (ds_model, optimizer), sch = slapo.build(
+    ds_model, optimizer = slapo.build(
         sch, target="deepspeed", config=ds_config_dict, loss_fn=None
     )
     print(sch.gm)

@@ -112,7 +112,7 @@ def train(args):
             lm_loss = lm_loss.contiguous().mean()
             return lm_loss
 
-        (model, _), sch = slapo.build(
+        model, _ = slapo.build(
             sch,
             topology=topology,
             target="deepspeed",
@@ -130,7 +130,7 @@ def train(args):
         ds_config_dict = get_ds_config(
             batch_size, micro_batch_size, True, True, "ZeRO-3"
         )
-        (model, _), sch = slapo.build(
+        model, _ = slapo.build(
             sch,
             topology=topology,
             target="deepspeed",

@@ -109,7 +109,7 @@ def test_linear(init_dist):
     sch["linear1"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
     sch["linear2"].shard("weight", axis=1)
     sch["linear2"].sync(mode="fwd_post", sync_op_or_fn="all_reduce")
-    (sch_model, _), _ = slapo.build(sch)
+    sch_model, _ = slapo.build(sch)
 
     sch_model.cuda(local_rank)
     data = torch.randn((10, 20), requires_grad=True).cuda(local_rank)
@@ -176,7 +176,7 @@ def test_seq_para(init_dist):
         tensor_parallel_output_grad=False,
     )
 
-    (sch_model, _), _ = slapo.build(sch)
+    sch_model, _ = slapo.build(sch)
     sch_model.cuda(local_rank)
 
     data = torch.randn((3, 16, 30), requires_grad=True).cuda(local_rank)
@@ -298,7 +298,7 @@ def test_conv(init_dist):
         tensor_parallel_output_grad=False,
     )
     sch["bn3"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
-    (sch_model, _), _ = slapo.build(sch, init_required=False)
+    sch_model, _ = slapo.build(sch, init_required=False)
 
     sch_model.cuda(local_rank)
     data = torch.randn((4, 64, 56, 56), requires_grad=True).cuda(local_rank)

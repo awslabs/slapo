@@ -61,7 +61,7 @@ def get_model(
             ckpt_ratio=ckpt_ratio,
             fuse_conv=(dist.get_world_size() == 1),
         )
-        (model, _), sch = slapo.build(sch)
+        model, _ = slapo.build(sch)
 
     elif impl == "torchscript":
         if ckpt_ratio > 0:

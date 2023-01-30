@@ -59,7 +59,7 @@ def test_consolidation(init_dist, ngpu):
     else:
         # Data parallelism.
         pass
-    (sch_model, _), _ = slapo.build(sch, init_weights=init_module)
+    sch_model, _ = slapo.build(sch, init_weights=init_module)
 
     sch_model.cuda(local_rank)
     verify_weights(sch_model)

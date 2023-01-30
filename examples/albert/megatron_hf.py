@@ -61,7 +61,7 @@ def get_model(
             ckpt_ratio=ckpt_ratio,
             delay_init=delay_init,
         )
-        (model, _), sch = slapo.build(sch)
+        model, _ = slapo.build(sch)
         report_memory()
 
     elif impl == "torchscript":

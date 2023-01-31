@@ -5,6 +5,7 @@ from torch import nn
 import torch.nn.functional as F
 from torch import Tensor
 
+
 class LinearWithSeparateBias(nn.Linear):
     """Implementation modified from `nn.Linear`
     Arguments are the same as the inputs of `nn.Linear`

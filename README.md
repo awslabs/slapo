@@ -86,7 +86,7 @@ And the following primitives for static graph optimizations:
 | Feature | Primitive |
 | :--: | :-- |
 | Module Tracing | `s.trace(leaves, flatten)` |
-| Pattern matching | `s.find(mod_name_regex, func_pattern)` |
+| Pattern matching | `s.find(regex_or_pattern_fn)` |
 | Operator fusion | `s[op].fuse(compiler, subgraph)` |
 | Partial module replacement | `s[op].replace(new_module, subgraph)` |
 | Partial gradient checkpointing | `s[op].checkpoint()` |

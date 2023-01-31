@@ -746,6 +746,9 @@ class SubgraphWrapper(nn.Module):
         subgraphs : Optional[List[Tuple[str, torch.fx.Node]]]
             The list of subgraphs to replace. Each subgraph is a tuple of
             (module_name, node). If it is None, replace the whole module.
+        name : Optional[str]
+            The name of the replaced module. If it is None, a default name
+            will be automatically generated.
         """
         if subgraphs is None:
             # If subgraphs is None, replace the whole self module and the schedule.

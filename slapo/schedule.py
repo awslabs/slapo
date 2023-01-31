@@ -36,6 +36,7 @@ from .sharding import (
 from .tracer import trace as trace_module
 from .utils.common import transfer_hooks
 from .utils.mapping import MAPPING_FROM_FUNCTIONAL_TO_MODULE
+from .pattern import Pattern
 
 logger = get_logger()
 
@@ -51,11 +52,6 @@ def _get_unique_module_name(gm_or_modules, name):
         new_name = name + "_" + str(num)
         num += 1
     return new_name
-
-
-class Pattern(nn.Module):
-    def forward(self, *args):
-        raise NotImplementedError
 
 
 class DictWithValidation(dict):

@@ -9,6 +9,7 @@ from torch import nn
 import torch.nn.functional as F
 
 import slapo
+from slapo.pattern import Pattern
 
 
 def test_exact_match():
@@ -96,7 +97,7 @@ class LeNet5(nn.Module):
 def test_relu_bn():
     sch = slapo.create_schedule(LeNet5(10))
 
-    class ReLUBNPattern(slapo.Pattern):
+    class ReLUBNPattern(Pattern):
         def __init__(self):
             super().__init__()
             self.bn = nn.BatchNorm2d(16)
@@ -115,7 +116,7 @@ def test_relu_bn():
 def test_relu_bn_functional():
     sch = slapo.create_schedule(LeNet5(10))
 
-    class ReLUBNPattern2(slapo.Pattern):
+    class ReLUBNPattern2(Pattern):
         def __init__(self):
             super().__init__()
             self.bn = nn.BatchNorm2d(16)
@@ -134,7 +135,7 @@ def test_relu_bn_functional():
 def test_linear_relu():
     sch = slapo.create_schedule(LeNet5(10))
 
-    class LinearReLUPattern(slapo.Pattern):
+    class LinearReLUPattern(Pattern):
         def __init__(self):
             super().__init__()
             self.linear = nn.Linear(10, 20)

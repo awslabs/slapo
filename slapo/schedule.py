@@ -29,6 +29,8 @@ from .pipeline import (
 from .sharding import (
     all_gather_forward_output,
     get_output_type_after_sharding,
+    reduce_forward_output,
+    reduce_backward_grad,
     reduce_scatter_forward_output,
     scatter_forward_output,
 )
@@ -379,7 +381,8 @@ class Schedule:
             if mode == "fwd_post" and sync_op_or_fn == "scatter":
                 if "output_type" in self.metadata.shard:
                     raise ValueError(
-                        "Output of {self.path} cannot be scatter along axis {axis}, if its parameter is sharded"
+                        "Output of {self.path} cannot be scatter along axis {axis}, "
+                        "if its parameter is sharded"
                     )
 
             if "output_type" not in self.metadata.shard:
@@ -402,7 +405,9 @@ class Schedule:
             elif mode == "fwd_pre" and sync_op_or_fn == "all_gather":
                 if output_type == "partial":
                     raise ValueError(
-                        "Cannot all-gather a partition input since the operator with parameter sharded in the input dimension expects partitioned input"
+                        "Cannot all-gather a partition input since the operator "
+                        "with parameter sharded in the input dimension expects "
+                        "partitioned input"
                     )
             elif sync_op_or_fn == "all_reduce":
                 if mode == "fwd_post" and output_type == "partition":
@@ -436,9 +441,7 @@ class Schedule:
                     )
                 elif sync_op_or_fn == "all_reduce":
                     validate_sync_op(mode, sync_op_or_fn)
-                    sync_fn = partial(
-                        dist.all_reduce, op=dist.ReduceOp.SUM, group=self.group
-                    )
+                    sync_fn = partial(reduce_forward_output, group=self.group)
                 else:
                     raise ValueError(
                         f"Invalid sync_op_or_fn {sync_op_or_fn} for mode {mode} "
@@ -473,17 +476,23 @@ class Schedule:
                     _input = sync_fn(_input[0])
                     return _input
 
-            elif sync_op_or_fn == "all_reduce":
-                validate_sync_op(mode, sync_op_or_fn)
-
-                # pylint: disable=unused-argument
-                def hook_fn(_module, _input, output):
-                    # Allreduce dx.
-                    dist.all_reduce(
-                        _input[0].contiguous(),
-                        op=dist.ReduceOp.SUM,
-                        group=self.group,
+            elif mode == "bwd_post":
+                # We register this hook to forward pre hook, and
+                # use an autograd function to do the sync in backward.
+                # This is to avoid using backward hook which semantic is not clear.
+                if sync_op_or_fn == "all_reduce":
+                    validate_sync_op(mode, sync_op_or_fn)
+                    sync_fn = partial(reduce_backward_grad, group=self.group)
+                    mode = "fwd_pre"
+                else:
+                    raise ValueError(
+                        f"Invalid sync_op_or_fn {sync_op_or_fn} for mode {mode} "
+                        "in {self.path}."
                     )
+
+                def hook_fn(_module, _input):
+                    _input = sync_fn(_input[0])
+                    return _input
 
             else:
                 raise ValueError(

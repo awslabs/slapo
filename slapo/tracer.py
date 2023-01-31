@@ -12,12 +12,15 @@ from typing import Any
 import torch
 import torch.utils._pytree as pytree
 from torch import fx, nn
-from torch.fx._symbolic_trace import (HAS_VARSTUFF, PH, _assert_is_none,
-                                      _patch_function)
+from torch.fx._symbolic_trace import HAS_VARSTUFF, PH, _assert_is_none, _patch_function
 from torch.fx.graph import _PyTreeCodeGen, _PyTreeInfo
 from torch.fx.node import base_types
-from transformers.utils.fx import (_IS_IN_DEBUG_MODE, _MANUAL_META_OVERRIDES,
-                                   Proxy, _proxies_to_metas)
+from transformers.utils.fx import (
+    _IS_IN_DEBUG_MODE,
+    _MANUAL_META_OVERRIDES,
+    Proxy,
+    _proxies_to_metas,
+)
 
 from .logger import get_logger
 
@@ -164,17 +167,18 @@ def trace_submodule(
     # to judge whether a submodule is really a leaf or not.
     tracer_with_orig_leaf = tracer_class(leaf_modules=leaf_modules)
 
-    # Add all children module (submodule) to be leaf module to prevent
-    # the tracer from tracing into them, because we will trace submodules
-    # separately to maintain the module hierarchy.
     leaf_modules = copy.deepcopy(leaf_modules)
-    for key, leaf_mod in named_children.items():
-        if isinstance(leaf_mod, nn.ModuleList):
-            leaf_modules += [
-                f"{key}.{s}" for s in list(dict(leaf_mod.named_children()).keys())
-            ]
-        else:
-            leaf_modules.append(key)
+    if not kwargs.get("flatten", False):
+        # Add all children module (submodule) to be leaf module to prevent
+        # the tracer from tracing into them, because we will trace submodules
+        # separately to maintain the module hierarchy.
+        for key, leaf_mod in named_children.items():
+            if isinstance(leaf_mod, nn.ModuleList):
+                leaf_modules += [
+                    f"{key}.{s}" for s in list(dict(leaf_mod.named_children()).keys())
+                ]
+            else:
+                leaf_modules.append(key)
     tracer = tracer_class(leaf_modules=leaf_modules)
 
     if tracer.name == "huggingface":
@@ -204,57 +208,61 @@ def trace_submodule(
 
     # Trace submodules
     submods = {}
-    for name, submod in named_children.items():
-        if isinstance(submod, nn.ModuleList):
-            # We assume ModuleList will be iteratively traversed in forward function.
-            # For example:
-            # In __init__:
-            #     self.layers = nn.ModuleList([nn.Linear(10, 10) for _ in range(3)])
-            # In forwrad :
-            #     for layer in self.layers:
-            #         x = layer(x)
-            # In this case, fx IR will create a unique name for each layer,
-            # such as layer.0, layer.1, etc. We follow this convention to
-            # trace each layer in ModuleList to register the submodule name.
-            for i, layer in enumerate(submod):
-                module_qualified_name = tracer.path_of_module(layer)
+    if not kwargs.get("flatten", False):
+        for name, submod in named_children.items():
+            if isinstance(submod, nn.ModuleList):
+                # We assume ModuleList will be iteratively traversed in forward function.
+                # For example:
+                # In __init__:
+                #     self.layers = nn.ModuleList([nn.Linear(10, 10) for _ in range(3)])
+                # In forwrad :
+                #     for layer in self.layers:
+                #         x = layer(x)
+                # In this case, fx IR will create a unique name for each layer,
+                # such as layer.0, layer.1, etc. We follow this convention to
+                # trace each layer in ModuleList to register the submodule name.
+                for i, layer in enumerate(submod):
+                    module_qualified_name = tracer.path_of_module(layer)
+                    if not recursive or tracer_with_orig_leaf.is_leaf_module(
+                        layer, module_qualified_name
+                    ):
+                        gm_submod = layer
+                    else:
+                        gm_submod = trace_submodule(
+                            layer,
+                            tracer_class,
+                            is_top=False,
+                            call_node=call_arg_map[f"{name}.{i}"],
+                            **kwargs,
+                        )
+                    submods[f"{name}.{i}"] = gm_submod
+            else:
+                # For other submodules including nn.Sequential, we assume they are directly
+                # called in forward function. For example:
+                # In __init__: self.block = nn.Sequential(...)
+                # In forward : out = self.block(x)
+                # In this case, fx IR will create directly call the submodule such as block.
+                module_qualified_name = tracer.path_of_module(submod)
                 if not recursive or tracer_with_orig_leaf.is_leaf_module(
-                    layer, module_qualified_name
+                    submod, module_qualified_name
                 ):
-                    gm_submod = layer
+                    # If it is a real leaf module, stop tracing.
+                    gm_submod = submod
                 else:
                     gm_submod = trace_submodule(
-                        layer,
+                        submod,
                         tracer_class,
                         is_top=False,
-                        call_node=call_arg_map[f"{name}.{i}"],
+                        call_node=call_arg_map[name],
                         **kwargs,
                     )
-                submods[f"{name}.{i}"] = gm_submod
-        else:
-            # For other submodules including nn.Sequential, we assume they are directly
-            # called in forward function. For example:
-            # In __init__: self.block = nn.Sequential(...)
-            # In forward : out = self.block(x)
-            # In this case, fx IR will create directly call the submodule such as block.
-            module_qualified_name = tracer.path_of_module(submod)
-            if not recursive or tracer_with_orig_leaf.is_leaf_module(
-                submod, module_qualified_name
-            ):
-                # If it is a real leaf module, stop tracing.
-                gm_submod = submod
-            else:
-                gm_submod = trace_submodule(
-                    submod,
-                    tracer_class,
-                    is_top=False,
-                    call_node=call_arg_map[name],
-                    **kwargs,
-                )
-            submods[name] = gm_submod
+                submods[name] = gm_submod
     if tracer.name == "huggingface":
         root_graph = fix_hf_module(root, root_graph, submods)
-    final_gm = fx.GraphModule(submods, root_graph)
+    if not kwargs.get("flatten", False):
+        final_gm = fx.GraphModule(submods, root_graph)
+    else:
+        final_gm = fx.GraphModule(root, root_graph)
     # remove redundant code
     final_gm.graph.eliminate_dead_code()
     final_gm.delete_all_unused_submodules()
@@ -263,7 +271,7 @@ def trace_submodule(
     # remove meta tensors generated by HF tracer
     for name in dict(final_gm.named_buffers()):
         if "tensor_constant" in name and hasattr(final_gm, name):
-            final_gm.__delattr__(name) # pylint: disable=unnecessary-dunder-call
+            final_gm.__delattr__(name)  # pylint: disable=unnecessary-dunder-call
     return final_gm
 
 
@@ -355,7 +363,9 @@ def trace(model: nn.Module, **kwargs: dict[str, Any]):
                         if _IS_IN_DEBUG_MODE:
                             logger.warning(
                                 "Could not compute metadata for %s target %s: %s",
-                                kind, target, e
+                                kind,
+                                target,
+                                e,
                             )
 
                     return rv
@@ -443,9 +453,8 @@ def trace(model: nn.Module, **kwargs: dict[str, Any]):
                                 if x == PH:
                                     return out
                                 # Union[int, bool] == bool in Python <= 3.6
-                                if (
-                                    isinstance(x, (bool, base_types))
-                                    and not isinstance(x, torch.Tensor)
+                                if isinstance(x, (bool, base_types)) and not isinstance(
+                                    x, torch.Tensor
                                 ):
                                     torch._assert(
                                         out == x,
@@ -468,7 +477,7 @@ def trace(model: nn.Module, **kwargs: dict[str, Any]):
                                         "specialized function. It is up to the user "
                                         "to make sure that your inputs match the "
                                         "inputs you specialized the function with.",
-                                        name
+                                        name,
                                     )
 
                                 return x

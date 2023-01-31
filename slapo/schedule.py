@@ -831,13 +831,13 @@ class SubgraphWrapper(nn.Module):
             concrete_args=concrete_args,
         )
 
-    def trace(self, recursive=True, **kwargs):
+    def trace(self, recursive=True, flatten=False, **kwargs):
         if isinstance(self.mod, fx.GraphModule):
             return True
 
         failed_msg = None
         try:
-            gm = trace_module(self.mod, recursive=recursive, **kwargs)
+            gm = trace_module(self.mod, recursive=recursive, flatten=flatten, **kwargs)
         except Exception as err:
             failed_msg = str(err)
 

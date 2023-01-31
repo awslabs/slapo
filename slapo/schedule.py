@@ -4,9 +4,7 @@ from __future__ import annotations
 
 import inspect
 import operator
-import re
 import gc
-from abc import ABC, abstractmethod
 from collections import OrderedDict
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -36,6 +34,7 @@ from .sharding import (
 )
 from .tracer import trace as trace_module
 from .utils.common import transfer_hooks
+from .utils.mapping import MAPPING_FROM_FUNCTIONAL_TO_MODULE
 
 logger = get_logger()
 
@@ -53,12 +52,8 @@ def _get_unique_module_name(gm_or_modules, name):
     return new_name
 
 
-class Pattern(ABC):
-    def __init__(self):
-        pass
-
-    @abstractmethod
-    def starting_point(self, parent_name, node):
+class Pattern(nn.Module):
+    def forward(self, *args):
         raise NotImplementedError
 
 
@@ -530,43 +525,60 @@ class Schedule:
         return res
 
     def find_subgraph(self, mod_name_pat, func_pattern=None):
-        # TODO: Support matching subgraphs with multiple inputs
         assert isinstance(mod_name_pat, str)
-        assert func_pattern is None or isinstance(func_pattern, FunctionType)
+        assert func_pattern is None or isinstance(func_pattern, (FunctionType, Pattern))
 
-        # Example:
-        # Current graph         Target graph
-        #    A                      B
-        #    B                    C   D
-        #  C   D
-        #  E
-        # curr_node = B         target_node = B
+        named_modules = dict(self.mod.named_modules())
+
         def find_match_subgraphs(curr, target, subgraphs):
+            if target.op == "output":
+                # "output" always matches.
+                return True
+            if not (
+                (  # exactly match
+                    curr.op == "call_function"
+                    and target.op == "call_function"
+                    and curr.target == target.target
+                )
+                or (  # nn.Module and nn.functional are viewed as the same
+                    curr.op == "call_module"
+                    and target.op == "call_function"
+                    and MAPPING_FROM_FUNCTIONAL_TO_MODULE[target.target]
+                    == type(named_modules[curr.target])
+                )
+                or (  # use pattern class for matching
+                    curr.op == "call_module"
+                    and target.op == "call_module"
+                    and type(dict(pattern_mod.named_modules())[target.target])
+                    is type(named_modules[curr.target])
+                )
+            ):
+                # Not matched.
+                return False
+            if (self.path, curr) not in subgraphs:
+                # New matched.
+                subgraphs.append((self.path, curr))
             matched = True
-            for cusr, tusr in zip(curr.users, target.users):
-                if tusr.target == "output":
-                    # "output" always matches.
-                    return True
-                if cusr.target != tusr.target:
-                    # Not matched.
-                    return False
-                if cusr not in subgraph:
-                    # New matched.
-                    subgraphs.append((parent_name, cusr))
+            for curr_usr, target_usr in zip(curr.users, target.users):
                 # DFS traverse. If any subgraph is not matched, the whole graph
                 # is not matched.
-                matched = matched and find_match_subgraphs(cusr, tusr, subgraphs)
+                matched = matched and find_match_subgraphs(
+                    curr_usr, target_usr, subgraphs
+                )
             return matched
 
         self.trace()
 
         if func_pattern is not None:
             # pylint: disable=exec-used
-            # FIXME: Find a safer way to do it
-            sig = inspect.signature(func_pattern)
-            param_str = ", ".join(sig.parameters.keys())
-            exec(
-                f"""
+            if isinstance(func_pattern, Pattern):
+                pattern_mod = fx.symbolic_trace(func_pattern)
+            else:
+                # FIXME: Find a safer way to do it
+                sig = inspect.signature(func_pattern)
+                param_str = ", ".join(sig.parameters.keys())
+                exec(
+                    f"""
 class SubgraphWrapper(nn.Module):
     def __init__(self, pattern):
         super(SubgraphWrapper, self).__init__()
@@ -575,45 +587,32 @@ class SubgraphWrapper(nn.Module):
     def forward(self, {param_str}):
         return self.pattern({param_str})
 """,
-                globals(),
-            )
+                    globals(),
+                )
 
-            # SubgraphWrapper.__signature__ = inspect.signature(func_pattern)
-            # pylint: disable=undefined-variable
-            pattern_mod = fx.symbolic_trace(SubgraphWrapper(func_pattern))
+                # SubgraphWrapper.__signature__ = inspect.signature(func_pattern)
+                # pylint: disable=undefined-variable
+                pattern_mod = fx.symbolic_trace(SubgraphWrapper(func_pattern))
+
+        first_op = None
+        for target_node in list(pattern_mod.graph.nodes):
+            # get the first NON-placeholder,
+            # i.e., the first compute op of the target graph
+            if target_node.op != "placeholder":
+                first_op = target_node
+                break
+        else:
+            raise RuntimeError("Cannot find the first non-placeholder operator")
 
         res = []
-        for parent_name, submod in self.mod.named_modules():
-            if not isinstance(submod, fx.GraphModule):
+        for node in self.mod.graph.nodes:
+            if node.op == "placeholder":
                 continue
-
-            for node in submod.graph.nodes:
-                name = (
-                    f"{parent_name}.{node.target}" if parent_name != "" else node.target
-                )
-                if (
-                    node.op == "placeholder"
-                    or not isinstance(name, str)
-                    or not re.match(mod_name_pat, name)
-                ):
-                    continue
-
-                if func_pattern is None:
-                    # only find module
-                    res.append((parent_name, node))
-                    continue
-
-                subgraph = [(parent_name, node)]
-                for target_node in list(pattern_mod.graph.nodes):
-                    # get the first placeholder,
-                    # i.e., the input of the target graph
-                    if target_node.op == "placeholder":
-                        curr_node = node
-                        if find_match_subgraphs(curr_node, target_node, subgraph):
-                            res.append(subgraph)
-                        break
-                else:
-                    raise RuntimeError("Cannot find the first placeholder")
+            subgraph = []
+            target_node = first_op
+            curr_node = node
+            if find_match_subgraphs(curr_node, target_node, subgraph):
+                res.append(subgraph.copy())
         return res
 
     def find(self, node_pattern, func_pattern=None):

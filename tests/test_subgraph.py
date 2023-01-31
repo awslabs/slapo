@@ -131,34 +131,26 @@ def test_relu_bn_functional():
     assert isinstance(sch["layer1"].get_module(subgraph[1][1].target), nn.ReLU)
 
 
-# def test_linear_relu():
-#     sch = slapo.create_schedule(LeNet5(10))
+def test_linear_relu():
+    sch = slapo.create_schedule(LeNet5(10))
 
-#     class LinearReLUPattern(slapo.Pattern):
-#         def __init__(self):
-#             super().__init__()
-#             self.relu = nn.ReLU()
+    class LinearReLUPattern(slapo.Pattern):
+        def __init__(self):
+            super().__init__()
+            self.linear = nn.Linear(10, 20)
+            self.relu = nn.ReLU()
 
-#         # pylint: disable=arguments-differ
-#         def forward(self, out: torch.Tensor):
-#             out = self.relu(out)
-#             return out
+        # pylint: disable=arguments-differ
+        def forward(self, x: torch.Tensor):
+            x = self.linear(x)
+            x = self.relu(x)
+            return x
 
-#     subgraph = sch.find(r"fc.?", LinearReLUPattern())
-#     assert len(subgraph) == 2
-#     for i in range(2):
-#         assert isinstance(sch.get_module(subgraph[i][0][1].target), nn.Linear)
-#         assert isinstance(sch.get_module(subgraph[i][1][1].target), nn.ReLU)
-
-#     def pattern(x: torch.Tensor):
-#         x = F.relu(x)
-#         return x
-
-#     subgraph = sch.find(r"fc.?", pattern)
-#     assert len(subgraph) == 2
-#     for i in range(2):
-#         assert isinstance(sch.get_module(subgraph[i][0][1].target), nn.Linear)
-#         assert isinstance(sch.get_module(subgraph[i][1][1].target), nn.ReLU)
+    subgraph = sch.find(r"fc.?", LinearReLUPattern())
+    assert len(subgraph) == 2
+    for i in range(2):
+        assert isinstance(sch.get_module(subgraph[i][0][1].target), nn.Linear)
+        assert isinstance(sch.get_module(subgraph[i][1][1].target), nn.ReLU)
 
 
 if __name__ == "__main__":

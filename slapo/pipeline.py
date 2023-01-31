@@ -427,8 +427,8 @@ def build_pipeline_model(sch, target, **kwargs):
         )
 
     # Transfer hooks from the original module to the corresponding pipeline stage.
-    transfer_hooks(res_partition[0], partitioned_mod, ["fwd_pre", "bwd_post"])
-    transfer_hooks(res_partition[-1], partitioned_mod, ["fwd_post"])
+    transfer_hooks(partitioned_mod, res_partition[0].mod, ["fwd_pre", "bwd_post"])
+    transfer_hooks(partitioned_mod, res_partition[-1].mod, ["fwd_post"])
 
     pipe_engine_fn = get_dialect_cls("pipeline_engine", target)
     return pipe_engine_fn(

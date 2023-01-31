@@ -79,7 +79,7 @@ def schedule_model(
 
         # Broadcast input to all devices within the MP group.
         # This is not required when running on Megatron.
-        if bcast_input and not pipeline_cuts:
+        if bcast_input:
             broadcast_input(sch)
 
     # Insert activation checkpoints.

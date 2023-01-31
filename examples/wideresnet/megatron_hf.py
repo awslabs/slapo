@@ -171,7 +171,7 @@ def main():
         optimizer,
         preproc=preproc,
         postproc=postproc,
-        global_steps=train_iters,
+        steps=train_iters,
     )
 
 

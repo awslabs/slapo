@@ -92,32 +92,51 @@ def generate_pipeline_cuts(num_layers, num_pp, is_encoder_decoder=False):
 def train_with_torch(
     model,
     dataloader,
-    optimizer=None,
+    optimizer,
     preproc=None,
     postproc=None,
-    global_steps=40,
-    micro_batch_size=1,
+    steps=40,
 ):
-    """The training loop for DeepSpeedEngine and PyTorch runtime."""
-    is_deepspeed = hasattr(model, "backward")
-    if not is_deepspeed and optimizer is None:
-        raise ValueError("optimizer must be provided for PyTorch runtime")
+    """The training loop for PyTorch runtime. Note that this simple training loop
+    assumes no data parallelism and gradient accumulation.
+    """
 
     for step, batch in enumerate(dataloader):
         inputs, labels = preproc(step, batch) if preproc is not None else batch
         loss = model(*inputs, labels=labels).loss
-        if is_deepspeed:
-            model.backward(loss)
-            model.step()
-        else:
-            loss.backward()
-            optimizer.step()
+        loss.backward()
+        optimizer.step()
         loss = postproc(step, loss) if postproc is not None else loss
 
-        global_step = step // micro_batch_size
-        if step % micro_batch_size == 0 and global_step % 10 == 0:
-            logger.info(f"step {step // micro_batch_size} loss: {loss.item()}", ranks=0)
+        if step % 10 == 0:
+            logger.info(f"step {step} loss: {loss.item()}", ranks=0)
 
         loss = None
-        if global_step >= global_steps:
+        if step >= steps:
+            break
+
+
+def train_with_deepspeed_engine(
+    model,
+    dataloader,
+    preproc=None,
+    postproc=None,
+    steps=40,
+):
+    """The training loop for DeepSpeedEngine (without pipeline)."""
+
+    for micro_batch_step, batch in enumerate(dataloader):
+        inputs, labels = (
+            preproc(micro_batch_step, batch) if preproc is not None else batch
+        )
+        loss = model(*inputs, labels=labels).loss
+        model.backward(loss)
+        model.step()
+        loss = postproc(micro_batch_step, loss) if postproc is not None else loss
+
+        if model.global_steps % 10 == 0 and model.is_gradient_accumulation_boundary():
+            logger.info(f"step {model.global_steps} loss: {loss.item()}", ranks=0)
+
+        loss = None
+        if model.global_steps >= steps:
             break

@@ -48,6 +48,7 @@ def test_end2end(model, impl, n_gpu, batch_size, seq_len, ckpt_ratio):
         cmd += " --seq-len-dec 512"
     cmd += f" --batch-size {batch_size}"
     cmd += f" --gradient-checkpoint {ckpt_ratio}"
+    cmd += " --steps 10"
     cmd += " > run_script.log 2>&1"
     print(cmd, flush=True)
     os.system(cmd)

@@ -22,7 +22,14 @@ class MegatronLogParser:
             return [float(v) for v in values]
 
         def avg_time(times):
-            return (sum(times[1:]) * 5) / steps if times is not None else 0
+            # Every 5 steps, Megatron reports the average iteration time of
+            # the past 5 steps, so we remove the first value (of the first 5 steps)
+            # as the warmup if applicable.
+            if times is None:
+                return 0
+            if len(times) == 1:
+                return times[0]
+            return (sum(times[1:]) * 5) / (5 * (len(times) - 1))
 
         if "CUDA out of memory" in text:
             print("Out of GPU memory, try a smaller batch size")
@@ -32,10 +39,6 @@ class MegatronLogParser:
         if not iter_times:
             print(f'Failed. Check "{log_filename}" to find error')
             return 0, 0, 0, 2
-
-        # 1. Every 5 steps, Megatron reports the average iteration time of the past 5 steps.
-        # 2. We remove the first value (of the first 5 steps) as the warmup.
-        steps = 5 * (len(iter_times) - 1)
 
         iter_time = avg_time(iter_times)
         forward_compute_time = avg_time(query("forward-compute", last_only=False))

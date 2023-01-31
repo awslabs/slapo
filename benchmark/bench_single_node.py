@@ -210,6 +210,9 @@ def parse_args():
         default="",
         help="Append the results to a file",
     )
+    common_parser.add_argument(
+        "--steps", type=int, default=40, help="Benchmark steps. Default: 40"
+    )
 
     parser = argparse.ArgumentParser()
     subprasers = parser.add_subparsers(
@@ -467,6 +470,7 @@ def main():
                     args.seq_len,
                     args.seq_len_dec,
                     impl=args.impl,
+                    steps=args.steps,
                     grad_ckpt=args.gradient_checkpoint,
                     fp16=args.dtype == "fp16",
                     gpus=gpus,

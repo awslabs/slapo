@@ -102,20 +102,25 @@ def test_torchvision_wideresnet():
     assert not isinstance(sch["layer1.0.downsample.0"].mod, fx.GraphModule)
 
 
+def find_module_in_graph(graph, target):
+    for node in graph.nodes:
+        if node.op == "call_module" and node.target == target:
+            return True
+    return False
+
+
 def test_flattened_hf_bert():
-    """Test tracing HF bert model."""
+    """Test tracing HF bert model using flattened mode"""
     from transformers import AutoConfig, BertModel
 
     config = AutoConfig.from_pretrained("bert-base-uncased")
     model = BertModel(config)
     sch = slapo.create_schedule(model)
 
-    # The original module list.
-    assert isinstance(sch["encoder"].mod, torch.nn.Module)
-    assert isinstance(sch["encoder.layer.0"].mod, torch.nn.Module)
-    assert isinstance(sch["encoder.layer.0.attention"].mod, torch.nn.Module)
-
     sub_sch = sch["encoder.layer.0.attention"]
+    # Before tracing into a flattened graph, the inner submodules can still be accessed
+    assert isinstance(sch["encoder.layer.0.attention.self.query"].mod, torch.nn.Module)
+
     input_names = ["hidden_states", "attention_mask"]
     sig = inspect.signature(sub_sch.mod.forward)
     concrete_args = {
@@ -124,9 +129,47 @@ def test_flattened_hf_bert():
     sub_sch.trace(tracer="pytorch", flatten=True, concrete_args=concrete_args)
     assert isinstance(sch["encoder.layer.0.attention"].mod, fx.GraphModule)
     assert isinstance(sch["encoder.layer.0.attention.self"].mod, torch.nn.Module)
+    # After tracing, the submodules are no longer encapsulated in a schedule
+    with pytest.raises(Exception):
+        sch["encoder.layer.0.attention.self.query"].mod
     assert isinstance(
         sch["encoder.layer.0.attention.self"].get_module("query"), torch.nn.Module
     )
+    assert find_module_in_graph(sub_sch.mod.graph, "self.query")
+    assert find_module_in_graph(sub_sch.mod.graph, "output.dense")
+
+
+def test_two_level_flattened_hf_bert():
+    """Test tracing HF bert model using flattened mode"""
+    from transformers import AutoConfig, BertModel
+
+    config = AutoConfig.from_pretrained("bert-base-uncased")
+    model = BertModel(config)
+    sch = slapo.create_schedule(model)
+
+    sub_sch = sch["encoder.layer.0"]
+    # Before tracing into a flattened graph, the inner submodules can still be accessed
+    assert isinstance(sch["encoder.layer.0.attention.self.query"].mod, torch.nn.Module)
+
+    input_names = ["hidden_states", "attention_mask"]
+    sig = inspect.signature(sub_sch.mod.forward)
+    concrete_args = {
+        p.name: p.default for p in sig.parameters.values() if p.name not in input_names
+    }
+    sub_sch.trace(
+        tracer="pytorch",
+        flatten=True,
+        concrete_args=concrete_args,
+        leaf_modules=["BertSelfAttention", "BertSelfOutput"],
+    )
+    assert isinstance(sch["encoder.layer.0.attention"].mod, torch.nn.Module)
+    # After tracing, the submodules are no longer encapsulated in a schedule
+    with pytest.raises(Exception):
+        assert isinstance(sch["encoder.layer.0.attention.self"].mod, torch.nn.Module)
+    assert find_module_in_graph(sub_sch.mod.graph, "attention.self")
+    assert find_module_in_graph(sub_sch.mod.graph, "attention.output")
+    # Only two levels are flattened, and other submodules are specified as leaf
+    assert not find_module_in_graph(sub_sch.mod.graph, "attention.self.query")
 
 
 if __name__ == "__main__":

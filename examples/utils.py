@@ -93,6 +93,7 @@ def train_with_torch(
     model,
     dataloader,
     optimizer,
+    loss_fn=None,
     preproc=None,
     postproc=None,
     steps=40,
@@ -103,7 +104,10 @@ def train_with_torch(
 
     for step, batch in enumerate(dataloader):
         inputs, labels = preproc(step, batch) if preproc is not None else batch
-        loss = model(*inputs, labels=labels).loss
+        if loss_fn is None:
+            loss = model(*inputs, labels=labels).loss
+        else:
+            loss = loss_fn(model(*inputs).logits, labels)
         loss.backward()
         optimizer.step()
         loss = postproc(step, loss) if postproc is not None else loss
@@ -119,6 +123,7 @@ def train_with_torch(
 def train_with_deepspeed_engine(
     model,
     dataloader,
+    loss_fn=None,
     preproc=None,
     postproc=None,
     steps=40,
@@ -129,7 +134,10 @@ def train_with_deepspeed_engine(
         inputs, labels = (
             preproc(micro_batch_step, batch) if preproc is not None else batch
         )
-        loss = model(*inputs, labels=labels).loss
+        if loss_fn is None:
+            loss = model(*inputs, labels=labels).loss
+        else:
+            loss = loss_fn(model(*inputs).logits, labels)
         model.backward(loss)
         model.step()
         loss = postproc(micro_batch_step, loss) if postproc is not None else loss

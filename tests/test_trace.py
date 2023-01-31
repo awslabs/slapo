@@ -103,10 +103,9 @@ def test_torchvision_wideresnet():
 
 
 def find_module_in_graph(graph, target):
-    for node in graph.nodes:
-        if node.op == "call_module" and node.target == target:
-            return True
-    return False
+    return any(
+        node.op == "call_module" and node.target == target for node in graph.nodes
+    )
 
 
 def test_flattened_hf_bert():
@@ -131,7 +130,7 @@ def test_flattened_hf_bert():
     assert isinstance(sch["encoder.layer.0.attention.self"].mod, torch.nn.Module)
     # After tracing, the submodules are no longer encapsulated in a schedule
     with pytest.raises(Exception):
-        sch["encoder.layer.0.attention.self.query"].mod
+        print(sch["encoder.layer.0.attention.self.query"].mod)
     assert isinstance(
         sch["encoder.layer.0.attention.self"].get_module("query"), torch.nn.Module
     )

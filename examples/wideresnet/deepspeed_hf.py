@@ -143,7 +143,12 @@ def train(args):
         for _ in range(num_iters):
             model.train_batch(data_iter=data_iter)
     else:
-        train_with_torch(model, loader, steps=num_iters)
+        train_with_torch(
+            model,
+            loader,
+            global_steps=num_iters,
+            micro_batch_size=micro_batch_size,
+        )
 
 
 if __name__ == "__main__":

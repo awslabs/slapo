@@ -201,7 +201,12 @@ def train(args):
             logger.info(f"end iter {idx}", ranks=0)
 
     else:
-        train_with_torch(model, loader, steps=num_iters)
+        train_with_torch(
+            model,
+            loader,
+            global_steps=num_iters,
+            micro_batch_size=micro_batch_size,
+        )
 
 
 if __name__ == "__main__":

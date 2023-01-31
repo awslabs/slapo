@@ -90,7 +90,13 @@ def generate_pipeline_cuts(num_layers, num_pp, is_encoder_decoder=False):
 
 
 def train_with_torch(
-    model, dataloader, optimizer=None, preproc=None, postproc=None, steps=40
+    model,
+    dataloader,
+    optimizer=None,
+    preproc=None,
+    postproc=None,
+    global_steps=40,
+    micro_batch_size=1,
 ):
     """The training loop for DeepSpeedEngine and PyTorch runtime."""
     is_deepspeed = hasattr(model, "backward")
@@ -108,9 +114,10 @@ def train_with_torch(
             optimizer.step()
         loss = postproc(step, loss) if postproc is not None else loss
 
-        if step % 10 == 0:
-            logger.info(f"Step {step}, LOSS: {loss.item()}", ranks=0)
+        global_step = step // micro_batch_size
+        if step % micro_batch_size == 0 and global_step % 10 == 0:
+            logger.info(f"step {step // micro_batch_size} loss: {loss.item()}", ranks=0)
 
         loss = None
-        if step == steps:
+        if global_step >= global_steps:
             break

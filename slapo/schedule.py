@@ -543,7 +543,7 @@ class Schedule:
                 or (  # nn.Module and nn.functional are viewed as the same
                     curr.op == "call_module"
                     and target.op == "call_function"
-                    and MAPPING_FROM_FUNCTIONAL_TO_MODULE[target.target]
+                    and MAPPING_FROM_FUNCTIONAL_TO_MODULE.get(target.target, None)
                     == type(named_modules[curr.target])
                 )
                 or (  # use pattern class for matching

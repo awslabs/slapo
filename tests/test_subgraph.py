@@ -153,5 +153,34 @@ def test_linear_relu():
         assert isinstance(sch.get_module(subgraph[i][1][1].target), nn.ReLU)
 
 
+def test_two_paths():
+    class Model(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.fc1 = nn.Linear(10, 10)
+            self.fc2 = nn.Linear(10, 10)
+            self.relu = nn.ReLU()
+
+        def forward(self, x):
+            x1 = self.fc1(x)
+            x2 = self.fc2(x)
+            x = self.relu(x1 + x2)
+            return x
+
+    sch = slapo.create_schedule(Model())
+
+    def pattern(x1, x2):
+        x = F.relu(x1 + x2)
+        return x
+
+    subgraph = sch.find("*", pattern)[0]
+    assert len(subgraph) == 2
+    # pylint: disable=comparison-with-callable
+    assert subgraph[0][1].target == operator.add
+    assert subgraph[1][1].target == F.relu
+
+
+# Test patterns for horizontal fusion
+
 if __name__ == "__main__":
     pytest.main([__file__])

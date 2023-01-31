@@ -18,7 +18,7 @@ from slapo.utils.report import report_memory
 from model import schedule_model, get_model_config, get_model
 from utils import count_parameters, get_data_loader
 from examples.utils import (
-    train_with_torch,
+    train_with_deepspeed_engine,
     get_ds_config,
     create_dist_group_for_pipeline,
 )
@@ -143,7 +143,11 @@ def train(args):
         for _ in range(num_iters):
             model.train_batch(data_iter=data_iter)
     else:
-        train_with_torch(model, loader, steps=num_iters)
+        train_with_deepspeed_engine(
+            model,
+            loader,
+            steps=num_iters,
+        )
 
 
 if __name__ == "__main__":

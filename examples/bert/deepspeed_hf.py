@@ -16,7 +16,7 @@ from slapo.utils.report import report_memory
 
 from model import schedule_model
 from examples.utils import (
-    train_with_torch,
+    train_with_deepspeed_engine,
     get_ds_config,
     create_dist_group_for_pipeline,
     generate_pipeline_cuts,
@@ -201,7 +201,11 @@ def train(args):
             logger.info(f"end iter {idx}", ranks=0)
 
     else:
-        train_with_torch(model, loader, steps=num_iters)
+        train_with_deepspeed_engine(
+            model,
+            loader,
+            steps=num_iters,
+        )
 
 
 if __name__ == "__main__":

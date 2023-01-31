@@ -33,9 +33,12 @@ class DeepSpeedLogParser:
         # 1. Every 10 steps, DeepSpeed reports the average samples/sec from beginning.
         # 2. We remove the first value (of the first 10 steps) as the warmup.
         n_records = len(samples_per_sec)
-        avg_samples_per_sec = (
-            samples_per_sec[-1] * 10 * n_records - samples_per_sec[0] * 10
-        ) / (10 * (n_records - 1))
+        if n_records > 1:
+            avg_samples_per_sec = (
+                samples_per_sec[-1] * 10 * n_records - samples_per_sec[0] * 10
+            ) / (10 * (n_records - 1))
+        else:
+            avg_samples_per_sec = samples_per_sec[0]
 
         gpu_mem = query("MaxMemAllocated")
 

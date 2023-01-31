@@ -166,7 +166,12 @@ def main():
 
     timers("interval-time").start()
     train_with_torch(
-        model, loader, optimizer, preproc=preproc, postproc=postproc, steps=train_iters
+        model,
+        loader,
+        optimizer,
+        preproc=preproc,
+        postproc=postproc,
+        steps=train_iters,
     )
 
 

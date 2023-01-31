@@ -5,8 +5,7 @@ import inspect
 
 import torch
 import torch.nn as nn
-import torch.distributed as dist
-from torch.distributed.distributed_c10d import _get_global_rank
+import torch.distributed.distributed_c10d as dist
 
 import slapo
 from slapo import init_empty_weights
@@ -416,11 +415,12 @@ def checkpoint(sch, config, path="h.N", ckpt_ratio=1.0):
 
 
 def broadcast_input(sch):
-    group_src_rank = _get_global_rank(sch.group, 0)
+    group_src_rank = dist.get_global_rank(sch.group, 0)
 
     def _broadcast_input(module, inputs):
         for inp in inputs:
-            dist.broadcast(inp, src=group_src_rank, group=sch.group)
+            if inp is not None:
+                dist.broadcast(inp, src=group_src_rank, group=sch.group)
         return inputs
 
     sch.sync(mode="fwd_pre", sync_op_or_fn=_broadcast_input)

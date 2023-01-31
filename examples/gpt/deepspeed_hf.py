@@ -71,6 +71,9 @@ def train(args):
             num_mp = args.tmp
         else:
             logger.info("Pipeline disabled", ranks=0)
+            num_pp = 1
+            num_mp = args.tmp
+
         topology, group = create_dist_group_for_pipeline(num_pp, num_mp)
 
         # FIXME: Pytorch _coalescing_manager requires all the ranks to join
@@ -125,22 +128,29 @@ def train(args):
             sequence_parallel=args.sequence_parallel,
         )
 
+    loss_fct = ParallelCrossEntropy(group=group)
+
+    def loss_fn(outputs, labels):
+        prediction_scores = outputs.to(torch.float32)
+        shifted_prediction_scores = prediction_scores[..., :-1, :].contiguous()
+        labels = labels[..., 1:].contiguous()
+        lm_loss = loss_fct(shifted_prediction_scores, labels)
+        lm_loss = lm_loss.contiguous().mean()
+        return lm_loss
+
     if enable_pipeline:
         # FIXME: is mbs=1 correct?
         batch_size = 16 if batch_size is None else batch_size
         micro_batch_size = 4 if micro_batch_size is None else micro_batch_size
+        zero_opt_stage = 0
         ds_config_dict = get_ds_config(
-            batch_size, micro_batch_size, args.fp16, False, "Pipeline", args.bf16
+            batch_size,
+            micro_batch_size,
+            args.fp16,
+            zero_opt_stage,
+            "Pipeline",
+            args.bf16,
         )
-        loss_fct = ParallelCrossEntropy(group=group)
-
-        def loss_fn(outputs, labels):
-            prediction_scores = outputs.to(torch.float32)
-            shifted_prediction_scores = prediction_scores[..., :-1, :].contiguous()
-            labels = labels[..., 1:].contiguous()
-            lm_loss = loss_fct(shifted_prediction_scores, labels)
-            lm_loss = lm_loss.contiguous().mean()
-            return lm_loss
 
         model, _ = slapo.build(
             sch,
@@ -156,9 +166,16 @@ def train(args):
         if batch_size is None and micro_batch_size is not None:
             batch_size = micro_batch_size * args.world_size
 
+        # if the TP == 1 use zero 3, otherwise use stage-1 optimizer
+        zero_opt_stage = 3 if args.tmp == 1 else 1
         logger.info(f"BS={batch_size}, MBS={micro_batch_size}", ranks=0)
         ds_config_dict = get_ds_config(
-            batch_size, micro_batch_size, True, True, "ZeRO-3"
+            batch_size,
+            micro_batch_size,
+            args.fp16,
+            zero_opt_stage,
+            f"ZeRO-{zero_opt_stage}",
+            args.bf16,
         )
         model, _ = slapo.build(
             sch,
@@ -167,6 +184,8 @@ def train(args):
             config=ds_config_dict,
             init_weights=model._init_weights,
         )
+        if args.tmp > 1:
+            model.loss_fn = loss_fn
         model = model.to(device)
     report_memory(msg="After building model")
 

@@ -5,6 +5,11 @@ from __future__ import annotations
 from ..registry import register_model_dialect
 from ...logger import get_logger, INFO
 
+from deepspeed.runtime.pipe.topology import (
+    PipeModelDataParallelTopology,
+    PipelineParallelGrid,
+)
+
 logger = get_logger("DS-Engine", INFO)
 
 
@@ -15,11 +20,17 @@ def init_ds_engine(model, **kwargs):
 
     if "config" not in kwargs:
         raise ValueError("DeepSpeed config not provided.")
+    mpu = None
+    if "topology" in kwargs:
+        mpu = kwargs["topology"]
+        if isinstance(mpu, PipeModelDataParallelTopology):
+            mpu = PipelineParallelGrid(topology=mpu)
 
     # pylint: disable=unbalanced-tuple-unpacking
     model, optimizer, _, _ = deepspeed.initialize(
         model=model,
         config=kwargs["config"],
         model_parameters=[p for p in model.parameters() if p.requires_grad],
+        mpu=mpu,
     )
     return model, optimizer

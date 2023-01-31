@@ -12,7 +12,7 @@ _groups = []
 
 
 def get_ds_config(
-    batch_size, micro_batch_size_per_gpu, fp16=True, zero3=False, desc="", bf16=False
+    batch_size, micro_batch_size_per_gpu, fp16=True, zero_stage=0, desc="", bf16=False
 ):
     # https://github.com/microsoft/DeepSpeed/blob/ff42743/tests/unit/model_parallelism/test_configurable_parallel_pp.py#L20
     logger.info(f"fp16={fp16}, bf16={bf16}")
@@ -27,10 +27,10 @@ def get_ds_config(
         "train_micro_batch_size_per_gpu": micro_batch_size_per_gpu,
     }
 
-    if zero3:
-        zero3_config_dict = {
+    if zero_stage > 0:
+        zero_config_dict = {
             "zero_optimization": {
-                "stage": 3,
+                "stage": zero_stage,
                 "overlap_comm": True,
                 "reduce_scatter": True,
                 "contiguous_gradients": False,
@@ -38,7 +38,7 @@ def get_ds_config(
             },
             "zero_allow_untested_optimizer": True,
         }
-        config_dict.update(zero3_config_dict)
+        config_dict.update(zero_config_dict)
 
     return config_dict
 
@@ -111,7 +111,7 @@ def train_with_torch(
         loss.backward()
         optimizer.step()
         loss = postproc(step, loss) if postproc is not None else loss
-
+        
         if step % 10 == 0:
             logger.info(f"step {step} loss: {loss.item()}", ranks=0)
 

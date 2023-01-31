@@ -150,16 +150,6 @@ def train(args):
             loss_fn=loss_fn,
             init_weights=model._init_weights,
         )
-
-        group_src_rank = _get_global_rank(sch.group, 0)
-
-        def broadcast_input(module, _inputs):
-            for inp in _inputs:
-                dist.broadcast(inp, src=group_src_rank, group=sch.group)
-            return _inputs
-
-        if model.mpu.get_pipe_parallel_rank() == 0:
-            sch["submod_0"].sync(mode="fwd_pre", sync_op_or_fn=broadcast_input)
     else:
         if batch_size is not None and micro_batch_size is None:
             micro_batch_size = batch_size // args.world_size

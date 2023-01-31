@@ -5,7 +5,7 @@ import inspect
 
 import torch
 import torch.nn as nn
-import torch.distributed.distributed_c10d as dist
+from torch.distributed import distributed_c10d as dist
 
 import slapo
 from slapo import init_empty_weights

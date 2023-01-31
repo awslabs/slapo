@@ -5,6 +5,7 @@ from __future__ import annotations
 import inspect
 import operator
 import gc
+import re
 from collections import OrderedDict
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -510,8 +511,18 @@ class Schedule:
     def get_module(self, name):
         return dict(self.mod.named_modules())[name]
 
-    def find_node(self, pattern):
-        """pattern: lambda node: ..."""
+    def find_node(self, regex_or_pattern_fn):
+        """Find a node in a static dataflow graph
+
+        Parameters
+        ----------
+        regex_or_pattern_fn : Union[str, Callable]
+            If this argument is a regular expression, it will only match the `call_module` node
+            whose `target` satisfies the regex;
+            otherwise, it will try to match all the nodes satisfies the pattern function.
+            The pattern_fn should be in `lambda node: ...` format.
+        """
+        assert isinstance(regex_or_pattern_fn, (str, Callable))
         self.trace()
 
         res = []
@@ -520,15 +531,29 @@ class Schedule:
                 continue
 
             for node in mod.graph.nodes:
-                if pattern(node):
-                    res.append((name, node))
+                if isinstance(regex_or_pattern_fn, str):
+                    if node.op == "call_module" and re.match(
+                        regex_or_pattern_fn, node.target
+                    ):
+                        res.append((name, node))
+                else:
+                    if regex_or_pattern_fn(node):
+                        res.append((name, node))
         return res
 
-    def find_subgraph(self, mod_name_pat, func_pattern=None):
-        assert isinstance(mod_name_pat, str)
-        assert func_pattern is None or isinstance(func_pattern, (FunctionType, Pattern))
+    def find_subgraph(self, pattern_fn):
+        """Find a subgraph in a static dataflow graph
+
+        Parameters
+        ----------
+        pattern_fn : Union[FunctionType, Pattern]
+            This argument specifies the subgraph pattern.
+            Using a lambda function is easier to specify a pattern, while the `Pattern`
+            class provides the ability to create patterns include submodules.
+        """
 
         named_modules = dict(self.mod.named_modules())
+        assert isinstance(pattern_fn, (FunctionType, Pattern))
 
         def find_match_subgraphs(curr, target, subgraphs):
             if target.op == "output":
@@ -569,13 +594,13 @@ class Schedule:
 
         self.trace()
 
-        if func_pattern is not None:
+        if pattern_fn is not None:
             # pylint: disable=exec-used
-            if isinstance(func_pattern, Pattern):
-                pattern_mod = fx.symbolic_trace(func_pattern)
+            if isinstance(pattern_fn, Pattern):
+                pattern_mod = fx.symbolic_trace(pattern_fn)
             else:
                 # FIXME: Find a safer way to do it
-                sig = inspect.signature(func_pattern)
+                sig = inspect.signature(pattern_fn)
                 param_str = ", ".join(sig.parameters.keys())
                 exec(
                     f"""
@@ -590,9 +615,9 @@ class SubgraphWrapper(nn.Module):
                     globals(),
                 )
 
-                # SubgraphWrapper.__signature__ = inspect.signature(func_pattern)
+                # SubgraphWrapper.__signature__ = inspect.signature(pattern_fn)
                 # pylint: disable=undefined-variable
-                pattern_mod = fx.symbolic_trace(SubgraphWrapper(func_pattern))
+                pattern_mod = fx.symbolic_trace(SubgraphWrapper(pattern_fn))
 
         first_op = None
         for target_node in list(pattern_mod.graph.nodes):
@@ -615,12 +640,23 @@ class SubgraphWrapper(nn.Module):
                 res.append(subgraph.copy())
         return res
 
-    def find(self, node_pattern, func_pattern=None):
-        if isinstance(node_pattern, str):
-            return self.find_subgraph(node_pattern, func_pattern=func_pattern)
-        if isinstance(node_pattern, FunctionType):
-            return self.find_node(node_pattern)
-        raise RuntimeError(f"Unrecognized pattern {node_pattern}")
+    def find(self, regex_or_pattern_fn):
+        """Find a node or a subgraph in a static dataflow graph.
+        This API is a dispatcher for `find_node` and `find_subgraph`
+
+        If you need to match a general node pattern, please directly use the `find_node` API.
+
+        Parameters
+        ----------
+        regex_or_pattern_fn : Union[str, Callable]
+            A regular expression for specifying the target of `call_module` node, or
+            a callable function/Pattern class specifying the subgraph pattern
+        """
+        if isinstance(regex_or_pattern_fn, (FunctionType, Pattern)):
+            return self.find_subgraph(regex_or_pattern_fn)
+        if isinstance(regex_or_pattern_fn, str):
+            return self.find_node(regex_or_pattern_fn)
+        raise RuntimeError(f"Unrecognized pattern {regex_or_pattern_fn}")
 
     def replace_function(self, func, target_op):
         """Replace a function, in terms of a call_function node in fx graph.

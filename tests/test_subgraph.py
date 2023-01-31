@@ -28,7 +28,7 @@ def test_exact_match():
         # ReLU + residual add
         return F.relu(x) + x
 
-    subgraph = sch.find("conv", pattern)[0]
+    subgraph = sch.find(pattern)[0]
     assert len(subgraph) == 2
     # pylint: disable=comparison-with-callable
     assert subgraph[0][1].target == F.relu
@@ -53,7 +53,7 @@ def test_functional_module_match():
         # ReLU + residual add
         return F.relu(x) + x
 
-    subgraph = sch.find("conv", pattern)[0]
+    subgraph = sch.find(pattern)[0]
     assert len(subgraph) == 2
     assert subgraph[0][1].op == "call_module" and subgraph[0][1].target == "relu"
     # pylint: disable=comparison-with-callable
@@ -106,7 +106,7 @@ def test_relu_bn():
         def forward(self, x: torch.Tensor):
             return self.relu(self.bn(x))
 
-    subgraph = sch["layer2"].find("0", ReLUBNPattern())[0]
+    subgraph = sch["layer2"].find(ReLUBNPattern())[0]
     assert len(subgraph) == 2
     assert isinstance(sch["layer2"].get_module(subgraph[0][1].target), nn.BatchNorm2d)
     assert isinstance(sch["layer2"].get_module(subgraph[1][1].target), nn.ReLU)
@@ -125,7 +125,7 @@ def test_relu_bn_functional():
         def forward(self, x: torch.Tensor):
             return F.relu(self.bn(x))
 
-    subgraph = sch["layer1"].find("0", ReLUBNPattern2())[0]
+    subgraph = sch["layer1"].find(ReLUBNPattern2())[0]
     assert len(subgraph) == 2
     assert isinstance(sch["layer1"].get_module(subgraph[0][1].target), nn.BatchNorm2d)
     assert isinstance(sch["layer1"].get_module(subgraph[1][1].target), nn.ReLU)
@@ -146,7 +146,7 @@ def test_linear_relu():
             x = self.relu(x)
             return x
 
-    subgraph = sch.find(r"fc.?", LinearReLUPattern())
+    subgraph = sch.find(LinearReLUPattern())
     assert len(subgraph) == 2
     for i in range(2):
         assert isinstance(sch.get_module(subgraph[i][0][1].target), nn.Linear)
@@ -173,11 +173,11 @@ def test_two_paths():
         x = F.relu(x1 + x2)
         return x
 
-    subgraph = sch.find("*", pattern)[0]
+    subgraph = sch.find(pattern)[0]
     assert len(subgraph) == 2
     # pylint: disable=comparison-with-callable
     assert subgraph[0][1].target == operator.add
-    assert subgraph[1][1].target == F.relu
+    assert subgraph[1][1].target == "relu"
 
 
 # Test patterns for horizontal fusion

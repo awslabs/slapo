@@ -2,13 +2,13 @@
 # SPDX-License-Identifier: Apache-2.0
 from __future__ import annotations
 
-from ..registry import register_model_dialect
-from ...logger import get_logger, INFO
-
 from deepspeed.runtime.pipe.topology import (
     PipeModelDataParallelTopology,
     PipelineParallelGrid,
 )
+
+from ..registry import register_model_dialect
+from ...logger import get_logger, INFO
 
 logger = get_logger("DS-Engine", INFO)
 

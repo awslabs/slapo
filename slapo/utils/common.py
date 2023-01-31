@@ -42,14 +42,12 @@ def transfer_hooks(old_mod, new_mod, hook_types=None):
         The types of hooks to transfer. If None, transfer all hooks.
     """
     HOOK_TYPE_TO_ATTR = {
-        "fwd_pre": ("_forward_pre_hooks", "register_forward_pre_hook"),
-        "fwd_post": ("_forward_hooks", "register_forward_hook"),
-        "bwd_post": ("_backward_hooks", "register_backward_hook"),
+        "fwd_pre": "_forward_pre_hooks",
+        "fwd_post": "_forward_hooks",
+        "bwd_post": "_backward_hooks",
     }
     if hook_types is None:
         hook_types = ["fwd_pre", "fwd_post", "bwd_post"]
 
-    hook_attrs = [HOOK_TYPE_TO_ATTR[hook_type] for hook_type in hook_types]
-    for hook_attr, register_attr in hook_attrs:
-        for hook in getattr(old_mod, hook_attr).values():
-            getattr(new_mod, register_attr)(hook)
+    for hook_attr in [HOOK_TYPE_TO_ATTR[hook_type] for hook_type in hook_types]:
+        setattr(new_mod, hook_attr, getattr(old_mod, hook_attr))

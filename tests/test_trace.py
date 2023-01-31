@@ -102,5 +102,32 @@ def test_torchvision_wideresnet():
     assert not isinstance(sch["layer1.0.downsample.0"].mod, fx.GraphModule)
 
 
+def test_flattened_hf_bert():
+    """Test tracing HF bert model."""
+    from transformers import AutoConfig, BertModel
+
+    config = AutoConfig.from_pretrained("bert-base-uncased")
+    model = BertModel(config)
+    sch = slapo.create_schedule(model)
+
+    # The original module list.
+    assert isinstance(sch["encoder"].mod, torch.nn.Module)
+    assert isinstance(sch["encoder.layer.0"].mod, torch.nn.Module)
+    assert isinstance(sch["encoder.layer.0.attention"].mod, torch.nn.Module)
+
+    sub_sch = sch["encoder.layer.0.attention"]
+    input_names = ["hidden_states", "attention_mask"]
+    sig = inspect.signature(sub_sch.mod.forward)
+    concrete_args = {
+        p.name: p.default for p in sig.parameters.values() if p.name not in input_names
+    }
+    sub_sch.trace(tracer="pytorch", flatten=True, concrete_args=concrete_args)
+    assert isinstance(sch["encoder.layer.0.attention"].mod, fx.GraphModule)
+    assert isinstance(sch["encoder.layer.0.attention.self"].mod, torch.nn.Module)
+    assert isinstance(
+        sch["encoder.layer.0.attention.self"].get_module("query"), torch.nn.Module
+    )
+
+
 if __name__ == "__main__":
     pytest.main([__file__])

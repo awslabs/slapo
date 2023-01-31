@@ -27,6 +27,7 @@ def schedule_model(
     prefix="",
     disable_flash_attn=False,
     fp16=True,
+    bf16=False,
     ckpt_ratio=0.0,
     group=None,
     bcast_input=False,
@@ -39,6 +40,9 @@ def schedule_model(
     if fp16:
         logger.info("Change model dtype to fp16", ranks=0)
         model.half()
+    elif bf16:
+        logger.info("Change model dtype to bf16", ranks=0)
+        model.bfloat16()
 
     sch = slapo.create_schedule(model, group=group)
     logger.info(f"Scheduling GPT with TP={sch.world_size}", ranks=0)

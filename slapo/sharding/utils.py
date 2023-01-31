@@ -119,7 +119,7 @@ def scatter_along_dim(inp, dim, world_size, group):
 
 
 class _AllGatherForwardOutput(torch.autograd.Function):
-    """The cusom all gather op used for forward hook."""
+    """The custom all gather op used for forward hook."""
 
     # pylint: disable=abstract-method, arguments-differ
     @staticmethod
@@ -146,7 +146,7 @@ class _AllGatherForwardOutput(torch.autograd.Function):
 
 
 class _ReduceScatterForwardOutput(torch.autograd.Function):
-    """The cusom reduce scatter op used for forward hook."""
+    """The custom reduce scatter op used for forward hook."""
 
     # pylint: disable=abstract-method, arguments-differ
     @staticmethod
@@ -170,7 +170,7 @@ class _ReduceScatterForwardOutput(torch.autograd.Function):
 
 
 class _ScatterForwardOutput(torch.autograd.Function):
-    """The cusom reduce scatter op used for forward hook."""
+    """The custom reduce scatter op used for forward hook."""
 
     # pylint: disable=abstract-method, arguments-differ
     @staticmethod
@@ -189,6 +189,22 @@ class _ScatterForwardOutput(torch.autograd.Function):
         return (
             all_gather_along_dim(grad_output, dim, world_size, group),
             None,
+            None,
+        )
+
+
+class _ReduceForwardOutput(torch.autograd.Function):
+    """The custom reduce op used for forward hook."""
+
+    # pylint: disable=abstract-method, arguments-differ
+    @staticmethod
+    def forward(ctx, inp, group):
+        return dist.all_reduce(inp, group=group)
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        return (
+            grad_output,
             None,
         )
 
@@ -253,3 +269,20 @@ def scatter_forward_output(inp, dim, group):
         The scattered tensor.
     """
     return _ScatterForwardOutput.apply(inp, dim, group)
+
+
+def reduce_forward_output(inp, group):
+    """The custom reduce op used for forward hook.
+    Parameters
+    ----------
+    inp: torch.Tensor
+        The input tensor to reduce.
+    group: torch.distributed.ProcessGroup
+        The process group to reduce.
+
+    Returns
+    -------
+    torch.Tensor
+        The reduced tensor.
+    """
+    return _ReduceForwardOutput.apply(inp, group)

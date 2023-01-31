@@ -6,7 +6,9 @@ import inspect
 import torch
 import torch.nn as nn
 import torch.distributed as dist
+from torch.distributed.distributed_c10d import _get_global_rank
 
+import slapo
 from slapo import init_empty_weights
 
 
@@ -250,7 +252,7 @@ def shard_word_embedding(
         input_mask = (_input[0] < vocab_start_index) | (_input[0] >= vocab_end_index)
         output[input_mask, :] = 0.0
         # Reduce across all the model parallel GPUs
-        dist.all_reduce(output, op=dist.ReduceOp.SUM, group=sch.group)
+        output = slapo.sharding.reduce_forward_output(output, sch.group)
         return output
 
     sch[word_embed_name].sync(mode="fwd_post", sync_op_or_fn=fwd_post_hook)
@@ -414,9 +416,11 @@ def checkpoint(sch, config, path="h.N", ckpt_ratio=1.0):
 
 
 def broadcast_input(sch):
-    def broadcast_input(inputs):
+    group_src_rank = _get_global_rank(sch.group, 0)
+
+    def _broadcast_input(module, inputs):
         for inp in inputs:
-            dist.broadcast(inp, src=0, group=sch.group)
+            dist.broadcast(inp, src=group_src_rank, group=sch.group)
         return inputs
 
-    sch.sync(mode="fwd_pre", sync_op_or_fn=broadcast_input)
+    sch.sync(mode="fwd_pre", sync_op_or_fn=_broadcast_input)

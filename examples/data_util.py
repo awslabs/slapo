@@ -49,7 +49,9 @@ def get_data_move_and_group_fn(enable_pipeline):
     return _collate_fn
 
 
-def get_dataloader(model_name, micro_batch_size, enable_pipeline, cache_dir=None):
+def get_dataloader(
+    model_name, micro_batch_size, enable_pipeline, cache_dir=None, mpu=None
+):
     # wiki_option_datafile = 'wikitext-2-v1'
     wiki_option_datafile = "wikitext-103-v1"
     raw_dataset = load_dataset("wikitext", wiki_option_datafile, cache_dir=cache_dir)
@@ -63,10 +65,16 @@ def get_dataloader(model_name, micro_batch_size, enable_pipeline, cache_dir=None
     train_dataset = LossTestDataset(train)
     val_dataset = LossTestDataset(val)
 
+    num_replicas = None
+    rank = None
+    if mpu:
+        num_replicas = mpu.get_data_parallel_world_size()
+        rank = mpu.get_data_parallel_rank()
+
     train_loader = DataLoader(
         train_dataset,
         batch_size=micro_batch_size,
-        sampler=DistributedSampler(train_dataset),
+        sampler=DistributedSampler(train_dataset, num_replicas=num_replicas, rank=rank),
         collate_fn=get_data_move_and_group_fn(enable_pipeline),
         drop_last=True,
     )
@@ -74,7 +82,7 @@ def get_dataloader(model_name, micro_batch_size, enable_pipeline, cache_dir=None
     val_loader = DataLoader(
         val_dataset,
         batch_size=micro_batch_size,
-        sampler=DistributedSampler(val_dataset),
+        sampler=DistributedSampler(val_dataset, num_replicas=num_replicas, rank=rank),
         collate_fn=get_data_move_and_group_fn(enable_pipeline),
         drop_last=True,
     )

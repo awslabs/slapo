@@ -7,4 +7,5 @@ from .utils import (
     all_gather_forward_output,
     reduce_scatter_forward_output,
     scatter_forward_output,
+    reduce_forward_output,
 )

@@ -215,10 +215,13 @@ def train(args):
         for _ in range(num_iters):
             model.train_batch(data_iter=data_iter)
     else:
+        # use the Parallel Loss
+        loss_fn = None if args.tmp == 1 else loss_fn
         train_with_deepspeed_engine(
             model,
             loader,
             steps=num_iters,
+            loss_fn=loss_fn,
         )
 
 

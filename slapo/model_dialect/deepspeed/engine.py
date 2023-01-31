@@ -20,11 +20,9 @@ def init_ds_engine(model, **kwargs):
 
     if "config" not in kwargs:
         raise ValueError("DeepSpeed config not provided.")
-    mpu = None
-    if "topology" in kwargs:
-        mpu = kwargs["topology"]
-        if isinstance(mpu, PipeModelDataParallelTopology):
-            mpu = PipelineParallelGrid(topology=mpu)
+    mpu = kwargs.get("topology", None)
+    if mpu is not None and isinstance(mpu, PipeModelDataParallelTopology):
+        mpu = PipelineParallelGrid(topology=mpu)
 
     # pylint: disable=unbalanced-tuple-unpacking
     model, optimizer, _, _ = deepspeed.initialize(

@@ -111,7 +111,7 @@ def train_with_torch(
         loss.backward()
         optimizer.step()
         loss = postproc(step, loss) if postproc is not None else loss
-        
+
         if step % 10 == 0:
             logger.info(f"step {step} loss: {loss.item()}", ranks=0)
 

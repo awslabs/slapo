@@ -184,8 +184,6 @@ def train(args):
             config=ds_config_dict,
             init_weights=model._init_weights,
         )
-        if args.tmp > 1:
-            model.loss_fn = loss_fn
         model = model.to(device)
     report_memory(msg="After building model")
 

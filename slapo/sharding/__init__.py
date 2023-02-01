@@ -3,8 +3,9 @@
 """Sharding utilities."""
 
 from .infer_type import *
-from .utils import (
+from .sync_ops import (
     all_gather_forward_output,
+    reduce_backward_grad,
     reduce_scatter_forward_output,
     scatter_forward_output,
     reduce_forward_output,

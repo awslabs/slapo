@@ -119,7 +119,8 @@ def scatter_along_dim(inp, dim, world_size, group):
 
 
 class _AllGatherForwardOutput(torch.autograd.Function):
-    """The custom all gather op used for forward hook."""
+    """The custom sync op (F: all-gather, B: split or reduce-scatter) used for
+    forward hook."""
 
     # pylint: disable=abstract-method, arguments-differ
     @staticmethod
@@ -146,7 +147,7 @@ class _AllGatherForwardOutput(torch.autograd.Function):
 
 
 class _ReduceScatterForwardOutput(torch.autograd.Function):
-    """The custom reduce scatter op used for forward hook."""
+    """The custom sync op (F: reduce-scatter, B: all-gather) used for forward hook."""
 
     # pylint: disable=abstract-method, arguments-differ
     @staticmethod
@@ -170,7 +171,7 @@ class _ReduceScatterForwardOutput(torch.autograd.Function):
 
 
 class _ScatterForwardOutput(torch.autograd.Function):
-    """The custom reduce scatter op used for forward hook."""
+    """The custom sync op (sync op (F: scatter, B: all-gather) used for forward hook."""
 
     # pylint: disable=abstract-method, arguments-differ
     @staticmethod
@@ -194,12 +195,13 @@ class _ScatterForwardOutput(torch.autograd.Function):
 
 
 class _ReduceForwardOutput(torch.autograd.Function):
-    """The custom reduce op used for forward hook."""
+    """The custom sync op sync op (F: all-reduce, B: no-op) used for forward hook."""
 
     # pylint: disable=abstract-method, arguments-differ
     @staticmethod
     def forward(ctx, inp, group):
-        return dist.all_reduce(inp, group=group)
+        dist.all_reduce(inp, group=group)
+        return inp
 
     @staticmethod
     def backward(ctx, grad_output):
@@ -209,8 +211,28 @@ class _ReduceForwardOutput(torch.autograd.Function):
         )
 
 
+class _ReduceBackwardGradient(torch.autograd.Function):
+    """The custom sync op (F: no-op, B: all-reduce) used for forward hook."""
+
+    # pylint: disable=abstract-method, arguments-differ
+    @staticmethod
+    def forward(ctx, inp, group):
+        ctx.group = group
+        return inp
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        group = ctx.group
+        dist.all_reduce(grad_output, group=group)
+        return (
+            grad_output,
+            None,
+        )
+
+
 def all_gather_forward_output(inp, dim, group, tensor_parallel_output_grad=True):
-    """The custom all gather op used for forward hook.
+    """The custom sync op (F: all-gather, B: split or reduce-scatter) used for
+    forward hook.
 
     Parameters
     ----------
@@ -234,7 +256,7 @@ def all_gather_forward_output(inp, dim, group, tensor_parallel_output_grad=True)
 
 
 def reduce_scatter_forward_output(inp, dim, group):
-    """The custom reduce scatter op used for forward hook.
+    """The custom sync op (F: reduce-scatter, B: all-gather) used for forward hook.
     Parameters
     ----------
     inp: torch.Tensor
@@ -253,7 +275,7 @@ def reduce_scatter_forward_output(inp, dim, group):
 
 
 def scatter_forward_output(inp, dim, group):
-    """The custom scatter op used for forward hook.
+    """The custom sync op (sync op (F: scatter, B: all-gather) used for forward hook.
     Parameters
     ----------
     inp: torch.Tensor
@@ -272,7 +294,7 @@ def scatter_forward_output(inp, dim, group):
 
 
 def reduce_forward_output(inp, group):
-    """The custom reduce op used for forward hook.
+    """The custom sync op sync op (F: all-reduce, B: no-op) used for forward hook.
     Parameters
     ----------
     inp: torch.Tensor
@@ -286,3 +308,20 @@ def reduce_forward_output(inp, group):
         The reduced tensor.
     """
     return _ReduceForwardOutput.apply(inp, group)
+
+
+def reduce_backward_grad(inp, group):
+    """The custom sync op (F: no-op, B: all-reduce) used for forward hook.
+    Parameters
+    ----------
+    inp: torch.Tensor
+        The input tensor.
+    group: torch.distributed.ProcessGroup
+        The process group to reduce.
+
+    Returns
+    -------
+    torch.Tensor
+        The original input tensor. However, its gradient will be reduced.
+    """
+    return _ReduceBackwardGradient.apply(inp, group)

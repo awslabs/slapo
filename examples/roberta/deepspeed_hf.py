@@ -101,7 +101,7 @@ def train(args):
     if enable_pipeline:
         # FIXME: is mbs=1 correct?
         batch_size = 32 if batch_size is None else batch_size
-        ds_config_dict = get_ds_config(batch_size, 1, True, False, "Pipeline")
+        ds_config_dict = get_ds_config(batch_size, 1, True, 0, "Pipeline")
         loss_fct = ParallelCrossEntropy(group=group)
 
         def loss_fn(outputs, labels):
@@ -128,9 +128,7 @@ def train(args):
             batch_size = micro_batch_size * args.world_size
 
         logger.info(f"BS={batch_size}, MBS={micro_batch_size}", ranks=0)
-        ds_config_dict = get_ds_config(
-            batch_size, micro_batch_size, True, True, "ZeRO-3"
-        )
+        ds_config_dict = get_ds_config(batch_size, micro_batch_size, True, 3, "ZeRO-3")
         model, _ = slapo.build(
             sch,
             topology=topology,

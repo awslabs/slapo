@@ -60,6 +60,10 @@ def get_model(
             delay_init=delay_init,
         )
         model, _ = slapo.build(sch, init_weights=model._init_weights)
+        # Note 1: We assume no DP and PP in this script.
+        # Note 2: This overrides Megatron random seed management, so we only use
+        #         this script for benchmarking.
+        slapo.set_random_seed(2013, None, None, sch.rank)
         report_memory()
 
     elif impl == "torchscript":

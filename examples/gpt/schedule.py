@@ -11,6 +11,7 @@ import slapo
 from slapo import init_empty_weights
 from slapo.pattern import call_module
 from slapo.op.linear import FusedQKV
+from slapo import init_empty_weights, get_cuda_rng_tracker
 
 
 def trace_attention(sch, config, attn_path="h.N.attn.attention"):
@@ -89,7 +90,7 @@ def replace_and_shard_attention(
     sequence_parallel=False,
 ):
     from epoi.inject.policy.gpt import InjectHFGPTAttentionPolicy
-    from epoi.ops.xformers_attn import GenericSelfAttention
+    from epoi.ops.xformers_attn import GenericSelfAttention, MemoryEfficientAttentionOp
 
     class SelfAttention(nn.Module):
         """A wrapper to align the original GPTNeoAttention forward signature."""
@@ -111,6 +112,13 @@ def replace_and_shard_attention(
             # FIXME: The original output is (hidden_states, None) where the None
             # is present_key_value and only used by in inference.
             return outputs[:1]
+
+    class MemoryEfficientAttentionWithRNGOp(MemoryEfficientAttentionOp):
+        def forward(self, query_layer, key_layer, value_layer, attention_mask, p):
+            with get_cuda_rng_tracker().fork():
+                return super().forward(
+                    query_layer, key_layer, value_layer, attention_mask, p
+                )
 
     num_layers, num_heads, hidden_size = (
         config.num_layers,
@@ -163,12 +171,22 @@ def replace_and_shard_attention(
                     mode="fwd_post", sync_op_or_fn="reduce_scatter", axis=1
                 )
             else:
+                # Shard qkv and output projection.
                 sub_sch["module.FusedQKV_0.fused_linear"].sync(
                     mode="bwd_post", sync_op_or_fn="all_reduce"
                 )
                 sub_sch["module.out_proj"].sync(
                     mode="fwd_post", sync_op_or_fn="all_reduce"
                 )
+
+                # In this case, the attention dropout in between has to
+                # use different random seeds.
+                new_op = MemoryEfficientAttentionWithRNGOp(
+                    sub_sch["module"]["attn_op"].mod.attn_op_name,
+                    sub_sch["module"]["attn_op"].mod.apply_causal_mask,
+                )
+                sub_sch["module"]["attn_op"].replace(new_op)
+
 
         cnt += 1
 

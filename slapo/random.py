@@ -4,8 +4,11 @@
 # See https://github.com/NVIDIA/Megatron-LM/blob/main/megatron/core/tensor_parallel/random.py
 
 import contextlib
+import random
 
+import numpy as np
 import torch
+from torch import distributed as dist
 from torch.cuda import _lazy_call
 
 # Default name for the model parallel rng tracker.
@@ -14,11 +17,17 @@ _MODEL_PARALLEL_RNG_TRACKER_NAME = "model-parallel-rng"
 
 def _set_cuda_rng_state(new_state, device=-1):
     """Sets the random number generator state of the current GPU.
-    Argumentss:
-        new_state (torch.ByteTensor): The desired state
     This function is adapted from PyTorch repo (torch.cuda.set_rng_state)
     with a single change: the input state is not cloned. Cloning caused
     major performance issues for +4 GPU cases.
+
+    Paramters
+    ---------
+    new_state : torch.ByteTensor
+        The desired state.
+
+    device : int
+        The GPU device to set the state for. If -1, the current device is used.
     """
     if device == -1:
         device = torch.device("cuda")
@@ -73,11 +82,11 @@ class CudaRNGStatesTracker:
         """Track the rng state."""
         # Check seed is not already used.
         if seed in self.seeds_:
-            raise Exception("seed {} already exists".format(seed))
+            raise Exception(f"seed {seed} already exists")
         self.seeds_.add(seed)
         # Check that state is not already defined.
         if name in self.states_:
-            raise Exception("cuda rng state {} already exists".format(name))
+            raise Exception(f"cuda rng state {name} already exists")
         # Get the current rng state.
         orig_rng_state = torch.cuda.get_rng_state()
         # Set the new state and store it.
@@ -92,7 +101,10 @@ class CudaRNGStatesTracker:
         the original state."""
         # Check if we have added the state
         if name not in self.states_:
-            raise Exception("cuda rng state {} is not added".format(name))
+            raise RuntimeError(
+                f"cuda rng state {name} is not added. "
+                "Did you call 'set_random_seed'?"
+            )
         # Store current rng state.
         orig_cuda_rng_state = torch.cuda.get_rng_state()
         # Set rng state to the desired one
@@ -122,7 +134,7 @@ def model_parallel_cuda_manual_seed(seed, tp_rank):
     initialized. Also, no torch.cuda.manual_seed should be called
     after this function. Basically, this is replacement for that
     function.
-    Two set of RNG states are tracked:
+    Two sets of RNG states are tracked:
         default state: This is for data parallelism and is the same among a
                        set of model parallel GPUs but different across
                        different model paralle groups. This is used for
@@ -131,17 +143,72 @@ def model_parallel_cuda_manual_seed(seed, tp_rank):
                               parallel GPUs, but the same across data parallel
                               groups. This is used for example for dropout in
                               model parallel regions.
+
+    Parameters
+    ----------
+    seed : int
+        Random seed.
+    tp_rank : int
+        Tensor model parallel rank.
+
+    Returns
+    -------
+    int
+        Tensor model parallel seed of this rank.
     """
     # 2718 is just for fun and any POSITIVE value will work.
-    offset = seed + 2718
-    tensor_model_parallel_seed = offset + tp_rank
-    # Data parallel gets the original seed.
-    data_parallel_seed = seed
+    tensor_model_parallel_seed = seed + 2718 + tp_rank
 
     _CUDA_RNG_STATE_TRACKER.reset()
     # Set the default state.
-    torch.cuda.manual_seed(data_parallel_seed)
+    torch.cuda.manual_seed(seed)
     # and model parallel state.
     _CUDA_RNG_STATE_TRACKER.add(
         _MODEL_PARALLEL_RNG_TRACKER_NAME, tensor_model_parallel_seed
     )
+    return tensor_model_parallel_seed
+
+
+def is_random_seed_set():
+    """Check if random seed is set."""
+    return bool(_CUDA_RNG_STATE_TRACKER.get_states())
+
+
+def set_random_seed(seed=2013, dp_rank=None, pp_rank=None, tp_rank=None):
+    """Set random seed for reproducability.
+
+    Parameters
+    ----------
+    seed : int
+        Random seed. Default is 2013.
+    dp_rank : Optional[int]
+        Data parallel rank. Default is None means no data parallelism.
+    pp_rank : Optional[int]
+        Pipeline parallel rank. Default is None means no pipeline parallelism.
+    tp_rank : Optional[int]
+        Tensor model parallel rank. Default is None means no tensor parallelism.
+
+    Returns
+    -------
+    int
+        Random seed of this rank.
+    """
+    # Ensure each pipeline stage uses different seed.
+    if pp_rank is not None:
+        seed += 100 * pp_rank
+
+    # Ensure each data parallel group uses different seed.
+    if dp_rank is not None:
+        seed += 10 * dp_rank
+
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+
+    # In above cases, devices in the same TP group should have the same seed.
+    # However, we may need them to have different seeds for some cases, so
+    # here we maintain different seeds for each device in TP group separately.
+    if torch.cuda.device_count() > 0 and tp_rank is not None:
+        model_parallel_cuda_manual_seed(seed, tp_rank)
+
+    return seed

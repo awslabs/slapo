@@ -42,7 +42,6 @@ from .op.linear import LinearWithSeparateBias
 from .utils.common import transfer_hooks, is_lambda_function
 from .utils.mapping import MAPPING_FROM_FUNCTIONAL_TO_MODULE
 from .pattern import Pattern, ModulePattern, call_module
-from .random import model_parallel_cuda_manual_seed
 
 logger = get_logger()
 
@@ -1327,25 +1326,6 @@ def init_target_engine(sch, target, **kwargs):
     )
 
 
-def _set_random_seed(sch, seed_, data_parallel_random_init=False):
-    """Set random seed for reproducability.
-    https://github.com/NVIDIA/Megatron-LM/blob/8ce8256ff09373a275245aff3db68a3688218c44/megatron/initialize.py#L205
-    """
-    if seed_ is not None and seed_ > 0:
-        # Ensure that different pipeline MP stages get different seeds.
-        seed = seed_ + (100 * dist.get_rank())
-        # Ensure different data parallel ranks get different seeds
-        if data_parallel_random_init:
-            seed = seed + (10 * dist.get_rank())
-        random.seed(seed)
-        np.random.seed(seed)
-        torch.manual_seed(seed)
-        if torch.cuda.device_count() > 0:
-            model_parallel_cuda_manual_seed(seed, sch.rank)
-    else:
-        raise ValueError("Seed ({}) should be a positive integer.".format(seed))
-
-
 def build(
     sch: Schedule,
     target=None,
@@ -1374,9 +1354,5 @@ def build(
         )
     else:
         model = sch.mod
-
-    if dist.get_rank() > 0:
-        # just a random prime number
-        _set_random_seed(7919, sch)
 
     return init_target_engine(model, target, **kwargs)

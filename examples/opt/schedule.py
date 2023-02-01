@@ -82,7 +82,7 @@ def fix_attention_mask_shape(sch):
     # (B, 1, Tgt_S, Src_S)
     # (B, 1, 1, S) -repeat->  (B, H, S, S) -reshape-> (B x H, S, S),
     # so we need to replace "repeat" wit the sharded H.
-    ops = sch.find(
+    ops = sch.find_node(
         lambda node: node.op == "call_method"
         and node.target == "repeat"
         and len(node.args) == 5  # args[0] is self
@@ -218,7 +218,7 @@ def remove_cast(sch, config, attn_path="h.N.attn.attention"):
     cnt = 0
     for idx in range(config.num_hidden_layers):
         sub_sch = sch[attn_path.replace("N", str(idx))]
-        ops = sub_sch.find(
+        ops = sub_sch.find_node(
             lambda node: node.op == "call_method"
             and node.target == "to"
             and len(node.args) == 2
@@ -282,7 +282,7 @@ def shard_qkv(
         import operator
 
         sub_sch = sch[path]
-        ops = sub_sch.find(
+        ops = sub_sch.find_node(
             lambda node: node.target == "view"
             and len(node.args) == 2
             and node.args[0].target == "contiguous"

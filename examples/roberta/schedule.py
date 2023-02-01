@@ -31,7 +31,7 @@ def fix_attention_mask_shape(sch):
     # align xformer attention mask shape:
     # (B, 1, 1, S) -repeat->  (B, H, S, S) -reshape-> (B x H, S, S),
     # so we need to replace "repeat" wit the sharded H.
-    ops = sch.find(
+    ops = sch.find_node(
         lambda node: node.op == "call_method"
         and node.target == "repeat"
         and len(node.args) == 5  # args[0] is self

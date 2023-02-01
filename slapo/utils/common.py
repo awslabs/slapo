@@ -1,6 +1,7 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 """Common utilities used in schedule."""
+from types import FunctionType
 
 
 def get_hooks(mod):
@@ -51,3 +52,7 @@ def transfer_hooks(old_mod, new_mod, hook_types=None):
 
     for hook_attr in [HOOK_TYPE_TO_ATTR[hook_type] for hook_type in hook_types]:
         setattr(new_mod, hook_attr, getattr(old_mod, hook_attr))
+
+
+def is_lambda_function(obj):
+    return isinstance(obj, FunctionType) and obj.__name__ == "<lambda>"

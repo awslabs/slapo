@@ -1,12 +1,11 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-import re
-
 import torch
 import torch.nn as nn
 import torch.distributed as dist
 from slapo import init_empty_weights
+from slapo.pattern import call_module
 
 
 def fix_position_bias_shape(sch, delay_init=True):
@@ -144,18 +143,25 @@ def replace_and_shard_attention(
                     states = self.reshape_for_scores(states)
                     return [states]
 
-            def pattern(x: torch.Tensor) -> torch.Tensor:
+            def pattern_kv(x: torch.Tensor) -> torch.Tensor:
+                x = call_module("key|value", x)
                 new_x_shape = x.size()[:-1] + (num_heads, d_kv)
                 x = x.view(new_x_shape)
                 return x
 
-            subgraphs = sub_sch.find("key|value", pattern)
-            assert len(subgraphs) != 0
+            subgraphs = sub_sch.find(pattern_kv)
+            assert len(subgraphs) == 2
             with init_empty_weights(enable=delay_init):
                 new_fused_kv = FusedKV(num_heads, hidden_size, d_kv)
             sub_sch.replace(new_fused_kv, subgraphs)
 
-            subgraphs = sub_sch.find("query", pattern)
+            def pattern_q(x: torch.Tensor) -> torch.Tensor:
+                x = call_module("query", x)
+                new_x_shape = x.size()[:-1] + (num_heads, d_kv)
+                x = x.view(new_x_shape)
+                return x
+
+            subgraphs = sub_sch.find(pattern_q)
             assert len(subgraphs) != 0
             with init_empty_weights(enable=delay_init):
                 new_q = ShardableQ(num_heads, hidden_size, d_kv)
@@ -204,12 +210,13 @@ def replace_and_shard_attention(
                     return [q, k, v]
 
             def pattern(x: torch.Tensor) -> torch.Tensor:
+                x = call_module("query|key|value", x)
                 new_x_shape = x.size()[:-1] + (num_heads, d_kv)
                 x = x.view(new_x_shape)
                 return x
 
-            subgraphs = sub_sch.find("query|key|value", pattern)
-            assert len(subgraphs) != 0
+            subgraphs = sub_sch.find(pattern)
+            assert len(subgraphs) == 3
             new_fused_qkv = FusedQKV(num_heads, hidden_size, d_kv)
             sub_sch.replace(new_fused_qkv, subgraphs)
             if sch.world_size > 1:

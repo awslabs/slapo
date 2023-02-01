@@ -9,7 +9,7 @@ import torch.nn as nn
 
 from slapo import init_empty_weights
 from typing import Optional
-from slapo.pattern import call
+from slapo.pattern import call_pattern
 
 
 def trace_attention(
@@ -205,7 +205,7 @@ def replace_and_shard_attention(
                     return [q, k, v]
 
             def pattern(x: torch.Tensor) -> torch.Tensor:
-                x = call("query|key|value", x)
+                x = call_pattern("query|key|value", x)
                 new_x_shape = x.size()[:-1] + (num_heads, hidden_size)
                 x = x.view(new_x_shape)
                 return x

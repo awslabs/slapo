@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 import torch.distributed as dist
 from slapo import init_empty_weights
-from slapo.pattern import call
+from slapo.pattern import call_pattern
 
 
 def fix_position_bias_shape(sch, delay_init=True):
@@ -144,7 +144,7 @@ def replace_and_shard_attention(
                     return [states]
 
             def pattern_kv(x: torch.Tensor) -> torch.Tensor:
-                x = call("key|value", x)
+                x = call_pattern("key|value", x)
                 new_x_shape = x.size()[:-1] + (num_heads, d_kv)
                 x = x.view(new_x_shape)
                 return x
@@ -156,7 +156,7 @@ def replace_and_shard_attention(
             sub_sch.replace(new_fused_kv, subgraphs)
 
             def pattern_q(x: torch.Tensor) -> torch.Tensor:
-                x = call("query", x)
+                x = call_pattern("query", x)
                 new_x_shape = x.size()[:-1] + (num_heads, d_kv)
                 x = x.view(new_x_shape)
                 return x
@@ -210,7 +210,7 @@ def replace_and_shard_attention(
                     return [q, k, v]
 
             def pattern(x: torch.Tensor) -> torch.Tensor:
-                x = call("query|key|value", x)
+                x = call_pattern("query|key|value", x)
                 new_x_shape = x.size()[:-1] + (num_heads, d_kv)
                 x = x.view(new_x_shape)
                 return x

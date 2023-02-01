@@ -9,7 +9,7 @@ from torch import nn
 import torch.nn.functional as F
 
 import slapo
-from slapo.pattern import Pattern, call
+from slapo.pattern import Pattern, call_pattern
 
 
 def test_exact_match():
@@ -64,7 +64,7 @@ def test_functional_module_match():
     def test_Pat():
         def pattern(x: torch.Tensor):
             # ReLU + residual add
-            return call("relu", x) + x
+            return call_pattern("relu", x) + x
 
         subgraph = sch.find(pattern)[0]
         assert len(subgraph) == 2
@@ -218,7 +218,7 @@ def test_horizontal_pattern():
     sch = slapo.create_schedule(attn)
 
     def pattern(x):
-        x = call(r"[qkv]_proj", x)
+        x = call_pattern(r"[qkv]_proj", x)
         return x.permute(0, 2, 1, 3)
 
     subgraph = sch.find(pattern)

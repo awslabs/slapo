@@ -269,6 +269,7 @@ def shard_word_embedding(
     # Shard output embedding.
     if head_sch is not None:
         head_sch.shard("weight", axis=0)
+        head_sch.sync(mode="bwd_post", sync_op_or_fn="all_reduce")
 
 
 def shard_qkv(
@@ -363,15 +364,9 @@ def replace_and_shard_mlp(
                     sub_sch["fc_out"].sync(mode="fwd_post", sync_op_or_fn="all_reduce")
 
         elif sch.world_size > 1:
-            sch[f"{prefix}.{fc_names[0]}"].sync(
-                mode="fwd_pre", sync_op_or_fn="all_gather", axis=1
-            )
             sch[f"{prefix}.{fc_names[0]}"].shard("weight", axis=0)
             sch[f"{prefix}.{fc_names[0]}"].shard("bias", axis=0)
             sch[f"{prefix}.{fc_names[1]}"].shard("weight", axis=1)
-            sch[f"{prefix}.{fc_names[1]}"].sync(
-                mode="fwd_post", sync_op_or_fn="reduce_scatter", axis=1
-            )
 
             if sequence_parallel:
                 sch[f"{prefix}.{fc_names[0]}"].sync(

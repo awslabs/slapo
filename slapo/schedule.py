@@ -545,10 +545,8 @@ class Schedule:
                         regex_or_pattern_fn, node.target
                     ):
                         res.append((name, node))
-                else:
-                    # pylint: disable=else-if-used
-                    if regex_or_pattern_fn(node):
-                        res.append((name, node))
+                elif regex_or_pattern_fn(node):
+                    res.append((name, node))
         return res
 
     def find_subgraph(self, pattern_fn):

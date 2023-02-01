@@ -527,6 +527,12 @@ class Schedule:
             whose `target` satisfies the regex;
             otherwise, it will try to match all the nodes satisfies the pattern function.
             The pattern_fn should be in `lambda node: ...` format.
+
+        Returns
+        ----------
+        Union[List[Tuple[str, fx.Node]], List[List[Tuple[str, fx.Node]]]
+            Returns all the nodes whose names satisfying the regex, or the nodes satisfying
+            the given pattern constraints.
         """
         if not isinstance(regex_or_pattern_fn, (str, Callable)):
             raise ValueError(
@@ -558,6 +564,14 @@ class Schedule:
             This argument specifies the subgraph pattern.
             Using a lambda function is easier to specify a pattern, while the `Pattern`
             class provides the ability to create patterns include submodules.
+
+        Returns
+        ----------
+        List[List[Tuple[str, fx.Node]]
+            Returns all the subgraphs containing the nodes satisfying the pattern constraints.
+            The outer-most list contains different subgraphs, and the inner list contains
+            the nodes inside a specific subgraph. The inner-most tuple includes the name of
+            the parent module that the node belongs to, and the matched node object.
         """
 
         named_modules = dict(self.mod.named_modules())
@@ -681,6 +695,16 @@ class SubgraphWrapper(nn.Module):
         regex_or_pattern_fn : Union[str, Callable]
             A regular expression for specifying the target of `call_module` node, or
             a callable function/Pattern class specifying the subgraph pattern
+
+        Returns
+        ----------
+        Union[List[Tuple[str, fx.Node]], List[List[Tuple[str, fx.Node]]]
+            For `find_node`, it returns all the nodes whose names satisfying the regex.
+            For `find_subgraph`, it returns all the subgraphs containing the nodes
+            satisfying the pattern constraints. The outer-most list contains different
+            subgraphs, and the inner list contains the nodes inside a specific subgraph.
+            The inner-most tuple includes the name of the parent module that the node
+            belongs to, and the matched node object.
         """
         if isinstance(regex_or_pattern_fn, (FunctionType, Pattern)):
             return self.find_subgraph(regex_or_pattern_fn)

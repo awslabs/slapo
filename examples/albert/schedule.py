@@ -9,6 +9,7 @@ import torch.nn as nn
 
 from slapo import init_empty_weights
 from typing import Optional
+from slapo.pattern import call
 
 
 def trace_attention(
@@ -204,13 +205,14 @@ def replace_and_shard_attention(
                     return [q, k, v]
 
             def pattern(x: torch.Tensor) -> torch.Tensor:
+                x = call("query|key|value", x)
                 new_x_shape = x.size()[:-1] + (num_heads, hidden_size)
                 x = x.view(new_x_shape)
                 return x
 
             sub_sch = sch[f"{prefix}.attention"]
-            subgraphs = sub_sch["self_attn"].find("query|key|value", pattern)
-            assert len(subgraphs) != 0
+            subgraphs = sub_sch["self_attn"].find(pattern)
+            assert len(subgraphs) == 3
             with init_empty_weights(enable=delay_init):
                 new_fused_qkv = FusedQKV(hidden_size, num_heads)
             sub_sch["self_attn"].replace(new_fused_qkv, subgraphs)

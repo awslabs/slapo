@@ -8,6 +8,7 @@ import torch.nn as nn
 import torch.distributed as dist
 
 from slapo import init_empty_weights
+from slapo.pattern import call
 
 
 def trace_attention(sch, config, attn_path="h.N.attn.attention"):
@@ -61,6 +62,7 @@ def replace_qkv(sch, config, attn_path="h.N.attn.attention"):
             return [q, k, v]
 
     def pattern(x: torch.Tensor) -> torch.Tensor:
+        x = call("k_proj|q_proj|v_proj", x)
         new_x_shape = x.size()[:-1] + (num_heads, hidden_size)
         x = x.view(new_x_shape)
         return x.permute(0, 2, 1, 3)
@@ -68,7 +70,7 @@ def replace_qkv(sch, config, attn_path="h.N.attn.attention"):
     cnt = 0
     for idx in range(num_layers):
         sub_sch = sch[attn_path.replace("N", str(idx))]
-        subgraphs = sub_sch.find("k_proj|q_proj|v_proj", pattern)
+        subgraphs = sub_sch.find(pattern)
         assert subgraphs, "Cannot find QKV pattern"
         new_mod = FusedQKV(hidden_size, num_heads)
         sub_sch.replace(new_mod, subgraphs)
@@ -189,12 +191,13 @@ def replace_and_shard_attention(
                 return [q, k, v]
 
         def pattern(x: torch.Tensor) -> torch.Tensor:
+            x = call("query|key|value", x)
             new_x_shape = x.size()[:-1] + (num_heads, hidden_size)
             x = x.view(new_x_shape)
             return x
 
-        subgraphs = sub_sch["module"].find("query|key|value", pattern)
-        assert len(subgraphs) != 0
+        subgraphs = sub_sch["module"].find(pattern)
+        assert len(subgraphs) == 3
         with init_empty_weights(enable=delay_init):
             new_fused_qkv = FusedQKV(hidden_size, num_heads)
         sub_sch["module"].replace(new_fused_qkv, subgraphs)

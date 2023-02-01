@@ -37,7 +37,7 @@ from .sharding import (
     scatter_forward_output,
 )
 from .tracer import trace as trace_module
-from .utils.common import transfer_hooks
+from .utils.common import transfer_hooks, is_lambda_function
 from .utils.mapping import MAPPING_FROM_FUNCTIONAL_TO_MODULE
 from .pattern import Pattern, call_pattern
 
@@ -49,10 +49,6 @@ logger = get_logger()
 # Otherwise, the wrapper cannot work properly.
 # See https://github.com/pytorch/pytorch/blob/v1.13.1/torch/fx/_symbolic_trace.py#L1011-L1012
 fx.wrap(call_pattern)
-
-
-def is_lambda_function(obj):
-    return isinstance(obj, FunctionType) and obj.__name__ == "<lambda>"
 
 
 def _get_unique_module_name(gm_or_modules, name):

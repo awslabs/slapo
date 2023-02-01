@@ -14,10 +14,12 @@ from types import FunctionType
 from typing import Any, Optional, Union
 
 import torch
-import torch.nn.functional as F
 import torch.distributed as dist
 from torch import fx, nn
 from torch.utils import checkpoint
+
+# pylint: disable=unused-import
+import torch.nn.functional as F
 
 from .logger import get_logger
 from .model_dialect import get_dialect_cls
@@ -541,6 +543,7 @@ class Schedule:
                     ):
                         res.append((name, node))
                 else:
+                    # pylint: disable=else-if-used
                     if regex_or_pattern_fn(node):
                         res.append((name, node))
         return res

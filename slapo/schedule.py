@@ -528,7 +528,10 @@ class Schedule:
             otherwise, it will try to match all the nodes satisfies the pattern function.
             The pattern_fn should be in `lambda node: ...` format.
         """
-        assert isinstance(regex_or_pattern_fn, (str, Callable))
+        if not isinstance(regex_or_pattern_fn, (str, Callable)):
+            raise ValueError(
+                "Please pass in a str (regex) or a callable object to describe the node pattern"
+            )
         self.trace()
 
         res = []

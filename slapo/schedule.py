@@ -588,9 +588,9 @@ class Schedule:
             ):
                 # Not matched.
                 return False
-            if (self.path, curr) not in subgraphs:
+            if (parent_name, curr) not in subgraphs:
                 # New matched.
-                subgraphs.append((self.path, curr))
+                subgraphs.append((parent_name, curr))
             matched = True
             for curr_usr, target_usr in zip(curr.users, target.users):
                 # DFS traverse. If any subgraph is not matched, the whole graph
@@ -612,6 +612,10 @@ class Schedule:
                 param_str = ", ".join(sig.parameters.keys())
                 func_name = pattern_fn.__name__
                 src_code = inspect.getsource(pattern_fn).splitlines()
+                closure_vars = inspect.getclosurevars(pattern_fn)
+                closure_code = ""
+                for key, value in closure_vars.nonlocals.items():
+                    closure_code += f"{key} = {value}\n"
                 formatted_code = ""
                 indent = ""
                 for line in src_code:
@@ -624,6 +628,7 @@ class Schedule:
                         line = f"{indent}{line}\n"
                     formatted_code += line
                 wrapper_code = f"""
+{closure_code}
 class SubgraphWrapper(nn.Module):
     def __init__(self):
         super().__init__()
@@ -648,14 +653,17 @@ class SubgraphWrapper(nn.Module):
             raise RuntimeError("Cannot find the first non-placeholder operator")
 
         res = []
-        for node in self.mod.graph.nodes:
-            if node.op == "placeholder":
+        for parent_name, submod in self.mod.named_modules():
+            if not isinstance(submod, fx.GraphModule):
                 continue
-            subgraph = []
-            target_node = first_op
-            curr_node = node
-            if find_match_subgraphs(curr_node, target_node, subgraph):
-                res.append(subgraph.copy())
+            for node in submod.graph.nodes:
+                if node.op == "placeholder":
+                    continue
+                subgraph = []
+                target_node = first_op
+                curr_node = node
+                if find_match_subgraphs(curr_node, target_node, subgraph):
+                    res.append(subgraph.copy())
         return res
 
     def find(self, regex_or_pattern_fn):

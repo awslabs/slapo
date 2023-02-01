@@ -196,7 +196,39 @@ def test_two_paths():
     assert subgraph[1][1].target == "relu"
 
 
-# Test patterns for horizontal fusion
+def test_horizontal_pattern():
+    class CoreAttention(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.q_proj = nn.Linear(32, 32)
+            self.k_proj = nn.Linear(32, 32)
+            self.v_proj = nn.Linear(32, 32)
+            self.dropout = nn.Dropout(0.2)
+
+        def permute(self, x):
+            return x.permute(0, 2, 1, 3)
+
+        def forward(self, x):
+            q = self.permute(self.q_proj(x))
+            k = self.permute(self.k_proj(x))
+            v = self.permute(self.v_proj(x))
+            return self.dropout(F.softmax(q * k)) * v
+
+    attn = CoreAttention()
+    sch = slapo.create_schedule(attn)
+
+    def pattern(x):
+        x = call(r"[qkv]_proj", x)
+        return x.permute(0, 2, 1, 3)
+
+    subgraph = sch.find(pattern)
+    assert len(subgraph) == 3
+    assert len(subgraph[-1]) == 2
+    assert subgraph[0][0][1].target == "q_proj"
+    assert subgraph[1][0][1].target == "k_proj"
+    assert subgraph[2][0][1].target == "v_proj"
+    assert subgraph[0][1][1].target == "permute"
+
 
 if __name__ == "__main__":
     pytest.main([__file__])

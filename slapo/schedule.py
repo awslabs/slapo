@@ -566,11 +566,7 @@ class Schedule:
                 # "output" always matches.
                 return True
             if not (
-                (  # exactly match
-                    curr.op == "call_function"
-                    and target.op == "call_function"
-                    and curr.target == target.target
-                )
+                (curr.op == target.op and curr.target == target.target)  # exactly match
                 or (  # nn.Module and nn.functional are viewed as the same
                     curr.op == "call_module"
                     and target.op == "call_function"

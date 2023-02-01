@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Test operator fusion."""
 
+# pylint: disable=comparison-with-callable
 import operator
 import pytest
 import torch
@@ -31,7 +32,6 @@ def test_exact_match():
 
     subgraph = sch.find(pattern)[0]
     assert len(subgraph) == 2
-    # pylint: disable=comparison-with-callable
     assert subgraph[0][1].target == F.relu
     assert subgraph[1][1].target == operator.add
 
@@ -58,7 +58,6 @@ def test_functional_module_match():
         subgraph = sch.find(pattern)[0]
         assert len(subgraph) == 2
         assert subgraph[0][1].op == "call_module" and subgraph[0][1].target == "relu"
-        # pylint: disable=comparison-with-callable
         assert subgraph[1][1].target == operator.add
 
     def test_Pat():
@@ -69,7 +68,6 @@ def test_functional_module_match():
         subgraph = sch.find(pattern)[0]
         assert len(subgraph) == 2
         assert subgraph[0][1].op == "call_module" and subgraph[0][1].target == "relu"
-        # pylint: disable=comparison-with-callable
         assert subgraph[1][1].target == operator.add
 
     test_F()
@@ -191,7 +189,6 @@ def test_two_paths():
 
     subgraph = sch.find(pattern)[0]
     assert len(subgraph) == 2
-    # pylint: disable=comparison-with-callable
     assert subgraph[0][1].target == operator.add
     assert subgraph[1][1].target == "relu"
 

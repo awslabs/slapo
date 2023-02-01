@@ -710,7 +710,7 @@ class SubgraphWrapper(nn.Module):
             return self.find_subgraph(regex_or_pattern_fn)
         if isinstance(regex_or_pattern_fn, str):
             return self.find_node(regex_or_pattern_fn)
-        raise RuntimeError(f"Unrecognized pattern {regex_or_pattern_fn}")
+        raise RuntimeError(f"Unrecognized pattern type {type(regex_or_pattern_fn)}")
 
     def replace_function(self, func, target_op):
         """Replace a function, in terms of a call_function node in fx graph.

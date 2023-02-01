@@ -22,7 +22,7 @@ def init_ds_engine(model, **kwargs):
         raise ValueError("DeepSpeed config not provided.")
     mpu = kwargs.get("topology", None)
     if mpu is not None and isinstance(mpu, PipeModelDataParallelTopology):
-        if mpu.get_dim('pipe') <= 1:
+        if mpu.get_dim("pipe") <= 1:
             # in the case that pipeline is disabled
             mpu = PipelineParallelGrid(topology=mpu)
         else:

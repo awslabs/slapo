@@ -116,7 +116,7 @@ def get_cuda_rng_tracker():
     return _CUDA_RNG_STATE_TRACKER
 
 
-def model_parallel_cuda_manual_seed(seed):
+def model_parallel_cuda_manual_seed(seed, tp_rank):
     """Initialize model parallel cuda seed.
     This function should be called after the model parallel is
     initialized. Also, no torch.cuda.manual_seed should be called
@@ -134,7 +134,7 @@ def model_parallel_cuda_manual_seed(seed):
     """
     # 2718 is just for fun and any POSITIVE value will work.
     offset = seed + 2718
-    tensor_model_parallel_seed = offset + get_tensor_model_parallel_rank()
+    tensor_model_parallel_seed = offset + tp_rank
     # Data parallel gets the original seed.
     data_parallel_seed = seed
 

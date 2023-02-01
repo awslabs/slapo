@@ -39,16 +39,16 @@ from .sharding import (
 from .tracer import trace as trace_module
 from .utils.common import transfer_hooks, is_lambda_function
 from .utils.mapping import MAPPING_FROM_FUNCTIONAL_TO_MODULE
-from .pattern import Pattern, call_pattern
+from .pattern import Pattern, call_module
 
 logger = get_logger()
 
-# Wrap call_pattern as a leaf.
+# Wrap call_module as a leaf.
 # This is a limitation of torch.fx
 # Currently the leaf function wrapper can only be registered in the same module
 # Otherwise, the wrapper cannot work properly.
 # See https://github.com/pytorch/pytorch/blob/v1.13.1/torch/fx/_symbolic_trace.py#L1011-L1012
-fx.wrap(call_pattern)
+fx.wrap(call_module)
 
 
 def _get_unique_module_name(gm_or_modules, name):
@@ -594,7 +594,7 @@ class Schedule:
                 or (  # use pattern language to match
                     curr.op == "call_module"
                     and target.op == "call_function"
-                    and target.target == call_pattern
+                    and target.target == call_module
                     and re.match(target.args[0], curr.target)
                 )
                 or (  # use pattern class for matching
@@ -645,6 +645,10 @@ class Schedule:
                     else:
                         line = f"{indent}{line}\n"
                     formatted_code += line
+                if ".call_module" in formatted_code:
+                    raise RuntimeError(
+                        "Please directly `from slapo.pattern import call_module`"
+                    )
                 wrapper_code = f"""
 {closure_code}
 class SubgraphWrapper(nn.Module):

@@ -9,5 +9,5 @@ class Pattern(nn.Module):
         raise NotImplementedError
 
 
-def call_pattern(mod_name, *args):
+def call_module(mod_name, *args):
     raise NotImplementedError

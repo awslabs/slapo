@@ -574,7 +574,7 @@ class Schedule:
                     curr.op == "call_module"
                     and target.op == "call_function"
                     and MAPPING_FROM_FUNCTIONAL_TO_MODULE.get(target.target, None)
-                    == type(named_modules[curr.target])
+                    == type(named_modules.get(curr.target, None))
                 )
                 or (  # use pattern language to match
                     curr.op == "call_module"
@@ -586,7 +586,7 @@ class Schedule:
                     curr.op == "call_module"
                     and target.op == "call_module"
                     and type(dict(pattern_mod.named_modules())[target.target])
-                    is type(named_modules[curr.target])
+                    is type(named_modules.get(curr.target, None))
                 )
             ):
                 # Not matched.

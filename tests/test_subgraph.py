@@ -9,7 +9,7 @@ from torch import nn
 import torch.nn.functional as F
 
 import slapo
-from slapo.pattern import Pattern
+from slapo.pattern import Pattern, call
 
 
 def test_exact_match():
@@ -50,15 +50,30 @@ def test_functional_module_match():
 
     sch = slapo.create_schedule(Model())
 
-    def pattern(x: torch.Tensor):
-        # ReLU + residual add
-        return F.relu(x) + x
+    def test_F():
+        def pattern(x: torch.Tensor):
+            # ReLU + residual add
+            return F.relu(x) + x
 
-    subgraph = sch.find(pattern)[0]
-    assert len(subgraph) == 2
-    assert subgraph[0][1].op == "call_module" and subgraph[0][1].target == "relu"
-    # pylint: disable=comparison-with-callable
-    assert subgraph[1][1].target == operator.add
+        subgraph = sch.find(pattern)[0]
+        assert len(subgraph) == 2
+        assert subgraph[0][1].op == "call_module" and subgraph[0][1].target == "relu"
+        # pylint: disable=comparison-with-callable
+        assert subgraph[1][1].target == operator.add
+
+    def test_Pat():
+        def pattern(x: torch.Tensor):
+            # ReLU + residual add
+            return call("relu", x) + x
+
+        subgraph = sch.find(pattern)[0]
+        assert len(subgraph) == 2
+        assert subgraph[0][1].op == "call_module" and subgraph[0][1].target == "relu"
+        # pylint: disable=comparison-with-callable
+        assert subgraph[1][1].target == operator.add
+
+    test_F()
+    test_Pat()
 
 
 class LeNet5(nn.Module):

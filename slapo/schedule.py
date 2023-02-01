@@ -14,6 +14,7 @@ from types import FunctionType
 from typing import Any, Optional, Union
 
 import torch
+import torch.nn.functional as F
 import torch.distributed as dist
 from torch import fx, nn
 from torch.utils import checkpoint
@@ -36,9 +37,16 @@ from .sharding import (
 from .tracer import trace as trace_module
 from .utils.common import transfer_hooks
 from .utils.mapping import MAPPING_FROM_FUNCTIONAL_TO_MODULE
-from .pattern import Pattern
+from .pattern import Pattern, call
 
 logger = get_logger()
+
+# Wrap call as leaf
+fx.wrap(call)
+
+
+def is_lambda_function(obj):
+    return isinstance(obj, FunctionType) and obj.__name__ == "<lambda>"
 
 
 def _get_unique_module_name(gm_or_modules, name):
@@ -549,7 +557,9 @@ class Schedule:
         """
 
         named_modules = dict(self.mod.named_modules())
-        assert isinstance(pattern_fn, (FunctionType, Pattern))
+        assert isinstance(
+            pattern_fn, (FunctionType, Pattern)
+        ) and not is_lambda_function(pattern_fn)
 
         def find_match_subgraphs(curr, target, subgraphs):
             if target.op == "output":
@@ -566,6 +576,12 @@ class Schedule:
                     and target.op == "call_function"
                     and MAPPING_FROM_FUNCTIONAL_TO_MODULE.get(target.target, None)
                     == type(named_modules[curr.target])
+                )
+                or (  # use pattern language to match
+                    curr.op == "call_module"
+                    and target.op == "call_function"
+                    and target.target == call
+                    and re.match(target.args[0], curr.target)
                 )
                 or (  # use pattern class for matching
                     curr.op == "call_module"
@@ -598,22 +614,32 @@ class Schedule:
                 # FIXME: Find a safer way to do it
                 sig = inspect.signature(pattern_fn)
                 param_str = ", ".join(sig.parameters.keys())
-                exec(
-                    f"""
+                func_name = pattern_fn.__name__
+                src_code = inspect.getsource(pattern_fn).splitlines()
+                formatted_code = ""
+                indent = ""
+                for line in src_code:
+                    line = line.strip()
+                    if "def" in line:
+                        front, back = line.split("(")
+                        line = f"{indent}{front}(self, {back}\n"
+                        indent = 8 * " "
+                    else:
+                        line = f"{indent}{line}\n"
+                    formatted_code += line
+                wrapper_code = f"""
 class SubgraphWrapper(nn.Module):
-    def __init__(self, pattern):
-        super(SubgraphWrapper, self).__init__()
-        self.pattern = pattern
+    def __init__(self):
+        super().__init__()
 
     def forward(self, {param_str}):
-        return self.pattern({param_str})
-""",
-                    globals(),
-                )
+        return self.{func_name}({param_str})
 
-                # SubgraphWrapper.__signature__ = inspect.signature(pattern_fn)
+    {formatted_code}
+"""
+                exec(wrapper_code, globals())
                 # pylint: disable=undefined-variable
-                pattern_mod = fx.symbolic_trace(SubgraphWrapper(pattern_fn))
+                pattern_mod = fx.symbolic_trace(SubgraphWrapper())
 
         first_op = None
         for target_node in list(pattern_mod.graph.nodes):

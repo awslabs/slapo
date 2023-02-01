@@ -3,6 +3,11 @@
 
 from torch import nn
 
+
 class Pattern(nn.Module):
     def forward(self, *args):
         raise NotImplementedError
+
+
+def call(mod_name, *args):
+    raise NotImplementedError

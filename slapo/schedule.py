@@ -37,11 +37,11 @@ from .sharding import (
     scatter_forward_output,
 )
 from .tracer import trace as trace_module
+from .initialization import init_empty_weights
+from .op.linear import LinearWithSeparateBias
 from .utils.common import transfer_hooks, is_lambda_function
 from .utils.mapping import MAPPING_FROM_FUNCTIONAL_TO_MODULE
 from .pattern import Pattern, call_module
-from .initialization import init_empty_weights
-from .op.linear import LinearWithSeparateBias
 
 logger = get_logger()
 
@@ -900,19 +900,29 @@ class SubgraphWrapper(nn.Module):
         # Since the extracted subgraph from .find() is a list of list,
         # only the first element contains the nodes
         path_and_nodes = subgraph[0]
-        assert (
-            len(path_and_nodes[0][1].args) == 1
-        ), "Only support single argument as input for now"
-        arg = path_and_nodes[0][1].args[0]
         # Create input arguments for the new graph
+        node_names = []
         value_remap = {}
-        value_remap[arg] = new_graph.placeholder(arg.name)
+        for _, node in path_and_nodes:
+            for arg in node.args:
+                if isinstance(arg, fx.Node) and arg.name not in node_names:
+                    value_remap[arg] = new_graph.placeholder(arg.name)
+                    node_names.append(arg.name)
+            node_names.append(node.name)
         # Copy nodes from extracted subgraph to new graph
+        mod_mapping = {}
         for _, node in path_and_nodes:
             value_remap[node] = new_graph.node_copy(node, lambda n: value_remap[n])
+            if node.op == "call_module":
+                mod = self.get_module(node.target)
+                mod_mapping[node.target] = mod
         # Return output from new graph
         new_graph.output(value_remap[path_and_nodes[-1][1]])
-        new_gm = fx.GraphModule({}, new_graph)
+        new_gm = fx.GraphModule(mod_mapping, new_graph)
+        new_gm.delete_all_unused_submodules()
+        new_gm.graph.eliminate_dead_code()
+        new_gm.graph.lint()
+        new_gm.recompile()
         new_mod = torch.jit.script(new_gm)
         self.replace(new_mod, subgraph, name)
 

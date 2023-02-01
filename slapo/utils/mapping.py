@@ -14,6 +14,7 @@ MAPPING_FROM_FUNCTIONAL_TO_MODULE: Dict[Callable, Callable] = {
     F.group_norm: nn.GroupNorm,
     F.linear: nn.Linear,
     F.relu: nn.ReLU,
+    F.gelu: nn.GELU,
     F.conv1d: nn.Conv1d,
     F.conv2d: nn.Conv2d,
     F.mse_loss: nn.MSELoss,

@@ -4,6 +4,7 @@
 
 # pylint: disable=comparison-with-callable
 import copy
+import time
 import operator
 import pytest
 
@@ -80,7 +81,7 @@ def test_bias_gelu():
     class Model(nn.Module):
         def __init__(self):
             super().__init__()
-            self.linear = nn.Linear(32, 32)
+            self.linear = nn.Linear(1024, 1024)
             self.gelu = nn.GELU()
 
         def forward(self, x):
@@ -109,10 +110,24 @@ def test_bias_gelu():
     sch_model, _ = slapo.build(sch, init_weights=False)
     print(sch_model)
 
-    inp = torch.randn((1, 3, 32, 32), requires_grad=True).cuda()
-    out = sch_model(inp)
-    out_ref = mod(inp)
+    inp = torch.randn((1, 16, 1024, 1024), requires_grad=True).cuda()
+    # Wram up
+    for _ in range(1000):
+        out = sch_model(inp)
+    print("Finish warm-up steps")
+    start_time = time.time()
+    for _ in range(1000):
+        out = sch_model(inp)
+    ts_time = time.time() - start_time
+    print(f"TorchScript time: {ts_time:.4f}s")
+    start_time = time.time()
+    for _ in range(1000):
+        out_ref = mod(inp)
+    vanilla_time = time.time() - start_time
+    print(f"Vanilla time: {vanilla_time:.4f}s")
     torch.testing.assert_close(out, out_ref)
+    # Performance testing
+    assert ts_time < vanilla_time
 
 
 if __name__ == "__main__":

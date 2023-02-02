@@ -9,7 +9,7 @@ class Pattern(nn.Module):
         raise NotImplementedError
 
 
-class CallModule(nn.Module):
+class ModulePattern(nn.Module):
     def __init__(self, name):
         super().__init__()
         self.name = name

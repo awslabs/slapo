@@ -41,7 +41,7 @@ from .initialization import init_empty_weights
 from .op.linear import LinearWithSeparateBias
 from .utils.common import transfer_hooks, is_lambda_function
 from .utils.mapping import MAPPING_FROM_FUNCTIONAL_TO_MODULE
-from .pattern import Pattern, CallModule, call_module
+from .pattern import Pattern, ModulePattern, call_module
 
 logger = get_logger()
 
@@ -609,7 +609,7 @@ class Schedule:
                     curr.op == "call_module"
                     and target.op == "call_module"
                     and isinstance(
-                        dict(pattern_mod.named_modules())[target.target], CallModule
+                        dict(pattern_mod.named_modules())[target.target], ModulePattern
                     )
                     and re.match(
                         dict(pattern_mod.named_modules())[target.target].name,
@@ -680,8 +680,9 @@ class SubgraphWrapper(nn.Module):
                 pattern_wrapper,
                 recursive=True,
                 flatten=True,
-                leaf_modules=["CallModule"],
+                leaf_modules=["ModulePattern"],
             )
+        assert isinstance(pattern_mod, fx.GraphModule)
 
         first_op = None
         for target_node in list(pattern_mod.graph.nodes):

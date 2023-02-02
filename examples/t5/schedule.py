@@ -141,7 +141,7 @@ def replace_and_shard_attention(
                 def forward(self, hidden_states):
                     states = self.query(hidden_states)
                     states = self.reshape_for_scores(states)
-                    return [states]
+                    return states
 
             def pattern_kv(x: torch.Tensor) -> torch.Tensor:
                 x = call_module("key|value", x)
@@ -162,7 +162,7 @@ def replace_and_shard_attention(
                 return x
 
             subgraphs = sub_sch.find(pattern_q)
-            assert len(subgraphs) != 0
+            assert len(subgraphs) == 1
             with init_empty_weights(enable=delay_init):
                 new_q = ShardableQ(num_heads, hidden_size, d_kv)
             sub_sch.replace(new_q, subgraphs)

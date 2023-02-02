@@ -11,6 +11,7 @@ import torch.nn.functional as F
 MAPPING_FROM_FUNCTIONAL_TO_MODULE: Dict[Callable, Callable] = {
     F.embedding: nn.Embedding,
     F.layer_norm: nn.LayerNorm,
+    F.dropout: nn.Dropout,
     F.group_norm: nn.GroupNorm,
     F.linear: nn.Linear,
     F.relu: nn.ReLU,

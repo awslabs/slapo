@@ -9,7 +9,6 @@ import random
 
 import numpy as np
 import torch
-from torch import distributed as dist
 from torch.cuda import _lazy_call
 
 # Default name for the model parallel rng tracker.

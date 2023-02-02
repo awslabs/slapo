@@ -4,6 +4,7 @@
 Test checkpoints. Note that this test has to be invoked by torchrun.
 See ci/task_unit_tests.sh for an example.
 """
+# pylint: disable=unused-argument
 
 import os
 

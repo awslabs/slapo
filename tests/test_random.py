@@ -26,7 +26,7 @@ def test_cuda_rng_states_tracker():
     assert rng_tracker.get_states()["state1"] == 1234
 
     rng_tracker.reset()
-    assert rng_tracker.get_states() == {}
+    assert not rng_tracker.get_states()
 
     seed = 1111
     rng_tracker.add("state2", seed)

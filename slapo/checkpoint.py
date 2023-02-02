@@ -20,6 +20,8 @@ class CheckpointFunctionWithRNGTracker(torch.autograd.Function):
             tracked/set/reset.
     """
 
+    # pylint: disable=abstract-method, arguments-differ
+
     @staticmethod
     def forward(ctx, run_function, *args):
         ctx.run_function = run_function
@@ -91,9 +93,9 @@ class CheckpointFunctionWithRNGTracker(torch.autograd.Function):
         # run backward() with only tensor that requires grad
         outputs_with_grad = []
         args_with_grad = []
-        for idx in range(len(outputs)):
-            if torch.is_tensor(outputs[idx]) and outputs[idx].requires_grad:
-                outputs_with_grad.append(outputs[idx])
+        for idx, output in enumerate(outputs):
+            if torch.is_tensor(output) and output.requires_grad:
+                outputs_with_grad.append(output)
                 args_with_grad.append(args[idx])
         torch.autograd.backward(outputs_with_grad, args_with_grad)
         grads = tuple(

@@ -17,6 +17,8 @@ class DropoutWithTensorParallel(nn.Dropout):
     the convergence.
     """
 
+    # pylint: disable=redefined-builtin
+
     def forward(self, input):
         with get_cuda_rng_tracker().fork():
             return super().forward(input)

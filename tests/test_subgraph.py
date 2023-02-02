@@ -10,7 +10,7 @@ from torch import nn
 import torch.nn.functional as F
 
 import slapo
-from slapo.pattern import Pattern, call_module
+from slapo.pattern import Pattern, ModulePattern, call_module
 
 
 def test_exact_match():
@@ -32,6 +32,7 @@ def test_exact_match():
 
     subgraph = sch.find(pattern)[0]
     assert len(subgraph) == 2
+    # pylint: disable=comparison-with-callable
     assert subgraph[0][1].target == F.relu
     assert subgraph[1][1].target == operator.add
 
@@ -225,6 +226,72 @@ def test_horizontal_pattern():
     assert subgraph[1][0][1].target == "k_proj"
     assert subgraph[2][0][1].target == "v_proj"
     assert subgraph[0][1][1].target == "permute"
+
+
+def test_pattern_call_module_class():
+    sch = slapo.create_schedule(LeNet5(10))
+
+    class LinearReLUPattern(slapo.Pattern):
+        def __init__(self):
+            super().__init__()
+            self.fc = ModulePattern(r"fc?")
+            self.relu = nn.ReLU()
+
+        # pylint: disable=arguments-differ
+        def forward(self, out: torch.Tensor):
+            out = self.fc(out)
+            out = self.relu(out)
+            return out
+
+    subgraph = sch.find(LinearReLUPattern())
+    assert len(subgraph) == 2
+    for i in range(2):
+        assert isinstance(sch.get_module(subgraph[i][0][1].target), nn.Linear)
+        assert isinstance(sch.get_module(subgraph[i][1][1].target), nn.ReLU)
+
+    def pattern(x: torch.Tensor):
+        x = call_module(r"fc?", x)
+        x = F.relu(x)
+        return x
+
+    subgraph = sch.find(pattern)
+    assert len(subgraph) == 2
+    for i in range(2):
+        assert isinstance(sch.get_module(subgraph[i][0][1].target), nn.Linear)
+        assert isinstance(sch.get_module(subgraph[i][1][1].target), nn.ReLU)
+
+
+def test_bias_layernorm():
+    class Projection(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.linear = nn.Linear(1024, 1024)
+            self.dropout = nn.Dropout(0.2)
+            self.ln = nn.LayerNorm(1024)
+
+        def forward(self, x, residual):
+            x = self.linear(x)
+            x = self.dropout(x)
+            x = self.ln(x + residual)
+            return x
+
+    proj = Projection()
+    sch = slapo.create_schedule(proj)
+
+    sch["linear"].decompose()
+    sch.trace(flatten=True)
+    print(sch.mod)
+
+    def pattern(x, bias, residual):
+        return F.layer_norm(F.dropout(x + bias) + residual, 1024)
+
+    subgraph = sch.find(pattern)
+    assert len(subgraph) == 1
+    assert len(subgraph[0]) == 4
+    assert subgraph[0][0][1].target == operator.add
+    assert subgraph[0][1][1].target == "dropout"
+    assert subgraph[0][2][1].target == operator.add
+    assert subgraph[0][3][1].target == "ln"
 
 
 if __name__ == "__main__":

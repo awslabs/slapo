@@ -7,7 +7,8 @@ of 3D parallelism and random states.
 """
 
 import torch
-from torch.utils.checkpoint import CheckpointFunction, detach_variable
+from torch.utils.checkpoint import detach_variable
+from torch.utils.checkpoint import checkpoint as torch_checkpoint
 
 from .random import get_cuda_rng_tracker, is_random_seed_set, _set_cuda_rng_state
 
@@ -105,7 +106,7 @@ class CheckpointFunctionWithRNGTracker(torch.autograd.Function):
         return (None,) + grads
 
 
-def checkpoint(function, *args):
+def checkpoint(function, *args, use_reentrant=True, **kwargs):
     """Checkpoint a model or part of the model. See PyTorch checkpoint
     for details about behaviors and arguments. The only difference is
     when the random seed is set by Slapo, the checkpoint function will
@@ -116,5 +117,5 @@ def checkpoint(function, *args):
     the memory footprint. This is not implemented here yet.
     """
     if not is_random_seed_set():
-        return CheckpointFunction.apply(function, *args)
+        return torch_checkpoint(function, *args, use_reentrant, **kwargs)
     return CheckpointFunctionWithRNGTracker.apply(function, *args)

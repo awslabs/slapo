@@ -117,5 +117,5 @@ def checkpoint(function, *args, use_reentrant=True, **kwargs):
     the memory footprint. This is not implemented here yet.
     """
     if not is_random_seed_set():
-        return torch_checkpoint(function, *args, use_reentrant, **kwargs)
+        return torch_checkpoint(function, *args, use_reentrant=use_reentrant, **kwargs)
     return CheckpointFunctionWithRNGTracker.apply(function, *args)

@@ -2,9 +2,11 @@
 # SPDX-License-Identifier: Apache-2.0
 """Test operator fusion."""
 
+# pylint: disable=comparison-with-callable
 import copy
-import pytest
 import operator
+import pytest
+
 import torch
 from torch import nn
 import torch.nn.functional as F

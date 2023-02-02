@@ -9,6 +9,7 @@ import torch.distributed as dist
 
 from slapo import init_empty_weights
 from slapo.pattern import call_module
+from slapo.op.linear import FusedQKV
 
 
 def trace_attention(sch, config, attn_path="h.N.attn.attention"):
@@ -24,57 +25,6 @@ def trace_attention(sch, config, attn_path="h.N.attn.attention"):
         }
         if sub_sch.trace(tracer="pytorch", concrete_args=concrete_args):
             cnt += 1
-    return cnt
-
-
-def replace_qkv(sch, config, attn_path="h.N.attn.attention"):
-    """Untested."""
-    num_layers, num_heads, hidden_size = (
-        config.num_hidden_layers,
-        config.num_heads,
-        config.hidden_size,
-    )
-
-    class FusedQKV(nn.Module):
-        def __init__(self, hidden_size, num_heads) -> None:
-            super().__init__()
-            self.hidden_size = hidden_size
-            self.num_heads = num_heads
-            self.head_size = hidden_size // num_heads
-            self.fused_linear = nn.Linear(hidden_size, num_heads * self.head_size * 3)
-
-        def transpose_for_scores(self, x):
-            new_x_shape = x.size()[:-1] + (
-                self.num_heads // sch.world_size,
-                self.head_size,
-                3,
-            )
-            x = x.view(new_x_shape)
-            return x.permute(0, 2, 1, 3, 4)
-
-        def forward(self, hidden_states):
-            qkv = self.fused_linear(hidden_states)
-            transposed_qkv = self.transpose_for_scores(qkv)
-            q, k, v = torch.split(transposed_qkv, 1, dim=-1)
-            q = torch.squeeze(q, -1)
-            k = torch.squeeze(k, -1)
-            v = torch.squeeze(v, -1)
-            return [q, k, v]
-
-    def pattern(x: torch.Tensor) -> torch.Tensor:
-        x = call_module("k_proj|q_proj|v_proj", x)
-        new_x_shape = x.size()[:-1] + (num_heads, hidden_size)
-        x = x.view(new_x_shape)
-        return x.permute(0, 2, 1, 3)
-
-    cnt = 0
-    for idx in range(num_layers):
-        sub_sch = sch[attn_path.replace("N", str(idx))]
-        subgraphs = sub_sch.find(pattern)
-        assert subgraphs, "Cannot find QKV pattern"
-        new_mod = FusedQKV(hidden_size, num_heads)
-        sub_sch.replace(new_mod, subgraphs)
-        cnt += 1
     return cnt
 
 
@@ -162,34 +112,6 @@ def replace_and_shard_attention(
         )
         fix_attention_mask_shape(sub_sch["module"])
 
-        class FusedQKV(nn.Module):
-            def __init__(self, hidden_size, num_heads) -> None:
-                super().__init__()
-                self.hidden_size = hidden_size
-                self.num_heads = num_heads
-                self.head_size = hidden_size // num_heads
-                self.fused_linear = nn.Linear(
-                    hidden_size, self.num_heads * self.head_size * 3
-                )
-
-            def reshape_for_scores(self, x):
-                new_x_shape = x.size()[:-1] + (
-                    self.num_heads // sch.world_size,
-                    self.head_size,
-                    3,
-                )
-                x = x.view(new_x_shape)
-                return x.contiguous()
-
-            def forward(self, hidden_states):
-                qkv = self.fused_linear(hidden_states)
-                reshaped_qkv = self.reshape_for_scores(qkv)
-                q, k, v = torch.split(reshaped_qkv, 1, dim=-1)
-                q = torch.squeeze(q, -1).contiguous()
-                k = torch.squeeze(k, -1).contiguous()
-                v = torch.squeeze(v, -1).contiguous()
-                return [q, k, v]
-
         def pattern(x: torch.Tensor) -> torch.Tensor:
             x = call_module("query|key|value", x)
             new_x_shape = x.size()[:-1] + (num_heads, hidden_size)
@@ -199,7 +121,7 @@ def replace_and_shard_attention(
         subgraphs = sub_sch["module"].find(pattern)
         assert len(subgraphs) == 3
         with init_empty_weights(enable=delay_init):
-            new_fused_qkv = FusedQKV(hidden_size, num_heads)
+            new_fused_qkv = FusedQKV(hidden_size, num_heads, sch.world_size)
         sub_sch["module"].replace(new_fused_qkv, subgraphs)
         if sch.world_size > 1:
             sub_sch["module.FusedQKV_0.fused_linear"].shard("weight", axis=0)
@@ -268,51 +190,6 @@ def shard_word_embedding(
     # Shard output embedding.
     if head_sch is not None:
         head_sch.shard("weight", axis=0)
-
-
-def shard_qkv(
-    sch,
-    config,
-    attn_path="h.N.attn.attention",
-    qkv_name="FusedQKV_0",
-    out_proj_name="out_proj",
-):
-    """Untested."""
-    num_layers = config.num_hidden_layers
-
-    def fix_shape_after_shard(path):
-        # Fix shape of view ops after sharding.
-        import operator
-
-        sub_sch = sch[path]
-        ops = sub_sch.find_node(
-            lambda node: node.target == "view"
-            and len(node.args) == 2
-            and node.args[0].target == "contiguous"
-            and isinstance(node.args[1], torch.fx.Node)
-            and node.args[1].target == operator.add
-        )
-
-        def new_view(tensor, old_shape):
-            new_shape = old_shape[:-1] + (-1,)
-            return tensor.view(new_shape)
-
-        for op in ops:
-            sub_sch.replace(new_view, op)
-
-    for idx in range(num_layers):
-        prefix = attn_path.replace("N", str(idx))
-        sch[f"{prefix}.{qkv_name}.fused_linear"].shard("weight", axis=0)
-        sch[f"{prefix}.{qkv_name}.fused_linear"].shard("bias", axis=0)
-        sch[f"{prefix}.{qkv_name}.fused_linear"].sync(
-            mode="bwd_post", sync_op_or_fn="all_reduce"
-        )
-
-        sch[f"{prefix}.{out_proj_name}"].shard("weight", axis=1)
-        sch[f"{prefix}.{out_proj_name}"].sync(
-            mode="fwd_post", sync_op_or_fn="all_reduce"
-        )
-        fix_shape_after_shard(prefix)
 
 
 def replace_and_shard_mlp(

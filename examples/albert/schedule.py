@@ -10,6 +10,7 @@ import torch.nn as nn
 from slapo import init_empty_weights
 from typing import Optional
 from slapo.pattern import call_module
+from slapo.op.linear import FusedQKV
 
 
 def trace_attention(
@@ -176,34 +177,6 @@ def replace_and_shard_attention(
                 },
             )
 
-            class FusedQKV(nn.Module):
-                def __init__(self, hidden_size, num_heads) -> None:
-                    super().__init__()
-                    self.hidden_size = hidden_size
-                    self.num_heads = num_heads
-                    self.head_size = hidden_size // num_heads
-                    self.fused_linear = nn.Linear(
-                        hidden_size, self.num_heads * self.head_size * 3
-                    )
-
-                def reshape_for_scores(self, x):
-                    new_x_shape = x.size()[:-1] + (
-                        self.num_heads // sch.world_size,
-                        self.head_size,
-                        3,
-                    )
-                    x = x.view(new_x_shape)
-                    return x.contiguous()
-
-                def forward(self, hidden_states):
-                    qkv = self.fused_linear(hidden_states)
-                    reshaped_qkv = self.reshape_for_scores(qkv)
-                    q, k, v = torch.split(reshaped_qkv, 1, dim=-1)
-                    q = torch.squeeze(q, -1).contiguous()
-                    k = torch.squeeze(k, -1).contiguous()
-                    v = torch.squeeze(v, -1).contiguous()
-                    return [q, k, v]
-
             def pattern(x: torch.Tensor) -> torch.Tensor:
                 x = call_module("query|key|value", x)
                 new_x_shape = x.size()[:-1] + (num_heads, hidden_size)
@@ -214,7 +187,7 @@ def replace_and_shard_attention(
             subgraphs = sub_sch["self_attn"].find(pattern)
             assert len(subgraphs) == 3
             with init_empty_weights(enable=delay_init):
-                new_fused_qkv = FusedQKV(hidden_size, num_heads)
+                new_fused_qkv = FusedQKV(hidden_size, num_heads, sch.world_size)
             sub_sch["self_attn"].replace(new_fused_qkv, subgraphs)
             sub_sch["self_attn.FusedQKV_0.fused_linear"].shard("weight", axis=0)
             sub_sch["self_attn.FusedQKV_0.fused_linear"].shard("bias", axis=0)

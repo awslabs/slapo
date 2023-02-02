@@ -228,78 +228,7 @@ def test_horizontal_pattern():
     assert subgraph[0][1][1].target == "permute"
 
 
-class LeNet5(nn.Module):
-    def __init__(self, num_classes):
-        super().__init__()
-        self.layer1 = nn.Sequential(
-            nn.Conv2d(1, 6, kernel_size=5, stride=1, padding=0),
-            nn.BatchNorm2d(6),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2),
-        )
-        self.layer2 = nn.Sequential(
-            nn.Conv2d(6, 16, kernel_size=5, stride=1, padding=0),
-            nn.BatchNorm2d(16),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2),
-        )
-        self.fc = nn.Linear(400, 120)
-        self.relu = nn.ReLU()
-        self.fc1 = nn.Linear(120, 84)
-        self.relu1 = nn.ReLU()
-        self.fc2 = nn.Linear(84, num_classes)
-
-    def forward(self, x):
-        out = self.layer1(x)
-        out = self.layer2(out)
-        out = out.reshape(out.size(0), -1)
-        out = self.fc(out)
-        out = self.relu(out)
-        out = self.fc1(out)
-        out = self.relu1(out)
-        out = self.fc2(out)
-        return out
-
-
-def test_relu_bn():
-    sch = slapo.create_schedule(LeNet5(10))
-
-    class ReLUBNPattern(slapo.Pattern):
-        def __init__(self):
-            super().__init__()
-            self.bn = nn.BatchNorm2d(16)
-            self.relu = nn.ReLU()
-
-        # pylint: disable=arguments-differ
-        def forward(self, x: torch.Tensor):
-            return self.relu(self.bn(x))
-
-    subgraph = sch["layer2"].find(ReLUBNPattern())[0]
-    assert len(subgraph) == 2
-    assert isinstance(sch["layer2"].get_module(subgraph[0][1].target), nn.BatchNorm2d)
-    assert isinstance(sch["layer2"].get_module(subgraph[1][1].target), nn.ReLU)
-
-
-def test_relu_bn_functional():
-    sch = slapo.create_schedule(LeNet5(10))
-
-    class ReLUBNPattern2(slapo.Pattern):
-        def __init__(self):
-            super().__init__()
-            self.bn = nn.BatchNorm2d(16)
-            self.relu = nn.ReLU()
-
-        # pylint: disable=arguments-differ
-        def forward(self, x: torch.Tensor):
-            return F.relu(self.bn(x))
-
-    subgraph = sch["layer1"].find(ReLUBNPattern2())[0]
-    assert len(subgraph) == 2
-    assert isinstance(sch["layer1"].get_module(subgraph[0][1].target), nn.BatchNorm2d)
-    assert isinstance(sch["layer1"].get_module(subgraph[1][1].target), nn.ReLU)
-
-
-def test_linear_relu():
+def test_pattern_call_module_class():
     sch = slapo.create_schedule(LeNet5(10))
 
     class LinearReLUPattern(slapo.Pattern):

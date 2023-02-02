@@ -13,7 +13,7 @@ from torch import nn
 from torch import distributed as dist
 
 from slapo import op
-from slapo.random import set_random_seed
+from slapo.random import set_random_seed, get_cuda_rng_tracker
 
 
 def test_dropout(init_dist):
@@ -23,6 +23,8 @@ def test_dropout(init_dist):
 
     data = torch.rand(10, 10).cuda(local_rank)
     dist.broadcast(data, src=0)
+
+    get_cuda_rng_tracker().reset()
 
     # The custom dropout should throw error if set_random_seed is not called.
     with pytest.raises(Exception):

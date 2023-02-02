@@ -3,7 +3,7 @@
 
 """
 Test sync ops for sharding. Note that this test has to be invoked by torchrun.
-For example: torchrun --nproc_per_node 2 -m pytest test_shard_sync_op.py
+See ci/task_unit_tests.sh for an example.
 """
 # pylint: disable=unused-argument
 import copy

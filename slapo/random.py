@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Modification: Megatron-LM.
 # See https://github.com/NVIDIA/Megatron-LM/blob/main/megatron/core/tensor_parallel/random.py
+"""Random seed and states management."""
 
 import contextlib
 import random

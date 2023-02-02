@@ -187,7 +187,6 @@ def replace_and_shard_attention(
                 )
                 sub_sch["module"]["attn_op"].replace(new_op)
 
-
         cnt += 1
 
     return cnt

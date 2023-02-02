@@ -2,6 +2,11 @@
 # SPDX-License-Identifier: Apache-2.0
 # Modification: Megatron-LM.
 # See https://github.com/NVIDIA/Megatron-LM/blob/main/tests/tensor_parallel/test_random.py
+"""
+Test random state managements. Note that this test has to be invoked by torchrun.
+See ci/task_unit_tests.sh for an example.
+"""
+
 import os
 
 import pytest

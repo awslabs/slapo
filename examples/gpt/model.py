@@ -51,7 +51,7 @@ def schedule_model(
     # if MP group > 1.
     attn_path, out_proj_name = "h.N.attn.attention", "out_proj"
     if disable_flash_attn:
-        logger.info("Disabled Flash Attention", rank=0)
+        logger.info("Disabled Flash Attention", ranks=0)
     cnt = replace_and_shard_attention(
         sch[prefix],
         config,

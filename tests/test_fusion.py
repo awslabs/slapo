@@ -9,6 +9,7 @@ from torch import nn
 import torch.nn.functional as F
 
 import slapo
+from slapo.pattern import call_module
 
 
 def test_decompose():
@@ -54,11 +55,13 @@ def test_vertical_fusion():
     sch = slapo.create_schedule(copy.deepcopy(mod))
 
     def pattern(x: torch.Tensor):
+        x = call_module("conv", x)
         x = F.relu(x)
         x = x + 1
         return x
 
-    subgraph = sch.find("conv", pattern, include_start_op=False)
+    subgraph = sch.find(pattern)
+    assert len(subgraph[0]) == 3
     sch.fuse(subgraph, compiler="TorchScript", name="FusedReLU")
 
     sch_model, _ = slapo.build(sch, init_weights=False)

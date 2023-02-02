@@ -41,7 +41,7 @@ from .initialization import init_empty_weights
 from .op.linear import LinearWithSeparateBias
 from .utils.common import transfer_hooks, is_lambda_function
 from .utils.mapping import MAPPING_FROM_FUNCTIONAL_TO_MODULE
-from .pattern import Pattern, call_module
+from .pattern import Pattern, CallModule, call_module
 
 logger = get_logger()
 
@@ -605,6 +605,17 @@ class Schedule:
                     and type(dict(pattern_mod.named_modules())[target.target])
                     is type(named_modules.get(curr.target, None))
                 )
+                or (  # use pattern lanauge + pattern class for matching
+                    curr.op == "call_module"
+                    and target.op == "call_module"
+                    and isinstance(
+                        dict(pattern_mod.named_modules())[target.target], CallModule
+                    )
+                    and re.match(
+                        dict(pattern_mod.named_modules())[target.target].name,
+                        curr.target,
+                    )
+                )
             ):
                 # Not matched.
                 return False
@@ -625,7 +636,7 @@ class Schedule:
         if pattern_fn is not None:
             # pylint: disable=exec-used
             if isinstance(pattern_fn, Pattern):
-                pattern_mod = fx.symbolic_trace(pattern_fn)
+                pattern_wrapper = pattern_fn
             else:
                 # FIXME: Find a safer way to do it
                 sig = inspect.signature(pattern_fn)
@@ -664,7 +675,13 @@ class SubgraphWrapper(nn.Module):
 """
                 exec(wrapper_code, globals())
                 # pylint: disable=undefined-variable
-                pattern_mod = fx.symbolic_trace(SubgraphWrapper())
+                pattern_wrapper = SubgraphWrapper()
+            pattern_mod = trace_module(
+                pattern_wrapper,
+                recursive=True,
+                flatten=True,
+                leaf_modules=["CallModule"],
+            )
 
         first_op = None
         for target_node in list(pattern_mod.graph.nodes):

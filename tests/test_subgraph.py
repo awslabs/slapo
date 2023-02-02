@@ -10,7 +10,7 @@ from torch import nn
 import torch.nn.functional as F
 
 import slapo
-from slapo.pattern import Pattern, call_module
+from slapo.pattern import Pattern, CallModule, call_module
 
 
 def test_exact_match():
@@ -274,7 +274,7 @@ def test_relu_bn():
         def forward(self, x: torch.Tensor):
             return self.relu(self.bn(x))
 
-    subgraph = sch["layer2"].find("0", ReLUBNPattern(), include_start_op=False)[0]
+    subgraph = sch["layer2"].find(ReLUBNPattern())[0]
     assert len(subgraph) == 2
     assert isinstance(sch["layer2"].get_module(subgraph[0][1].target), nn.BatchNorm2d)
     assert isinstance(sch["layer2"].get_module(subgraph[1][1].target), nn.ReLU)
@@ -293,7 +293,7 @@ def test_relu_bn_functional():
         def forward(self, x: torch.Tensor):
             return F.relu(self.bn(x))
 
-    subgraph = sch["layer1"].find("0", ReLUBNPattern2(), include_start_op=False)[0]
+    subgraph = sch["layer1"].find(ReLUBNPattern2())[0]
     assert len(subgraph) == 2
     assert isinstance(sch["layer1"].get_module(subgraph[0][1].target), nn.BatchNorm2d)
     assert isinstance(sch["layer1"].get_module(subgraph[1][1].target), nn.ReLU)
@@ -305,24 +305,27 @@ def test_linear_relu():
     class LinearReLUPattern(slapo.Pattern):
         def __init__(self):
             super().__init__()
+            self.fc = CallModule(r"fc?")
             self.relu = nn.ReLU()
 
         # pylint: disable=arguments-differ
         def forward(self, out: torch.Tensor):
+            out = self.fc(out)
             out = self.relu(out)
             return out
 
-    subgraph = sch.find(r"fc.?", LinearReLUPattern())
+    subgraph = sch.find(LinearReLUPattern())
     assert len(subgraph) == 2
     for i in range(2):
         assert isinstance(sch.get_module(subgraph[i][0][1].target), nn.Linear)
         assert isinstance(sch.get_module(subgraph[i][1][1].target), nn.ReLU)
 
     def pattern(x: torch.Tensor):
+        x = call_module(r"fc?", x)
         x = F.relu(x)
         return x
 
-    subgraph = sch.find(r"fc.?", pattern)
+    subgraph = sch.find(pattern)
     assert len(subgraph) == 2
     for i in range(2):
         assert isinstance(sch.get_module(subgraph[i][0][1].target), nn.Linear)

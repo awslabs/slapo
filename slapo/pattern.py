@@ -9,5 +9,14 @@ class Pattern(nn.Module):
         raise NotImplementedError
 
 
+class CallModule(nn.Module):
+    def __init__(self, name):
+        super().__init__()
+        self.name = name
+
+    def forward(self, *args):
+        raise NotImplementedError
+
+
 def call_module(mod_name, *args):
     raise NotImplementedError

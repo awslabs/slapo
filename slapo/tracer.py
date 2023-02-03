@@ -15,12 +15,6 @@ from torch import fx, nn
 from torch.fx._symbolic_trace import HAS_VARSTUFF, PH, _assert_is_none, _patch_function
 from torch.fx.graph import _PyTreeCodeGen, _PyTreeInfo
 from torch.fx.node import base_types
-from transformers.utils.fx import (
-    _IS_IN_DEBUG_MODE,
-    _MANUAL_META_OVERRIDES,
-    Proxy,
-    _proxies_to_metas,
-)
 
 from .logger import get_logger
 
@@ -281,7 +275,13 @@ def trace(model: nn.Module, **kwargs: dict[str, Any]):
     logger.debug("Tracer: %s Model: %s", tracer_cls_name, model.__class__.__name__)
     if isinstance(tracer_cls_name, str):
         if tracer_cls_name == "huggingface":
-            from transformers.utils.fx import HFTracer
+            from transformers.utils.fx import (
+                HFTracer,
+                _IS_IN_DEBUG_MODE,
+                _MANUAL_META_OVERRIDES,
+                Proxy,
+                _proxies_to_metas,
+            )
 
             assert (
                 "concrete_args" in kwargs

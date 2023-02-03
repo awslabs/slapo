@@ -5,7 +5,6 @@
 """Model checkpoints and activation checkpointing with the consideration
 of 3D parallelism and random states.
 """
-
 import torch
 from torch.utils.checkpoint import detach_variable
 from torch.utils.checkpoint import checkpoint as torch_checkpoint
@@ -48,6 +47,11 @@ class CheckpointFunctionWithRNGTracker(torch.autograd.Function):
             else:
                 ctx.inputs.append(arg)
 
+        # We detach the tensor inputs to make sure we hold a reference to
+        # the tensor data. This is needed because when pipeline is enabled,
+        # the tensor data may be released by the pipeline engine as it does
+        # not know that the tensor is used in the backward pass.
+        tensor_inputs = detach_variable(tuple(tensor_inputs))
         ctx.save_for_backward(*tensor_inputs)
 
         return outputs

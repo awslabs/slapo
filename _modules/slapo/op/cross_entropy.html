@@ -1,0 +1,502 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>slapo.op.cross_entropy &#8212; Slapo Documentation</title>
+    
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../../_static/styles/theme.css?digest=1999514e3f237ded88cf" rel="stylesheet">
+<link href="../../../_static/styles/pydata-sphinx-theme.css?digest=1999514e3f237ded88cf" rel="stylesheet">
+
+    
+  <link rel="stylesheet"
+    href="../../../_static/vendor/fontawesome/5.13.0/css/all.min.css">
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+    href="../../../_static/vendor/fontawesome/5.13.0/webfonts/fa-solid-900.woff2">
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+    href="../../../_static/vendor/fontawesome/5.13.0/webfonts/fa-brands-400.woff2">
+
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
+    <link rel="stylesheet" href="../../../_static/styles/sphinx-book-theme.css?digest=5115cc725059bd94278eecd172e13a965bf8f5a9" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/copybutton.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery-binder.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery-dataframe.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery-rendered-html.css" />
+    
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=1999514e3f237ded88cf">
+
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <script src="../../../_static/clipboard.min.js"></script>
+    <script src="../../../_static/copybutton.js"></script>
+    <script src="../../../_static/scripts/sphinx-book-theme.js?digest=9c920249402e914e316237a7dbc6769907cce411"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="docsearch:language" content="None">
+    
+
+    <!-- Google Analytics -->
+    
+  </head>
+  <body data-spy="scroll" data-target="#bd-toc-nav" data-offset="60">
+<!-- Checkboxes to toggle the left sidebar -->
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle navigation sidebar">
+<label class="overlay overlay-navbar" for="__navigation">
+    <div class="visually-hidden">Toggle navigation sidebar</div>
+</label>
+<!-- Checkboxes to toggle the in-page toc -->
+<input type="checkbox" class="sidebar-toggle" name="__page-toc" id="__page-toc" aria-label="Toggle in-page Table of Contents">
+<label class="overlay overlay-pagetoc" for="__page-toc">
+    <div class="visually-hidden">Toggle in-page Table of Contents</div>
+</label>
+<!-- Headers at the top -->
+<div class="announcement header-item noprint"></div>
+<div class="header header-item noprint"></div>
+
+    
+    <div class="container-fluid" id="banner"></div>
+
+    
+
+    <div class="container-xl">
+      <div class="row">
+          
+<!-- Sidebar -->
+<div class="bd-sidebar noprint" id="site-navigation">
+    <div class="bd-sidebar__content">
+        <div class="bd-sidebar__top"><div class="navbar-brand-box">
+    <a class="navbar-brand text-wrap" href="../../../index.html">
+      
+      
+      
+    </a>
+</div><form class="bd-search d-flex align-items-center" action="../../../search.html" method="get">
+  <i class="icon fas fa-search"></i>
+  <input type="search" class="form-control" name="q" id="search-input" placeholder="Search the docs ..." aria-label="Search the docs ..." autocomplete="off" >
+</form><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item active">
+        <p aria-level="2" class="caption" role="heading">
+ <span class="caption-text">
+  Getting Started
+ </span>
+</p>
+<ul class="nav bd-sidenav">
+ <li class="toctree-l1">
+  <a class="reference internal" href="../../../setup/index.html">
+   Installation
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="../../../gallery/quick-start.html">
+   Quick Start
+  </a>
+ </li>
+</ul>
+<p aria-level="2" class="caption" role="heading">
+ <span class="caption-text">
+  Reference
+ </span>
+</p>
+<ul class="nav bd-sidenav">
+ <li class="toctree-l1 has-children">
+  <a class="reference internal" href="../../../python_api/index.html">
+   Python API
+  </a>
+  <input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/>
+  <label for="toctree-checkbox-1">
+   <i class="fas fa-chevron-down">
+   </i>
+  </label>
+  <ul>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../../../python_api/root.html">
+     slapo
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../../../python_api/schedule.html">
+     slapo.schedule
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../../../python_api/initialization.html">
+     slapo.initialization
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../../../python_api/pattern.html">
+     slapo.pattern
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../../../python_api/pipeline.html">
+     slapo.pipeline
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../../../python_api/tracer.html">
+     slapo.tracer
+    </a>
+   </li>
+   <li class="toctree-l2 has-children">
+    <a class="reference internal" href="../../../python_api/model_dialect/index.html">
+     hidet.model_dialect
+    </a>
+    <input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/>
+    <label for="toctree-checkbox-2">
+     <i class="fas fa-chevron-down">
+     </i>
+    </label>
+    <ul>
+     <li class="toctree-l3">
+      <a class="reference internal" href="../../../python_api/model_dialect/registry.html">
+       slapo.model_dialect.registry
+      </a>
+     </li>
+     <li class="toctree-l3 has-children">
+      <a class="reference internal" href="../../../python_api/model_dialect/deepspeed/index.html">
+       hidet.model_dialect.deepspeed
+      </a>
+      <input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/>
+      <label for="toctree-checkbox-3">
+       <i class="fas fa-chevron-down">
+       </i>
+      </label>
+      <ul>
+       <li class="toctree-l4">
+        <a class="reference internal" href="../../../python_api/model_dialect/deepspeed/engine.html">
+         slapo.model_dialect.deepspeed.engine
+        </a>
+       </li>
+       <li class="toctree-l4">
+        <a class="reference internal" href="../../../python_api/model_dialect/deepspeed/pipeline.html">
+         slapo.model_dialect.deepspeed.pipeline
+        </a>
+       </li>
+      </ul>
+     </li>
+    </ul>
+   </li>
+   <li class="toctree-l2 has-children">
+    <a class="reference internal" href="../../../python_api/op/index.html">
+     hidet.op
+    </a>
+    <input class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" type="checkbox"/>
+    <label for="toctree-checkbox-4">
+     <i class="fas fa-chevron-down">
+     </i>
+    </label>
+    <ul>
+     <li class="toctree-l3">
+      <a class="reference internal" href="../../../python_api/op/cross_entropy.html">
+       slapo.op.cross_entropy
+      </a>
+     </li>
+     <li class="toctree-l3">
+      <a class="reference internal" href="../../../python_api/op/linear.html">
+       slapo.op.linear
+      </a>
+     </li>
+    </ul>
+   </li>
+  </ul>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="../../../genindex.html">
+   Index
+  </a>
+ </li>
+</ul>
+
+    </div>
+</nav></div>
+        <div class="bd-sidebar__bottom">
+             <!-- To handle the deprecated key -->
+            
+        </div>
+    </div>
+    <div id="rtd-footer-container"></div>
+</div>
+
+
+          
+
+
+          
+<!-- A tiny helper pixel to detect if we've scrolled -->
+<div class="sbt-scroll-pixel-helper"></div>
+<!-- Main content -->
+<div class="col py-0 content-container">
+    
+    <div class="header-article row sticky-top noprint">
+        
+
+
+
+<div class="col py-1 d-flex header-article-main">
+    <div class="header-article__left">
+        
+        <label for="__navigation"
+  class="headerbtn"
+  data-toggle="tooltip"
+data-placement="right"
+title="Toggle navigation"
+>
+  
+
+<span class="headerbtn__icon-container">
+  <i class="fas fa-bars"></i>
+  </span>
+
+</label>
+
+        
+    </div>
+    <div class="header-article__right">
+<button onclick="toggleFullScreen()"
+  class="headerbtn"
+  data-toggle="tooltip"
+data-placement="bottom"
+title="Fullscreen mode"
+>
+  
+
+<span class="headerbtn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+<a href="https://github.com/awslabs/slapo"
+   class="headerbtn"
+   data-toggle="tooltip"
+data-placement="bottom"
+title="Source repository"
+>
+  
+
+<span class="headerbtn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+
+</a>
+
+    </div>
+</div>
+
+<!-- Table of contents -->
+<div class="col-md-3 bd-toc show noprint">
+</div>
+    </div>
+    <div class="article row">
+        <div class="col pl-md-3 pl-lg-5 content-container">
+            <!-- Table of contents that is only displayed when printing the page -->
+            <div id="jb-print-docs-body" class="onlyprint">
+                <h1></h1>
+                <!-- Table of contents -->
+                <div id="print-main-content">
+                    <div id="jb-print-toc">
+                        
+                    </div>
+                </div>
+            </div>
+            <main id="main-content" role="main">
+                
+              <div>
+                
+  <h1>Source code for slapo.op.cross_entropy</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Original Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.</span>
+<span class="c1"># https://github.com/NVIDIA/Megatron-LM/blob/52e6368/megatron/core/tensor_parallel/cross_entropy.py</span>
+<span class="c1"># Modifications Copyright 2022 Amazon.com, Inc. or its affiliates. All Rights Reserved.</span>
+<span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
+
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">import</span> <span class="nn">torch.distributed</span> <span class="k">as</span> <span class="nn">dist</span>
+<span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">nn</span>
+
+
+<span class="k">def</span> <span class="nf">vocab_range_from_per_partition_vocab_size</span><span class="p">(</span><span class="n">per_partition_vocab_size</span><span class="p">,</span> <span class="n">rank</span><span class="p">,</span> <span class="n">_</span><span class="p">):</span>
+    <span class="n">index_f</span> <span class="o">=</span> <span class="n">rank</span> <span class="o">*</span> <span class="n">per_partition_vocab_size</span>
+    <span class="n">index_l</span> <span class="o">=</span> <span class="n">index_f</span> <span class="o">+</span> <span class="n">per_partition_vocab_size</span>
+    <span class="k">return</span> <span class="n">index_f</span><span class="p">,</span> <span class="n">index_l</span>
+
+
+<span class="k">class</span> <span class="nc">_VocabParallelCrossEntropy</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">autograd</span><span class="o">.</span><span class="n">Function</span><span class="p">):</span>
+    <span class="c1"># pylint: disable=abstract-method, arguments-differ</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">vocab_parallel_logits</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">label_smoothing</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">group</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+
+        <span class="c1"># Maximum value along vocab dimension across all GPUs.</span>
+        <span class="n">logits_max</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">vocab_parallel_logits</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">dist</span><span class="o">.</span><span class="n">all_reduce</span><span class="p">(</span><span class="n">logits_max</span><span class="p">,</span> <span class="n">op</span><span class="o">=</span><span class="n">dist</span><span class="o">.</span><span class="n">ReduceOp</span><span class="o">.</span><span class="n">MAX</span><span class="p">,</span> <span class="n">group</span><span class="o">=</span><span class="n">group</span><span class="p">)</span>
+        <span class="c1"># Subtract the maximum value.</span>
+        <span class="n">vocab_parallel_logits</span> <span class="o">=</span> <span class="n">vocab_parallel_logits</span> <span class="o">-</span> <span class="n">logits_max</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="c1"># Get the partition&#39;s vocab indecies</span>
+        <span class="n">get_vocab_range</span> <span class="o">=</span> <span class="n">vocab_range_from_per_partition_vocab_size</span>
+        <span class="n">partition_vocab_size</span> <span class="o">=</span> <span class="n">vocab_parallel_logits</span><span class="o">.</span><span class="n">size</span><span class="p">()[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">rank</span> <span class="o">=</span> <span class="n">dist</span><span class="o">.</span><span class="n">get_rank</span><span class="p">(</span><span class="n">group</span><span class="o">=</span><span class="n">group</span><span class="p">)</span>
+        <span class="n">world_size</span> <span class="o">=</span> <span class="n">dist</span><span class="o">.</span><span class="n">get_world_size</span><span class="p">(</span><span class="n">group</span><span class="o">=</span><span class="n">group</span><span class="p">)</span>
+        <span class="n">vocab_start_index</span><span class="p">,</span> <span class="n">vocab_end_index</span> <span class="o">=</span> <span class="n">get_vocab_range</span><span class="p">(</span>
+            <span class="n">partition_vocab_size</span><span class="p">,</span> <span class="n">rank</span><span class="p">,</span> <span class="n">world_size</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Create a mask of valid vocab ids (1 means it needs to be masked).</span>
+        <span class="n">target_mask</span> <span class="o">=</span> <span class="p">(</span><span class="n">target</span> <span class="o">&lt;</span> <span class="n">vocab_start_index</span><span class="p">)</span> <span class="o">|</span> <span class="p">(</span><span class="n">target</span> <span class="o">&gt;=</span> <span class="n">vocab_end_index</span><span class="p">)</span>
+        <span class="n">masked_target</span> <span class="o">=</span> <span class="n">target</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span> <span class="o">-</span> <span class="n">vocab_start_index</span>
+        <span class="n">masked_target</span><span class="p">[</span><span class="n">target_mask</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="c1"># Get predicted-logits = logits[target].</span>
+        <span class="c1"># For Simplicity, we convert logits to a 2-D tensor with size</span>
+        <span class="c1"># [*, partition-vocab-size] and target to a 1-D tensor of size [*].</span>
+        <span class="n">logits_2d</span> <span class="o">=</span> <span class="n">vocab_parallel_logits</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">partition_vocab_size</span><span class="p">)</span>
+        <span class="n">masked_target_1d</span> <span class="o">=</span> <span class="n">masked_target</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">arange_1d</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span>
+            <span class="n">start</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="n">logits_2d</span><span class="o">.</span><span class="n">size</span><span class="p">()[</span><span class="mi">0</span><span class="p">],</span> <span class="n">device</span><span class="o">=</span><span class="n">logits_2d</span><span class="o">.</span><span class="n">device</span>
+        <span class="p">)</span>
+        <span class="n">predicted_logits_1d</span> <span class="o">=</span> <span class="n">logits_2d</span><span class="p">[</span><span class="n">arange_1d</span><span class="p">,</span> <span class="n">masked_target_1d</span><span class="p">]</span>
+        <span class="n">predicted_logits_1d</span> <span class="o">=</span> <span class="n">predicted_logits_1d</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span><span class="o">.</span><span class="n">contiguous</span><span class="p">()</span>
+        <span class="n">predicted_logits</span> <span class="o">=</span> <span class="n">predicted_logits_1d</span><span class="o">.</span><span class="n">view_as</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
+        <span class="n">predicted_logits</span><span class="p">[</span><span class="n">target_mask</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="c1"># All reduce is needed to get the chunks from other GPUs.</span>
+        <span class="n">dist</span><span class="o">.</span><span class="n">all_reduce</span><span class="p">(</span><span class="n">predicted_logits</span><span class="p">,</span> <span class="n">op</span><span class="o">=</span><span class="n">dist</span><span class="o">.</span><span class="n">ReduceOp</span><span class="o">.</span><span class="n">SUM</span><span class="p">,</span> <span class="n">group</span><span class="o">=</span><span class="n">group</span><span class="p">)</span>
+
+        <span class="c1"># Sum of exponential of logits along vocab dimension across all GPUs.</span>
+        <span class="n">exp_logits</span> <span class="o">=</span> <span class="n">vocab_parallel_logits</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">vocab_parallel_logits</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">exp_logits</span><span class="p">)</span>
+        <span class="n">sum_exp_logits</span> <span class="o">=</span> <span class="n">exp_logits</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">dist</span><span class="o">.</span><span class="n">all_reduce</span><span class="p">(</span><span class="n">sum_exp_logits</span><span class="p">,</span> <span class="n">op</span><span class="o">=</span><span class="n">dist</span><span class="o">.</span><span class="n">ReduceOp</span><span class="o">.</span><span class="n">SUM</span><span class="p">,</span> <span class="n">group</span><span class="o">=</span><span class="n">group</span><span class="p">)</span>
+
+        <span class="c1"># Loss = log(sum(exp(logits))) - predicted-logit.</span>
+        <span class="n">loss</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">sum_exp_logits</span><span class="p">)</span> <span class="o">-</span> <span class="n">predicted_logits</span>
+
+        <span class="c1"># Normalize and optionally smooth logits</span>
+        <span class="n">exp_logits</span><span class="o">.</span><span class="n">div_</span><span class="p">(</span><span class="n">sum_exp_logits</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">))</span>
+
+        <span class="n">vocab_size</span> <span class="o">=</span> <span class="n">exp_logits</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">label_smoothing</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># We&#39;d like to assign 1 / (K - 1) probability mass to every index that is not the ground truth.</span>
+            <span class="c1"># = (1 - alpha) * y_gt + alpha * mean(y_{i for i != gt})</span>
+            <span class="c1"># = (1 - alpha) * y_gt + (alpha / (K - 1)) * \sum_{i != gt} y_i</span>
+            <span class="c1"># = ((K - 1) * (1 - alpha) / (K - 1)) * y_gt + (alpha / (K - 1)) * \sum_{i != gt} y_i</span>
+            <span class="c1"># = (K * (1 - alpha) - 1) / (K - 1)) * y_gt  + (alpha / (K - 1)) * \sum_{i} y_i</span>
+            <span class="c1"># = (1 - (alpha * K) / (K - 1)) * y_gt + ( (alpha * K) / (K - 1) ) * \sum_{i} y_i / K</span>
+            <span class="c1"># From: https://github.com/NVIDIA/NeMo/blob/main/nemo/collections/common/losses/smoothed_cross_entropy.py</span>
+            <span class="k">assert</span> <span class="mf">1.0</span> <span class="o">&gt;</span> <span class="n">label_smoothing</span> <span class="o">&gt;</span> <span class="mf">0.0</span>
+            <span class="n">smoothing</span> <span class="o">=</span> <span class="n">label_smoothing</span> <span class="o">*</span> <span class="n">vocab_size</span> <span class="o">/</span> <span class="p">(</span><span class="n">vocab_size</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+
+            <span class="c1"># Exp logits at this point are normalized probabilities. So we can just take the log to get log-probs.</span>
+            <span class="n">log_probs</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">exp_logits</span><span class="p">)</span>
+            <span class="n">mean_log_probs</span> <span class="o">=</span> <span class="n">log_probs</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">loss</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">smoothing</span><span class="p">)</span> <span class="o">*</span> <span class="n">loss</span> <span class="o">-</span> <span class="n">smoothing</span> <span class="o">*</span> <span class="n">mean_log_probs</span>
+
+        <span class="n">ctx</span><span class="o">.</span><span class="n">label_smoothing</span><span class="p">,</span> <span class="n">ctx</span><span class="o">.</span><span class="n">vocab_size</span> <span class="o">=</span> <span class="n">label_smoothing</span><span class="p">,</span> <span class="n">vocab_size</span>
+        <span class="n">ctx</span><span class="o">.</span><span class="n">save_for_backward</span><span class="p">(</span><span class="n">exp_logits</span><span class="p">,</span> <span class="n">target_mask</span><span class="p">,</span> <span class="n">masked_target_1d</span><span class="p">)</span>
+
+        <span class="c1"># Store softmax, target-mask and masked-target for backward pass.</span>
+        <span class="n">ctx</span><span class="o">.</span><span class="n">save_for_backward</span><span class="p">(</span><span class="n">exp_logits</span><span class="p">,</span> <span class="n">target_mask</span><span class="p">,</span> <span class="n">masked_target_1d</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">loss</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">backward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">grad_output</span><span class="p">):</span>
+
+        <span class="c1"># Retreive tensors from the forward path.</span>
+        <span class="n">softmax</span><span class="p">,</span> <span class="n">target_mask</span><span class="p">,</span> <span class="n">masked_target_1d</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">saved_tensors</span>
+        <span class="n">label_smoothing</span><span class="p">,</span> <span class="n">vocab_size</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">label_smoothing</span><span class="p">,</span> <span class="n">ctx</span><span class="o">.</span><span class="n">vocab_size</span>
+
+        <span class="c1"># All the inputs have softmax as thier gradient.</span>
+        <span class="n">grad_input</span> <span class="o">=</span> <span class="n">softmax</span>
+        <span class="c1"># For simplicity, work with the 2D gradient.</span>
+        <span class="n">partition_vocab_size</span> <span class="o">=</span> <span class="n">softmax</span><span class="o">.</span><span class="n">size</span><span class="p">()[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">grad_2d</span> <span class="o">=</span> <span class="n">grad_input</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">partition_vocab_size</span><span class="p">)</span>
+
+        <span class="c1"># Add the gradient from matching classes.</span>
+        <span class="n">arange_1d</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">start</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="n">grad_2d</span><span class="o">.</span><span class="n">size</span><span class="p">()[</span><span class="mi">0</span><span class="p">],</span> <span class="n">device</span><span class="o">=</span><span class="n">grad_2d</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+
+        <span class="n">softmax_update</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="n">target_mask</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">float</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">label_smoothing</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">smoothing</span> <span class="o">=</span> <span class="n">label_smoothing</span> <span class="o">*</span> <span class="n">vocab_size</span> <span class="o">/</span> <span class="p">(</span><span class="n">vocab_size</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="n">grad_2d</span><span class="p">[</span><span class="n">arange_1d</span><span class="p">,</span> <span class="n">masked_target_1d</span><span class="p">]</span> <span class="o">-=</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">smoothing</span><span class="p">)</span> <span class="o">*</span> <span class="n">softmax_update</span>
+            <span class="n">average_grad</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">vocab_size</span>
+            <span class="n">grad_2d</span><span class="p">[</span><span class="n">arange_1d</span><span class="p">,</span> <span class="p">:]</span> <span class="o">-=</span> <span class="n">smoothing</span> <span class="o">*</span> <span class="n">average_grad</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">grad_2d</span><span class="p">[</span><span class="n">arange_1d</span><span class="p">,</span> <span class="n">masked_target_1d</span><span class="p">]</span> <span class="o">-=</span> <span class="n">softmax_update</span>
+
+        <span class="c1"># Finally elementwise multiplication with the output gradients.</span>
+        <span class="n">grad_input</span><span class="o">.</span><span class="n">mul_</span><span class="p">(</span><span class="n">grad_output</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">grad_input</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
+
+
+<div class="viewcode-block" id="vocab_parallel_cross_entropy"><a class="viewcode-back" href="../../../python_api/op/cross_entropy.html#slapo.op.cross_entropy.vocab_parallel_cross_entropy">[docs]</a><span class="k">def</span> <span class="nf">vocab_parallel_cross_entropy</span><span class="p">(</span>
+    <span class="n">vocab_parallel_logits</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">label_smoothing</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">group</span><span class="o">=</span><span class="kc">None</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Performs cross entropy loss when logits are split across tensor parallel ranks</span>
+<span class="sd">    Arguments:</span>
+<span class="sd">        vocab_parallel_logits: logits split across tensor parallel ranks</span>
+<span class="sd">                               dimension is [sequence_length, batch_size, hidden_size]</span>
+<span class="sd">        target: correct vocab ids of dimseion [sequence_length, micro_batch_size]</span>
+<span class="sd">        label_smoothing: smoothing factor, must be in range [0.0, 1.0)</span>
+<span class="sd">                         default is no smoothing (=0.0)</span>
+<span class="sd">        group: torch.distributed group</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># pylint: disable=missing-type-doc</span>
+    <span class="k">return</span> <span class="n">_VocabParallelCrossEntropy</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+        <span class="n">vocab_parallel_logits</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">label_smoothing</span><span class="p">,</span> <span class="n">group</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ParallelCrossEntropy"><a class="viewcode-back" href="../../../python_api/op/cross_entropy.html#slapo.op.cross_entropy.ParallelCrossEntropy">[docs]</a><span class="k">class</span> <span class="nc">ParallelCrossEntropy</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">group</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">group</span> <span class="o">=</span> <span class="n">group</span>
+
+<div class="viewcode-block" id="ParallelCrossEntropy.forward"><a class="viewcode-back" href="../../../python_api/op/cross_entropy.html#slapo.op.cross_entropy.ParallelCrossEntropy.forward">[docs]</a>    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">outputs</span><span class="p">,</span> <span class="n">labels</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">vocab_parallel_cross_entropy</span><span class="p">(</span><span class="n">outputs</span><span class="p">,</span> <span class="n">labels</span><span class="p">,</span> <span class="n">group</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">group</span><span class="p">)</span></div></div>
+</pre></div>
+
+              </div>
+              
+            </main>
+            <footer class="footer-article noprint">
+                
+    <!-- Previous / next buttons -->
+<div class='prev-next-area'>
+</div>
+            </footer>
+        </div>
+    </div>
+    <div class="footer-content row">
+        <footer class="col footer"><p>
+  
+    By Amazon<br/>
+  
+      &copy; Copyright 2023, Amazon.<br/>
+</p>
+        </footer>
+    </div>
+    
+</div>
+
+
+      </div>
+    </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../../../_static/scripts/pydata-sphinx-theme.js?digest=1999514e3f237ded88cf"></script>
+
+
+  </body>
+</html>

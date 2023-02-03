@@ -69,7 +69,8 @@ This is the model definition part.
 
  .. code-block:: none
 
-    Downloading (…)lve/main/config.json:   0%|          | 0.00/571 [00:00<?, ?B/s]    Downloading (…)lve/main/config.json: 100%|##########| 571/571 [00:00<00:00, 186kB/s]
+    Downloading (…)lve/main/config.json:   0%|          | 0.00/571 [00:00<?, ?B/s]    Downloading (…)lve/main/config.json: 100%|##########| 571/571 [00:00<00:00, 112kB/s]
+    If you want to use `BertLMHeadModel` as a standalone, add `is_decoder=True.`
 
 
 
@@ -749,10 +750,192 @@ the first attention layer.
 The output submodule is just a part of the original one, but this helps users
 to quickly locate the submodule they need.
 
+.. GENERATED FROM PYTHON SOURCE LINES 49-53
+
+.. code-block:: default
+
+
+    subsch = sch["bert.encoder.layer.0.intermediate"]
+    print(subsch.mod)
+
+
+
+
+
+.. rst-class:: sphx-glr-script-out
+
+ .. code-block:: none
+
+    BertIntermediate(
+      (dense): Linear(in_features=1024, out_features=4096, bias=True)
+      (intermediate_act_fn): GELUActivation()
+    )
+
+
+
+
+.. GENERATED FROM PYTHON SOURCE LINES 54-58
+
+We next optimize the Feed-Forward Network (FFN) part. We try to conduct operator
+fusion for linear bias and GeLU function. As we want to conduct other optimizations
+for linear weight (e.g., sharding), we cannot fuse it with consequential operators.
+Therefore, we need to decompose the bias from the `nn.Linear` module, 
+
+.. GENERATED FROM PYTHON SOURCE LINES 58-62
+
+.. code-block:: default
+
+
+    subsch["dense"].decompose()
+    print(subsch.mod)
+
+
+
+
+
+.. rst-class:: sphx-glr-script-out
+
+ .. code-block:: none
+
+    BertIntermediate(
+      (dense): LinearWithSeparateBias(in_features=1024, out_features=4096, bias=True)
+      (intermediate_act_fn): GELUActivation()
+    )
+
+
+
+
+.. GENERATED FROM PYTHON SOURCE LINES 63-66
+
+Since operator fusion requires a static dataflow graph, we call the `.trace()` function
+to obtain the graph. As we want to get the inner operators of the linear layer, we also
+need to specify the `flatten` keyword in order to let the tracer trace into it.
+
+.. GENERATED FROM PYTHON SOURCE LINES 66-70
+
+.. code-block:: default
+
+
+    subsch.trace(flatten=True)
+    print(subsch.mod)
+
+
+
+
+
+.. rst-class:: sphx-glr-script-out
+
+ .. code-block:: none
+
+    GraphModule(
+      (dense): Module()
+    )
+
+
+
+    def forward(self, hidden_states : torch.Tensor) -> torch.Tensor:
+        dense_weight = self.dense.weight
+        linear = torch._C._nn.linear(hidden_states, dense_weight, None);  hidden_states = dense_weight = None
+        dense_bias = self.dense.bias
+        add = linear + dense_bias;  linear = dense_bias = None
+        gelu = torch._C._nn.gelu(add);  add = None
+        return gelu
+    
+    # To see more debug info, please use `graph_module.print_readable()`
+
+
+
+
+.. GENERATED FROM PYTHON SOURCE LINES 71-80
+
+After we obtain the dataflow graph, we can define the fusion pattern and leverage
+`.find()` primitive to retrieve the subgraph.
+
+.. note::
+  :class: margin
+
+  The returned nodes are reprented in a tuple, where the first element is the
+  path of the node (i.e., its parent module's name), and the second element is
+  the actual `fx.Node`.
+
+.. GENERATED FROM PYTHON SOURCE LINES 80-88
+
+.. code-block:: default
+
+
+    import torch.nn.functional as F
+    def bias_gelu_pattern(x, bias):
+        return F.gelu(x + bias)
+
+    subgraphs = subsch.find(bias_gelu_pattern)
+    print(subgraphs)
+
+
+
+
+
+.. rst-class:: sphx-glr-script-out
+
+ .. code-block:: none
+
+    [[('', add), ('', gelu)]]
+
+
+
+
+.. GENERATED FROM PYTHON SOURCE LINES 89-93
+
+The output is a list of subgraphs that contains a list of nodes satisfying the
+pattern requirement. For this case, there are two operators, named `add` and `gelu`.
+That is what we want for the pattern. We then pass it into TorchScript compiler 
+and fuse the operators.
+
+.. GENERATED FROM PYTHON SOURCE LINES 93-97
+
+.. code-block:: default
+
+
+    subsch.fuse(subgraphs, compiler="TorchScript", name="FusedBiasGeLU")
+    print(subsch.mod)
+
+
+
+
+
+.. rst-class:: sphx-glr-script-out
+
+ .. code-block:: none
+
+    /usr/local/lib/python3.8/site-packages/torch/jit/_check.py:181: UserWarning: The TorchScript type system doesn't support instance-level annotations on empty non-base types in `__init__`. Instead, either 1) use a type annotation in the class body, or 2) wrap the type in `torch.jit.Attribute`.
+      warnings.warn("The TorchScript type system doesn't support "
+    GraphModule(
+      (dense): Module()
+      (FusedBiasGeLU_0): RecursiveScriptModule(original_name=GraphModule)
+    )
+
+
+
+    def forward(self, hidden_states : torch.Tensor) -> torch.Tensor:
+        dense_weight = self.dense.weight
+        linear = torch._C._nn.linear(hidden_states, dense_weight, None);  hidden_states = dense_weight = None
+        dense_bias = self.dense.bias
+        fused_bias_ge_lu_0 = self.FusedBiasGeLU_0(linear, dense_bias);  linear = dense_bias = None
+        return fused_bias_ge_lu_0
+    
+    # To see more debug info, please use `graph_module.print_readable()`
+
+
+
+
+.. GENERATED FROM PYTHON SOURCE LINES 98-100
+
+We can see from the above result that the linear bias and GeLU function are indeed
+fused together and form a new module named `FusedBiasGeLU_0`.
+
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** ( 0 minutes  7.433 seconds)
+   **Total running time of the script:** ( 0 minutes  6.733 seconds)
 
 
 .. _sphx_glr_download_gallery_quick-start.py:

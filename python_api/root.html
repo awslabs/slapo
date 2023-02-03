@@ -40,7 +40,7 @@
     <script src="../_static/scripts/sphinx-book-theme.js?digest=9c920249402e914e316237a7dbc6769907cce411"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Index" href="../genindex.html" />
+    <link rel="next" title="slapo.schedule" href="schedule.html" />
     <link rel="prev" title="Python API" href="index.html" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="docsearch:language" content="None">
@@ -123,6 +123,92 @@
     <a class="current reference internal" href="#">
      slapo
     </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="schedule.html">
+     slapo.schedule
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="initialization.html">
+     slapo.initialization
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="pattern.html">
+     slapo.pattern
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="pipeline.html">
+     slapo.pipeline
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="tracer.html">
+     slapo.tracer
+    </a>
+   </li>
+   <li class="toctree-l2 has-children">
+    <a class="reference internal" href="model_dialect/index.html">
+     hidet.model_dialect
+    </a>
+    <input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/>
+    <label for="toctree-checkbox-2">
+     <i class="fas fa-chevron-down">
+     </i>
+    </label>
+    <ul>
+     <li class="toctree-l3">
+      <a class="reference internal" href="model_dialect/registry.html">
+       slapo.model_dialect.registry
+      </a>
+     </li>
+     <li class="toctree-l3 has-children">
+      <a class="reference internal" href="model_dialect/deepspeed/index.html">
+       hidet.model_dialect.deepspeed
+      </a>
+      <input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/>
+      <label for="toctree-checkbox-3">
+       <i class="fas fa-chevron-down">
+       </i>
+      </label>
+      <ul>
+       <li class="toctree-l4">
+        <a class="reference internal" href="model_dialect/deepspeed/engine.html">
+         slapo.model_dialect.deepspeed.engine
+        </a>
+       </li>
+       <li class="toctree-l4">
+        <a class="reference internal" href="model_dialect/deepspeed/pipeline.html">
+         slapo.model_dialect.deepspeed.pipeline
+        </a>
+       </li>
+      </ul>
+     </li>
+    </ul>
+   </li>
+   <li class="toctree-l2 has-children">
+    <a class="reference internal" href="op/index.html">
+     hidet.op
+    </a>
+    <input class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" type="checkbox"/>
+    <label for="toctree-checkbox-4">
+     <i class="fas fa-chevron-down">
+     </i>
+    </label>
+    <ul>
+     <li class="toctree-l3">
+      <a class="reference internal" href="op/cross_entropy.html">
+       slapo.op.cross_entropy
+      </a>
+     </li>
+     <li class="toctree-l3">
+      <a class="reference internal" href="op/linear.html">
+       slapo.op.linear
+      </a>
+     </li>
+    </ul>
    </li>
   </ul>
  </li>
@@ -292,23 +378,23 @@ title="Print to PDF"
 <tr class="row-odd"><td><p><a class="reference internal" href="#slapo.Symbol" title="slapo.Symbol"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Symbol</span></code></a>(name, vals)</p></td>
 <td><p>A tunable symbol.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#slapo.ABC" title="slapo.ABC"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ABC</span></code></a>()</p></td>
-<td><p>Helper class that provides a standard way to create an ABC using inheritance.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.DictWithValidation" title="slapo.DictWithValidation"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DictWithValidation</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.DictWithValidation" title="slapo.DictWithValidation"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DictWithValidation</span></code></a></p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#slapo.FunctionType" title="slapo.FunctionType"><code class="xref py py-obj docutils literal notranslate"><span class="pre">FunctionType</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.FunctionType" title="slapo.FunctionType"><code class="xref py py-obj docutils literal notranslate"><span class="pre">FunctionType</span></code></a></p></td>
 <td><p>alias of <code class="xref py py-class docutils literal notranslate"><span class="pre">function</span></code></p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.OrderedDict" title="slapo.OrderedDict"><code class="xref py py-obj docutils literal notranslate"><span class="pre">OrderedDict</span></code></a></p></td>
-<td><p>Dictionary that remembers insertion order</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.LinearWithSeparateBias" title="slapo.LinearWithSeparateBias"><code class="xref py py-obj docutils literal notranslate"><span class="pre">LinearWithSeparateBias</span></code></a>(in_features, out_features)</p></td>
+<td><p>Implementation modified from <cite>nn.Linear</cite> Arguments are the same as the inputs of <cite>nn.Linear</cite></p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#slapo.Pattern" title="slapo.Pattern"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Pattern</span></code></a>()</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.ModulePattern" title="slapo.ModulePattern"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ModulePattern</span></code></a>(name)</p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.Proxy" title="slapo.Proxy"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Proxy</span></code></a>(node[, tracer])</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">Proxy</span></code> objects are <code class="docutils literal notranslate"><span class="pre">Node</span></code> wrappers that flow through the program during symbolic tracing and record all the operations (<code class="docutils literal notranslate"><span class="pre">torch</span></code> function calls, method calls, operators) that they touch into the growing FX Graph.</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.OrderedDict" title="slapo.OrderedDict"><code class="xref py py-obj docutils literal notranslate"><span class="pre">OrderedDict</span></code></a></p></td>
+<td><p>Dictionary that remembers insertion order</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.Pattern" title="slapo.Pattern"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Pattern</span></code></a>()</p></td>
+<td><p></p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#slapo.ScheduleMetadata" title="slapo.ScheduleMetadata"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ScheduleMetadata</span></code></a>(shard, tie_weights, ...)</p></td>
 <td><p></p></td>
@@ -331,44 +417,53 @@ title="Print to PDF"
 <tr class="row-even"><td><p><a class="reference internal" href="#slapo.get_logger" title="slapo.get_logger"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_logger</span></code></a>([name, level])</p></td>
 <td><p>Attach to the default logger.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.abstractmethod" title="slapo.abstractmethod"><code class="xref py py-obj docutils literal notranslate"><span class="pre">abstractmethod</span></code></a>(funcobj)</p></td>
-<td><p>A decorator indicating abstract methods.</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.all_gather_forward_output" title="slapo.all_gather_forward_output"><code class="xref py py-obj docutils literal notranslate"><span class="pre">all_gather_forward_output</span></code></a>(inp, dim, group[, ...])</p></td>
+<td><p>The custom sync op (F: all-gather, B: split or reduce-scatter) used for forward hook.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#slapo.all_gather_forward_output" title="slapo.all_gather_forward_output"><code class="xref py py-obj docutils literal notranslate"><span class="pre">all_gather_forward_output</span></code></a>(inp, dim, group)</p></td>
-<td><p>The custom all gather op used for forward hook.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.analyze_tie_weights" title="slapo.analyze_tie_weights"><code class="xref py py-obj docutils literal notranslate"><span class="pre">analyze_tie_weights</span></code></a>(top_mod, ...)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.analyze_tie_weights" title="slapo.analyze_tie_weights"><code class="xref py py-obj docutils literal notranslate"><span class="pre">analyze_tie_weights</span></code></a>(top_mod, ...)</p></td>
 <td><p>Analyze if there is any tie weights (two weights in different module share the same memory) partitioned into different pipeline stages.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#slapo.consolidate_model" title="slapo.consolidate_model"><code class="xref py py-obj docutils literal notranslate"><span class="pre">consolidate_model</span></code></a>(sch, target[, param_init_fn])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.consolidate_model" title="slapo.consolidate_model"><code class="xref py py-obj docutils literal notranslate"><span class="pre">consolidate_model</span></code></a>(sch, target[, param_init_fn])</p></td>
 <td><p>Consolidate the model weights.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.dataclass" title="slapo.dataclass"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataclass</span></code></a>([cls, init, repr, eq, order, ...])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.dataclass" title="slapo.dataclass"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataclass</span></code></a>([cls, init, repr, eq, order, ...])</p></td>
 <td><p>Returns the same class as was passed in, with dunder methods added based on the fields defined in the class.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#slapo.field" title="slapo.field"><code class="xref py py-obj docutils literal notranslate"><span class="pre">field</span></code></a>(*[, default, default_factory, init, ...])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.field" title="slapo.field"><code class="xref py py-obj docutils literal notranslate"><span class="pre">field</span></code></a>(*[, default, default_factory, init, ...])</p></td>
 <td><p>Return an object to identify dataclass fields.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.get_dialect_cls" title="slapo.get_dialect_cls"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_dialect_cls</span></code></a>(cls_type, target[, allow_none])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.get_dialect_cls" title="slapo.get_dialect_cls"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_dialect_cls</span></code></a>(cls_type, target[, allow_none])</p></td>
 <td><p>Get the framework model dialect class.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#slapo.get_output_type_after_sharding" title="slapo.get_output_type_after_sharding"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_output_type_after_sharding</span></code></a>(module, ...)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.get_output_type_after_sharding" title="slapo.get_output_type_after_sharding"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_output_type_after_sharding</span></code></a>(module, ...)</p></td>
 <td><p>Get the output type (partition or partial) after sharding the module along the given axis.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.init_target_engine" title="slapo.init_target_engine"><code class="xref py py-obj docutils literal notranslate"><span class="pre">init_target_engine</span></code></a>(sch, target, **kwargs)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.init_target_engine" title="slapo.init_target_engine"><code class="xref py py-obj docutils literal notranslate"><span class="pre">init_target_engine</span></code></a>(sch, target, **kwargs)</p></td>
 <td><p>Initialize the runtime engine for a specific target framework.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#slapo.reduce_scatter_forward_output" title="slapo.reduce_scatter_forward_output"><code class="xref py py-obj docutils literal notranslate"><span class="pre">reduce_scatter_forward_output</span></code></a>(inp, dim, group)</p></td>
-<td><p>The custom reduce scatter op used for forward hook.</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.reduce_backward_grad" title="slapo.reduce_backward_grad"><code class="xref py py-obj docutils literal notranslate"><span class="pre">reduce_backward_grad</span></code></a>(inp, group)</p></td>
+<td><p>The custom sync op (F: no-op, B: all-reduce) used for forward hook.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.register_primitive" title="slapo.register_primitive"><code class="xref py py-obj docutils literal notranslate"><span class="pre">register_primitive</span></code></a>([need_dist, finalize])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.reduce_forward_output" title="slapo.reduce_forward_output"><code class="xref py py-obj docutils literal notranslate"><span class="pre">reduce_forward_output</span></code></a>(inp, group)</p></td>
+<td><p>The custom sync op sync op (F: all-reduce, B: no-op) used for forward hook.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.reduce_scatter_forward_output" title="slapo.reduce_scatter_forward_output"><code class="xref py py-obj docutils literal notranslate"><span class="pre">reduce_scatter_forward_output</span></code></a>(inp, dim, group)</p></td>
+<td><p>The custom sync op (F: reduce-scatter, B: all-gather) used for forward hook.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.register_primitive" title="slapo.register_primitive"><code class="xref py py-obj docutils literal notranslate"><span class="pre">register_primitive</span></code></a>([need_dist, finalize])</p></td>
 <td><p>Wrap a schedule primitive to annotate attributes:</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.scatter_forward_output" title="slapo.scatter_forward_output"><code class="xref py py-obj docutils literal notranslate"><span class="pre">scatter_forward_output</span></code></a>(inp, dim, group)</p></td>
+<td><p>The custom sync op (sync op (F: scatter, B: all-gather) used for forward hook.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#slapo.trace" title="slapo.trace"><code class="xref py py-obj docutils literal notranslate"><span class="pre">trace</span></code></a>(model, **kwargs)</p></td>
 <td><p>Traces a model to a GraphModule.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#slapo.trace_module" title="slapo.trace_module"><code class="xref py py-obj docutils literal notranslate"><span class="pre">trace_module</span></code></a>(model, **kwargs)</p></td>
 <td><p>Traces a model to a GraphModule.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.transfer_hooks" title="slapo.transfer_hooks"><code class="xref py py-obj docutils literal notranslate"><span class="pre">transfer_hooks</span></code></a>(old_mod, new_mod[, hook_types])</p></td>
+<td><p>Transfer the hooks from old_mod to new_mod.</p></td>
 </tr>
 </tbody>
 </table>
@@ -554,13 +649,6 @@ empty model. Useful when just initializing the model would blow the available RA
 </dd></dl>
 
 <dl class="py class">
-<dt class="sig sig-object py" id="slapo.ABC">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">ABC</span></span><a class="reference internal" href="../_modules/abc.html#ABC"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.ABC" title="Permalink to this definition"><span>¶</span></a></dt>
-<dd><p>Helper class that provides a standard way to create an ABC using
-inheritance.</p>
-</dd></dl>
-
-<dl class="py class">
 <dt class="sig sig-object py" id="slapo.DictWithValidation">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">DictWithValidation</span></span><a class="reference internal" href="../_modules/slapo/schedule.html#DictWithValidation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.DictWithValidation" title="Permalink to this definition"><span>¶</span></a></dt>
 <dd></dd></dl>
@@ -569,6 +657,90 @@ inheritance.</p>
 <dt class="sig sig-object py" id="slapo.FunctionType">
 <span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">FunctionType</span></span><a class="headerlink" href="#slapo.FunctionType" title="Permalink to this definition"><span>¶</span></a></dt>
 <dd><p>alias of <code class="xref py py-class docutils literal notranslate"><span class="pre">function</span></code></p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="slapo.LinearWithSeparateBias">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">LinearWithSeparateBias</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">in_features</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out_features</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bias</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/op/linear.html#LinearWithSeparateBias"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.LinearWithSeparateBias" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Implementation modified from <cite>nn.Linear</cite>
+Arguments are the same as the inputs of <cite>nn.Linear</cite></p>
+<p><strong>Methods:</strong></p>
+<table class="autosummary longtable table autosummary">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.LinearWithSeparateBias.forward" title="slapo.LinearWithSeparateBias.forward"><code class="xref py py-obj docutils literal notranslate"><span class="pre">forward</span></code></a>(x)</p></td>
+<td><p>Defines the computation performed at every call.</p></td>
+</tr>
+</tbody>
+</table>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>in_features</strong> (<em>int</em>) – </p></li>
+<li><p><strong>out_features</strong> (<em>int</em>) – </p></li>
+<li><p><strong>bias</strong> (<em>bool</em>) – </p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="slapo.LinearWithSeparateBias.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/op/linear.html#LinearWithSeparateBias.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.LinearWithSeparateBias.forward" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>x</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.13)"><em>torch.Tensor</em></a>) – </p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.13)">torch.Tensor</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="slapo.ModulePattern">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">ModulePattern</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/pattern.html#ModulePattern"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.ModulePattern" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p><strong>Methods:</strong></p>
+<table class="autosummary longtable table autosummary">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.ModulePattern.forward" title="slapo.ModulePattern.forward"><code class="xref py py-obj docutils literal notranslate"><span class="pre">forward</span></code></a>(*args)</p></td>
+<td><p>Defines the computation performed at every call.</p></td>
+</tr>
+</tbody>
+</table>
+<dl class="py method">
+<dt class="sig sig-object py" id="slapo.ModulePattern.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/pattern.html#ModulePattern.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.ModulePattern.forward" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+</dd></dl>
+
 </dd></dl>
 
 <dl class="py class">
@@ -688,64 +860,35 @@ is raised.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="slapo.Pattern">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">Pattern</span></span><a class="reference internal" href="../_modules/slapo/schedule.html#Pattern"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.Pattern" title="Permalink to this definition"><span>¶</span></a></dt>
-<dd></dd></dl>
-
-<dl class="py class">
-<dt class="sig sig-object py" id="slapo.Proxy">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">Proxy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">node</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tracer</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/torch/fx/proxy.html#Proxy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.Proxy" title="Permalink to this definition"><span>¶</span></a></dt>
-<dd><p><code class="docutils literal notranslate"><span class="pre">Proxy</span></code> objects are <code class="docutils literal notranslate"><span class="pre">Node</span></code> wrappers that flow through the
-program during symbolic tracing and record all the operations
-(<code class="docutils literal notranslate"><span class="pre">torch</span></code> function calls, method calls, operators) that they touch
-into the growing FX Graph.</p>
-<p>If you’re doing graph transforms, you can wrap your own <code class="docutils literal notranslate"><span class="pre">Proxy</span></code>
-method around a raw <code class="docutils literal notranslate"><span class="pre">Node</span></code> so that you can use the overloaded
-operators to add additional things to a <code class="docutils literal notranslate"><span class="pre">Graph</span></code>.</p>
-<p><code class="docutils literal notranslate"><span class="pre">Proxy</span></code> objects cannot be iterated. In other words, the symbolic
-tracer will throw an error if a <code class="docutils literal notranslate"><span class="pre">Proxy</span></code> is used in a loop or as
-an <code class="docutils literal notranslate"><span class="pre">*args</span></code>/<code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> function argument.</p>
-<p>There are two main ways around this:
-1. Factor out the untraceable logic into a top-level function and
-use <code class="docutils literal notranslate"><span class="pre">fx.wrap</span></code> on it.
-2. If the control flow is static (i.e. the loop trip count is
-based on some hyperparameter), the code can be kept in its original
-position and refactored into something like:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">some_hyperparameter</span><span class="p">):</span>
-    <span class="n">indexed_item</span> <span class="o">=</span> <span class="n">proxied_value</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
-</pre></div>
-</div>
-<p>For a more detailed description into the Proxy internals, check out
-the “Proxy” section in <cite>torch/fx/OVERVIEW.md</cite></p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Backwards-compatibility for this API is guaranteed.</p>
-</div>
-<p><strong>Methods:</strong></p>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">Pattern</span></span><a class="reference internal" href="../_modules/slapo/pattern.html#Pattern"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.Pattern" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p><strong>Methods:</strong></p>
 <table class="autosummary longtable table autosummary">
 <colgroup>
 <col style="width: 10%" />
 <col style="width: 90%" />
 </colgroup>
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.Proxy.keys" title="slapo.Proxy.keys"><code class="xref py py-obj docutils literal notranslate"><span class="pre">keys</span></code></a>()</p></td>
-<td><p></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.Pattern.forward" title="slapo.Pattern.forward"><code class="xref py py-obj docutils literal notranslate"><span class="pre">forward</span></code></a>(*args)</p></td>
+<td><p>Defines the computation performed at every call.</p></td>
 </tr>
 </tbody>
 </table>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>node</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/fx.html#torch.fx.Node" title="(in PyTorch v1.13)"><em>torch.fx.node.Node</em></a>) – </p></li>
-<li><p><strong>tracer</strong> (<em>Optional</em><em>[</em><em>TracerBase</em><em>]</em>) – </p></li>
-</ul>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>None</p>
 </dd>
 </dl>
 <dl class="py method">
-<dt class="sig sig-object py" id="slapo.Proxy.keys">
-<span class="sig-name descname"><span class="pre">keys</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/torch/fx/proxy.html#Proxy.keys"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.Proxy.keys" title="Permalink to this definition"><span>¶</span></a></dt>
-<dd><div class="admonition note">
+<dt class="sig sig-object py" id="slapo.Pattern.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/pattern.html#Pattern.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.Pattern.forward" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>Backwards-compatibility for this API is guaranteed.</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
 </div>
 </dd></dl>
 
@@ -770,38 +913,19 @@ the “Proxy” section in <cite>torch/fx/OVERVIEW.md</cite></p>
 </dd></dl>
 
 <dl class="py function">
-<dt class="sig sig-object py" id="slapo.abstractmethod">
-<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">abstractmethod</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">funcobj</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/abc.html#abstractmethod"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.abstractmethod" title="Permalink to this definition"><span>¶</span></a></dt>
-<dd><p>A decorator indicating abstract methods.</p>
-<p>Requires that the metaclass is ABCMeta or derived from it.  A
-class that has a metaclass derived from ABCMeta cannot be
-instantiated unless all of its abstract methods are overridden.
-The abstract methods can be called using any of the normal
-‘super’ call mechanisms.  abstractmethod() may be used to declare
-abstract methods for properties and descriptors.</p>
-<p>Usage:</p>
-<blockquote>
-<div><dl>
-<dt>class C(metaclass=ABCMeta):</dt><dd><p>&#64;abstractmethod
-def my_abstract_method(self, …):</p>
-<blockquote>
-<div><p>…</p>
-</div></blockquote>
-</dd>
-</dl>
-</div></blockquote>
-</dd></dl>
-
-<dl class="py function">
 <dt class="sig sig-object py" id="slapo.all_gather_forward_output">
-<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">all_gather_forward_output</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">inp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/sharding/utils.html#all_gather_forward_output"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.all_gather_forward_output" title="Permalink to this definition"><span>¶</span></a></dt>
-<dd><p>The custom all gather op used for forward hook.</p>
+<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">all_gather_forward_output</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">inp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tensor_parallel_output_grad</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/sharding/sync_ops.html#all_gather_forward_output"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.all_gather_forward_output" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>The custom sync op (F: all-gather, B: split or reduce-scatter) used for
+forward hook.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>inp</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.13)"><em>torch.Tensor</em></a>) – The input tensor to all-gather.</p></li>
 <li><p><strong>dim</strong> (<em>int</em>) – The dimension to all-gather along.</p></li>
 <li><p><strong>group</strong> (<em>torch.distributed.ProcessGroup</em>) – The process group to all-gather.</p></li>
+<li><p><strong>tensor_parallel_output_grad</strong> (<em>bool</em>) – If the operator following the gather operation is sharded,
+output gradients need to be reduced and scattered; whereas
+if the operator is duplicated, output gradients only need to be scattered.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
@@ -966,9 +1090,45 @@ of the given arguments and keywords.</p>
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="slapo.reduce_backward_grad">
+<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">reduce_backward_grad</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">inp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/sharding/sync_ops.html#reduce_backward_grad"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.reduce_backward_grad" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>The custom sync op (F: no-op, B: all-reduce) used for forward hook.
+:param inp: The input tensor.
+:type inp: torch.Tensor
+:param group: The process group to reduce.
+:type group: torch.distributed.ProcessGroup</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>The original input tensor. However, its gradient will be reduced.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.13)">torch.Tensor</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="slapo.reduce_forward_output">
+<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">reduce_forward_output</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">inp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/sharding/sync_ops.html#reduce_forward_output"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.reduce_forward_output" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>The custom sync op sync op (F: all-reduce, B: no-op) used for forward hook.
+:param inp: The input tensor to reduce.
+:type inp: torch.Tensor
+:param group: The process group to reduce.
+:type group: torch.distributed.ProcessGroup</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>The reduced tensor.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.13)">torch.Tensor</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="slapo.reduce_scatter_forward_output">
-<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">reduce_scatter_forward_output</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">inp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/sharding/utils.html#reduce_scatter_forward_output"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.reduce_scatter_forward_output" title="Permalink to this definition"><span>¶</span></a></dt>
-<dd><p>The custom reduce scatter op used for forward hook.
+<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">reduce_scatter_forward_output</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">inp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/sharding/sync_ops.html#reduce_scatter_forward_output"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.reduce_scatter_forward_output" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>The custom sync op (F: reduce-scatter, B: all-gather) used for forward hook.
 :param inp: The input tensor to reduce-scatter.
 :type inp: torch.Tensor
 :param dim: The dimension to reduce-scatter along.
@@ -999,6 +1159,26 @@ doc: TODO</p>
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="slapo.scatter_forward_output">
+<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">scatter_forward_output</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">inp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/sharding/sync_ops.html#scatter_forward_output"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.scatter_forward_output" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>The custom sync op (sync op (F: scatter, B: all-gather) used for forward hook.
+:param inp: The input tensor to reduce-scatter.
+:type inp: torch.Tensor
+:param dim: The dimension to reduce-scatter along.
+:type dim: int
+:param group: The process group to reduce-scatter.
+:type group: torch.distributed.ProcessGroup</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>The scattered tensor.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.13)">torch.Tensor</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="slapo.trace">
 <span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">trace</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/tracer.html#trace"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.trace" title="Permalink to this definition"><span>¶</span></a></dt>
 <dd><p>Traces a model to a GraphModule.</p>
@@ -1026,6 +1206,21 @@ doc: TODO</p>
 </dl>
 </dd></dl>
 
+<dl class="py function">
+<dt class="sig sig-object py" id="slapo.transfer_hooks">
+<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">transfer_hooks</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">old_mod</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">new_mod</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hook_types</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/utils/common.html#transfer_hooks"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.transfer_hooks" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Transfer the hooks from old_mod to new_mod.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>old_mod</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch v1.13)"><em>torch.nn.Module</em></a>) – The old module.</p></li>
+<li><p><strong>new_mod</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch v1.13)"><em>torch.nn.Module</em></a>) – The new module.</p></li>
+<li><p><strong>hook_types</strong> (<em>Optional</em><em>[</em><em>List</em><em>[</em><em>str</em><em>]</em><em>]</em>) – The types of hooks to transfer. If None, transfer all hooks.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
 </div>
 
 
@@ -1043,10 +1238,10 @@ doc: TODO</p>
             <p class="prev-next-title">Python API</p>
         </div>
     </a>
-    <a class='right-next' id="next-link" href="../genindex.html" title="next page">
+    <a class='right-next' id="next-link" href="schedule.html" title="next page">
     <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Index</p>
+        <p class="prev-next-title">slapo.schedule</p>
     </div>
     <i class="fas fa-angle-right"></i>
     </a>

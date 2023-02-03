@@ -122,6 +122,92 @@
      slapo
     </a>
    </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../../python_api/schedule.html">
+     slapo.schedule
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../../python_api/initialization.html">
+     slapo.initialization
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../../python_api/pattern.html">
+     slapo.pattern
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../../python_api/pipeline.html">
+     slapo.pipeline
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../../python_api/tracer.html">
+     slapo.tracer
+    </a>
+   </li>
+   <li class="toctree-l2 has-children">
+    <a class="reference internal" href="../../python_api/model_dialect/index.html">
+     hidet.model_dialect
+    </a>
+    <input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/>
+    <label for="toctree-checkbox-2">
+     <i class="fas fa-chevron-down">
+     </i>
+    </label>
+    <ul>
+     <li class="toctree-l3">
+      <a class="reference internal" href="../../python_api/model_dialect/registry.html">
+       slapo.model_dialect.registry
+      </a>
+     </li>
+     <li class="toctree-l3 has-children">
+      <a class="reference internal" href="../../python_api/model_dialect/deepspeed/index.html">
+       hidet.model_dialect.deepspeed
+      </a>
+      <input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/>
+      <label for="toctree-checkbox-3">
+       <i class="fas fa-chevron-down">
+       </i>
+      </label>
+      <ul>
+       <li class="toctree-l4">
+        <a class="reference internal" href="../../python_api/model_dialect/deepspeed/engine.html">
+         slapo.model_dialect.deepspeed.engine
+        </a>
+       </li>
+       <li class="toctree-l4">
+        <a class="reference internal" href="../../python_api/model_dialect/deepspeed/pipeline.html">
+         slapo.model_dialect.deepspeed.pipeline
+        </a>
+       </li>
+      </ul>
+     </li>
+    </ul>
+   </li>
+   <li class="toctree-l2 has-children">
+    <a class="reference internal" href="../../python_api/op/index.html">
+     hidet.op
+    </a>
+    <input class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" type="checkbox"/>
+    <label for="toctree-checkbox-4">
+     <i class="fas fa-chevron-down">
+     </i>
+    </label>
+    <ul>
+     <li class="toctree-l3">
+      <a class="reference internal" href="../../python_api/op/cross_entropy.html">
+       slapo.op.cross_entropy
+      </a>
+     </li>
+     <li class="toctree-l3">
+      <a class="reference internal" href="../../python_api/op/linear.html">
+       slapo.op.linear
+      </a>
+     </li>
+    </ul>
+   </li>
   </ul>
  </li>
  <li class="toctree-l1">
@@ -241,12 +327,9 @@ title="Source repository"
 <span class="kn">import</span> <span class="nn">torch</span>
 <span class="kn">import</span> <span class="nn">torch.utils._pytree</span> <span class="k">as</span> <span class="nn">pytree</span>
 <span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">fx</span><span class="p">,</span> <span class="n">nn</span>
-<span class="kn">from</span> <span class="nn">torch.fx._symbolic_trace</span> <span class="kn">import</span> <span class="p">(</span><span class="n">HAS_VARSTUFF</span><span class="p">,</span> <span class="n">PH</span><span class="p">,</span> <span class="n">_assert_is_none</span><span class="p">,</span>
-                                      <span class="n">_patch_function</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">torch.fx._symbolic_trace</span> <span class="kn">import</span> <span class="n">HAS_VARSTUFF</span><span class="p">,</span> <span class="n">PH</span><span class="p">,</span> <span class="n">_assert_is_none</span><span class="p">,</span> <span class="n">_patch_function</span>
 <span class="kn">from</span> <span class="nn">torch.fx.graph</span> <span class="kn">import</span> <span class="n">_PyTreeCodeGen</span><span class="p">,</span> <span class="n">_PyTreeInfo</span>
 <span class="kn">from</span> <span class="nn">torch.fx.node</span> <span class="kn">import</span> <span class="n">base_types</span>
-<span class="kn">from</span> <span class="nn">transformers.utils.fx</span> <span class="kn">import</span> <span class="p">(</span><span class="n">_IS_IN_DEBUG_MODE</span><span class="p">,</span> <span class="n">_MANUAL_META_OVERRIDES</span><span class="p">,</span>
-                                   <span class="n">Proxy</span><span class="p">,</span> <span class="n">_proxies_to_metas</span><span class="p">)</span>
 
 <span class="kn">from</span> <span class="nn">.logger</span> <span class="kn">import</span> <span class="n">get_logger</span>
 
@@ -393,17 +476,18 @@ title="Source repository"
     <span class="c1"># to judge whether a submodule is really a leaf or not.</span>
     <span class="n">tracer_with_orig_leaf</span> <span class="o">=</span> <span class="n">tracer_class</span><span class="p">(</span><span class="n">leaf_modules</span><span class="o">=</span><span class="n">leaf_modules</span><span class="p">)</span>
 
-    <span class="c1"># Add all children module (submodule) to be leaf module to prevent</span>
-    <span class="c1"># the tracer from tracing into them, because we will trace submodules</span>
-    <span class="c1"># separately to maintain the module hierarchy.</span>
     <span class="n">leaf_modules</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">leaf_modules</span><span class="p">)</span>
-    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">leaf_mod</span> <span class="ow">in</span> <span class="n">named_children</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">leaf_mod</span><span class="p">,</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">):</span>
-            <span class="n">leaf_modules</span> <span class="o">+=</span> <span class="p">[</span>
-                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{key}</span><span class="s2">.</span><span class="si">{s}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="n">leaf_mod</span><span class="o">.</span><span class="n">named_children</span><span class="p">())</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
-            <span class="p">]</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">leaf_modules</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;flatten&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
+        <span class="c1"># Add all children module (submodule) to be leaf module to prevent</span>
+        <span class="c1"># the tracer from tracing into them, because we will trace submodules</span>
+        <span class="c1"># separately to maintain the module hierarchy.</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">leaf_mod</span> <span class="ow">in</span> <span class="n">named_children</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">leaf_mod</span><span class="p">,</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">):</span>
+                <span class="n">leaf_modules</span> <span class="o">+=</span> <span class="p">[</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{key}</span><span class="s2">.</span><span class="si">{s}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="n">leaf_mod</span><span class="o">.</span><span class="n">named_children</span><span class="p">())</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+                <span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">leaf_modules</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
     <span class="n">tracer</span> <span class="o">=</span> <span class="n">tracer_class</span><span class="p">(</span><span class="n">leaf_modules</span><span class="o">=</span><span class="n">leaf_modules</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="n">tracer</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;huggingface&quot;</span><span class="p">:</span>
@@ -433,57 +517,61 @@ title="Source repository"
 
     <span class="c1"># Trace submodules</span>
     <span class="n">submods</span> <span class="o">=</span> <span class="p">{}</span>
-    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">submod</span> <span class="ow">in</span> <span class="n">named_children</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">submod</span><span class="p">,</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">):</span>
-            <span class="c1"># We assume ModuleList will be iteratively traversed in forward function.</span>
-            <span class="c1"># For example:</span>
-            <span class="c1"># In __init__:</span>
-            <span class="c1">#     self.layers = nn.ModuleList([nn.Linear(10, 10) for _ in range(3)])</span>
-            <span class="c1"># In forwrad :</span>
-            <span class="c1">#     for layer in self.layers:</span>
-            <span class="c1">#         x = layer(x)</span>
-            <span class="c1"># In this case, fx IR will create a unique name for each layer,</span>
-            <span class="c1"># such as layer.0, layer.1, etc. We follow this convention to</span>
-            <span class="c1"># trace each layer in ModuleList to register the submodule name.</span>
-            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">layer</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">submod</span><span class="p">):</span>
-                <span class="n">module_qualified_name</span> <span class="o">=</span> <span class="n">tracer</span><span class="o">.</span><span class="n">path_of_module</span><span class="p">(</span><span class="n">layer</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;flatten&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">submod</span> <span class="ow">in</span> <span class="n">named_children</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">submod</span><span class="p">,</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">):</span>
+                <span class="c1"># We assume ModuleList will be iteratively traversed in forward function.</span>
+                <span class="c1"># For example:</span>
+                <span class="c1"># In __init__:</span>
+                <span class="c1">#     self.layers = nn.ModuleList([nn.Linear(10, 10) for _ in range(3)])</span>
+                <span class="c1"># In forwrad :</span>
+                <span class="c1">#     for layer in self.layers:</span>
+                <span class="c1">#         x = layer(x)</span>
+                <span class="c1"># In this case, fx IR will create a unique name for each layer,</span>
+                <span class="c1"># such as layer.0, layer.1, etc. We follow this convention to</span>
+                <span class="c1"># trace each layer in ModuleList to register the submodule name.</span>
+                <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">layer</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">submod</span><span class="p">):</span>
+                    <span class="n">module_qualified_name</span> <span class="o">=</span> <span class="n">tracer</span><span class="o">.</span><span class="n">path_of_module</span><span class="p">(</span><span class="n">layer</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="n">recursive</span> <span class="ow">or</span> <span class="n">tracer_with_orig_leaf</span><span class="o">.</span><span class="n">is_leaf_module</span><span class="p">(</span>
+                        <span class="n">layer</span><span class="p">,</span> <span class="n">module_qualified_name</span>
+                    <span class="p">):</span>
+                        <span class="n">gm_submod</span> <span class="o">=</span> <span class="n">layer</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">gm_submod</span> <span class="o">=</span> <span class="n">trace_submodule</span><span class="p">(</span>
+                            <span class="n">layer</span><span class="p">,</span>
+                            <span class="n">tracer_class</span><span class="p">,</span>
+                            <span class="n">is_top</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                            <span class="n">call_node</span><span class="o">=</span><span class="n">call_arg_map</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{name}</span><span class="s2">.</span><span class="si">{i}</span><span class="s2">&quot;</span><span class="p">],</span>
+                            <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+                        <span class="p">)</span>
+                    <span class="n">submods</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{name}</span><span class="s2">.</span><span class="si">{i}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">gm_submod</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># For other submodules including nn.Sequential, we assume they are directly</span>
+                <span class="c1"># called in forward function. For example:</span>
+                <span class="c1"># In __init__: self.block = nn.Sequential(...)</span>
+                <span class="c1"># In forward : out = self.block(x)</span>
+                <span class="c1"># In this case, fx IR will create directly call the submodule such as block.</span>
+                <span class="n">module_qualified_name</span> <span class="o">=</span> <span class="n">tracer</span><span class="o">.</span><span class="n">path_of_module</span><span class="p">(</span><span class="n">submod</span><span class="p">)</span>
                 <span class="k">if</span> <span class="ow">not</span> <span class="n">recursive</span> <span class="ow">or</span> <span class="n">tracer_with_orig_leaf</span><span class="o">.</span><span class="n">is_leaf_module</span><span class="p">(</span>
-                    <span class="n">layer</span><span class="p">,</span> <span class="n">module_qualified_name</span>
+                    <span class="n">submod</span><span class="p">,</span> <span class="n">module_qualified_name</span>
                 <span class="p">):</span>
-                    <span class="n">gm_submod</span> <span class="o">=</span> <span class="n">layer</span>
+                    <span class="c1"># If it is a real leaf module, stop tracing.</span>
+                    <span class="n">gm_submod</span> <span class="o">=</span> <span class="n">submod</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="n">gm_submod</span> <span class="o">=</span> <span class="n">trace_submodule</span><span class="p">(</span>
-                        <span class="n">layer</span><span class="p">,</span>
+                        <span class="n">submod</span><span class="p">,</span>
                         <span class="n">tracer_class</span><span class="p">,</span>
                         <span class="n">is_top</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-                        <span class="n">call_node</span><span class="o">=</span><span class="n">call_arg_map</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{name}</span><span class="s2">.</span><span class="si">{i}</span><span class="s2">&quot;</span><span class="p">],</span>
+                        <span class="n">call_node</span><span class="o">=</span><span class="n">call_arg_map</span><span class="p">[</span><span class="n">name</span><span class="p">],</span>
                         <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
                     <span class="p">)</span>
-                <span class="n">submods</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{name}</span><span class="s2">.</span><span class="si">{i}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">gm_submod</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="c1"># For other submodules including nn.Sequential, we assume they are directly</span>
-            <span class="c1"># called in forward function. For example:</span>
-            <span class="c1"># In __init__: self.block = nn.Sequential(...)</span>
-            <span class="c1"># In forward : out = self.block(x)</span>
-            <span class="c1"># In this case, fx IR will create directly call the submodule such as block.</span>
-            <span class="n">module_qualified_name</span> <span class="o">=</span> <span class="n">tracer</span><span class="o">.</span><span class="n">path_of_module</span><span class="p">(</span><span class="n">submod</span><span class="p">)</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">recursive</span> <span class="ow">or</span> <span class="n">tracer_with_orig_leaf</span><span class="o">.</span><span class="n">is_leaf_module</span><span class="p">(</span>
-                <span class="n">submod</span><span class="p">,</span> <span class="n">module_qualified_name</span>
-            <span class="p">):</span>
-                <span class="c1"># If it is a real leaf module, stop tracing.</span>
-                <span class="n">gm_submod</span> <span class="o">=</span> <span class="n">submod</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">gm_submod</span> <span class="o">=</span> <span class="n">trace_submodule</span><span class="p">(</span>
-                    <span class="n">submod</span><span class="p">,</span>
-                    <span class="n">tracer_class</span><span class="p">,</span>
-                    <span class="n">is_top</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-                    <span class="n">call_node</span><span class="o">=</span><span class="n">call_arg_map</span><span class="p">[</span><span class="n">name</span><span class="p">],</span>
-                    <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
-                <span class="p">)</span>
-            <span class="n">submods</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">gm_submod</span>
+                <span class="n">submods</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">gm_submod</span>
     <span class="k">if</span> <span class="n">tracer</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;huggingface&quot;</span><span class="p">:</span>
         <span class="n">root_graph</span> <span class="o">=</span> <span class="n">fix_hf_module</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">root_graph</span><span class="p">,</span> <span class="n">submods</span><span class="p">)</span>
-    <span class="n">final_gm</span> <span class="o">=</span> <span class="n">fx</span><span class="o">.</span><span class="n">GraphModule</span><span class="p">(</span><span class="n">submods</span><span class="p">,</span> <span class="n">root_graph</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;flatten&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
+        <span class="n">final_gm</span> <span class="o">=</span> <span class="n">fx</span><span class="o">.</span><span class="n">GraphModule</span><span class="p">(</span><span class="n">submods</span><span class="p">,</span> <span class="n">root_graph</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">final_gm</span> <span class="o">=</span> <span class="n">fx</span><span class="o">.</span><span class="n">GraphModule</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">root_graph</span><span class="p">)</span>
     <span class="c1"># remove redundant code</span>
     <span class="n">final_gm</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">eliminate_dead_code</span><span class="p">()</span>
     <span class="n">final_gm</span><span class="o">.</span><span class="n">delete_all_unused_submodules</span><span class="p">()</span>
@@ -492,17 +580,23 @@ title="Source repository"
     <span class="c1"># remove meta tensors generated by HF tracer</span>
     <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="nb">dict</span><span class="p">(</span><span class="n">final_gm</span><span class="o">.</span><span class="n">named_buffers</span><span class="p">()):</span>
         <span class="k">if</span> <span class="s2">&quot;tensor_constant&quot;</span> <span class="ow">in</span> <span class="n">name</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">final_gm</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
-            <span class="n">final_gm</span><span class="o">.</span><span class="fm">__delattr__</span><span class="p">(</span><span class="n">name</span><span class="p">)</span> <span class="c1"># pylint: disable=unnecessary-dunder-call</span>
+            <span class="n">final_gm</span><span class="o">.</span><span class="fm">__delattr__</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>  <span class="c1"># pylint: disable=unnecessary-dunder-call</span>
     <span class="k">return</span> <span class="n">final_gm</span>
 
 
-<div class="viewcode-block" id="trace"><a class="viewcode-back" href="../../python_api/root.html#slapo.trace">[docs]</a><span class="k">def</span> <span class="nf">trace</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]):</span>
+<div class="viewcode-block" id="trace"><a class="viewcode-back" href="../../python_api/tracer.html#slapo.trace">[docs]</a><span class="k">def</span> <span class="nf">trace</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]):</span>
     <span class="sd">&quot;&quot;&quot;Traces a model to a GraphModule.&quot;&quot;&quot;</span>
     <span class="n">tracer_cls_name</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;tracer&quot;</span><span class="p">,</span> <span class="s2">&quot;pytorch&quot;</span><span class="p">)</span>
     <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Tracer: </span><span class="si">%s</span><span class="s2"> Model: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">tracer_cls_name</span><span class="p">,</span> <span class="n">model</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">)</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tracer_cls_name</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">tracer_cls_name</span> <span class="o">==</span> <span class="s2">&quot;huggingface&quot;</span><span class="p">:</span>
-            <span class="kn">from</span> <span class="nn">transformers.utils.fx</span> <span class="kn">import</span> <span class="n">HFTracer</span>
+            <span class="kn">from</span> <span class="nn">transformers.utils.fx</span> <span class="kn">import</span> <span class="p">(</span>
+                <span class="n">HFTracer</span><span class="p">,</span>
+                <span class="n">_IS_IN_DEBUG_MODE</span><span class="p">,</span>
+                <span class="n">_MANUAL_META_OVERRIDES</span><span class="p">,</span>
+                <span class="n">Proxy</span><span class="p">,</span>
+                <span class="n">_proxies_to_metas</span><span class="p">,</span>
+            <span class="p">)</span>
 
             <span class="k">assert</span> <span class="p">(</span>
                 <span class="s2">&quot;concrete_args&quot;</span> <span class="ow">in</span> <span class="n">kwargs</span>
@@ -584,7 +678,9 @@ title="Source repository"
                         <span class="k">if</span> <span class="n">_IS_IN_DEBUG_MODE</span><span class="p">:</span>
                             <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
                                 <span class="s2">&quot;Could not compute metadata for </span><span class="si">%s</span><span class="s2"> target </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
-                                <span class="n">kind</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">e</span>
+                                <span class="n">kind</span><span class="p">,</span>
+                                <span class="n">target</span><span class="p">,</span>
+                                <span class="n">e</span><span class="p">,</span>
                             <span class="p">)</span>
 
                     <span class="k">return</span> <span class="n">rv</span>
@@ -672,9 +768,8 @@ title="Source repository"
                                 <span class="k">if</span> <span class="n">x</span> <span class="o">==</span> <span class="n">PH</span><span class="p">:</span>
                                     <span class="k">return</span> <span class="n">out</span>
                                 <span class="c1"># Union[int, bool] == bool in Python &lt;= 3.6</span>
-                                <span class="k">if</span> <span class="p">(</span>
-                                    <span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="p">(</span><span class="nb">bool</span><span class="p">,</span> <span class="n">base_types</span><span class="p">))</span>
-                                    <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span>
+                                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="p">(</span><span class="nb">bool</span><span class="p">,</span> <span class="n">base_types</span><span class="p">))</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span>
+                                    <span class="n">x</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
                                 <span class="p">):</span>
                                     <span class="n">torch</span><span class="o">.</span><span class="n">_assert</span><span class="p">(</span>
                                         <span class="n">out</span> <span class="o">==</span> <span class="n">x</span><span class="p">,</span>
@@ -697,7 +792,7 @@ title="Source repository"
                                         <span class="s2">&quot;specialized function. It is up to the user &quot;</span>
                                         <span class="s2">&quot;to make sure that your inputs match the &quot;</span>
                                         <span class="s2">&quot;inputs you specialized the function with.&quot;</span><span class="p">,</span>
-                                        <span class="n">name</span>
+                                        <span class="n">name</span><span class="p">,</span>
                                     <span class="p">)</span>
 
                                 <span class="k">return</span> <span class="n">x</span>

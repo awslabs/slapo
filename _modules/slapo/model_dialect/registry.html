@@ -122,6 +122,92 @@
      slapo
     </a>
    </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../../../python_api/schedule.html">
+     slapo.schedule
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../../../python_api/initialization.html">
+     slapo.initialization
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../../../python_api/pattern.html">
+     slapo.pattern
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../../../python_api/pipeline.html">
+     slapo.pipeline
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../../../python_api/tracer.html">
+     slapo.tracer
+    </a>
+   </li>
+   <li class="toctree-l2 has-children">
+    <a class="reference internal" href="../../../python_api/model_dialect/index.html">
+     hidet.model_dialect
+    </a>
+    <input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/>
+    <label for="toctree-checkbox-2">
+     <i class="fas fa-chevron-down">
+     </i>
+    </label>
+    <ul>
+     <li class="toctree-l3">
+      <a class="reference internal" href="../../../python_api/model_dialect/registry.html">
+       slapo.model_dialect.registry
+      </a>
+     </li>
+     <li class="toctree-l3 has-children">
+      <a class="reference internal" href="../../../python_api/model_dialect/deepspeed/index.html">
+       hidet.model_dialect.deepspeed
+      </a>
+      <input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/>
+      <label for="toctree-checkbox-3">
+       <i class="fas fa-chevron-down">
+       </i>
+      </label>
+      <ul>
+       <li class="toctree-l4">
+        <a class="reference internal" href="../../../python_api/model_dialect/deepspeed/engine.html">
+         slapo.model_dialect.deepspeed.engine
+        </a>
+       </li>
+       <li class="toctree-l4">
+        <a class="reference internal" href="../../../python_api/model_dialect/deepspeed/pipeline.html">
+         slapo.model_dialect.deepspeed.pipeline
+        </a>
+       </li>
+      </ul>
+     </li>
+    </ul>
+   </li>
+   <li class="toctree-l2 has-children">
+    <a class="reference internal" href="../../../python_api/op/index.html">
+     hidet.op
+    </a>
+    <input class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" type="checkbox"/>
+    <label for="toctree-checkbox-4">
+     <i class="fas fa-chevron-down">
+     </i>
+    </label>
+    <ul>
+     <li class="toctree-l3">
+      <a class="reference internal" href="../../../python_api/op/cross_entropy.html">
+       slapo.op.cross_entropy
+      </a>
+     </li>
+     <li class="toctree-l3">
+      <a class="reference internal" href="../../../python_api/op/linear.html">
+       slapo.op.linear
+      </a>
+     </li>
+    </ul>
+   </li>
   </ul>
  </li>
  <li class="toctree-l1">
@@ -239,7 +325,7 @@ title="Source repository"
 <span class="p">}</span>
 
 
-<span class="k">def</span> <span class="nf">register_model_dialect</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">cls_type</span><span class="p">):</span>
+<div class="viewcode-block" id="register_model_dialect"><a class="viewcode-back" href="../../../python_api/model_dialect/registry.html#slapo.model_dialect.registry.register_model_dialect">[docs]</a><span class="k">def</span> <span class="nf">register_model_dialect</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">cls_type</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Register a framework model dialect.&quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">cls_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">DIALECTS</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Only support {DIALECTS.keys()}, but got </span><span class="si">{cls_type}</span><span class="s2">&quot;</span><span class="p">)</span>
@@ -252,17 +338,17 @@ title="Source repository"
         <span class="n">DIALECTS</span><span class="p">[</span><span class="n">cls_type</span><span class="p">][</span><span class="n">target</span><span class="p">]</span> <span class="o">=</span> <span class="n">dialect_cls</span>
         <span class="k">return</span> <span class="n">dialect_cls</span>
 
-    <span class="k">return</span> <span class="n">decorator</span>
+    <span class="k">return</span> <span class="n">decorator</span></div>
 
 
-<span class="k">def</span> <span class="nf">get_all_dialects</span><span class="p">(</span><span class="n">cls_type</span><span class="p">):</span>
+<div class="viewcode-block" id="get_all_dialects"><a class="viewcode-back" href="../../../python_api/model_dialect/registry.html#slapo.model_dialect.registry.get_all_dialects">[docs]</a><span class="k">def</span> <span class="nf">get_all_dialects</span><span class="p">(</span><span class="n">cls_type</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Get all registered framework model dialects.&quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">cls_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">DIALECTS</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Only support {DIALECTS.keys()}, but got </span><span class="si">{cls_type}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">DIALECTS</span><span class="p">[</span><span class="n">cls_type</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">DIALECTS</span><span class="p">[</span><span class="n">cls_type</span><span class="p">]</span></div>
 
 
-<div class="viewcode-block" id="get_dialect_cls"><a class="viewcode-back" href="../../../python_api/root.html#slapo.get_dialect_cls">[docs]</a><span class="k">def</span> <span class="nf">get_dialect_cls</span><span class="p">(</span><span class="n">cls_type</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">allow_none</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<div class="viewcode-block" id="get_dialect_cls"><a class="viewcode-back" href="../../../python_api/root.html#slapo.model_dialect.registry.get_dialect_cls">[docs]</a><span class="k">def</span> <span class="nf">get_dialect_cls</span><span class="p">(</span><span class="n">cls_type</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">allow_none</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Get the framework model dialect class.&quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">cls_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">DIALECTS</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Only support {DIALECTS.keys()}, but got </span><span class="si">{cls_type}</span><span class="s2">&quot;</span><span class="p">)</span>

@@ -122,6 +122,92 @@
      slapo
     </a>
    </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="python_api/schedule.html">
+     slapo.schedule
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="python_api/initialization.html">
+     slapo.initialization
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="python_api/pattern.html">
+     slapo.pattern
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="python_api/pipeline.html">
+     slapo.pipeline
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="python_api/tracer.html">
+     slapo.tracer
+    </a>
+   </li>
+   <li class="toctree-l2 has-children">
+    <a class="reference internal" href="python_api/model_dialect/index.html">
+     hidet.model_dialect
+    </a>
+    <input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/>
+    <label for="toctree-checkbox-2">
+     <i class="fas fa-chevron-down">
+     </i>
+    </label>
+    <ul>
+     <li class="toctree-l3">
+      <a class="reference internal" href="python_api/model_dialect/registry.html">
+       slapo.model_dialect.registry
+      </a>
+     </li>
+     <li class="toctree-l3 has-children">
+      <a class="reference internal" href="python_api/model_dialect/deepspeed/index.html">
+       hidet.model_dialect.deepspeed
+      </a>
+      <input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/>
+      <label for="toctree-checkbox-3">
+       <i class="fas fa-chevron-down">
+       </i>
+      </label>
+      <ul>
+       <li class="toctree-l4">
+        <a class="reference internal" href="python_api/model_dialect/deepspeed/engine.html">
+         slapo.model_dialect.deepspeed.engine
+        </a>
+       </li>
+       <li class="toctree-l4">
+        <a class="reference internal" href="python_api/model_dialect/deepspeed/pipeline.html">
+         slapo.model_dialect.deepspeed.pipeline
+        </a>
+       </li>
+      </ul>
+     </li>
+    </ul>
+   </li>
+   <li class="toctree-l2 has-children">
+    <a class="reference internal" href="python_api/op/index.html">
+     hidet.op
+    </a>
+    <input class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" type="checkbox"/>
+    <label for="toctree-checkbox-4">
+     <i class="fas fa-chevron-down">
+     </i>
+    </label>
+    <ul>
+     <li class="toctree-l3">
+      <a class="reference internal" href="python_api/op/cross_entropy.html">
+       slapo.op.cross_entropy
+      </a>
+     </li>
+     <li class="toctree-l3">
+      <a class="reference internal" href="python_api/op/linear.html">
+       slapo.op.linear
+      </a>
+     </li>
+    </ul>
+   </li>
   </ul>
  </li>
  <li class="toctree-l1 current active">
@@ -233,6 +319,7 @@ title="Source repository"
  <a href="#A"><strong>A</strong></a>
  | <a href="#C"><strong>C</strong></a>
  | <a href="#D"><strong>D</strong></a>
+ | <a href="#E"><strong>E</strong></a>
  | <a href="#F"><strong>F</strong></a>
  | <a href="#G"><strong>G</strong></a>
  | <a href="#I"><strong>I</strong></a>
@@ -247,23 +334,26 @@ title="Source repository"
  | <a href="#T"><strong>T</strong></a>
  | <a href="#U"><strong>U</strong></a>
  | <a href="#V"><strong>V</strong></a>
+ | <a href="#W"><strong>W</strong></a>
  
 </div>
 <h2 id="A">A</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="python_api/root.html#slapo.ABC">ABC (class in slapo)</a>
-</li>
-      <li><a href="python_api/root.html#slapo.abstractmethod">abstractmethod() (in module slapo)</a>
-</li>
       <li><a href="python_api/root.html#slapo.Symbol.add">add() (slapo.Symbol method)</a>
+</li>
+      <li><a href="python_api/root.html#slapo.all_gather_forward_output">all_gather_forward_output() (in module slapo)</a>
+</li>
+      <li><a href="python_api/model_dialect/deepspeed/pipeline.html#slapo.model_dialect.deepspeed.pipeline.analyze_tie_ranks">analyze_tie_ranks() (in module slapo.model_dialect.deepspeed.pipeline)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="python_api/root.html#slapo.all_gather_forward_output">all_gather_forward_output() (in module slapo)</a>
-</li>
       <li><a href="python_api/root.html#slapo.analyze_tie_weights">analyze_tie_weights() (in module slapo)</a>
+
+      <ul>
+        <li><a href="python_api/pipeline.html#slapo.pipeline.analyze_tie_weights">(in module slapo.pipeline)</a>
 </li>
+      </ul></li>
       <li><a href="python_api/root.html#slapo.partial.args">args (slapo.partial attribute)</a>
 </li>
   </ul></td>
@@ -278,12 +368,16 @@ title="Source repository"
 </li>
       <li><a href="python_api/root.html#slapo.Space.clone">clone() (slapo.Space method)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="python_api/root.html#slapo.Database.commit">commit() (slapo.Database method)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="python_api/root.html#slapo.consolidate_model">consolidate_model() (in module slapo)</a>
+
+      <ul>
+        <li><a href="python_api/schedule.html#slapo.schedule.consolidate_model">(in module slapo.schedule)</a>
 </li>
+      </ul></li>
       <li><a href="python_api/root.html#slapo.OrderedDict.copy">copy() (slapo.OrderedDict method)</a>
 </li>
       <li><a href="python_api/root.html#slapo.Space.create_symbol">create_symbol() (slapo.Space method)</a>
@@ -296,11 +390,29 @@ title="Source repository"
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="python_api/root.html#slapo.Database">Database (class in slapo)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="python_api/root.html#slapo.dataclass">dataclass() (in module slapo)</a>
 </li>
+      <li><a href="python_api/model_dialect/deepspeed/pipeline.html#slapo.model_dialect.deepspeed.pipeline.decode_metadata">decode_metadata() (in module slapo.model_dialect.deepspeed.pipeline)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="python_api/model_dialect/deepspeed/pipeline.html#slapo.model_dialect.deepspeed.pipeline.deepspeed_pipe_engine">deepspeed_pipe_engine() (in module slapo.model_dialect.deepspeed.pipeline)</a>
+</li>
+      <li><a href="python_api/model_dialect/deepspeed/pipeline.html#slapo.model_dialect.deepspeed.pipeline.DeepSpeedPipeStageWrapper">DeepSpeedPipeStageWrapper (class in slapo.model_dialect.deepspeed.pipeline)</a>
+</li>
       <li><a href="python_api/root.html#slapo.DictWithValidation">DictWithValidation (class in slapo)</a>
+
+      <ul>
+        <li><a href="python_api/schedule.html#slapo.schedule.DictWithValidation">(class in slapo.schedule)</a>
+</li>
+      </ul></li>
+  </ul></td>
+</tr></table>
+
+<h2 id="E">E</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="python_api/model_dialect/deepspeed/pipeline.html#slapo.model_dialect.deepspeed.pipeline.encode_metadata">encode_metadata() (in module slapo.model_dialect.deepspeed.pipeline)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -312,6 +424,32 @@ title="Source repository"
 </li>
       <li><a href="python_api/root.html#slapo.Symbol.fix_at">fix_at() (slapo.Symbol method)</a>
 </li>
+      <li><a href="python_api/model_dialect/deepspeed/pipeline.html#slapo.model_dialect.deepspeed.pipeline.flat_and_name_tensor_list">flat_and_name_tensor_list() (in module slapo.model_dialect.deepspeed.pipeline)</a>
+</li>
+      <li><a href="python_api/model_dialect/deepspeed/pipeline.html#slapo.model_dialect.deepspeed.pipeline.flatten">flatten() (in module slapo.model_dialect.deepspeed.pipeline)</a>
+</li>
+      <li><a href="python_api/root.html#slapo.LinearWithSeparateBias.forward">forward() (slapo.LinearWithSeparateBias method)</a>
+
+      <ul>
+        <li><a href="python_api/model_dialect/deepspeed/pipeline.html#slapo.model_dialect.deepspeed.pipeline.DeepSpeedPipeStageWrapper.forward">(slapo.model_dialect.deepspeed.pipeline.DeepSpeedPipeStageWrapper method)</a>
+</li>
+        <li><a href="python_api/root.html#slapo.ModulePattern.forward">(slapo.ModulePattern method)</a>
+</li>
+        <li><a href="python_api/op/cross_entropy.html#slapo.op.cross_entropy.ParallelCrossEntropy.forward">(slapo.op.cross_entropy.ParallelCrossEntropy method)</a>
+</li>
+        <li><a href="python_api/op/linear.html#slapo.op.linear.FusedQKV.forward">(slapo.op.linear.FusedQKV method)</a>
+</li>
+        <li><a href="python_api/op/linear.html#slapo.op.linear.LinearWithSeparateBias.forward">(slapo.op.linear.LinearWithSeparateBias method)</a>
+</li>
+        <li><a href="python_api/root.html#slapo.Pattern.forward">(slapo.Pattern method)</a>
+</li>
+        <li><a href="python_api/pattern.html#slapo.pattern.ModulePattern.forward">(slapo.pattern.ModulePattern method)</a>
+</li>
+        <li><a href="python_api/pattern.html#slapo.pattern.Pattern.forward">(slapo.pattern.Pattern method)</a>
+</li>
+        <li><a href="python_api/schedule.html#slapo.schedule.SubgraphWrapper.forward">(slapo.schedule.SubgraphWrapper method)</a>
+</li>
+      </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="python_api/root.html#slapo.OrderedDict.fromkeys">fromkeys() (slapo.OrderedDict method)</a>
@@ -320,19 +458,29 @@ title="Source repository"
 </li>
       <li><a href="python_api/root.html#slapo.FunctionType">FunctionType (in module slapo)</a>
 </li>
+      <li><a href="python_api/op/linear.html#slapo.op.linear.FusedQKV">FusedQKV (class in slapo.op.linear)</a>
+</li>
   </ul></td>
 </tr></table>
 
 <h2 id="G">G</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="python_api/root.html#slapo.get_dialect_cls">get_dialect_cls() (in module slapo)</a>
+      <li><a href="python_api/model_dialect/registry.html#slapo.model_dialect.registry.get_all_dialects">get_all_dialects() (in module slapo.model_dialect.registry)</a>
 </li>
+      <li><a href="python_api/root.html#slapo.get_dialect_cls">get_dialect_cls() (in module slapo)</a>
+
+      <ul>
+        <li><a href="python_api/model_dialect/registry.html#slapo.model_dialect.registry.get_dialect_cls">(in module slapo.model_dialect.registry)</a>
+</li>
+      </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="python_api/root.html#slapo.get_logger">get_logger() (in module slapo)</a>
 </li>
       <li><a href="python_api/root.html#slapo.get_output_type_after_sharding">get_output_type_after_sharding() (in module slapo)</a>
+</li>
+      <li><a href="python_api/model_dialect/deepspeed/pipeline.html#slapo.model_dialect.deepspeed.pipeline.get_simple_nested_list_str">get_simple_nested_list_str() (in module slapo.model_dialect.deepspeed.pipeline)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -340,12 +488,24 @@ title="Source repository"
 <h2 id="I">I</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="python_api/root.html#slapo.init_empty_weights">init_empty_weights() (in module slapo)</a>
+      <li><a href="python_api/model_dialect/deepspeed/engine.html#slapo.model_dialect.deepspeed.engine.init_ds_engine">init_ds_engine() (in module slapo.model_dialect.deepspeed.engine)</a>
 </li>
-      <li><a href="python_api/root.html#slapo.init_target_engine">init_target_engine() (in module slapo)</a>
+      <li><a href="python_api/root.html#slapo.init_empty_weights">init_empty_weights() (in module slapo)</a>
+
+      <ul>
+        <li><a href="python_api/initialization.html#slapo.initialization.init_empty_weights">(in module slapo.initialization)</a>
+</li>
+      </ul></li>
+      <li><a href="python_api/initialization.html#slapo.initialization.init_on_device">init_on_device() (in module slapo.initialization)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="python_api/root.html#slapo.init_target_engine">init_target_engine() (in module slapo)</a>
+
+      <ul>
+        <li><a href="python_api/schedule.html#slapo.schedule.init_target_engine">(in module slapo.schedule)</a>
+</li>
+      </ul></li>
       <li><a href="python_api/root.html#slapo.Symbol.is_fixed">is_fixed() (slapo.Symbol method)</a>
 </li>
       <li><a href="python_api/root.html#slapo.OrderedDict.items">items() (slapo.OrderedDict method)</a>
@@ -357,11 +517,7 @@ title="Source repository"
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="python_api/root.html#slapo.OrderedDict.keys">keys() (slapo.OrderedDict method)</a>
-
-      <ul>
-        <li><a href="python_api/root.html#slapo.Proxy.keys">(slapo.Proxy method)</a>
 </li>
-      </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="python_api/root.html#slapo.partial.keywords">keywords (slapo.partial attribute)</a>
@@ -372,10 +528,16 @@ title="Source repository"
 <h2 id="L">L</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="python_api/root.html#slapo.Database.load">load() (slapo.Database method)</a>
+      <li><a href="python_api/root.html#slapo.LinearWithSeparateBias">LinearWithSeparateBias (class in slapo)</a>
+
+      <ul>
+        <li><a href="python_api/op/linear.html#slapo.op.linear.LinearWithSeparateBias">(class in slapo.op.linear)</a>
 </li>
+      </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="python_api/root.html#slapo.Database.load">load() (slapo.Database method)</a>
+</li>
       <li><a href="python_api/root.html#slapo.Space.log_space">log_space() (slapo.Space method)</a>
 </li>
   </ul></td>
@@ -390,9 +552,35 @@ title="Source repository"
       <ul>
         <li><a href="python_api/root.html#module-slapo">slapo</a>
 </li>
+        <li><a href="python_api/initialization.html#module-slapo.initialization">slapo.initialization</a>
+</li>
+        <li><a href="python_api/model_dialect/deepspeed/engine.html#module-slapo.model_dialect.deepspeed.engine">slapo.model_dialect.deepspeed.engine</a>
+</li>
+        <li><a href="python_api/model_dialect/deepspeed/pipeline.html#module-slapo.model_dialect.deepspeed.pipeline">slapo.model_dialect.deepspeed.pipeline</a>
+</li>
+        <li><a href="python_api/model_dialect/registry.html#module-slapo.model_dialect.registry">slapo.model_dialect.registry</a>
+</li>
+        <li><a href="python_api/op/cross_entropy.html#module-slapo.op.cross_entropy">slapo.op.cross_entropy</a>
+</li>
+        <li><a href="python_api/op/linear.html#module-slapo.op.linear">slapo.op.linear</a>
+</li>
+        <li><a href="python_api/pattern.html#module-slapo.pattern">slapo.pattern</a>
+</li>
+        <li><a href="python_api/pipeline.html#module-slapo.pipeline">slapo.pipeline</a>
+</li>
+        <li><a href="python_api/schedule.html#module-slapo.schedule">slapo.schedule</a>
+</li>
+        <li><a href="python_api/tracer.html#module-slapo.tracer">slapo.tracer</a>
+</li>
       </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="python_api/root.html#slapo.ModulePattern">ModulePattern (class in slapo)</a>
+
+      <ul>
+        <li><a href="python_api/pattern.html#slapo.pattern.ModulePattern">(class in slapo.pattern)</a>
+</li>
+      </ul></li>
       <li><a href="python_api/root.html#slapo.OrderedDict.move_to_end">move_to_end() (slapo.OrderedDict method)</a>
 </li>
   </ul></td>
@@ -417,17 +605,21 @@ title="Source repository"
 <h2 id="P">P</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="python_api/op/cross_entropy.html#slapo.op.cross_entropy.ParallelCrossEntropy">ParallelCrossEntropy (class in slapo.op.cross_entropy)</a>
+</li>
       <li><a href="python_api/root.html#slapo.partial">partial (class in slapo)</a>
 </li>
       <li><a href="python_api/root.html#slapo.Pattern">Pattern (class in slapo)</a>
+
+      <ul>
+        <li><a href="python_api/pattern.html#slapo.pattern.Pattern">(class in slapo.pattern)</a>
 </li>
+      </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="python_api/root.html#slapo.OrderedDict.pop">pop() (slapo.OrderedDict method)</a>
 </li>
       <li><a href="python_api/root.html#slapo.OrderedDict.popitem">popitem() (slapo.OrderedDict method)</a>
-</li>
-      <li><a href="python_api/root.html#slapo.Proxy">Proxy (class in slapo)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -435,12 +627,22 @@ title="Source repository"
 <h2 id="R">R</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="python_api/root.html#slapo.reduce_backward_grad">reduce_backward_grad() (in module slapo)</a>
+</li>
+      <li><a href="python_api/root.html#slapo.reduce_forward_output">reduce_forward_output() (in module slapo)</a>
+</li>
       <li><a href="python_api/root.html#slapo.reduce_scatter_forward_output">reduce_scatter_forward_output() (in module slapo)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="python_api/root.html#slapo.register_primitive">register_primitive() (in module slapo)</a>
+      <li><a href="python_api/model_dialect/registry.html#slapo.model_dialect.registry.register_model_dialect">register_model_dialect() (in module slapo.model_dialect.registry)</a>
 </li>
+      <li><a href="python_api/root.html#slapo.register_primitive">register_primitive() (in module slapo)</a>
+
+      <ul>
+        <li><a href="python_api/schedule.html#slapo.schedule.register_primitive">(in module slapo.schedule)</a>
+</li>
+      </ul></li>
       <li><a href="python_api/root.html#slapo.Space.reset">reset() (slapo.Space method)</a>
 </li>
   </ul></td>
@@ -449,8 +651,14 @@ title="Source repository"
 <h2 id="S">S</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="python_api/root.html#slapo.ScheduleMetadata">ScheduleMetadata (class in slapo)</a>
+      <li><a href="python_api/root.html#slapo.scatter_forward_output">scatter_forward_output() (in module slapo)</a>
 </li>
+      <li><a href="python_api/root.html#slapo.ScheduleMetadata">ScheduleMetadata (class in slapo)</a>
+
+      <ul>
+        <li><a href="python_api/schedule.html#slapo.schedule.ScheduleMetadata">(class in slapo.schedule)</a>
+</li>
+      </ul></li>
       <li><a href="python_api/root.html#slapo.OrderedDict.setdefault">setdefault() (slapo.OrderedDict method)</a>
 </li>
       <li>
@@ -460,9 +668,81 @@ title="Source repository"
         <li><a href="python_api/root.html#module-slapo">module</a>
 </li>
       </ul></li>
+      <li>
+    slapo.initialization
+
+      <ul>
+        <li><a href="python_api/initialization.html#module-slapo.initialization">module</a>
+</li>
+      </ul></li>
+      <li>
+    slapo.model_dialect.deepspeed.engine
+
+      <ul>
+        <li><a href="python_api/model_dialect/deepspeed/engine.html#module-slapo.model_dialect.deepspeed.engine">module</a>
+</li>
+      </ul></li>
+      <li>
+    slapo.model_dialect.deepspeed.pipeline
+
+      <ul>
+        <li><a href="python_api/model_dialect/deepspeed/pipeline.html#module-slapo.model_dialect.deepspeed.pipeline">module</a>
+</li>
+      </ul></li>
+      <li>
+    slapo.model_dialect.registry
+
+      <ul>
+        <li><a href="python_api/model_dialect/registry.html#module-slapo.model_dialect.registry">module</a>
+</li>
+      </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li>
+    slapo.op.cross_entropy
+
+      <ul>
+        <li><a href="python_api/op/cross_entropy.html#module-slapo.op.cross_entropy">module</a>
+</li>
+      </ul></li>
+      <li>
+    slapo.op.linear
+
+      <ul>
+        <li><a href="python_api/op/linear.html#module-slapo.op.linear">module</a>
+</li>
+      </ul></li>
+      <li>
+    slapo.pattern
+
+      <ul>
+        <li><a href="python_api/pattern.html#module-slapo.pattern">module</a>
+</li>
+      </ul></li>
+      <li>
+    slapo.pipeline
+
+      <ul>
+        <li><a href="python_api/pipeline.html#module-slapo.pipeline">module</a>
+</li>
+      </ul></li>
+      <li>
+    slapo.schedule
+
+      <ul>
+        <li><a href="python_api/schedule.html#module-slapo.schedule">module</a>
+</li>
+      </ul></li>
+      <li>
+    slapo.tracer
+
+      <ul>
+        <li><a href="python_api/tracer.html#module-slapo.tracer">module</a>
+</li>
+      </ul></li>
       <li><a href="python_api/root.html#slapo.Space">Space (class in slapo)</a>
+</li>
+      <li><a href="python_api/schedule.html#slapo.schedule.SubgraphWrapper">SubgraphWrapper (class in slapo.schedule)</a>
 </li>
       <li><a href="python_api/root.html#slapo.Symbol">Symbol (class in slapo)</a>
 </li>
@@ -474,17 +754,27 @@ title="Source repository"
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="python_api/root.html#slapo.Space.to_dict">to_dict() (slapo.Space method)</a>
 </li>
+      <li><a href="python_api/root.html#slapo.trace">trace() (in module slapo)</a>
+
+      <ul>
+        <li><a href="python_api/tracer.html#slapo.tracer.trace">(in module slapo.tracer)</a>
+</li>
+      </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="python_api/root.html#slapo.trace">trace() (in module slapo)</a>
-</li>
       <li><a href="python_api/root.html#slapo.trace_module">trace_module() (in module slapo)</a>
+</li>
+      <li><a href="python_api/root.html#slapo.transfer_hooks">transfer_hooks() (in module slapo)</a>
 </li>
   </ul></td>
 </tr></table>
 
 <h2 id="U">U</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="python_api/model_dialect/deepspeed/pipeline.html#slapo.model_dialect.deepspeed.pipeline.unflatten">unflatten() (in module slapo.model_dialect.deepspeed.pipeline)</a>
+</li>
+  </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="python_api/root.html#slapo.OrderedDict.update">update() (slapo.OrderedDict method)</a>
 </li>
@@ -495,6 +785,18 @@ title="Source repository"
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="python_api/root.html#slapo.OrderedDict.values">values() (slapo.OrderedDict method)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="python_api/op/cross_entropy.html#slapo.op.cross_entropy.vocab_parallel_cross_entropy">vocab_parallel_cross_entropy() (in module slapo.op.cross_entropy)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="W">W</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="python_api/model_dialect/deepspeed/pipeline.html#slapo.model_dialect.deepspeed.pipeline.WrappedTypeCode">WrappedTypeCode (class in slapo.model_dialect.deepspeed.pipeline)</a>
 </li>
   </ul></td>
 </tr></table>

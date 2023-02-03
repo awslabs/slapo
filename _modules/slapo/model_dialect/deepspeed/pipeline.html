@@ -1,0 +1,804 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>slapo.model_dialect.deepspeed.pipeline &#8212; Slapo Documentation</title>
+    
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../../../_static/styles/theme.css?digest=1999514e3f237ded88cf" rel="stylesheet">
+<link href="../../../../_static/styles/pydata-sphinx-theme.css?digest=1999514e3f237ded88cf" rel="stylesheet">
+
+    
+  <link rel="stylesheet"
+    href="../../../../_static/vendor/fontawesome/5.13.0/css/all.min.css">
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+    href="../../../../_static/vendor/fontawesome/5.13.0/webfonts/fa-solid-900.woff2">
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+    href="../../../../_static/vendor/fontawesome/5.13.0/webfonts/fa-brands-400.woff2">
+
+    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css" />
+    <link rel="stylesheet" href="../../../../_static/styles/sphinx-book-theme.css?digest=5115cc725059bd94278eecd172e13a965bf8f5a9" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/graphviz.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/copybutton.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/sg_gallery.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/sg_gallery-binder.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/sg_gallery-dataframe.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/sg_gallery-rendered-html.css" />
+    
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../../../_static/scripts/pydata-sphinx-theme.js?digest=1999514e3f237ded88cf">
+
+    <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
+    <script src="../../../../_static/jquery.js"></script>
+    <script src="../../../../_static/underscore.js"></script>
+    <script src="../../../../_static/doctools.js"></script>
+    <script src="../../../../_static/clipboard.min.js"></script>
+    <script src="../../../../_static/copybutton.js"></script>
+    <script src="../../../../_static/scripts/sphinx-book-theme.js?digest=9c920249402e914e316237a7dbc6769907cce411"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="docsearch:language" content="None">
+    
+
+    <!-- Google Analytics -->
+    
+  </head>
+  <body data-spy="scroll" data-target="#bd-toc-nav" data-offset="60">
+<!-- Checkboxes to toggle the left sidebar -->
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle navigation sidebar">
+<label class="overlay overlay-navbar" for="__navigation">
+    <div class="visually-hidden">Toggle navigation sidebar</div>
+</label>
+<!-- Checkboxes to toggle the in-page toc -->
+<input type="checkbox" class="sidebar-toggle" name="__page-toc" id="__page-toc" aria-label="Toggle in-page Table of Contents">
+<label class="overlay overlay-pagetoc" for="__page-toc">
+    <div class="visually-hidden">Toggle in-page Table of Contents</div>
+</label>
+<!-- Headers at the top -->
+<div class="announcement header-item noprint"></div>
+<div class="header header-item noprint"></div>
+
+    
+    <div class="container-fluid" id="banner"></div>
+
+    
+
+    <div class="container-xl">
+      <div class="row">
+          
+<!-- Sidebar -->
+<div class="bd-sidebar noprint" id="site-navigation">
+    <div class="bd-sidebar__content">
+        <div class="bd-sidebar__top"><div class="navbar-brand-box">
+    <a class="navbar-brand text-wrap" href="../../../../index.html">
+      
+      
+      
+    </a>
+</div><form class="bd-search d-flex align-items-center" action="../../../../search.html" method="get">
+  <i class="icon fas fa-search"></i>
+  <input type="search" class="form-control" name="q" id="search-input" placeholder="Search the docs ..." aria-label="Search the docs ..." autocomplete="off" >
+</form><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item active">
+        <p aria-level="2" class="caption" role="heading">
+ <span class="caption-text">
+  Getting Started
+ </span>
+</p>
+<ul class="nav bd-sidenav">
+ <li class="toctree-l1">
+  <a class="reference internal" href="../../../../setup/index.html">
+   Installation
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="../../../../gallery/quick-start.html">
+   Quick Start
+  </a>
+ </li>
+</ul>
+<p aria-level="2" class="caption" role="heading">
+ <span class="caption-text">
+  Reference
+ </span>
+</p>
+<ul class="nav bd-sidenav">
+ <li class="toctree-l1 has-children">
+  <a class="reference internal" href="../../../../python_api/index.html">
+   Python API
+  </a>
+  <input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/>
+  <label for="toctree-checkbox-1">
+   <i class="fas fa-chevron-down">
+   </i>
+  </label>
+  <ul>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../../../../python_api/root.html">
+     slapo
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../../../../python_api/schedule.html">
+     slapo.schedule
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../../../../python_api/initialization.html">
+     slapo.initialization
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../../../../python_api/pattern.html">
+     slapo.pattern
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../../../../python_api/pipeline.html">
+     slapo.pipeline
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../../../../python_api/tracer.html">
+     slapo.tracer
+    </a>
+   </li>
+   <li class="toctree-l2 has-children">
+    <a class="reference internal" href="../../../../python_api/model_dialect/index.html">
+     hidet.model_dialect
+    </a>
+    <input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/>
+    <label for="toctree-checkbox-2">
+     <i class="fas fa-chevron-down">
+     </i>
+    </label>
+    <ul>
+     <li class="toctree-l3">
+      <a class="reference internal" href="../../../../python_api/model_dialect/registry.html">
+       slapo.model_dialect.registry
+      </a>
+     </li>
+     <li class="toctree-l3 has-children">
+      <a class="reference internal" href="../../../../python_api/model_dialect/deepspeed/index.html">
+       hidet.model_dialect.deepspeed
+      </a>
+      <input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/>
+      <label for="toctree-checkbox-3">
+       <i class="fas fa-chevron-down">
+       </i>
+      </label>
+      <ul>
+       <li class="toctree-l4">
+        <a class="reference internal" href="../../../../python_api/model_dialect/deepspeed/engine.html">
+         slapo.model_dialect.deepspeed.engine
+        </a>
+       </li>
+       <li class="toctree-l4">
+        <a class="reference internal" href="../../../../python_api/model_dialect/deepspeed/pipeline.html">
+         slapo.model_dialect.deepspeed.pipeline
+        </a>
+       </li>
+      </ul>
+     </li>
+    </ul>
+   </li>
+   <li class="toctree-l2 has-children">
+    <a class="reference internal" href="../../../../python_api/op/index.html">
+     hidet.op
+    </a>
+    <input class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" type="checkbox"/>
+    <label for="toctree-checkbox-4">
+     <i class="fas fa-chevron-down">
+     </i>
+    </label>
+    <ul>
+     <li class="toctree-l3">
+      <a class="reference internal" href="../../../../python_api/op/cross_entropy.html">
+       slapo.op.cross_entropy
+      </a>
+     </li>
+     <li class="toctree-l3">
+      <a class="reference internal" href="../../../../python_api/op/linear.html">
+       slapo.op.linear
+      </a>
+     </li>
+    </ul>
+   </li>
+  </ul>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="../../../../genindex.html">
+   Index
+  </a>
+ </li>
+</ul>
+
+    </div>
+</nav></div>
+        <div class="bd-sidebar__bottom">
+             <!-- To handle the deprecated key -->
+            
+        </div>
+    </div>
+    <div id="rtd-footer-container"></div>
+</div>
+
+
+          
+
+
+          
+<!-- A tiny helper pixel to detect if we've scrolled -->
+<div class="sbt-scroll-pixel-helper"></div>
+<!-- Main content -->
+<div class="col py-0 content-container">
+    
+    <div class="header-article row sticky-top noprint">
+        
+
+
+
+<div class="col py-1 d-flex header-article-main">
+    <div class="header-article__left">
+        
+        <label for="__navigation"
+  class="headerbtn"
+  data-toggle="tooltip"
+data-placement="right"
+title="Toggle navigation"
+>
+  
+
+<span class="headerbtn__icon-container">
+  <i class="fas fa-bars"></i>
+  </span>
+
+</label>
+
+        
+    </div>
+    <div class="header-article__right">
+<button onclick="toggleFullScreen()"
+  class="headerbtn"
+  data-toggle="tooltip"
+data-placement="bottom"
+title="Fullscreen mode"
+>
+  
+
+<span class="headerbtn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+<a href="https://github.com/awslabs/slapo"
+   class="headerbtn"
+   data-toggle="tooltip"
+data-placement="bottom"
+title="Source repository"
+>
+  
+
+<span class="headerbtn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+
+</a>
+
+    </div>
+</div>
+
+<!-- Table of contents -->
+<div class="col-md-3 bd-toc show noprint">
+</div>
+    </div>
+    <div class="article row">
+        <div class="col pl-md-3 pl-lg-5 content-container">
+            <!-- Table of contents that is only displayed when printing the page -->
+            <div id="jb-print-docs-body" class="onlyprint">
+                <h1></h1>
+                <!-- Table of contents -->
+                <div id="print-main-content">
+                    <div id="jb-print-toc">
+                        
+                    </div>
+                </div>
+            </div>
+            <main id="main-content" role="main">
+                
+              <div>
+                
+  <h1>Source code for slapo.model_dialect.deepspeed.pipeline</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.</span>
+<span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
+<span class="c1"># pylint: disable=logging-fstring-interpolation</span>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span> <span class="nn">enum</span> <span class="kn">import</span> <span class="n">Enum</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">distributed</span> <span class="k">as</span> <span class="n">dist</span>
+<span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">fx</span><span class="p">,</span> <span class="n">nn</span>
+
+<span class="kn">from</span> <span class="nn">..registry</span> <span class="kn">import</span> <span class="n">register_model_dialect</span>
+<span class="kn">from</span> <span class="nn">...logger</span> <span class="kn">import</span> <span class="n">get_logger</span><span class="p">,</span> <span class="n">DEBUG</span><span class="p">,</span> <span class="n">INFO</span>
+
+<span class="c1"># Change INFO to DEBUG for more verbose logging.</span>
+<span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">(</span><span class="s2">&quot;DS-Pipeline&quot;</span><span class="p">,</span> <span class="n">INFO</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="WrappedTypeCode"><a class="viewcode-back" href="../../../../python_api/model_dialect/deepspeed/pipeline.html#slapo.model_dialect.deepspeed.pipeline.WrappedTypeCode">[docs]</a><span class="k">class</span> <span class="nc">WrappedTypeCode</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Type code for wrapped tensor for inter-GPU communication.&quot;&quot;&quot;</span>
+
+    <span class="n">TORCH_TENSOR</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">SCALAR</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">TRUE_NONE</span> <span class="o">=</span> <span class="mi">2</span>
+    <span class="n">LIST</span> <span class="o">=</span> <span class="mi">3</span>
+    <span class="n">TUPLE</span> <span class="o">=</span> <span class="mi">4</span></div>
+
+
+<div class="viewcode-block" id="get_simple_nested_list_str"><a class="viewcode-back" href="../../../../python_api/model_dialect/deepspeed/pipeline.html#slapo.model_dialect.deepspeed.pipeline.get_simple_nested_list_str">[docs]</a><span class="k">def</span> <span class="nf">get_simple_nested_list_str</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A helper function that prints a nested structure without printing</span>
+<span class="sd">    tensor values.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">data</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">ret</span> <span class="o">=</span> <span class="s2">&quot;None&quot;</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="n">torch</span><span class="o">.</span><span class="n">Size</span><span class="p">([</span><span class="mi">1</span><span class="p">]):</span>
+            <span class="n">ret</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;scalar({data.item()})&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">ret</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;tensor{tuple(data.shape)}&quot;</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
+        <span class="n">ret</span> <span class="o">=</span> <span class="s2">&quot;,&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="sa">f</span><span class="s2">&quot;{get_simple_nested_list_str(elt)}&quot;</span> <span class="k">for</span> <span class="n">elt</span> <span class="ow">in</span> <span class="n">data</span><span class="p">])</span>
+        <span class="n">ret</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{ret}</span><span class="s2">]&quot;</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)):</span>
+        <span class="n">ret</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported data type {type(data)}&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">ret</span></div>
+
+
+<span class="k">def</span> <span class="nf">wrap_to_torch_tensor</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">device</span><span class="p">):</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">WrappedTypeCode</span><span class="o">.</span><span class="n">TORCH_TENSOR</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">data</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">desired_type</span> <span class="o">=</span> <span class="n">WrappedTypeCode</span><span class="o">.</span><span class="n">TRUE_NONE</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+        <span class="n">desired_type</span> <span class="o">=</span> <span class="n">WrappedTypeCode</span><span class="o">.</span><span class="n">LIST</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+        <span class="n">desired_type</span> <span class="o">=</span> <span class="n">WrappedTypeCode</span><span class="o">.</span><span class="n">TUPLE</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)):</span>
+        <span class="n">desired_type</span> <span class="o">=</span> <span class="n">WrappedTypeCode</span><span class="o">.</span><span class="n">SCALAR</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported data type {type(data)}&quot;</span><span class="p">)</span>
+    <span class="n">wrapped</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">wrapped</span><span class="p">,</span> <span class="n">desired_type</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">unwrap_torch_tensor</span><span class="p">(</span><span class="n">tensor</span><span class="p">,</span> <span class="n">desired_type</span><span class="p">):</span>
+    <span class="n">desired_type</span> <span class="o">=</span> <span class="n">WrappedTypeCode</span><span class="p">(</span><span class="n">desired_type</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">desired_type</span> <span class="o">==</span> <span class="n">WrappedTypeCode</span><span class="o">.</span><span class="n">TRUE_NONE</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">desired_type</span> <span class="o">==</span> <span class="n">WrappedTypeCode</span><span class="o">.</span><span class="n">TORCH_TENSOR</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">tensor</span>
+    <span class="k">if</span> <span class="n">desired_type</span> <span class="ow">in</span> <span class="p">[</span><span class="n">WrappedTypeCode</span><span class="o">.</span><span class="n">LIST</span><span class="p">,</span> <span class="n">WrappedTypeCode</span><span class="o">.</span><span class="n">SCALAR</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="n">tensor</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">desired_type</span> <span class="o">==</span> <span class="n">WrappedTypeCode</span><span class="o">.</span><span class="n">TUPLE</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">tensor</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
+    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported type code </span><span class="si">{desired_type}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="flat_and_name_tensor_list"><a class="viewcode-back" href="../../../../python_api/model_dialect/deepspeed/pipeline.html#slapo.model_dialect.deepspeed.pipeline.flat_and_name_tensor_list">[docs]</a><span class="k">def</span> <span class="nf">flat_and_name_tensor_list</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">suffix</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Flat the given list and assign the itemized name to each tensor.</span>
+<span class="sd">    This is mainly used for liveness.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">name_n_value</span> <span class="o">=</span> <span class="p">[(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{name}{suffix}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">data</span><span class="p">)]</span>
+    <span class="c1"># Note that the dict keys are droppped.</span>
+    <span class="n">values</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">values</span><span class="p">()</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="k">else</span> <span class="n">data</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">))</span> <span class="ow">and</span> <span class="nb">any</span><span class="p">(</span>
+        <span class="nb">isinstance</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">values</span>
+    <span class="p">):</span>
+        <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">tensor</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">values</span><span class="p">):</span>
+            <span class="n">name_n_value</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
+                <span class="n">flat_and_name_tensor_list</span><span class="p">(</span><span class="n">tensor</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{suffix}</span><span class="s2">.</span><span class="si">{idx}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+    <span class="k">return</span> <span class="n">name_n_value</span></div>
+
+
+<div class="viewcode-block" id="encode_metadata"><a class="viewcode-back" href="../../../../python_api/model_dialect/deepspeed/pipeline.html#slapo.model_dialect.deepspeed.pipeline.encode_metadata">[docs]</a><span class="k">def</span> <span class="nf">encode_metadata</span><span class="p">(</span><span class="n">metadata</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Encode metadata to a string.</span>
+<span class="sd">    The metadata format is:</span>
+<span class="sd">        [&lt;path&gt;,&lt;type&gt;), (&lt;path&gt;,&lt;type&gt;), ...]</span>
+<span class="sd">    After encoding: &quot;&lt;path&gt;,&lt;type&gt;|&lt;path&gt;,&lt;type&gt;|...&quot;</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="s2">&quot;|&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{p}</span><span class="s2">,</span><span class="si">{t}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">p</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">metadata</span><span class="p">])</span></div>
+
+
+<div class="viewcode-block" id="decode_metadata"><a class="viewcode-back" href="../../../../python_api/model_dialect/deepspeed/pipeline.html#slapo.model_dialect.deepspeed.pipeline.decode_metadata">[docs]</a><span class="k">def</span> <span class="nf">decode_metadata</span><span class="p">(</span><span class="n">metadata_str</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Decode metadata from a string.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">m</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">metadata_str</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;|&quot;</span><span class="p">)]</span></div>
+
+
+<div class="viewcode-block" id="flatten"><a class="viewcode-back" href="../../../../python_api/model_dialect/deepspeed/pipeline.html#slapo.model_dialect.deepspeed.pipeline.flatten">[docs]</a><span class="k">def</span> <span class="nf">flatten</span><span class="p">(</span><span class="n">outputs</span><span class="p">,</span> <span class="n">device</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ret</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Flatten nested structure of outputs and make sure every</span>
+<span class="sd">    output is a torch.Tensor. We maintain a metadata to restore</span>
+<span class="sd">    the original structure. The metadata format is:</span>
+<span class="sd">        [&lt;path&gt;,&lt;type&gt;), (&lt;path&gt;,&lt;type&gt;), ...]</span>
+<span class="sd">    - &lt;path&gt; is the path to the tensor in the nested structure. For example,</span>
+<span class="sd">     the paths of t1 and t2 in [[t1, t2]] are &quot;0.0&quot; and &quot;0.1&quot;. The path of</span>
+<span class="sd">     t1 and t2 in [[t1], [t2]] is &quot;0.0&quot; and &quot;1.0&quot;.</span>
+<span class="sd">    - &lt;type&gt; is WrappedTypeCode of the tensor.</span>
+<span class="sd">    Note that len(metadata) == len(ret)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">metadata</span> <span class="o">=</span> <span class="n">metadata</span> <span class="k">if</span> <span class="n">metadata</span> <span class="k">else</span> <span class="p">[]</span>
+    <span class="n">ret</span> <span class="o">=</span> <span class="n">ret</span> <span class="k">if</span> <span class="n">ret</span> <span class="k">else</span> <span class="p">[]</span>
+
+    <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">output</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">outputs</span><span class="p">):</span>
+        <span class="n">this_path</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{path}</span><span class="s2">.</span><span class="si">{idx}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="n">path</span> <span class="k">else</span> <span class="nb">str</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="p">(</span><span class="nb">tuple</span><span class="p">,</span> <span class="nb">list</span><span class="p">)):</span>
+            <span class="n">metadata</span><span class="p">,</span> <span class="n">ret</span> <span class="o">=</span> <span class="n">flatten</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">device</span><span class="p">,</span> <span class="n">this_path</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">ret</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="n">metadata</span><span class="p">,</span> <span class="n">ret</span> <span class="o">=</span> <span class="n">flatten</span><span class="p">(</span><span class="n">output</span><span class="o">.</span><span class="n">values</span><span class="p">(),</span> <span class="n">device</span><span class="p">,</span> <span class="n">this_path</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">ret</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># The output here could be a torch tensor or scalar.</span>
+            <span class="c1"># The latter will be wrapped to a torch.Tensor,</span>
+            <span class="c1"># so that it can be passed to the next stage via nccl.</span>
+            <span class="n">output</span><span class="p">,</span> <span class="n">desired_type</span> <span class="o">=</span> <span class="n">wrap_to_torch_tensor</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span>
+            <span class="n">ret</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">output</span><span class="p">)</span>
+            <span class="n">metadata</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">this_path</span><span class="p">,</span> <span class="n">desired_type</span><span class="o">.</span><span class="n">value</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">ret</span></div>
+
+
+<div class="viewcode-block" id="unflatten"><a class="viewcode-back" href="../../../../python_api/model_dialect/deepspeed/pipeline.html#slapo.model_dialect.deepspeed.pipeline.unflatten">[docs]</a><span class="k">def</span> <span class="nf">unflatten</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">metadata</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;The reverse function of &#39;flatten&#39;.&quot;&quot;&quot;</span>
+    <span class="n">unordered_args</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">metadata</span><span class="p">)</span>
+
+    <span class="c1"># Restore nested structure from metadata.</span>
+    <span class="k">for</span> <span class="n">arg</span><span class="p">,</span> <span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">desired_type</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">metadata</span><span class="p">):</span>
+        <span class="n">prev_ptr</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">curr_ptr</span> <span class="o">=</span> <span class="n">unordered_args</span>
+        <span class="n">idx</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">for</span> <span class="n">token</span> <span class="ow">in</span> <span class="n">path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">):</span>
+            <span class="n">idx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">token</span><span class="p">)</span>
+            <span class="k">while</span> <span class="nb">len</span><span class="p">(</span><span class="n">curr_ptr</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">curr_ptr</span><span class="o">.</span><span class="n">append</span><span class="p">([])</span>
+            <span class="n">prev_ptr</span> <span class="o">=</span> <span class="n">curr_ptr</span>
+            <span class="n">curr_ptr</span> <span class="o">=</span> <span class="n">curr_ptr</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+        <span class="n">arg</span> <span class="o">=</span> <span class="n">unwrap_torch_tensor</span><span class="p">(</span><span class="n">arg</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">desired_type</span><span class="p">))</span>
+        <span class="n">prev_ptr</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">arg</span>
+
+    <span class="c1"># Make everything tuple. Since we usually cut pipeline based on layer,</span>
+    <span class="c1"># so the tensors to be packed are usually the layer outputs, which are</span>
+    <span class="c1"># in tuple type. HF models also have some implementations based on tuple</span>
+    <span class="c1"># output, such as &quot;output[:1] + (None,) + output[1:]&quot;.</span>
+    <span class="k">def</span> <span class="nf">tupleize</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
+            <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">tupleize</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">data</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">data</span>
+
+    <span class="k">return</span> <span class="n">tupleize</span><span class="p">(</span><span class="n">unordered_args</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="analyze_tie_ranks"><a class="viewcode-back" href="../../../../python_api/model_dialect/deepspeed/pipeline.html#slapo.model_dialect.deepspeed.pipeline.analyze_tie_ranks">[docs]</a><span class="k">def</span> <span class="nf">analyze_tie_ranks</span><span class="p">(</span><span class="n">tie_weight_groups</span><span class="p">,</span> <span class="n">topology</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Analyze the ranks of the tied weights for DeepSpeed pipeline.&quot;&quot;&quot;</span>
+    <span class="n">tie_ranks</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">tie_stages</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">tie_weight_set</span> <span class="ow">in</span> <span class="n">tie_weight_groups</span><span class="p">:</span>
+        <span class="n">tie_stage_ranks</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">stage_id</span> <span class="ow">in</span> <span class="n">tie_weight_set</span><span class="p">:</span>
+            <span class="n">stage_ranks</span> <span class="o">=</span> <span class="n">topology</span><span class="o">.</span><span class="n">filter_match</span><span class="p">(</span><span class="n">pipe</span><span class="o">=</span><span class="n">stage_id</span><span class="p">)</span>
+            <span class="n">tie_stage_ranks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">stage_ranks</span><span class="p">)</span>
+
+        <span class="n">num_ranks_same_stage</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">tie_stage_ranks</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">num_stages</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">tie_stage_ranks</span><span class="p">)</span>
+        <span class="n">group_ranks</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_ranks_same_stage</span><span class="p">):</span>
+            <span class="n">sub_group_ranks</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_stages</span><span class="p">):</span>
+                <span class="n">sub_group_ranks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tie_stage_ranks</span><span class="p">[</span><span class="n">j</span><span class="p">][</span><span class="n">i</span><span class="p">])</span>
+            <span class="n">group_ranks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">sub_group_ranks</span><span class="p">))</span>
+        <span class="n">tie_ranks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">group_ranks</span><span class="p">)</span>
+
+        <span class="c1"># Record the stage IDs of this tied weight.</span>
+        <span class="n">tie_stages</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">sorted</span><span class="p">([</span><span class="n">stage_id</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">stage_id</span> <span class="ow">in</span> <span class="n">tie_weight_set</span><span class="p">]))</span>
+    <span class="k">return</span> <span class="n">tie_ranks</span><span class="p">,</span> <span class="n">tie_stages</span></div>
+
+
+<div class="viewcode-block" id="DeepSpeedPipeStageWrapper"><a class="viewcode-back" href="../../../../python_api/model_dialect/deepspeed/pipeline.html#slapo.model_dialect.deepspeed.pipeline.DeepSpeedPipeStageWrapper">[docs]</a><span class="nd">@register_model_dialect</span><span class="p">(</span><span class="s2">&quot;deepspeed&quot;</span><span class="p">,</span> <span class="s2">&quot;pipeline_stage&quot;</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">DeepSpeedPipeStageWrapper</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">mod</span><span class="p">:</span> <span class="n">fx</span><span class="o">.</span><span class="n">GraphModule</span><span class="p">,</span>
+        <span class="n">stage_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">total_stages</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">liveness</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">stage_id_2_arg_names</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mod</span> <span class="o">=</span> <span class="n">mod</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stage_id</span> <span class="o">=</span> <span class="n">stage_id</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">total_stages</span> <span class="o">=</span> <span class="n">total_stages</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">last</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">stage_id</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">total_stages</span> <span class="o">-</span> <span class="mi">1</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">liveness</span> <span class="o">=</span> <span class="n">liveness</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stage_id_2_arg_names</span> <span class="o">=</span> <span class="n">stage_id_2_arg_names</span>
+
+<div class="viewcode-block" id="DeepSpeedPipeStageWrapper.forward"><a class="viewcode-back" href="../../../../python_api/model_dialect/deepspeed/pipeline.html#slapo.model_dialect.deepspeed.pipeline.DeepSpeedPipeStageWrapper.forward">[docs]</a>    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="c1"># TODO: use kwargs to do mapping</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
+            <span class="n">args</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="c1"># Determine the device of this stage.</span>
+        <span class="n">device</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">args</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">arg</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+                <span class="n">device</span> <span class="o">=</span> <span class="n">arg</span><span class="o">.</span><span class="n">device</span>
+                <span class="k">break</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot retrieve device from pipeline stage inputs&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Unpack inputs</span>
+        <span class="n">unordered_args</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">stage_id</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># The first stage takes the original inputs.</span>
+            <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">args</span><span class="p">:</span>
+                <span class="k">assert</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">arg</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">arg</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+                    <span class="n">unordered_args</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">arg</span><span class="p">))</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">unordered_args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># The other stages take the flattened inputs packed by the previous one.</span>
+            <span class="n">args</span><span class="p">,</span> <span class="n">metadata_str</span> <span class="o">=</span> <span class="n">args</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">args</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">metadata_str</span> <span class="o">=</span> <span class="n">metadata_str</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span><span class="o">.</span><span class="n">tobytes</span><span class="p">()</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span>
+            <span class="n">metadata</span> <span class="o">=</span> <span class="n">decode_metadata</span><span class="p">(</span><span class="n">metadata_str</span><span class="p">)</span>
+            <span class="n">unordered_args</span> <span class="o">=</span> <span class="n">unflatten</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">metadata</span><span class="p">)</span>
+
+        <span class="c1"># The unordered arguments should match the liveness list, and we assign</span>
+        <span class="c1"># the name of each input argument accordingly.</span>
+        <span class="n">liveness</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">liveness</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">stage_id</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">logger</span><span class="o">.</span><span class="n">isEnabledFor</span><span class="p">(</span><span class="n">DEBUG</span><span class="p">):</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{self.name}</span><span class="s2">] Args ({len(unordered_args)}): &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;{get_simple_nested_list_str(unordered_args)}, &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;liveness ({len(liveness)}): </span><span class="si">{liveness}</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">unordered_args</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span>
+            <span class="n">liveness</span>
+        <span class="p">),</span> <span class="sa">f</span><span class="s2">&quot;{len(unordered_args)} vs. {len(liveness)}&quot;</span>
+        <span class="n">name_2_live_tensor</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">liveness</span><span class="p">,</span> <span class="n">unordered_args</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">logger</span><span class="o">.</span><span class="n">isEnabledFor</span><span class="p">(</span><span class="n">DEBUG</span><span class="p">):</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{self.name}</span><span class="s2">] Live tensors before forward: &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;{list(name_2_live_tensor.keys())}&quot;</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Make forward argiments from live tensors to align the submodule arguments.</span>
+        <span class="n">ordered_args</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">arg_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">stage_id_2_arg_names</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">stage_id</span><span class="p">]:</span>
+            <span class="k">assert</span> <span class="p">(</span>
+                <span class="n">arg_name</span> <span class="ow">in</span> <span class="n">liveness</span>
+            <span class="p">),</span> <span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{self.name}</span><span class="s2">] Arg </span><span class="si">{arg_name}</span><span class="s2"> not found in liveness list: </span><span class="si">{liveness}</span><span class="s2">&quot;</span>
+            <span class="n">idx</span> <span class="o">=</span> <span class="n">liveness</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">arg_name</span><span class="p">)</span>
+            <span class="n">ordered_args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">unordered_args</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span>
+
+        <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+            <span class="n">ordered_args</span> <span class="o">+=</span> <span class="p">[</span><span class="n">value</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">logger</span><span class="o">.</span><span class="n">isEnabledFor</span><span class="p">(</span><span class="n">DEBUG</span><span class="p">):</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{self.name}</span><span class="s2">] Ordered forward args: &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;{get_simple_nested_list_str(ordered_args)}&quot;</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Forward pass.</span>
+        <span class="n">fwd_outputs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="p">(</span><span class="o">*</span><span class="n">ordered_args</span><span class="p">)</span>
+
+        <span class="c1"># Direct return if this is the last stage.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">last</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">fwd_outputs</span>
+
+        <span class="c1"># Add output tensors to live tensor set.</span>
+        <span class="n">name_2_live_tensor</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">flat_and_name_tensor_list</span><span class="p">(</span><span class="n">fwd_outputs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">logger</span><span class="o">.</span><span class="n">isEnabledFor</span><span class="p">(</span><span class="n">DEBUG</span><span class="p">):</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{self.name}</span><span class="s2">] Live tensors after forward: &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;{list(name_2_live_tensor.keys())}&quot;</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Organize output based on the liveness of the next stage.</span>
+        <span class="n">outputs</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">tensor_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">liveness</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">stage_id</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]:</span>
+            <span class="k">assert</span> <span class="n">tensor_name</span> <span class="ow">in</span> <span class="n">name_2_live_tensor</span>
+            <span class="n">outputs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">name_2_live_tensor</span><span class="p">[</span><span class="n">tensor_name</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">logger</span><span class="o">.</span><span class="n">isEnabledFor</span><span class="p">(</span><span class="n">DEBUG</span><span class="p">):</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{self.name}</span><span class="s2">] Output: {get_simple_nested_list_str(outputs)}&quot;</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Flat and pack outputs for the next stage.</span>
+        <span class="n">metadata</span><span class="p">,</span> <span class="n">ret</span> <span class="o">=</span> <span class="n">flatten</span><span class="p">(</span><span class="n">outputs</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">logger</span><span class="o">.</span><span class="n">isEnabledFor</span><span class="p">(</span><span class="n">DEBUG</span><span class="p">):</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{self.name}</span><span class="s2">] Flatten: {len(ret)}; metadata: </span><span class="si">{metadata}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">ret</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">ByteTensor</span><span class="p">(</span>
+                <span class="n">torch</span><span class="o">.</span><span class="n">ByteStorage</span><span class="o">.</span><span class="n">from_buffer</span><span class="p">(</span><span class="nb">bytes</span><span class="p">(</span><span class="n">encode_metadata</span><span class="p">(</span><span class="n">metadata</span><span class="p">),</span> <span class="s2">&quot;utf8&quot;</span><span class="p">))</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="n">ret</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">ret</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">ret</span></div></div>
+
+
+<div class="viewcode-block" id="deepspeed_pipe_engine"><a class="viewcode-back" href="../../../../python_api/model_dialect/deepspeed/pipeline.html#slapo.model_dialect.deepspeed.pipeline.deepspeed_pipe_engine">[docs]</a><span class="nd">@register_model_dialect</span><span class="p">(</span><span class="s2">&quot;deepspeed&quot;</span><span class="p">,</span> <span class="s2">&quot;pipeline_engine&quot;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">deepspeed_pipe_engine</span><span class="p">(</span>
+    <span class="n">sch_metadata</span><span class="p">,</span>
+    <span class="n">stage_modules</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;DeepSpeed pipeline engine.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    sch_metadata : ScheduleMetadata</span>
+<span class="sd">        The schedule metadata.</span>
+
+<span class="sd">    stage_modules : List[nn.Module]</span>
+<span class="sd">        The list of pipeline stage modules.</span>
+
+<span class="sd">    **kwargs</span>
+<span class="sd">        The keyword arguments. Should include DeepSpeed related information,</span>
+<span class="sd">        such as &quot;config&quot;, &quot;loss_fn&quot;, &quot;topology&quot;, &quot;fp16&quot;.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    model : PipelineModule</span>
+<span class="sd">        The DeepSpeed pipeline module.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span> <span class="nn">deepspeed</span> <span class="kn">import</span> <span class="n">pipe</span>
+
+    <span class="c1"># Sanity check</span>
+    <span class="k">assert</span> <span class="s2">&quot;config&quot;</span> <span class="ow">in</span> <span class="n">kwargs</span>
+    <span class="k">if</span> <span class="s2">&quot;topology&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Must provide topology for deepspeed pipeline&quot;</span><span class="p">)</span>
+    <span class="n">topology</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;topology&quot;</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="s2">&quot;loss_fn&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Must provide loss_fn for deepspeed pipeline&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="s2">&quot;fp16&quot;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">]</span> <span class="ow">and</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="s2">&quot;fp16&quot;</span><span class="p">][</span><span class="s2">&quot;enabled&quot;</span><span class="p">]:</span>
+        <span class="n">param_dtype</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">float16</span>
+    <span class="k">elif</span> <span class="s2">&quot;bf16&quot;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">]</span> <span class="ow">and</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="s2">&quot;bf16&quot;</span><span class="p">][</span><span class="s2">&quot;enabled&quot;</span><span class="p">]:</span>
+        <span class="n">param_dtype</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">bfloat16</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">param_dtype</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">float</span>
+
+    <span class="c1"># pylint: disable=unexpected-keyword-arg</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="n">pipe</span><span class="o">.</span><span class="n">PipelineModule</span><span class="p">(</span>
+        <span class="n">stage_modules</span><span class="p">,</span>
+        <span class="n">topology</span><span class="o">=</span><span class="n">topology</span><span class="p">,</span>
+        <span class="n">partition_method</span><span class="o">=</span><span class="s2">&quot;uniform&quot;</span><span class="p">,</span>
+        <span class="n">loss_fn</span><span class="o">=</span><span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;loss_fn&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+        <span class="n">param_dtype</span><span class="o">=</span><span class="n">param_dtype</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">tie_weights</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">sch_metadata</span><span class="o">.</span><span class="n">tie_weights</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">tie_weights</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">model</span>
+
+    <span class="c1"># Tie weights if needed.</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">pipe</span><span class="p">,</span> <span class="s2">&quot;TiedWeight&quot;</span><span class="p">):</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+            <span class="s2">&quot;DeepSpeed pipeline runtime does not support TiedWeight. &quot;</span>
+            <span class="s2">&quot;The tie weight will be ignored.&quot;</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">model</span>
+
+    <span class="c1"># Tie ranks and self stage ID.</span>
+    <span class="n">tie_ranks</span><span class="p">,</span> <span class="n">tie_stages</span> <span class="o">=</span> <span class="n">analyze_tie_ranks</span><span class="p">(</span><span class="n">tie_weights</span><span class="p">,</span> <span class="n">topology</span><span class="p">)</span>
+    <span class="n">global_rank</span> <span class="o">=</span> <span class="n">dist</span><span class="o">.</span><span class="n">get_rank</span><span class="p">()</span>
+
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">tie_ranks</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">tie_weights</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">tie_rank</span><span class="p">,</span> <span class="n">tie_stage</span><span class="p">,</span> <span class="n">tie_weight</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">tie_ranks</span><span class="p">,</span> <span class="n">tie_stages</span><span class="p">,</span> <span class="n">tie_weights</span><span class="p">):</span>
+        <span class="c1"># The group key for this tie weight set. Since this key is used</span>
+        <span class="c1"># in PyTorch ModuleDict, it cannot contain &quot;.&quot;.</span>
+        <span class="n">group_key</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">tie_weight</span><span class="p">)[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">,</span> <span class="s2">&quot;_&quot;</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="s2">&quot;Tie weights of </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;,&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{name}</span><span class="s2"> in stage </span><span class="si">{sid}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">sid</span> <span class="ow">in</span> <span class="n">tie_weight</span><span class="p">]),</span>
+            <span class="n">ranks</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">my_stage_id</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+
+        <span class="c1"># Identify the stage ID of this device.</span>
+        <span class="c1"># Ranks is a list of global ranks that includes one device per stage.</span>
+        <span class="c1"># Suppose we have 8 GPUs with TP=2 and PP=4, the device topology is</span>
+        <span class="c1"># Stage0: GPU0, GPU1</span>
+        <span class="c1"># Stage1: GPU2, GPU3</span>
+        <span class="c1"># Stage2: GPU4, GPU5</span>
+        <span class="c1"># Stage3: GPU6, GPU7</span>
+        <span class="c1"># Then when we tie weights in stage 0 and stage 3, the tie ranks would be</span>
+        <span class="c1"># [[0, 6], [1, 7]]. This means the rank 0, 1 are in the tie_stage[0];</span>
+        <span class="c1"># while the rank 6, 7 are in the tie_stage[1].</span>
+        <span class="k">for</span> <span class="n">ranks</span> <span class="ow">in</span> <span class="n">tie_rank</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">tie_stage</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">ranks</span><span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">stage_id_idx</span> <span class="o">=</span> <span class="n">ranks</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">global_rank</span><span class="p">)</span>
+                <span class="n">my_stage_id</span> <span class="o">=</span> <span class="n">tie_stage</span><span class="p">[</span><span class="n">stage_id_idx</span><span class="p">]</span>
+                <span class="k">break</span>
+            <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+                <span class="k">pass</span>
+
+        <span class="c1"># Identify which weight in the stage of this device to tie. Suppose</span>
+        <span class="c1"># we tie wte.weight in stage 0 and linear.weight in stage 3, then</span>
+        <span class="c1"># rank 0 should have (module, weight_name) = (model.stage0.wte, &quot;weight&quot;);</span>
+        <span class="c1"># rank 3 should have (module, weight_name) = (model.stage3.linear, &quot;weight&quot;);</span>
+        <span class="c1"># other ranks should have (module, weight_name) = (None, None).</span>
+        <span class="n">module</span><span class="p">,</span> <span class="n">weight_name</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
+        <span class="n">found</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">for</span> <span class="n">full_name</span><span class="p">,</span> <span class="n">stage_id</span> <span class="ow">in</span> <span class="n">tie_weight</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">stage_id</span> <span class="o">==</span> <span class="n">my_stage_id</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">found</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Cannot tie two weights in the same stage&quot;</span><span class="p">)</span>
+                <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">stage_modules</span><span class="p">[</span><span class="n">stage_id</span><span class="p">],</span> <span class="n">DeepSpeedPipeStageWrapper</span><span class="p">)</span>
+                <span class="n">module</span> <span class="o">=</span> <span class="n">stage_modules</span><span class="p">[</span><span class="n">stage_id</span><span class="p">]</span><span class="o">.</span><span class="n">mod</span>
+                <span class="k">for</span> <span class="n">token</span> <span class="ow">in</span> <span class="n">full_name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]:</span>
+                    <span class="n">module</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">token</span><span class="p">)</span>
+                <span class="n">weight_name</span> <span class="o">=</span> <span class="n">full_name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+                <span class="n">found</span> <span class="o">=</span> <span class="kc">True</span>
+
+        <span class="k">if</span> <span class="n">found</span><span class="p">:</span>
+            <span class="c1"># This device owns the stage that has this tie weight.</span>
+            <span class="c1"># Register the tie weight with the corresponding module and weight</span>
+            <span class="c1"># on this device.</span>
+            <span class="k">assert</span> <span class="n">module</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">weight_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="n">model</span><span class="o">.</span><span class="n">register_tied_weights</span><span class="p">(</span>
+                <span class="n">pipe</span><span class="o">.</span><span class="n">TiedWeight</span><span class="p">(</span><span class="n">group_key</span><span class="p">,</span> <span class="n">tie_rank</span><span class="p">,</span> <span class="n">weight_name</span><span class="p">,</span> <span class="n">module</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Even this device is not in any stage, we have to register a tie</span>
+            <span class="c1"># weight to make sure all devices join the dist group.</span>
+            <span class="n">model</span><span class="o">.</span><span class="n">register_tied_weights</span><span class="p">(</span><span class="n">pipe</span><span class="o">.</span><span class="n">TiedWeight</span><span class="p">(</span><span class="n">group_key</span><span class="p">,</span> <span class="n">tie_rank</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">model</span></div>
+</pre></div>
+
+              </div>
+              
+            </main>
+            <footer class="footer-article noprint">
+                
+    <!-- Previous / next buttons -->
+<div class='prev-next-area'>
+</div>
+            </footer>
+        </div>
+    </div>
+    <div class="footer-content row">
+        <footer class="col footer"><p>
+  
+    By Amazon<br/>
+  
+      &copy; Copyright 2023, Amazon.<br/>
+</p>
+        </footer>
+    </div>
+    
+</div>
+
+
+      </div>
+    </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../../../../_static/scripts/pydata-sphinx-theme.js?digest=1999514e3f237ded88cf"></script>
+
+
+  </body>
+</html>

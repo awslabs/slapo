@@ -122,6 +122,92 @@
      slapo
     </a>
    </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../../python_api/schedule.html">
+     slapo.schedule
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../../python_api/initialization.html">
+     slapo.initialization
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../../python_api/pattern.html">
+     slapo.pattern
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../../python_api/pipeline.html">
+     slapo.pipeline
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../../python_api/tracer.html">
+     slapo.tracer
+    </a>
+   </li>
+   <li class="toctree-l2 has-children">
+    <a class="reference internal" href="../../python_api/model_dialect/index.html">
+     hidet.model_dialect
+    </a>
+    <input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/>
+    <label for="toctree-checkbox-2">
+     <i class="fas fa-chevron-down">
+     </i>
+    </label>
+    <ul>
+     <li class="toctree-l3">
+      <a class="reference internal" href="../../python_api/model_dialect/registry.html">
+       slapo.model_dialect.registry
+      </a>
+     </li>
+     <li class="toctree-l3 has-children">
+      <a class="reference internal" href="../../python_api/model_dialect/deepspeed/index.html">
+       hidet.model_dialect.deepspeed
+      </a>
+      <input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/>
+      <label for="toctree-checkbox-3">
+       <i class="fas fa-chevron-down">
+       </i>
+      </label>
+      <ul>
+       <li class="toctree-l4">
+        <a class="reference internal" href="../../python_api/model_dialect/deepspeed/engine.html">
+         slapo.model_dialect.deepspeed.engine
+        </a>
+       </li>
+       <li class="toctree-l4">
+        <a class="reference internal" href="../../python_api/model_dialect/deepspeed/pipeline.html">
+         slapo.model_dialect.deepspeed.pipeline
+        </a>
+       </li>
+      </ul>
+     </li>
+    </ul>
+   </li>
+   <li class="toctree-l2 has-children">
+    <a class="reference internal" href="../../python_api/op/index.html">
+     hidet.op
+    </a>
+    <input class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" type="checkbox"/>
+    <label for="toctree-checkbox-4">
+     <i class="fas fa-chevron-down">
+     </i>
+    </label>
+    <ul>
+     <li class="toctree-l3">
+      <a class="reference internal" href="../../python_api/op/cross_entropy.html">
+       slapo.op.cross_entropy
+      </a>
+     </li>
+     <li class="toctree-l3">
+      <a class="reference internal" href="../../python_api/op/linear.html">
+       slapo.op.linear
+      </a>
+     </li>
+    </ul>
+   </li>
   </ul>
  </li>
  <li class="toctree-l1">
@@ -240,7 +326,7 @@ title="Source repository"
 <span class="kn">from</span> <span class="nn">.utils.versions</span> <span class="kn">import</span> <span class="n">is_torch_version</span>
 
 
-<div class="viewcode-block" id="init_empty_weights"><a class="viewcode-back" href="../../python_api/root.html#slapo.init_empty_weights">[docs]</a><span class="nd">@contextmanager</span>
+<div class="viewcode-block" id="init_empty_weights"><a class="viewcode-back" href="../../python_api/root.html#slapo.initialization.init_empty_weights">[docs]</a><span class="nd">@contextmanager</span>
 <span class="k">def</span> <span class="nf">init_empty_weights</span><span class="p">(</span><span class="n">enable</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">include_buffers</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    A context manager under which models are initialized with all parameters on the</span>
@@ -267,7 +353,7 @@ title="Source repository"
             <span class="k">yield</span> <span class="n">f</span></div>
 
 
-<span class="nd">@contextmanager</span>
+<div class="viewcode-block" id="init_on_device"><a class="viewcode-back" href="../../python_api/initialization.html#slapo.initialization.init_on_device">[docs]</a><span class="nd">@contextmanager</span>
 <span class="k">def</span> <span class="nf">init_on_device</span><span class="p">(</span><span class="n">device</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">include_buffers</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    A context manager under which models are initialized with all parameters</span>
@@ -335,7 +421,7 @@ title="Source repository"
             <span class="n">torch_function_name</span><span class="p">,</span>
             <span class="n">old_torch_function</span><span class="p">,</span>
         <span class="p">)</span> <span class="ow">in</span> <span class="n">tensor_constructors_to_patch</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="nb">setattr</span><span class="p">(</span><span class="n">torch</span><span class="p">,</span> <span class="n">torch_function_name</span><span class="p">,</span> <span class="n">old_torch_function</span><span class="p">)</span>
+            <span class="nb">setattr</span><span class="p">(</span><span class="n">torch</span><span class="p">,</span> <span class="n">torch_function_name</span><span class="p">,</span> <span class="n">old_torch_function</span><span class="p">)</span></div>
 </pre></div>
 
               </div>

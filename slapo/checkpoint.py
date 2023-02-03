@@ -51,8 +51,7 @@ class CheckpointFunctionWithRNGTracker(torch.autograd.Function):
         # the tensor data. This is needed because when pipeline is enabled,
         # the tensor data may be released by the pipeline engine as it does
         # not know that the tensor is used in the backward pass.
-        tensor_inputs = detach_variable(tuple(tensor_inputs))
-        ctx.save_for_backward(*tensor_inputs)
+        ctx.save_for_backward(*detach_variable(tuple(tensor_inputs)))
 
         return outputs
 

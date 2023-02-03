@@ -16,12 +16,19 @@ export PYTHONPATH=`pwd`:$PYTHONPATH
 
 - xformers:
 ```
-git clone https://github.com/jfc4050/xformers
+git clone https://github.com/facebookresearch/xformers.git
 cd xformers
-git checkout -b attn-bias-pr-2 origin/attn-bias-pr-2
-git checkout 500b8d4
+git checkout 48a77cc
 git submodule sync 
 git submodule update --init --recursive
+pip3 install -e ".[dev]"
+```
+
+- flash-attention:
+```
+git clone https://github.com/jfc4050/flash-attention.git
+cd flash-attention
+git checkout f528682
 pip3 install -e ".[dev]"
 ```
 
@@ -29,7 +36,7 @@ pip3 install -e ".[dev]"
 ```
 git clone https://github.com/comaniac/epoi --recursive
 cd epoi
-git checkout b2e2e98
+git checkout b26032e
 pip3 install -e ".[dev]"
 ```
 

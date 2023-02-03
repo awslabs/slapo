@@ -50,7 +50,12 @@ def get_data_move_and_group_fn(enable_pipeline):
 
 
 def get_dataloader(
-    model_name, micro_batch_size, enable_pipeline, cache_dir=None, mpu=None
+    model_name,
+    micro_batch_size,
+    enable_pipeline,
+    cache_dir=None,
+    mpu=None,
+    max_seq_length=1024,
 ):
     # wiki_option_datafile = 'wikitext-2-v1'
     wiki_option_datafile = "wikitext-103-v1"
@@ -59,9 +64,11 @@ def get_dataloader(
     if "bert" in model_name:
         tokenizer = AutoTokenizer.from_pretrained("bert-large-uncased")
     if "gpt" in model_name:
-        tokenizer = AutoTokenizer.from_pretrained("gpt2")
+        tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-neo-1.3B")
 
-    train, val = preprocessing_datasets(raw_dataset, tokenizer, model_name)
+    train, val = preprocessing_datasets(
+        raw_dataset, tokenizer, model_name, max_seq_length
+    )
     train_dataset = LossTestDataset(train)
     val_dataset = LossTestDataset(val)
 
@@ -89,13 +96,16 @@ def get_dataloader(
     return train_loader, val_loader
 
 
-def preprocessing_datasets(datasets, tokenizer, model_name):
+def preprocessing_datasets(datasets, tokenizer, model_name, max_seq_length=1024):
     column_names = datasets["train"].column_names
     text_column_name = "text" if "text" in column_names else column_names[0]
 
-    max_seq_length = tokenizer.model_max_length
-    if max_seq_length > 1024:
-        max_seq_length = 1024
+    if tokenizer.model_max_length < max_seq_length:
+        raise ValueError(
+            f"The tokenizer ({tokenizer.__class__.__name__}) has a maximum sequence "
+            f"length of {tokenizer.model_max_length}, which cannot support "
+            f"`max_seq_length={max_seq_length}`"
+        )
 
     # we tokenize every text, then concatenate them together before splitting them in smaller parts.
     # We use `return_special_tokens_mask=True` because DataCollatorForLanguageModeling (see below) is more

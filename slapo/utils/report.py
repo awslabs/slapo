@@ -54,3 +54,51 @@ def profile_perf(model, inputs, backward=False):
             sort_by="self_cuda_time_total", row_limit=10
         )
     )
+
+
+def calc_decoder_tflops(
+    sample_sec,
+    num_gpus,
+    seq_length,
+    num_layers,
+    hidden_size,
+    vocab_size,
+    ckpt_all=False,
+):
+    """Calculate the decoder TFLOPS.
+
+    Parameters
+    ----------
+    sample_sec : float
+        The number of samples per second.
+    num_gpus : int
+        The number of GPUs.
+    seq_length : int
+        The sequence length.
+    num_layers : int
+        The number of layers.
+    hidden_size : int
+        The hidden size.
+    vocab_size : int
+        The vocabulary size.
+    ckpt_all : bool
+        Whether to checkpoint all layers. Default is False.
+        If False, the calculation is based on model FLOPS.
+
+    Returns
+    -------
+    float
+        The decoder TFLOPS.
+    """
+    if ckpt_all:
+        const_a, const_b = 96, 16
+    else:
+        const_a, const_b = 72, 12
+
+    flops = const_a * sample_sec * seq_length * num_layers * hidden_size**2
+    flops *= (
+        1
+        + seq_length / 6 / hidden_size
+        + vocab_size / const_b / num_layers / hidden_size
+    )
+    return flops / 10**12 / num_gpus

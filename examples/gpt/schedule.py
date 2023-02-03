@@ -30,57 +30,6 @@ def trace_attention(sch, config, attn_path="h.N.attn.attention"):
     return cnt
 
 
-def replace_qkv(sch, config, attn_path="h.N.attn.attention"):
-    """Untested."""
-    num_layers, num_heads, hidden_size = (
-        config.num_layers,
-        config.num_heads,
-        config.hidden_size,
-    )
-
-    class FusedQKV(nn.Module):
-        def __init__(self, hidden_size, num_heads) -> None:
-            super().__init__()
-            self.hidden_size = hidden_size
-            self.num_heads = num_heads
-            self.head_size = hidden_size // num_heads
-            self.fused_linear = nn.Linear(hidden_size, num_heads * self.head_size * 3)
-
-        def transpose_for_scores(self, x):
-            new_x_shape = x.size()[:-1] + (
-                self.num_heads // sch.world_size,
-                self.head_size,
-                3,
-            )
-            x = x.view(new_x_shape)
-            return x.permute(0, 2, 1, 3, 4)
-
-        def forward(self, hidden_states):
-            qkv = self.fused_linear(hidden_states)
-            transposed_qkv = self.transpose_for_scores(qkv)
-            q, k, v = torch.split(transposed_qkv, 1, dim=-1)
-            q = torch.squeeze(q, -1)
-            k = torch.squeeze(k, -1)
-            v = torch.squeeze(v, -1)
-            return [q, k, v]
-
-    def pattern(x: torch.Tensor) -> torch.Tensor:
-        x = call_module("k_proj|q_proj|v_proj", x)
-        new_x_shape = x.size()[:-1] + (num_heads, hidden_size)
-        x = x.view(new_x_shape)
-        return x.permute(0, 2, 1, 3)
-
-    cnt = 0
-    for idx in range(num_layers):
-        sub_sch = sch[attn_path.replace("N", str(idx))]
-        subgraphs = sub_sch.find(pattern)
-        assert subgraphs, "Cannot find QKV pattern"
-        new_mod = FusedQKV(hidden_size, num_heads)
-        sub_sch.replace(new_mod, subgraphs)
-        cnt += 1
-    return cnt
-
-
 def replace_and_shard_attention(
     sch,
     config,
@@ -92,12 +41,29 @@ def replace_and_shard_attention(
     from epoi.inject.policy.gpt import InjectHFGPTAttentionPolicy
     from epoi.ops.xformers_attn import GenericSelfAttention, MemoryEfficientAttentionOp
 
+    try:
+        # Backward compatibility
+        from epoi.ops.flash_attention import FlashSelfAttention, FlashAttentionTritonOp
+    except ImportError:
+        FlashSelfAttention = None
+        FlashAttentionTritonOp = None
+
+    cuda_sm = torch.cuda.get_device_capability("cuda")
+    if not disable_flash_attn and FlashSelfAttention is not None and cuda_sm == (8, 0):
+        SelfAttentionModule = FlashSelfAttention
+        AttentionOp = FlashAttentionTritonOp
+        attn_op_name = "triton"
+    else:
+        SelfAttentionModule = GenericSelfAttention
+        AttentionOp = MemoryEfficientAttentionOp
+        attn_op_name = "native" if disable_flash_attn else "cutlass"
+
     class SelfAttention(nn.Module):
         """A wrapper to align the original GPTNeoAttention forward signature."""
 
         def __init__(self, **kwargs):
             super().__init__()
-            self.module = GenericSelfAttention(**kwargs)
+            self.module = SelfAttentionModule(**kwargs)
 
         def forward(
             self,
@@ -113,7 +79,7 @@ def replace_and_shard_attention(
             # is present_key_value and only used by in inference.
             return outputs[:1]
 
-    class MemoryEfficientAttentionWithRNGOp(MemoryEfficientAttentionOp):
+    class MemoryEfficientAttentionWithRNGOp(AttentionOp):
         def forward(self, query_layer, key_layer, value_layer, attention_mask, p):
             with get_cuda_rng_tracker().fork():
                 return super().forward(
@@ -130,16 +96,14 @@ def replace_and_shard_attention(
     for idx in range(num_layers):
         sub_sch = sch[attn_path.replace("N", str(idx))]
         init_config = InjectHFGPTAttentionPolicy.gen_init_config_from_object(
-            sub_sch.mod
+            sub_sch.mod, attn_op_name=attn_op_name
         )
-        if disable_flash_attn:
-            init_config["attn_op_name"] = "native"
         with init_empty_weights(enable=delay_init):
             new_mod = SelfAttention(**init_config)
         sub_sch.replace(new_mod)
         sub_sch.trace(
             tracer="pytorch",
-            leaf_modules=["MemoryEfficientAttentionOp"],
+            leaf_modules=[AttentionOp.__name__],
             concrete_args={
                 "layer_past": None,
                 "use_cache": False,
@@ -161,6 +125,21 @@ def replace_and_shard_attention(
             sub_sch["module.FusedQKV_0.fused_linear"].shard("weight", axis=0)
             sub_sch["module.FusedQKV_0.fused_linear"].shard("bias", axis=0)
             sub_sch["module.out_proj"].shard("weight", axis=1)
+
+            # Attention mask is broadcasted from (B, 1, 1, S) to (B, H, S, S),
+            # where H is sharded.
+            ops = sub_sch["module"].find_node(
+                lambda node: node.op == "call_method" and node.target == "repeat"
+            )
+            assert len(ops) == 1
+
+            def new_repeat(tensor, *args):
+                # (B, 1, 1, S) -> (B, H, S, S)
+                assert len(args) == 4
+                out = tensor.repeat(args[0], args[1] // sch.world_size, *args[2:])
+                return out.contiguous()
+
+            sub_sch["module"].replace(new_repeat, ops[0][1])
 
             if sequence_parallel:
                 sub_sch["module.FusedQKV_0.fused_linear"].sync(
@@ -189,26 +168,6 @@ def replace_and_shard_attention(
 
         cnt += 1
 
-    return cnt
-
-
-def remove_cast(sch, config, attn_path="h.N.attn.attention"):
-    """[Untested] Remove .to(torch.float32) in GPT-Neo attention to align
-    HF and Megatron GPT-2 behavior.
-    """
-    cnt = 0
-    for idx in range(config.num_layers):
-        sub_sch = sch[attn_path.replace("N", str(idx))]
-        ops = sub_sch.find_node(
-            lambda node: node.op == "call_method"
-            and node.target == "to"
-            and len(node.args) == 2
-            and node.args[1] == torch.float32
-        )
-
-        for op in ops:
-            sub_sch.replace(lambda x, *args: x, op[1])
-            cnt += 1
     return cnt
 
 
@@ -263,62 +222,6 @@ def shard_word_embedding(
     if head_sch is not None:
         head_sch.shard("weight", axis=0)
         head_sch.sync(mode="bwd_post", sync_op_or_fn="all_reduce")
-
-
-def shard_qkv(
-    sch,
-    config,
-    attn_path="h.N.attn.attention",
-    qkv_name="FusedQKV_0",
-    out_proj_name="out_proj",
-    sequence_parallel=False,
-):
-    """Untested."""
-    num_layers = config.num_layers
-
-    def fix_shape_after_shard(path):
-        # Fix shape of view ops after sharding.
-        import operator
-
-        sub_sch = sch[path]
-        ops = sub_sch.find_node(
-            lambda node: node.target == "view"
-            and len(node.args) == 2
-            and node.args[0].target == "contiguous"
-            and isinstance(node.args[1], torch.fx.Node)
-            and node.args[1].target == operator.add
-        )
-
-        def new_view(tensor, old_shape):
-            new_shape = old_shape[:-1] + (-1,)
-            return tensor.view(new_shape)
-
-        for op in ops:
-            sub_sch.replace(new_view, op)
-
-    for idx in range(num_layers):
-        prefix = attn_path.replace("N", str(idx))
-        sch[f"{prefix}.{qkv_name}.fused_linear"].shard("weight", axis=0)
-        sch[f"{prefix}.{qkv_name}.fused_linear"].shard("bias", axis=0)
-
-        sch[f"{prefix}.{out_proj_name}"].shard("weight", axis=1)
-
-        if sequence_parallel:
-            sch[f"{prefix}.{qkv_name}.fused_linear"].sync(
-                mode="fwd_pre", sync_op_or_fn="all_gather", axis=1
-            )
-            sch[f"{prefix}.{out_proj_name}"].sync(
-                mode="fwd_post", sync_op_or_fn="reduce_scatter", axis=1
-            )
-        else:
-            sch[f"{prefix}.{qkv_name}.fused_linear"].sync(
-                mode="bwd_post", sync_op_or_fn="all_reduce"
-            )
-            sch[f"{prefix}.{out_proj_name}"].sync(
-                mode="fwd_post", sync_op_or_fn="all_reduce"
-            )
-
-        fix_shape_after_shard(prefix)
 
 
 def replace_and_shard_mlp(

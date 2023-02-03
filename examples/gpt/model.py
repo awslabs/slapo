@@ -9,13 +9,9 @@ from slapo.logger import get_logger
 from schedule import (
     broadcast_input,
     checkpoint,
-    remove_cast,
     replace_and_shard_mlp,
     replace_and_shard_attention,
-    replace_qkv,
-    shard_qkv,
     shard_word_embedding,
-    trace_attention,
 )
 
 logger = get_logger("GPT")

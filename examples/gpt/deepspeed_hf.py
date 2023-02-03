@@ -8,13 +8,13 @@ import numpy as np
 import deepspeed
 import torch
 import torch.distributed as dist
-from torch.distributed.distributed_c10d import _get_global_rank
 from deepspeed.utils import RepeatingLoader
 from transformers import GPTNeoForCausalLM, AutoConfig
 
 import slapo
+from slapo import set_random_seed
 from slapo.logger import get_logger
-from slapo.op.cross_entropy import ParallelCrossEntropy
+from slapo.op import ParallelCrossEntropy
 from slapo.utils.report import report_memory
 
 from model import schedule_model
@@ -127,6 +127,7 @@ def train(args):
             delay_init=enable_pipeline,
             sequence_parallel=args.sequence_parallel,
         )
+    tp_rank = sch.rank
 
     loss_fct = ParallelCrossEntropy(group=group)
 
@@ -188,16 +189,14 @@ def train(args):
     report_memory(msg="After building model")
 
     if args.disable_pipeline or args.sequence_parallel:
-        random_seed = 2013 + dist.get_rank()
+        set_random_seed(2013, model.mpu.get_data_parallel_rank(), None, tp_rank)
     else:
-        random_seed = (
-            2013
-            + 100 * model.mpu.get_pipe_parallel_rank()
-            + 10 * model.mpu.get_data_parallel_rank()
+        set_random_seed(
+            2013,
+            model.mpu.get_data_parallel_rank(),
+            model.mpu.get_pipe_parallel_rank(),
+            tp_rank,
         )
-    random.seed(random_seed)
-    np.random.seed(random_seed)
-    torch.manual_seed(random_seed)
 
     # for now always use seq_length 1024
     # TODO: make the dataloader generic to different sequence length

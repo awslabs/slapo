@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Test sharding primitive. Note that this test has to be invoked by torchrun. For example:
-torchrun --nproc_per_node 2 -m pytest test_shard.py
+Test sharding primitive. Note that this test has to be invoked by torchrun.
+See ci/task_unit_tests.sh for an example.
 """
 # pylint: disable=unused-argument
 import os

@@ -16,11 +16,11 @@ from typing import Any, Optional, Union
 import torch
 import torch.distributed as dist
 from torch import fx, nn
-from torch.utils import checkpoint
 
 # pylint: disable=unused-import
 import torch.nn.functional as F
 
+from .checkpoint import checkpoint as checkpoint_module
 from .logger import get_logger
 from .model_dialect import get_dialect_cls
 from .pipeline import (
@@ -987,7 +987,7 @@ class SubgraphWrapper(nn.Module):
                     ordered_args = order_args_fn(*args, **kwargs)
 
                 # Note: checkpoint cannot accept kwargs
-                return checkpoint.checkpoint(self.mod, *ordered_args)
+                return checkpoint_module(self.mod, *ordered_args)
 
         self.replace(CheckPointWrapper(self.mod))
 

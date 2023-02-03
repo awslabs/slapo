@@ -1,8 +1,9 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
+import random
 
+import numpy as np
 import pytest
-
 import torch
 from torch import distributed as dist
 
@@ -18,7 +19,6 @@ def pytest_collection_modifyitems(items):
 @pytest.fixture(scope="session")
 def init_dist(request):
     """Initialize the distributed group once in the entire test session."""
-    torch.manual_seed(9999)
     try:
         dist.init_process_group(backend="nccl")
     except Exception as err:
@@ -31,3 +31,17 @@ def init_dist(request):
             pass
 
     request.addfinalizer(destory_dist)
+
+
+@pytest.fixture(scope="function", autouse=True)
+def random_seed():
+    """Set random seed to 1) make the tests deterministic, and 2) make every
+    device generate the same weights for tensor parallelism tests.
+
+    Note that if you run pytest with "randomly" plugin enabled, this fixture
+    will have no effect. You can disable the plugin with
+    pytest -p "no:randomly" ...
+    """
+    random.seed(9999)
+    np.random.seed(9999)
+    torch.manual_seed(9999)

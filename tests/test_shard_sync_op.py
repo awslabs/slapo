@@ -3,7 +3,7 @@
 
 """
 Test sync ops for sharding. Note that this test has to be invoked by torchrun.
-For example: torchrun --nproc_per_node 2 -m pytest test_shard_sync_op.py
+See ci/task_unit_tests.sh for an example.
 """
 # pylint: disable=unused-argument
 import copy
@@ -20,9 +20,6 @@ from slapo.sharding import sync_ops
 
 def init_model_and_data(local_rank):
     model = nn.Linear(10, 10).cuda(local_rank)
-    # Make sure all devices have the same model.
-    dist.broadcast(model.weight.data, src=0)
-    dist.broadcast(model.bias.data, src=0)
     ref_model = copy.deepcopy(model)
 
     data = torch.randn((10, 10), requires_grad=True).cuda(local_rank)

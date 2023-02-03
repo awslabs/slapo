@@ -11,9 +11,10 @@ nvidia-smi -L
 echo "Running unit tests..."
 # -r: redirect the output of local rank 1 to None so that
 # only local rank 0's output is printed to the console.
-torchrun --nproc_per_node 2 -r 1:1 -m pytest tests
+# -p "no:randomly": disable randomly plugin for sharding tests.
+torchrun --nproc_per_node 2 -r 1:1 -m pytest -p "no:randomly" tests
 
 echo "Downloading test data..."
 bash benchmark/download_benchmark_dataset.sh
 echo "Running end-to-end tests..."
-python3 -m pytest -s tests/end2end.py
+python3 -m pytest -s -p "no:randomly" tests/end2end.py

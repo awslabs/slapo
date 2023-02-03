@@ -2,11 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 from __future__ import annotations
 
-from deepspeed.runtime.pipe.topology import (
-    PipeModelDataParallelTopology,
-    PipelineParallelGrid,
-)
-
 from ..registry import register_model_dialect
 from ...logger import get_logger, INFO
 
@@ -17,6 +12,10 @@ logger = get_logger("DS-Engine", INFO)
 def init_ds_engine(model, **kwargs):
     """Initialize the DeepSpeed engine."""
     import deepspeed
+    from deepspeed.runtime.pipe.topology import (
+        PipeModelDataParallelTopology,
+        PipelineParallelGrid,
+    )
 
     if "config" not in kwargs:
         raise ValueError("DeepSpeed config not provided.")

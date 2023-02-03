@@ -24,13 +24,16 @@ def setup():
 
     setuptools.setup(
         name="slapo",
-        description="Slapo: A Scahedule LAnguage for Progressive Optimization.",
+        description="Slapo: A Schedule LAnguage for Progressive Optimization.",
         version=get_version(),
         author="Slapo Community",
         long_description=long_description,
         long_description_content_type="text/markdown",
         setup_requires=[],
-        install_requires=[],
+        install_requires=[
+            "packaging",
+            "psutil",
+        ],
         packages=setuptools.find_packages(),
         url="https://github.com/awslabs/slapo",
         python_requires=">=3.7",

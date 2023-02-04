@@ -7,6 +7,8 @@ import copy
 import time
 import operator
 import pytest
+import random
+import numpy as np
 
 import torch
 from torch import nn
@@ -128,6 +130,73 @@ def test_bias_gelu():
     torch.testing.assert_close(out, out_ref)
     # Performance testing
     assert ts_time < vanilla_time
+
+
+def test_bias_layernorm():
+    random.seed(2023)
+    np.random.seed(2023)
+    torch.manual_seed(2023)
+
+    class Projection(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.linear = nn.Linear(1024, 1024)
+            self.dropout = nn.Dropout(0.2)
+            self.ln = nn.LayerNorm(1024)
+
+        def forward(self, x, residual):
+            x = self.linear(x)
+            x = self.dropout(x)
+            x = self.ln(x + residual)
+            return x
+
+    mod = Projection().cuda()
+    sch = slapo.create_schedule(copy.deepcopy(mod))
+    torch.testing.assert_allclose(sch.mod.linear.bias, mod.linear.bias)
+
+    sch["linear"].decompose()
+    sch.trace(flatten=True)
+    print(sch.mod)
+
+    def pattern(x, bias, residual):
+        return F.layer_norm(F.dropout(x + bias) + residual, 1024)
+
+    subgraph = sch.find(pattern)
+    assert len(subgraph) == 1
+    assert len(subgraph[0]) == 4
+    assert subgraph[0][0][1].target == operator.add
+    assert subgraph[0][1][1].target == "dropout"
+    assert subgraph[0][2][1].target == operator.add
+    assert subgraph[0][3][1].target == "ln"
+
+    sch.fuse(subgraph, compiler="TorchScript", name="FusedLN")
+    assert isinstance(sch["FusedLN_0"].mod, torch.jit.ScriptModule)
+
+    sch_model, _ = slapo.build(sch, init_weights=False)
+    torch.testing.assert_allclose(sch_model.linear.weight, mod.linear.weight)
+    print(sch_model)
+    mod.eval()
+    sch_model.eval()
+
+    inp = torch.randn((1, 16, 1024, 1024), requires_grad=True).cuda()
+    resid = torch.randn((1, 16, 1024, 1024), requires_grad=True).cuda()
+    # Wram up
+    for _ in range(1000):
+        out = sch_model(inp, resid)
+    print("Finish warm-up steps")
+    start_time = time.time()
+    for _ in range(1000):
+        out = sch_model(inp, resid)
+    ts_time = time.time() - start_time
+    print(f"TorchScript time: {ts_time:.4f}s")
+    start_time = time.time()
+    for _ in range(1000):
+        out_ref = mod(inp, resid)
+    vanilla_time = time.time() - start_time
+    print(f"Vanilla time: {vanilla_time:.4f}s")
+    torch.testing.assert_close(out, out_ref)
+    # Performance testing
+    # assert ts_time < vanilla_time
 
 
 if __name__ == "__main__":

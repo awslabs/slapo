@@ -29,25 +29,20 @@ def trace_attention(sch, config, attn_path="encoder.layer.N.attention"):
 
 
 def fix_attention_mask_shape(sch):
-    # EPOI attention module uses repeat to process attention mask to
-    # align xformer attention mask shape:
-    # (B, 1, 1, S) -repeat->  (B, H, S, S) -reshape-> (B x H, S, S),
-    # so we need to replace "repeat" wit the sharded H.
+    # Attention mask may needed to be expanded from (B, 1, 1, S)
+    # to (B, H, S, S), where H is sharded.
     ops = sch.find_node(
-        lambda node: node.op == "call_method"
-        and node.target == "repeat"
-        and len(node.args) == 5  # args[0] is self
-        and node.args[1] == 1
-        and node.args[-1] == 1
+        lambda node: node.op == "call_method" and node.target == "expand"
     )
 
-    def new_repeat(tensor, *old_args):
-        assert len(old_args) == 4
-        new_args = (old_args[0],) + (old_args[1] // sch.world_size,) + old_args[2:]
-        return tensor.repeat(*new_args)
+    def new_expand(tensor, *args):
+        # (B, 1, 1, S) -> (B, H, S, S)
+        assert len(args) == 4
+        out = tensor.expand(args[0], args[1] // sch.world_size, *args[2:])
+        return out.contiguous()
 
     for op in ops:
-        sch.replace(new_repeat, op[1])
+        sch.replace(new_expand, op[1])
 
 
 def replace_and_shard_attention(

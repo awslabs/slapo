@@ -30,6 +30,23 @@ def trace_attention(sch, config, attn_path="h.N.attn.attention"):
     return cnt
 
 
+def fix_attention_mask_shape(sch):
+    # Attention mask may needed to be expanded from (B, 1, 1, S)
+    # to (B, H, S, S), where H is sharded.
+    ops = sch.find_node(
+        lambda node: node.op == "call_method" and node.target == "expand"
+    )
+
+    def new_expand(tensor, *args):
+        # (B, 1, 1, S) -> (B, H, S, S)
+        assert len(args) == 4
+        out = tensor.expand(args[0], args[1] // sch.world_size, *args[2:])
+        return out.contiguous()
+
+    for op in ops:
+        sch.replace(new_expand, op[1])
+
+
 def replace_and_shard_attention(
     sch,
     config,
@@ -125,21 +142,7 @@ def replace_and_shard_attention(
             sub_sch["module.FusedQKV_0.fused_linear"].shard("weight", axis=0)
             sub_sch["module.FusedQKV_0.fused_linear"].shard("bias", axis=0)
             sub_sch["module.out_proj"].shard("weight", axis=1)
-
-            # Attention mask may needed to be expanded from (B, 1, 1, S)
-            # to (B, H, S, S), where H is sharded.
-            ops = sub_sch["module"].find_node(
-                lambda node: node.op == "call_method" and node.target == "expand"
-            )
-            if ops:
-
-                def new_expand(tensor, *args):
-                    # (B, 1, 1, S) -> (B, H, S, S)
-                    assert len(args) == 4
-                    out = tensor.expand(args[0], args[1] // sch.world_size, *args[2:])
-                    return out.contiguous()
-
-                sub_sch["module"].replace(new_expand, ops[0][1])
+            fix_attention_mask_shape(sub_sch["module"])
 
             if sequence_parallel:
                 sub_sch["module.FusedQKV_0.fused_linear"].sync(

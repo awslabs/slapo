@@ -43,6 +43,13 @@ def reconfig_model(args, model_config):
         model_config.attention_types = [[["global"], model_config.num_layers]]
         model_config.attention_layers = ["global"] * model_config.num_layers
 
+    if args.dropout > 0:
+        model_config.attention_dropout = args.dropout
+        model_config.resid_dropout = args.dropout
+        model_config.embed_dropout = args.dropout
+
+    model_config.max_position_embeddings = args.seq_len
+
     return model_config
 
 
@@ -201,7 +208,11 @@ def train(args):
     # for now always use seq_length 1024
     # TODO: make the dataloader generic to different sequence length
     train_loader, _ = get_dataloader(
-        args.model_name, micro_batch_size, enable_pipeline, mpu=model.mpu
+        args.model_name,
+        micro_batch_size,
+        enable_pipeline,
+        mpu=model.mpu,
+        max_seq_length=args.seq_len,
     )
 
     loader = RepeatingLoader(train_loader)
@@ -281,6 +292,9 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--num-attn-heads", type=int, default=-1, help="Number of attention heads"
+    )
+    parser.add_argument(
+        "--dropout", type=float, default=0.0, help="Dropout probability"
     )
     parser.add_argument(
         "--pmp", type=int, default=2, help="Pipeline model parallel size"

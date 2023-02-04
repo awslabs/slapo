@@ -264,17 +264,23 @@ RUN cd $HOME/Megatron-LM && git checkout 0bb597b
 ENV PYTHONPATH "${PYTHONPATH}:$HOME/Megatron-LM"
 
 # Install xformers
-RUN git clone https://github.com/jfc4050/xformers $HOME/xformers && \
-    cd $HOME/xformers && git checkout -b bias-dropout origin/bias-dropout && \
-    git checkout 500b8d4 && git submodule sync && git submodule update --init --recursive
+RUN git clone https://github.com/facebookresearch/xformers.git $HOME/xformers && \
+    cd $HOME/xformers && git checkout 48a77cc && \
+    git submodule sync && git submodule update --init --recursive
 RUN cd $HOME/xformers && \
     export FORCE_CUDA="1" && \
     export TORCH_CUDA_ARCH_LIST="7.0 7.5 8.0" && \
     CUDA_VISIBLE_DEVICES=0 pip3 install -e ".[dev]"
 
+# Install flash_attn
+RUN git clone https://github.com/jfc4050/flash-attention.git $HOME/flash-attention && \
+    cd $HOME/flash-attention/ && git checkout f528682
+RUN cd $HOME/flash-attention/ && \
+    pip3 install -e ".[dev]"
+
 # Install epoi
 RUN git clone https://github.com/comaniac/epoi --recursive $HOME/epoi
-RUN cd $HOME/epoi && git fetch && git checkout b2e2e98 && pip3 install -e ".[dev]"
+RUN cd $HOME/epoi && git fetch && git checkout fa90fa7 && pip3 install -e ".[dev]"
 
 # Install transformers
 RUN git clone https://github.com/huggingface/transformers.git $HOME/transformers

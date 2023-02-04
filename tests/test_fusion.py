@@ -133,10 +133,6 @@ def test_bias_gelu():
 
 
 def test_bias_layernorm():
-    random.seed(2023)
-    np.random.seed(2023)
-    torch.manual_seed(2023)
-
     class Projection(nn.Module):
         def __init__(self):
             super().__init__()
@@ -175,11 +171,19 @@ def test_bias_layernorm():
     sch_model, _ = slapo.build(sch, init_weights=False)
     torch.testing.assert_allclose(sch_model.linear.weight, mod.linear.weight)
     print(sch_model)
-    mod.eval()
-    sch_model.eval()
 
     inp = torch.randn((1, 16, 1024, 1024), requires_grad=True).cuda()
     resid = torch.randn((1, 16, 1024, 1024), requires_grad=True).cuda()
+    random.seed(2023)
+    np.random.seed(2023)
+    torch.manual_seed(2023)
+    out = sch_model(inp, resid)
+    random.seed(2023)
+    np.random.seed(2023)
+    torch.manual_seed(2023)
+    out_ref = mod(inp, resid)
+    torch.testing.assert_close(out, out_ref)
+
     # Wram up
     for _ in range(1000):
         out = sch_model(inp, resid)
@@ -194,9 +198,8 @@ def test_bias_layernorm():
         out_ref = mod(inp, resid)
     vanilla_time = time.time() - start_time
     print(f"Vanilla time: {vanilla_time:.4f}s")
-    torch.testing.assert_close(out, out_ref)
     # Performance testing
-    # assert ts_time < vanilla_time
+    assert ts_time < vanilla_time
 
 
 if __name__ == "__main__":

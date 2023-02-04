@@ -1,31 +1,15 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-import inspect
 
 import torch
 import torch.distributed as dist
 import torch.nn as nn
+import torch.nn.functional as F
 
 from slapo import init_empty_weights
 from slapo.pattern import call_module
 from slapo.op.linear import FusedQKV
-
-
-def trace_attention(sch, config, attn_path="encoder.layer.N.attention"):
-    cnt = 0
-    for idx in range(config.num_hidden_layers):
-        sub_sch = sch[attn_path.replace("N", str(idx))]
-        input_names = ["hidden_states", "attention_mask"]
-        sig = inspect.signature(sub_sch.mod.forward)
-        concrete_args = {
-            p.name: p.default
-            for p in sig.parameters.values()
-            if p.name not in input_names
-        }
-        if sub_sch.trace(tracer="pytorch", concrete_args=concrete_args):
-            cnt += 1
-    return cnt
 
 
 def fix_attention_mask_shape(sch):
@@ -160,6 +144,19 @@ def shard_word_embedding(sch, vocab_size, word_embed_name="embeddings.word_embed
         return output
 
     sch[word_embed_name].sync(mode="fwd_post", sync_op_or_fn=fwd_post_hook)
+
+
+def fuse_bias_gelu(sch, config, path="encoder.layer.N.intermediate"):
+    def bias_gelu_pattern(x, bias):
+        return F.gelu(x + bias)
+
+    for idx in range(config.num_hidden_layers):
+        subsch = sch[path.replace("N", str(idx))]
+        subsch["dense"].decompose()
+        subsch.trace(flatten=True)
+
+        subgraph = subsch.find(bias_gelu_pattern)
+        subsch.fuse(subgraph, compiler="TorchScript", name="FusedBiasGeLU")
 
 
 def shard_mlp(sch, config, path="encoder.layer.N", fc_names=["intermediate", "output"]):

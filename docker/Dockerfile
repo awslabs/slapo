@@ -280,7 +280,7 @@ RUN cd $HOME/flash-attention/ && \
 
 # Install epoi
 RUN git clone https://github.com/comaniac/epoi --recursive $HOME/epoi
-RUN cd $HOME/epoi && git fetch && git checkout b26032e && pip3 install -e ".[dev]"
+RUN cd $HOME/epoi && git fetch && git checkout fa90fa7 && pip3 install -e ".[dev]"
 
 # Install transformers
 RUN git clone https://github.com/huggingface/transformers.git $HOME/transformers

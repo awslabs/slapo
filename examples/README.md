@@ -36,7 +36,7 @@ pip3 install -e ".[dev]"
 ```
 git clone https://github.com/comaniac/epoi --recursive
 cd epoi
-git checkout b26032e
+git checkout fa90fa7
 pip3 install -e ".[dev]"
 ```
 

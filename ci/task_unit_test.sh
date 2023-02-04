@@ -22,6 +22,7 @@ echo "Applying xFormers path..."
 XFORMER_PATH=`python3 -c "import xformers; print(xformers.__path__[0])"`
 cp scripts/xformers_patch $XFORMER_PATH
 pushd $XFORMER_PATH
+git config --global --add safe.directory $XFORMER_PATH
 git reset --hard
 git apply xformers_patch
 git --no-pager diff

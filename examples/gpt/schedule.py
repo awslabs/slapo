@@ -126,20 +126,20 @@ def replace_and_shard_attention(
             sub_sch["module.FusedQKV_0.fused_linear"].shard("bias", axis=0)
             sub_sch["module.out_proj"].shard("weight", axis=1)
 
-            # Attention mask is broadcasted from (B, 1, 1, S) to (B, H, S, S),
-            # where H is sharded.
+            # Attention mask may needed to be expanded from (B, 1, 1, S)
+            # to (B, H, S, S), where H is sharded.
             ops = sub_sch["module"].find_node(
-                lambda node: node.op == "call_method" and node.target == "repeat"
+                lambda node: node.op == "call_method" and node.target == "expand"
             )
-            assert len(ops) == 1
+            if ops:
 
-            def new_repeat(tensor, *args):
-                # (B, 1, 1, S) -> (B, H, S, S)
-                assert len(args) == 4
-                out = tensor.repeat(args[0], args[1] // sch.world_size, *args[2:])
-                return out.contiguous()
+                def new_expand(tensor, *args):
+                    # (B, 1, 1, S) -> (B, H, S, S)
+                    assert len(args) == 4
+                    out = tensor.expand(args[0], args[1] // sch.world_size, *args[2:])
+                    return out.contiguous()
 
-            sub_sch["module"].replace(new_repeat, ops[0][1])
+                sub_sch["module"].replace(new_expand, ops[0][1])
 
             if sequence_parallel:
                 sub_sch["module.FusedQKV_0.fused_linear"].sync(

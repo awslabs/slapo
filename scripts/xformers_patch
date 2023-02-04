@@ -1,0 +1,13 @@
+diff --git a/xformers/ops/fmha/cutlass.py b/xformers/ops/fmha/cutlass.py
+index d5181ac..c6fcb5b 100644
+--- a/xformers/ops/fmha/cutlass.py
++++ b/xformers/ops/fmha/cutlass.py
+@@ -184,7 +184,7 @@ class BwOp(AttentionBwOpBase):
+         torch.Tensor,
+         LowerTriangularMask,
+         # TODO: Fix handling of gradient through the fMHA autograd function
+-        # LowerTriangularMaskWithTensorBias,
++        LowerTriangularMaskWithTensorBias,
+     }
+     SUPPORTS_ATTN_BIAS_GRAD = True
+     SUPPORTS_DROPOUT = FwOp.SUPPORTS_DROPOUT

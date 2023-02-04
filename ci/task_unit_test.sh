@@ -19,7 +19,7 @@ bash benchmark/download_benchmark_dataset.sh
 
 # Remove this path when xFormers fixes this issue.
 echo "Applying xFormers path..."
-XFORMER_PATH=`python3 -c "import xformers; print(xformers.__path__[0])"`/..
+XFORMER_PATH=`python3 -c "import xformers, pathlib; print(pathlib.Path(xformers.__path__[0]).parent)"`
 cp scripts/xformers_patch $XFORMER_PATH
 pushd $XFORMER_PATH
 git config --global --add safe.directory $XFORMER_PATH

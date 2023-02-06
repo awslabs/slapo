@@ -856,8 +856,9 @@ class SubgraphWrapper(nn.Module):
                         for arg in node.args:
                             if isinstance(arg, fx.Node) and arg not in ops:
                                 new_args.append(arg)
-                    new_args = tuple(new_args)
-                    new_node = target_mod.graph.call_module(name, new_args, new_kwargs)
+                    new_node = target_mod.graph.call_module(
+                        name, tuple(new_args), new_kwargs
+                    )
                 last_node = ops[-1]
                 last_node.replace_all_uses_with(new_node)
                 for node in reversed(ops):

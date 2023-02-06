@@ -6,8 +6,8 @@
 import copy
 import time
 import operator
-import pytest
 import random
+import pytest
 import numpy as np
 
 import torch

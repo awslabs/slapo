@@ -9,10 +9,13 @@ set -o pipefail
 nvidia-smi -L
 
 echo "Running unit tests..."
-# -r: redirect the output of local rank 1 to None so that
-# only local rank 0's output is printed to the console.
-# -p "no:randomly": disable randomly plugin for sharding tests.
-torchrun --nproc_per_node 2 -r 1:1 -m pytest -p "no:randomly" tests
+# torchrun:
+#   -r: redirect the output of local rank 1 to None so that
+#       only local rank 0's output is printed to the console.
+# pytest:
+#   -rxXs: show extra info for each test, including xfailed, xpassed, and skipped.
+#   -p "no:randomly": disable randomly plugin for sharding tests.
+torchrun --nproc_per_node 2 -r 1:1 -m pytest -rxXs -p "no:randomly" tests
 
 echo "Downloading test data..."
 bash benchmark/download_benchmark_dataset.sh

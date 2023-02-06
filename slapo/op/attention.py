@@ -1,6 +1,16 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Attention module using high efficient CUDA kernels."""
+"""Attention module using high efficient CUDA kernels.
+
+The flash-attention kernel is tested with:
+https://github.com/jfc4050/flash-attention/commit/528c70e
+
+The xFormers kernel is tested with:
+https://github.com/facebookresearch/xformers/commit/48a77cc
+
+If you encounter an error when using above kernels, please check if the
+commit hash is the same as the one we tested with.
+"""
 # pylint: disable=too-many-arguments, too-many-instance-attributes
 from __future__ import annotations
 
@@ -290,7 +300,8 @@ class FlashAttentionOp(nn.Module):
 
 class FlashSelfAttention(nn.Module):
     """A HuggingFace self attention module with flash attention kernels.
-    Note that this module has limited supports to specialized processing, documetned as follows:
+    Note that this module has limited supports to specialized processing,
+    documetned as follows:
     - Only support absolute positional embeddings.
     - Do not support cross attention.
     - Do not support head mask, encoder_attention_mask, and output attention.

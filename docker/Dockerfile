@@ -274,7 +274,7 @@ RUN cd $HOME/xformers && \
 
 # Install flash_attn
 RUN git clone https://github.com/jfc4050/flash-attention.git $HOME/flash-attention && \
-    cd $HOME/flash-attention/ && git checkout f528682
+    cd $HOME/flash-attention/ && git checkout 528c70e
 RUN cd $HOME/flash-attention/ && \
     pip3 install -e ".[dev]"
 

@@ -1,7 +1,7 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 """
-Test custom ops. Note that attn test has to be invoked by torchrun since
+Test custom ops. Note that this test has to be invoked by torchrun since
 most custom ops are for tensor parallelism.
 """
 # pylint: disable=unused-argument

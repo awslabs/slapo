@@ -73,6 +73,7 @@ def test_attention(op_name, shape):
     config.resid_pdrop = 0.0
 
     def _init(attn_op_name, config):
+        # pylint: disable=redefined-variable-type
         if attn_op_name is None:
             attn = GPT2Attention(config)
         else:
@@ -88,7 +89,7 @@ def test_attention(op_name, shape):
                 )
             except Exception as err:
                 pytest.skip(
-                    reason=f"{attn_op_name} is not available in mlp environment "
+                    reason=f"{attn_op_name} is not available in this environment "
                     f"for testing: {err}"
                 )
         return attn.half().cuda()

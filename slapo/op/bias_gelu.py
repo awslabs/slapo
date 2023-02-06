@@ -1,7 +1,7 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 """BiasGeLU module using with fused kernels."""
-# pylint: disable=too-many-arguments, too-many-instance-attributes
+# pylint: disable=abstract-method
 from __future__ import annotations
 
 import math
@@ -11,12 +11,14 @@ import torch.nn.functional as F
 
 try:
     from functorch.compile import memory_efficient_fusion
-except:
+except ImportError:
     memory_efficient_fusion = None
 
 
 class BiasGeLUFunction(torch.autograd.Function):
     """Bias+GeLU. Copied from Megatron-LM."""
+
+    # pylint: disable=no-self-argument, arguments-differ
 
     @torch.jit.script
     def bias_gelu(bias, y):
@@ -38,14 +40,14 @@ class BiasGeLUFunction(torch.autograd.Function):
 
     @staticmethod
     # bias is an optional argument
-    def forward(ctx, input, bias):
-        ctx.save_for_backward(input, bias)
-        return BiasGeLUFunction.bias_gelu(bias, input)
+    def forward(ctx, inp, bias):
+        ctx.save_for_backward(inp, bias)
+        return BiasGeLUFunction.bias_gelu(bias, inp)
 
     @staticmethod
     def backward(ctx, grad_output):
-        input, bias = ctx.saved_tensors
-        tmp = BiasGeLUFunction.bias_gelu_back(grad_output, bias, input)
+        inp, bias = ctx.saved_tensors
+        tmp = BiasGeLUFunction.bias_gelu_back(grad_output, bias, inp)
         return tmp, tmp
 
 
@@ -58,35 +60,35 @@ class FusedBiasGELU(torch.nn.Module):
         self.reset_parameters(prev_weight)
 
     def reset_parameters(self, prev_weight=None):
-        range = (0, 1)
+        p_range = (0, 1)
         if prev_weight is not None:
             fan_in, _ = torch.nn.init._calculate_fan_in_and_fan_out(prev_weight)
             bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
-            range = (-bound, bound)
-        torch.nn.init.uniform_(self.bias, *range)
+            p_range = (-bound, bound)
+        torch.nn.init.uniform_(self.bias, *p_range)
 
-    def forward(self, input):
+    def forward(self, inp):
         if self.fused:
-            return BiasGeLUFunction.apply(input, self.bias)
-        return F.gelu(input + self.bias, approximate="none")
+            return BiasGeLUFunction.apply(inp, self.bias)
+        return F.gelu(inp + self.bias, approximate="none")
 
 
-def new_gelu(input):
+def new_gelu(inp):
     """New GELU activation function copied from HuggingFace transformers."""
     return (
         0.5
-        * input
+        * inp
         * (
             1.0
             + torch.tanh(
-                math.sqrt(2.0 / math.pi) * (input + 0.044715 * torch.pow(input, 3.0))
+                math.sqrt(2.0 / math.pi) * (inp + 0.044715 * torch.pow(inp, 3.0))
             )
         )
     )
 
 
-def bias_new_gelu(input, bias):
-    return new_gelu(input + bias)
+def bias_new_gelu(inp, bias):
+    return new_gelu(inp + bias)
 
 
 class FusedBiasNewGELU(torch.nn.Module):
@@ -107,12 +109,12 @@ class FusedBiasNewGELU(torch.nn.Module):
             self.func = bias_new_gelu
 
     def reset_parameters(self, prev_weight=None):
-        range = (0, 1)
+        p_range = (0, 1)
         if prev_weight is not None and len(prev_weight.shape) > 1:
             fan_in, _ = torch.nn.init._calculate_fan_in_and_fan_out(prev_weight)
             bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
-            range = (-bound, bound)
-        torch.nn.init.uniform_(self.bias, *range)
+            p_range = (-bound, bound)
+        torch.nn.init.uniform_(self.bias, *p_range)
 
-    def forward(self, input):
-        return self.func(input, self.bias)
+    def forward(self, inp):
+        return self.func(inp, self.bias)

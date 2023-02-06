@@ -6,14 +6,14 @@ most custom ops are for tensor parallelism.
 """
 # pylint: disable=unused-argument
 import os
-import pytest
 
+import pytest
 import torch
-from torch import nn
 from torch import distributed as dist
+from torch import nn
 
 from slapo import op
-from slapo.random import set_random_seed, get_cuda_rng_tracker
+from slapo.random import get_cuda_rng_tracker, set_random_seed
 
 
 def test_dropout(init_dist):
@@ -88,7 +88,7 @@ def test_attention(op_name, shape):
                 )
             except Exception as err:
                 pytest.skip(
-                    reason=f"{attn_op_name} is not available in this environment "
+                    reason=f"{attn_op_name} is not available in mlp environment "
                     f"for testing: {err}"
                 )
         return attn.half().cuda()
@@ -156,6 +156,68 @@ def test_attention(op_name, shape):
             # Bias gradient is not supported yet.
             continue
         torch.testing.assert_close(grad, grad_ref, atol=5e-2, rtol=5e-2)
+
+
+@pytest.mark.parametrize("act_name", ["gelu", "gelu_new"])
+@pytest.mark.parametrize("shape", [(8, 512, 1024)])
+def test_mlp(act_name, shape):
+    try:
+        from transformers import AutoConfig
+        from transformers.models.gpt2.modeling_gpt2 import GPT2MLP
+    except ImportError:
+        pytest.skip(reason="transformers not installed")
+
+    batch_size, seq_len, hidden_size = shape
+    config = AutoConfig.from_pretrained("gpt2-medium")
+    config.max_position_embeddings = seq_len
+    config.n_embed = config.hidden_size = hidden_size
+    config.resid_pdrop = 0.0
+    config.activation_function = act_name
+    intermediate_size = 4 * hidden_size
+
+    def _run(func, hidden_states):
+        out = func(hidden_states)
+        torch.autograd.backward(out, torch.ones_like(out))
+        torch.cuda.synchronize()
+        grad = hidden_states.grad
+        hidden_states.grad = None
+        return out, grad
+
+    # Initialize the MLP module.
+    mlp_ref = GPT2MLP(intermediate_size, config).half().cuda()
+    mlp = op.FusedMLP(
+        config.hidden_size,
+        intermediate_size,
+        config.activation_function,
+        config.resid_pdrop,
+    )
+    mlp = mlp.half().cuda()
+
+    # Sync parameters. Note that GPT-2 uses Conv1D with transposed weights.
+    requires_grad = mlp_ref.c_fc.weight.requires_grad
+    mlp.fc_in.weight = torch.nn.Parameter(
+        mlp_ref.c_fc.weight.transpose(-1, 0).contiguous(), requires_grad=requires_grad
+    )
+    mlp.act.bias = mlp_ref.c_fc.bias
+    mlp.fc_out.weight = torch.nn.Parameter(
+        mlp_ref.c_proj.weight.transpose(-1, 0).contiguous(), requires_grad=requires_grad
+    )
+    mlp.fc_out.bias = mlp_ref.c_proj.bias
+
+    # Generate inputs.
+    hidden_states = torch.randn(
+        [batch_size, seq_len, hidden_size],
+        dtype=torch.float16,
+        device="cuda",
+        requires_grad=True,
+    )
+
+    # Run reference.
+    out_ref, grad_ref = _run(mlp_ref, hidden_states)
+    out, grad = _run(mlp, hidden_states)
+
+    torch.testing.assert_close(out, out_ref, atol=5e-2, rtol=5e-2)
+    torch.testing.assert_close(grad, grad_ref, atol=5e-2, rtol=5e-2)
 
 
 if __name__ == "__main__":

@@ -342,12 +342,14 @@ class FlashSelfAttention(nn.Module):
         mask = mask.expand(-1, num_attention_heads, mask.shape[-1], -1)
         return mask.contiguous()
 
-    def reshape_for_scores(self, x: torch.Tensor) -> torch.Tensor:
+    def reshape_for_scores(self, x: torch.Tensor, fused_qkv=False):
         """Copy from transpose_for_scores but without the transpose"""
         new_x_shape = x.size()[:-1] + (
-            self.num_attention_heads,
+            -1,
             self.attention_head_size,
         )
+        if fused_qkv:
+            new_x_shape = new_x_shape + (3,)
         x = x.view(new_x_shape)
         return x
 
@@ -377,16 +379,19 @@ class FlashSelfAttention(nn.Module):
             )
 
         if self.fused_qkv:
-            query_layer, key_layer, value_layer = self.qkv(hidden_states).split(
-                self.hidden_size, dim=2
-            )
+            layers = self.qkv(hidden_states)
+            layers = self.reshape_for_scores(layers, fused_qkv=True)
+            query_layer, key_layer, value_layer = torch.split(layers, 1, dim=-1)
+            query_layer = torch.squeeze(query_layer, -1).contiguous()
+            key_layer = torch.squeeze(key_layer, -1).contiguous()
+            value_layer = torch.squeeze(value_layer, -1).contiguous()
         else:
             query_layer = self.query(hidden_states)
             key_layer = self.key(hidden_states)
             value_layer = self.value(hidden_states)
-        query_layer = self.reshape_for_scores(query_layer)
-        key_layer = self.reshape_for_scores(key_layer)
-        value_layer = self.reshape_for_scores(value_layer)
+            query_layer = self.reshape_for_scores(query_layer)
+            key_layer = self.reshape_for_scores(key_layer)
+            value_layer = self.reshape_for_scores(value_layer)
 
         if layer_past is not None:
             past_key, past_value = layer_past

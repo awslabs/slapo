@@ -53,14 +53,31 @@ def replace_and_shard_attention(
     disable_flash_attn=False,
 ):
     from epoi.inject.policy.gpt import InjectHFGPTAttentionPolicy
-    from epoi.ops.xformers_attn import GenericSelfAttention
+    from epoi.ops.xformers_attn import GenericSelfAttention, MemoryEfficientAttentionOp
+
+    try:
+        # Backward compatibility
+        from epoi.ops.flash_attention import FlashSelfAttention, FlashAttentionTritonOp
+    except ImportError:
+        FlashSelfAttention = None
+        FlashAttentionTritonOp = None
+
+    cuda_sm = torch.cuda.get_device_capability("cuda")
+    if not disable_flash_attn and FlashSelfAttention is not None and cuda_sm == (8, 0):
+        SelfAttentionModule = FlashSelfAttention
+        AttentionOp = FlashAttentionTritonOp
+        attn_op_name = "triton"
+    else:
+        SelfAttentionModule = GenericSelfAttention
+        AttentionOp = MemoryEfficientAttentionOp
+        attn_op_name = "native" if disable_flash_attn else "cutlass"
 
     class SelfAttention(nn.Module):
         """A wrapper to align the original GPTNeoAttention forward signature."""
 
         def __init__(self, **kwargs):
             super().__init__()
-            self.module = GenericSelfAttention(**kwargs)
+            self.module = SelfAttentionModule(**kwargs)
 
         def forward(
             self,
@@ -89,10 +106,8 @@ def replace_and_shard_attention(
     for idx in range(num_layers):
         sub_sch = sch[attn_path.replace("N", str(idx))]
         init_config = InjectHFGPTAttentionPolicy.gen_init_config_from_object(
-            sub_sch.mod
+            sub_sch.mod, attn_op_name=attn_op_name
         )
-        if disable_flash_attn:
-            init_config["attn_op_name"] = "native"
         with init_empty_weights(enable=delay_init):
             new_mod = SelfAttention(**init_config)
         sub_sch.replace(new_mod)
@@ -187,13 +202,33 @@ def shard_word_embedding(
 
 
 def replace_and_shard_mlp(
-    sch, config, path="decoder.layers.N", fc_names=["fc1", "fc2"], delay_init=True
+    sch,
+    config,
+    path="decoder.layers.N",
+    fc_names=["fc1", "fc2"],
+    delay_init=True,
+    separate_fusion=False,
 ):
     from epoi.inject.policy.gpt import InjectHFGPTMLPPolicy
 
     for idx in range(config.num_hidden_layers):
         prefix = path.replace("N", str(idx))
-        if config.activation_function in ["gelu", "gelu_new"]:
+        if config.activation_function in ["gelu", "gelu_new"] and separate_fusion:
+
+            def bias_gelu_pattern(x, bias):
+                x = x + bias
+                x = call_module("activation_fn", x)
+                return x
+
+            subsch = sch[prefix]
+            subsch["fc1"].decompose()
+            subsch.trace(flatten=True)
+
+            subgraphs = subsch.find(bias_gelu_pattern)
+            assert len(subgraphs) == 1
+            assert len(subgraphs[0]) == 2
+            subsch.fuse(subgraphs, compiler="TorchScript", name="FusedBiasGeLU")
+        if config.activation_function in ["gelu", "gelu_new"] and not separate_fusion:
             sub_sch = sch[prefix]
             with init_empty_weights(enable=delay_init):
                 new_mod = InjectHFGPTMLPPolicy.init_from_object(sub_sch.mod)

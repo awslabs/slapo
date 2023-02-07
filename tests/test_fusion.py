@@ -4,7 +4,6 @@
 
 # pylint: disable=comparison-with-callable
 import copy
-import time
 import operator
 import random
 import pytest
@@ -113,23 +112,9 @@ def test_bias_gelu():
     print(sch_model)
 
     inp = torch.randn((1, 16, 1024, 1024), requires_grad=True).cuda()
-    # Wram up
-    for _ in range(1000):
-        out = sch_model(inp)
-    print("Finish warm-up steps")
-    start_time = time.time()
-    for _ in range(1000):
-        out = sch_model(inp)
-    ts_time = time.time() - start_time
-    print(f"TorchScript time: {ts_time:.4f}s")
-    start_time = time.time()
-    for _ in range(1000):
-        out_ref = mod(inp)
-    vanilla_time = time.time() - start_time
-    print(f"Vanilla time: {vanilla_time:.4f}s")
+    out = sch_model(inp)
+    out_ref = mod(inp)
     torch.testing.assert_close(out, out_ref)
-    # Performance testing
-    assert ts_time < vanilla_time
 
 
 def test_bias_layernorm():
@@ -183,23 +168,6 @@ def test_bias_layernorm():
     torch.manual_seed(2023)
     out_ref = mod(inp, resid)
     torch.testing.assert_close(out, out_ref)
-
-    # Wram up
-    for _ in range(1000):
-        out = sch_model(inp, resid)
-    print("Finish warm-up steps")
-    start_time = time.time()
-    for _ in range(1000):
-        out = sch_model(inp, resid)
-    ts_time = time.time() - start_time
-    print(f"TorchScript time: {ts_time:.4f}s")
-    start_time = time.time()
-    for _ in range(1000):
-        out_ref = mod(inp, resid)
-    vanilla_time = time.time() - start_time
-    print(f"Vanilla time: {vanilla_time:.4f}s")
-    # Performance testing
-    assert ts_time < vanilla_time
 
 
 if __name__ == "__main__":

@@ -207,50 +207,53 @@ def replace_and_shard_mlp(
     path="decoder.layers.N",
     fc_names=["fc1", "fc2"],
     delay_init=True,
-    separate_fusion=False,
+    disable_fuse_bias_gelu=False,
 ):
     from epoi.inject.policy.gpt import InjectHFGPTMLPPolicy
 
     for idx in range(config.num_hidden_layers):
         prefix = path.replace("N", str(idx))
-        if config.activation_function in ["gelu", "gelu_new"] and separate_fusion:
+        replaced_new_mlp = False
+        if config.activation_function in ["gelu", "gelu_new"]:
+            if disable_fuse_bias_gelu:
+                sub_sch = sch[prefix]
+                with init_empty_weights(enable=delay_init):
+                    new_mod = InjectHFGPTMLPPolicy.init_from_object(sub_sch.mod)
+                sub_sch.replace(new_mod)
+                sub_sch.trace(leaf_modules=["FusedBiasGELU", "FusedBiasNewGELU"])
+                replaced_new_mlp = True
+            else:
 
-            def bias_gelu_pattern(x, bias):
-                x = x + bias
-                x = call_module("activation_fn", x)
-                return x
+                def bias_gelu_pattern(x, bias):
+                    x = x + bias
+                    x = call_module("activation_fn", x)
+                    return x
 
-            subsch = sch[prefix]
-            subsch["fc1"].decompose()
-            subsch.trace(flatten=True)
+                subsch = sch[prefix]
+                subsch["fc1"].decompose()
+                subsch.trace(flatten=True)
 
-            subgraphs = subsch.find(bias_gelu_pattern)
-            assert len(subgraphs) == 1
-            assert len(subgraphs[0]) == 2
-            subsch.fuse(subgraphs, compiler="TorchScript", name="FusedBiasGeLU")
-        if config.activation_function in ["gelu", "gelu_new"] and not separate_fusion:
-            sub_sch = sch[prefix]
-            with init_empty_weights(enable=delay_init):
-                new_mod = InjectHFGPTMLPPolicy.init_from_object(sub_sch.mod)
-            sub_sch.replace(new_mod)
-            sub_sch.trace(leaf_modules=["FusedBiasGELU", "FusedBiasNewGELU"])
-
-            if sch.world_size > 1:
+                subgraphs = subsch.find(bias_gelu_pattern)
+                assert len(subgraphs) == 1
+                assert len(subgraphs[0]) == 2
+                subsch.fuse(subgraphs, compiler="TorchScript", name="FusedBiasGeLU")
+        if sch.world_size > 1:
+            if replaced_new_mlp:
                 sub_sch["fc_in"].shard("weight", axis=0)
                 sub_sch["act"].shard("bias", axis=0)
                 sub_sch["fc_in"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
                 sub_sch["fc_out"].shard("weight", axis=1)
                 sub_sch["fc_out"].sync(mode="fwd_post", sync_op_or_fn="all_reduce")
-        elif sch.world_size > 1:
-            sch[f"{prefix}.{fc_names[0]}"].shard("weight", axis=0)
-            sch[f"{prefix}.{fc_names[0]}"].shard("bias", axis=0)
-            sch[f"{prefix}.{fc_names[0]}"].sync(
-                mode="bwd_post", sync_op_or_fn="all_reduce"
-            )
-            sch[f"{prefix}.{fc_names[1]}"].shard("weight", axis=1)
-            sch[f"{prefix}.{fc_names[1]}"].sync(
-                mode="fwd_post", sync_op_or_fn="all_reduce"
-            )
+            else:
+                sch[f"{prefix}.{fc_names[0]}"].shard("weight", axis=0)
+                sch[f"{prefix}.{fc_names[0]}"].shard("bias", axis=0)
+                sch[f"{prefix}.{fc_names[0]}"].sync(
+                    mode="bwd_post", sync_op_or_fn="all_reduce"
+                )
+                sch[f"{prefix}.{fc_names[1]}"].shard("weight", axis=1)
+                sch[f"{prefix}.{fc_names[1]}"].sync(
+                    mode="fwd_post", sync_op_or_fn="all_reduce"
+                )
 
 
 def checkpoint(sch, config, path="decoder.layers.N", ckpt_ratio=1.0):

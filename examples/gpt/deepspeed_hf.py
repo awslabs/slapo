@@ -97,7 +97,8 @@ def train(args):
     # FIXME: This model has vocab size 50257 that cannot be sharded by 2,
     # so we pad it to 50258 in this example. In practice, the tokenizer
     # should be used to pad the vocab size to a multiple of 2.
-    config.vocab_size = (config.vocab_size // 8 + 1) * 8
+    if config.vocab_size % 8 != 0:
+        config.vocab_size += 8 - config.vocab_size % 8
     config.use_cache = False
     config.gradient_checkpointing = use_default_ckpt
     config = reconfig_model(args, config)

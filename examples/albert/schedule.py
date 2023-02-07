@@ -32,25 +32,20 @@ def trace_attention(
 
 
 def fix_attention_mask_shape(sch):
-    # EPOI attention module uses repeat to process attention mask to
-    # align xformer attention mask shape:
-    # (B, 1, 1, S) -repeat->  (B, H, S, S) -reshape-> (B x H, S, S),
-    # so we need to replace "repeat" wit the sharded H.
+    # Attention mask may needed to be expanded from (B, 1, 1, S)
+    # to (B, H, S, S), where H is sharded.
     ops = sch.find_node(
-        lambda node: node.op == "call_method"
-        and node.target == "repeat"
-        and len(node.args) == 5  # args[0] is self
-        and node.args[1] == 1
-        and node.args[-1] == 1
+        lambda node: node.op == "call_method" and node.target == "expand"
     )
 
-    def new_repeat(tensor, *old_args):
-        assert len(old_args) == 4
-        new_args = (old_args[0],) + (old_args[1] // sch.world_size,) + old_args[2:]
-        return tensor.repeat(*new_args)
+    def new_expand(tensor, *args):
+        # (B, 1, 1, S) -> (B, H, S, S)
+        assert len(args) == 4
+        out = tensor.expand(args[0], args[1] // sch.world_size, *args[2:])
+        return out.contiguous()
 
     for op in ops:
-        sch.replace(new_repeat, op[1])
+        sch.replace(new_expand, op[1])
 
 
 def replace_and_shard_attention(
@@ -62,42 +57,6 @@ def replace_and_shard_attention(
 ):
     from epoi.inject.policy.bert import InjectHFBertSelfAttentionPolicy
     from epoi.ops.xformers_attn import GenericSelfAttention
-    from transformers.pytorch_utils import apply_chunking_to_forward
-    from epoi.ops.torchscript_ops import FusedBiasNewGELU
-
-    # TODO: Use subgraph matching to obtain FFN module
-    class FFN(nn.Module):
-        def __init__(self, config):
-            super().__init__()
-            self.config = config
-            self.chunk_size_feed_forward = config.chunk_size_feed_forward
-            self.ffn = nn.Linear(
-                config.hidden_size, config.intermediate_size, bias=None
-            )
-            self.ffn_output = nn.Linear(config.intermediate_size, config.hidden_size)
-            self.activation = FusedBiasNewGELU(config.intermediate_size)
-            self.dropout = nn.Dropout(float(config.hidden_dropout_prob))
-            self.seq_len_dim = 1
-            self.full_layer_layer_norm = nn.LayerNorm(
-                config.hidden_size, eps=config.layer_norm_eps
-            )
-
-        def forward(self, context_layer: torch.Tensor):
-            ffn_output = apply_chunking_to_forward(
-                self.ff_chunk,
-                self.chunk_size_feed_forward,
-                self.seq_len_dim,
-                context_layer,
-            )
-            hidden_states = self.full_layer_layer_norm(ffn_output + context_layer)
-
-            return (hidden_states,)
-
-        def ff_chunk(self, attention_output: torch.Tensor) -> torch.Tensor:
-            ffn_output = self.ffn(attention_output)
-            ffn_output = self.activation(ffn_output)
-            ffn_output = self.ffn_output(ffn_output)
-            return ffn_output
 
     class AlbertXFAttention(nn.Module):
         def __init__(self, config, **kwargs):
@@ -126,27 +85,6 @@ def replace_and_shard_attention(
             )
             return (layernormed_context_layer, None)
 
-    class AlbertLayer(nn.Module):
-        def __init__(self, config, **kwargs):
-            super().__init__()
-            self.config = config
-            self.attention = AlbertXFAttention(config, **kwargs)
-            self.ffn = FFN(config)
-
-        def forward(
-            self,
-            hidden_states: torch.Tensor,
-            attention_mask: Optional[torch.FloatTensor] = None,
-            head_mask: Optional[torch.FloatTensor] = None,
-            output_attentions: bool = False,
-            output_hidden_states: bool = False,
-        ):
-            attention_output = self.attention(
-                hidden_states, attention_mask, head_mask, output_attentions
-            )
-            res = self.ffn(attention_output[0])
-            return res
-
     cnt = 0
     for idx in range(1):  # use layer group
         prefix = attn_path.replace("N", str(idx))
@@ -157,8 +95,8 @@ def replace_and_shard_attention(
         if disable_flash_attn:
             init_config["attn_op_name"] = "native"
         with init_empty_weights(enable=False):
-            albert_layer = AlbertLayer(config, **init_config)
-        sch[f"{prefix}"].replace(albert_layer)
+            attn = AlbertXFAttention(config, **init_config)
+        sch[f"{prefix}.attention"].replace(attn)
 
         num_layers, num_heads, hidden_size = (
             config.num_hidden_layers,
@@ -232,11 +170,31 @@ def shard_word_embedding(sch, vocab_size, word_embed_name="embeddings.word_embed
     sch[word_embed_name].sync(mode="fwd_post", sync_op_or_fn=fwd_post_hook)
 
 
+def fuse_bias_gelu(sch, config, path="encoder.albert_layer_groups.N.albert_layers.N"):
+    def bias_gelu_pattern(x, bias):
+        x = bias + x
+        x = call_module("activation", x)
+        return x
+
+    for idx in range(1):
+        subsch = sch[path.replace("N", str(idx))]
+        subsch["ffn"].decompose()
+        subsch.trace(
+            flatten=True,
+            leaf_modules=["AlbertAttention", "AlbertXFAttention", "NewGELUActivation"],
+        )
+
+        subgraphs = subsch.find(bias_gelu_pattern)
+        assert len(subgraphs) == 1
+        assert len(subgraphs[0]) == 2
+        subsch.fuse(subgraphs, compiler="TorchScript", name="FusedBiasGeLU")
+
+
 def shard_mlp(
     sch,
     config,
     path="encoder.albert_layer_groups.N.albert_layers.N",
-    fc_names=["ffn.ffn", "ffn.ffn_output"],
+    fc_names=["ffn", "ffn_output"],
 ):
     if sch.world_size == 1:
         return
@@ -244,7 +202,7 @@ def shard_mlp(
     for idx in range(1):  # use layer group
         prefix = path.replace("N", str(idx))
         sch[f"{prefix}.{fc_names[0]}"].shard("weight", axis=0)
-        sch[f"{prefix}.ffn.activation"].shard("bias", axis=0)
+        sch[f"{prefix}.{fc_names[0]}"].shard("bias", axis=0)
         sch[f"{prefix}.{fc_names[0]}"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
         sch[f"{prefix}.{fc_names[1]}"].shard("weight", axis=1)
         sch[f"{prefix}.{fc_names[1]}"].sync(mode="fwd_post", sync_op_or_fn="all_reduce")

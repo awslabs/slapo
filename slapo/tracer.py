@@ -28,7 +28,6 @@ def fix_hf_module(
     for target in dir(root):
         if "_tensor_constant" in target or target in {"position_ids", "token_type_ids"}:
             submods[target] = getattr(root, target)
-    nodes_to_fix = []
     for node in root_graph.nodes:
         # Add submodule's attributes to parent module if it is used
         if node.op in {"call_module", "get_attr"} and node.target not in submods:
@@ -39,16 +38,9 @@ def fix_hf_module(
             submods[node.target] = attr_itr
         # Fix SelfAttention naming
         if node.op == "call_module" and "self" in node.target:
-            nodes_to_fix.append(node)
-    # Fix conflicting Python keyword
-    for node in nodes_to_fix:
-        old_target = node.target
-        new_target = old_target.replace("self", "self_m")
-        with root_graph.inserting_after(node):
-            new_node = root_graph.call_module(new_target, node.args, node.kwargs)
-            node.replace_all_uses_with(new_node)
-        root_graph.erase_node(node)
-        submods[new_target] = submods[old_target]
+            logger.warning(
+                "`self` in {root.__class__.__name__} is a Python keyword, please rename it to avoid possible conflicts."
+            )
     # Fix arguments
     for node in root_graph.nodes:
         if node.op == "call_module":

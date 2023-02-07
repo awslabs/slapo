@@ -28,7 +28,7 @@ def schedule_model(
     group=None,
     bcast_input=False,
     pipeline_cuts=None,
-    separate_op_fusion=False,
+    disable_fuse_bias_gelu=False,
     delay_init=True,
 ):
     logger.info("Scheduling Albert", ranks=0)
@@ -52,7 +52,7 @@ def schedule_model(
     logger.info(f"Replace {cnt} attention patterns", ranks=0)
 
     # Operator fusion
-    if separate_op_fusion:
+    if disable_fuse_bias_gelu:
         fuse_bias_gelu(sch[prefix], config)
         logger.info(f"Fused Bias+GeLU", ranks=0)
 

@@ -10,7 +10,7 @@ from schedule import (
     broadcast_input,
     checkpoint,
     replace_and_shard_attention,
-    # fuse_bias_gelu,
+    fuse_bias_gelu,
     shard_mlp,
     shard_word_embedding,
 )
@@ -50,7 +50,7 @@ def schedule_model(
     )
     logger.info(f"Replace {cnt} attention patterns", ranks=0)
 
-    # fuse_bias_gelu(sch[prefix], config)
+    fuse_bias_gelu(sch[prefix], config)
 
     # Shard other parameters if MP group > 1.
     if sch.world_size > 1:

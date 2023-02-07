@@ -1250,7 +1250,7 @@ def consolidate_model(
             # so no need to consolidate
             return
 
-        if hasattr(sch, "partition_idx"):
+        if hasattr(sch, "partition_idx") and topology is not None:
             curr_part_idx = sch.partition_idx
             # topology stores the global ranks
             curr_stage_devices = topology.filter_match(pipe=curr_part_idx)
@@ -1345,7 +1345,7 @@ def build(
         init_weight_fn = init_weights if isinstance(init_weights, Callable) else None
         sch = consolidate_model(sch, target, init_weight_fn, **kwargs)
 
-    if sch.metadata.pipeline_cutting_paths:
+    if sch.metadata.pipeline_cutting_paths and target is not None:
         # Generate pipeline modules for a particular target.
         model = build_pipeline_model(
             sch,

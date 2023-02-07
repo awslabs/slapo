@@ -88,6 +88,7 @@ def flash_attn_ref(
     torch.Tensor
         Shape: (batch_size, seqlen_q, nheads, head_dim)
     """
+    # pylint: disable=invalid-unary-operand-type
     assert softmax_scale is None, "softmax_scale is not supported"
     einops = importlib_or_none("einops")
     assert einops is not None, "einops is not installed"

@@ -181,7 +181,12 @@ def fuse_bias_gelu(sch, config, path="encoder.albert_layer_groups.N.albert_layer
         subsch["ffn"].decompose()
         subsch.trace(
             flatten=True,
-            leaf_modules=["AlbertAttention", "AlbertXFAttention", "NewGELUActivation"],
+            leaf_modules=[
+                "AlbertAttention",
+                "AlbertXFAttention",
+                "NewGELUActivation",
+                "GELUActivation",
+            ],
         )
 
         subgraphs = subsch.find(bias_gelu_pattern)

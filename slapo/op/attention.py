@@ -331,7 +331,6 @@ class FlashSelfAttention(nn.Module):
         attn_op_name="auto",
         bias=True,
         fused_qkv=False,
-        world_size=1,
     ):
         super().__init__()
         if hidden_size % num_attention_heads != 0:
@@ -360,12 +359,6 @@ class FlashSelfAttention(nn.Module):
             self.out_proj = nn.Linear(hidden_size, hidden_size, bias=bias)
             self.resid_dropout = nn.Dropout(resid_pdrop)
 
-        self.world_size = world_size
-        if self.hidden_size % self.world_size != 0:
-            raise ValueError(
-                f"The hidden size ({hidden_size}) is not a multiple "
-                f"of the tensor parallel size ({world_size})"
-            )
         self.attn_op_name = attn_op_name
         self.attn_op = FlashAttentionOp(attn_op_name, self.is_decoder)
 
@@ -412,8 +405,8 @@ class FlashSelfAttention(nn.Module):
 
         if self.fused_qkv:
             # (B, S, 3 * T * head_size) - split -> 3 x (B, S, T * head_size)
-            query_layer, key_layer, value_layer = self.qkv(hidden_states).split(
-                self.hidden_size // self.world_size, dim=2
+            query_layer, key_layer, value_layer = self.qkv(hidden_states).chunk(
+                3, dim=2
             )
         else:
             query_layer = self.query(hidden_states)

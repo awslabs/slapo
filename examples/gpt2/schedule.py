@@ -42,7 +42,6 @@ def replace_attention(
         resid_pdrop=config.resid_pdrop,
         attn_op_name=attn_op_name,
         fused_qkv=True,
-        world_size=sch.world_size,
     )
 
     class SelfAttention(nn.Module):

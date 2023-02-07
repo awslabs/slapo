@@ -1,6 +1,8 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 """Common utilities used in schedule."""
+import importlib
+from functools import lru_cache
 from types import FunctionType
 
 
@@ -56,3 +58,12 @@ def transfer_hooks(old_mod, new_mod, hook_types=None):
 
 def is_lambda_function(obj):
     return isinstance(obj, FunctionType) and obj.__name__ == "<lambda>"
+
+
+@lru_cache()
+def importlib_or_none(name):
+    """Import the module if available, otherwise return None."""
+    try:
+        return importlib.import_module(name)
+    except ModuleNotFoundError:
+        return None

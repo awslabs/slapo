@@ -3,14 +3,12 @@
 
 import inspect
 
-import torch
 import torch.nn as nn
 from torch.distributed import distributed_c10d as dist
 
 import slapo
 from slapo import init_empty_weights
-from slapo.pattern import call_module
-from slapo.op.linear import FusedQKV
+from slapo.op import FlashSelfAttention, FlashAttentionOp, FusedMLP
 from slapo import init_empty_weights, get_cuda_rng_tracker
 
 
@@ -55,32 +53,37 @@ def replace_and_shard_attention(
     disable_flash_attn=False,
     sequence_parallel=False,
 ):
-    from epoi.inject.policy.gpt import InjectHFGPTAttentionPolicy
-    from epoi.ops.xformers_attn import GenericSelfAttention, MemoryEfficientAttentionOp
-
-    try:
-        # Backward compatibility
-        from epoi.ops.flash_attention import FlashSelfAttention, FlashAttentionTritonOp
-    except ImportError:
-        FlashSelfAttention = None
-        FlashAttentionTritonOp = None
-
-    cuda_sm = torch.cuda.get_device_capability("cuda")
-    if not disable_flash_attn and FlashSelfAttention is not None and cuda_sm == (8, 0):
-        SelfAttentionModule = FlashSelfAttention
-        AttentionOp = FlashAttentionTritonOp
-        attn_op_name = "triton"
-    else:
-        SelfAttentionModule = GenericSelfAttention
-        AttentionOp = MemoryEfficientAttentionOp
-        attn_op_name = "native" if disable_flash_attn else "cutlass"
+    attn_op_name = "native_xformers" if disable_flash_attn else "triton"
+    init_config = dict(
+        hidden_size=config.hidden_size,
+        num_attention_heads=config.num_attention_heads,
+        is_decoder=True,
+        attn_pdrop=config.attention_dropout,
+        resid_pdrop=config.resid_dropout,
+        attn_op_name=attn_op_name,
+        fused_qkv=True,
+        bias=False,  # GPT-Neo does not use bias in attention.
+        world_size=sch.world_size,
+    )
 
     class SelfAttention(nn.Module):
         """A wrapper to align the original GPTNeoAttention forward signature."""
 
         def __init__(self, **kwargs):
             super().__init__()
-            self.module = SelfAttentionModule(**kwargs)
+            try:
+                self.module = FlashSelfAttention(**kwargs)
+            except Exception as err:
+                if kwargs["attn_op_name"] == "native_xformers":
+                    raise RuntimeError(
+                        f"Failed to create native attention: {err}"
+                    ) from None
+
+                # Failed to use the triton kernel. This may due to unsupported
+                # GPU (< sm_75) or flash-attention is not installed. Fallback
+                # to xFormers' cutlass.
+                kwargs["attn_op_name"] = "cutlass"
+                self.module = FlashSelfAttention(**kwargs)
 
         def forward(
             self,
@@ -91,61 +94,56 @@ def replace_and_shard_attention(
             use_cache=False,
             output_attentions=False,
         ):
-            outputs = self.module(hidden_states, attention_mask, layer_past, use_cache)
+            """Match the original GPTNeoAttention forward signature."""
+            outputs = self.module(
+                hidden_states,
+                layer_past,
+                attention_mask,
+                head_mask,
+                None,
+                None,
+                use_cache,
+                output_attentions,
+            )
             # FIXME: The original output is (hidden_states, None) where the None
             # is present_key_value and only used by in inference.
             return outputs[:1]
 
-    class MemoryEfficientAttentionWithRNGOp(AttentionOp):
+    class AttentionOpWithRNG(FlashAttentionOp):
         def forward(self, query_layer, key_layer, value_layer, attention_mask, p):
             with get_cuda_rng_tracker().fork():
                 return super().forward(
                     query_layer, key_layer, value_layer, attention_mask, p
                 )
 
-    num_layers, num_heads, hidden_size = (
-        config.num_layers,
-        config.num_heads,
-        config.hidden_size,
-    )
-
     cnt = 0
-    for idx in range(num_layers):
+    attn_op = []
+    for idx in range(config.num_layers):
         sub_sch = sch[attn_path.replace("N", str(idx))]
-        init_config = InjectHFGPTAttentionPolicy.gen_init_config_from_object(
-            sub_sch.mod, attn_op_name=attn_op_name
-        )
         with init_empty_weights(enable=delay_init):
             new_mod = SelfAttention(**init_config)
+            attn_op.append(new_mod.module.attn_op_name)
         sub_sch.replace(new_mod)
         sub_sch.trace(
             tracer="pytorch",
-            leaf_modules=[AttentionOp.__name__],
+            leaf_modules=["FlashAttentionOp"],
             concrete_args={
                 "layer_past": None,
+                "head_mask": None,
+                "encoder_hidden_states": None,
+                "encoder_attention_mask": None,
                 "use_cache": False,
+                "output_attentions": False,
             },
         )
 
-        def pattern(x: torch.Tensor) -> torch.Tensor:
-            x = call_module("query|key|value", x)
-            new_x_shape = x.size()[:-1] + (num_heads, hidden_size)
-            x = x.view(new_x_shape)
-            return x
-
-        subgraphs = sub_sch["module"].find(pattern)
-        assert len(subgraphs) == 3
-        with init_empty_weights(enable=delay_init):
-            new_fused_qkv = FusedQKV(hidden_size, num_heads, sch.world_size)
-        sub_sch["module"].replace(new_fused_qkv, subgraphs)
         if sch.world_size > 1:
-            sub_sch["module.FusedQKV_0.fused_linear"].shard("weight", axis=0)
-            sub_sch["module.FusedQKV_0.fused_linear"].shard("bias", axis=0)
+            sub_sch["module.qkv"].shard("weight", axis=0)
             sub_sch["module.out_proj"].shard("weight", axis=1)
             fix_attention_mask_shape(sub_sch["module"])
 
             if sequence_parallel:
-                sub_sch["module.FusedQKV_0.fused_linear"].sync(
+                sub_sch["module.qkv"].sync(
                     mode="fwd_pre", sync_op_or_fn="all_gather", axis=1
                 )
 
@@ -154,24 +152,30 @@ def replace_and_shard_attention(
                 )
             else:
                 # Shard qkv and output projection.
-                sub_sch["module.FusedQKV_0.fused_linear"].sync(
-                    mode="bwd_post", sync_op_or_fn="all_reduce"
-                )
+                sub_sch["module.qkv"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
                 sub_sch["module.out_proj"].sync(
                     mode="fwd_post", sync_op_or_fn="all_reduce"
                 )
 
                 # In this case, the attention dropout in between has to
                 # use different random seeds.
-                new_op = MemoryEfficientAttentionWithRNGOp(
+                new_op = AttentionOpWithRNG(
                     sub_sch["module"]["attn_op"].mod.attn_op_name,
                     sub_sch["module"]["attn_op"].mod.apply_causal_mask,
+                    sub_sch["module"]["attn_op"].mod.scale,
                 )
                 sub_sch["module"]["attn_op"].replace(new_op)
 
         cnt += 1
 
-    return cnt
+    # Check if all attention ops are the same.
+    attn_op = list(set(attn_op))
+    if len(attn_op) > 1:
+        raise RuntimeError(
+            f"The attention op is not consistent across layers, including {attn_op}"
+        )
+
+    return cnt, attn_op[0]
 
 
 def shard_word_embedding(
@@ -235,14 +239,18 @@ def replace_and_shard_mlp(
     delay_init=True,
     sequence_parallel=False,
 ):
-    from epoi.inject.policy.gpt import InjectHFGPTMLPPolicy
-
     for idx in range(config.num_layers):
         prefix = path.replace("N", str(idx))
         if config.activation_function in ["gelu", "gelu_new"]:
             sub_sch = sch[prefix]
+            inter_size, hidden_size = sub_sch.mod.c_fc.weight.shape
             with init_empty_weights(enable=delay_init):
-                new_mod = InjectHFGPTMLPPolicy.init_from_object(sub_sch.mod)
+                new_mod = FusedMLP(
+                    hidden_size,
+                    inter_size,
+                    config.activation_function,
+                    config.resid_dropout,
+                )
             sub_sch.replace(new_mod)
             sub_sch.trace(leaf_modules=["FusedBiasGELU", "FusedBiasNewGELU"])
 

@@ -86,7 +86,6 @@ def test_attention(op_name, shape):
                     resid_pdrop=config.resid_pdrop,
                     attn_op_name=attn_op_name,
                     fused_qkv=True,
-                    world_size=1,
                 )
             except Exception as err:
                 pytest.skip(

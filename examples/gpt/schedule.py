@@ -62,6 +62,8 @@ def replace_and_shard_attention(
         resid_pdrop=config.resid_dropout,
         attn_op_name=attn_op_name,
         fused_qkv=True,
+        bias=False,  # GPT-Neo does not use bias in attention.
+        world_size=sch.world_size,
     )
 
     class SelfAttention(nn.Module):
@@ -115,10 +117,12 @@ def replace_and_shard_attention(
                 )
 
     cnt = 0
+    attn_op = []
     for idx in range(config.num_layers):
         sub_sch = sch[attn_path.replace("N", str(idx))]
         with init_empty_weights(enable=delay_init):
             new_mod = SelfAttention(**init_config)
+            attn_op.append(new_mod.module.attn_op_name)
         sub_sch.replace(new_mod)
         sub_sch.trace(
             tracer="pytorch",
@@ -135,7 +139,6 @@ def replace_and_shard_attention(
 
         if sch.world_size > 1:
             sub_sch["module.qkv"].shard("weight", axis=0)
-            sub_sch["module.qkv"].shard("bias", axis=0)
             sub_sch["module.out_proj"].shard("weight", axis=1)
             fix_attention_mask_shape(sub_sch["module"])
 
@@ -165,7 +168,14 @@ def replace_and_shard_attention(
 
         cnt += 1
 
-    return cnt
+    # Check if all attention ops are the same.
+    attn_op = list(set(attn_op))
+    if len(attn_op) > 1:
+        raise RuntimeError(
+            f"The attention op is not consistent across layers, including {attn_op}"
+        )
+
+    return cnt, attn_op[0]
 
 
 def shard_word_embedding(

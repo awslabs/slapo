@@ -48,14 +48,14 @@ def schedule_model(
     attn_path, out_proj_name = "h.N.attn.attention", "out_proj"
     if disable_flash_attn:
         logger.info("Disabled Flash Attention", ranks=0)
-    cnt = replace_and_shard_attention(
+    cnt, attn_op_name = replace_and_shard_attention(
         sch[prefix],
         config,
         delay_init=delay_init,
         disable_flash_attn=disable_flash_attn,
         sequence_parallel=sequence_parallel,
     )
-    logger.info(f"Replace {cnt} attention patterns", ranks=0)
+    logger.info(f"Replace {cnt} attention layers with {attn_op_name} op", ranks=0)
 
     # Shard other parameters if MP group > 1.
     if sch.world_size > 1:

@@ -3,7 +3,7 @@
 """Attention module using high efficient CUDA kernels.
 
 The flash-attention kernel is tested with:
-https://github.com/jfc4050/flash-attention/commit/528c70e
+https://github.com/jfc4050/flash-attention/commit/3676bd2
 
 The xFormers kernel is tested with:
 https://github.com/facebookresearch/xformers/commit/48a77cc
@@ -245,9 +245,9 @@ class FlashAttentionOp(nn.Module):
         elif attn_op_name == "triton":
             self.pkg = "flash_attn"
             cuda_sm = torch.cuda.get_device_capability("cuda")
-            if cuda_sm not in {(7, 5), (8, 0)}:
+            if cuda_sm < (8, 0):
                 raise RuntimeError(
-                    f"flash_attn_triton is only supported on GPUs with sm_75 or sm_80, "
+                    f"flash_attn_triton is only supported on GPUs with sm_80+, "
                     f"but got sm_{cuda_sm[0]}{cuda_sm[1]}"
                 )
             flash_attn_triton = importlib_or_none("flash_attn.flash_attn_triton")
@@ -316,7 +316,9 @@ class FlashSelfAttention(nn.Module):
         attn_pdrop=0.0,
         resid_pdrop=0.0,
         attn_op_name="auto",
+        bias=True,
         fused_qkv=False,
+        world_size=1,
     ):
         super().__init__()
         if hidden_size % num_attention_heads != 0:
@@ -332,19 +334,21 @@ class FlashSelfAttention(nn.Module):
 
         self.fused_qkv = fused_qkv
         if fused_qkv:
-            self.qkv = nn.Linear(hidden_size, 3 * self.all_head_size)
+            self.qkv = nn.Linear(hidden_size, 3 * self.all_head_size, bias=bias)
         else:
-            self.query = nn.Linear(hidden_size, self.all_head_size)
-            self.key = nn.Linear(hidden_size, self.all_head_size)
-            self.value = nn.Linear(hidden_size, self.all_head_size)
+            self.query = nn.Linear(hidden_size, self.all_head_size, bias=bias)
+            self.key = nn.Linear(hidden_size, self.all_head_size, bias=bias)
+            self.value = nn.Linear(hidden_size, self.all_head_size, bias=bias)
 
         self.is_decoder = is_decoder
         self.attn_pdrop = attn_pdrop
 
         if self.is_decoder:
-            self.out_proj = nn.Linear(hidden_size, hidden_size)
+            self.out_proj = nn.Linear(hidden_size, hidden_size, bias=bias)
             self.resid_dropout = nn.Dropout(resid_pdrop)
 
+        self.world_size = world_size
+        self.attn_op_name = attn_op_name
         self.attn_op = FlashAttentionOp(attn_op_name, self.is_decoder)
 
     @staticmethod
@@ -354,14 +358,12 @@ class FlashSelfAttention(nn.Module):
         mask = mask.expand(-1, num_attention_heads, mask.shape[-1], -1)
         return mask.contiguous()
 
-    def reshape_for_scores(self, x: torch.Tensor, fused_qkv=False):
+    def reshape_for_scores(self, x: torch.Tensor):
         """Copy from transpose_for_scores but without the transpose"""
         new_x_shape = x.size()[:-1] + (
             -1,
             self.attention_head_size,
         )
-        if fused_qkv:
-            new_x_shape = new_x_shape + (3,)
         x = x.view(new_x_shape)
         return x
 
@@ -392,11 +394,32 @@ class FlashSelfAttention(nn.Module):
 
         if self.fused_qkv:
             layers = self.qkv(hidden_states)
-            layers = self.reshape_for_scores(layers, fused_qkv=True)
-            query_layer, key_layer, value_layer = torch.split(layers, 1, dim=-1)
-            query_layer = torch.squeeze(query_layer, -1).contiguous()
-            key_layer = torch.squeeze(key_layer, -1).contiguous()
-            value_layer = torch.squeeze(value_layer, -1).contiguous()
+
+            # Note that the weight layouts of sharding and non-sharding are
+            # different so we need to handle them separately. This also means
+            # if we want to load a model checkpoint from non-sharding to
+            # sharding, we have to transpose the weights first.
+            if self.world_size > 1:
+                # (B, S, 3 * T * head_size) -> (B, S, T, 3 * head_size)
+                # - split -> (B, S, T, head_size)
+                # where T is #heads and we use -1 to cover the sharding case.
+                new_shape = layers.size()[:-1] + (-1, 3 * self.attention_head_size)
+                layers = layers.view(new_shape)
+                query_layer, key_layer, value_layer = layers.split(
+                    self.attention_head_size, dim=-1
+                )
+                query_layer = torch.squeeze(query_layer, -1).contiguous()
+                key_layer = torch.squeeze(key_layer, -1).contiguous()
+                value_layer = torch.squeeze(value_layer, -1).contiguous()
+            else:
+                # (B, S, 3 * T * head_size) - split -> (B, S, T * head_size)
+                query_layer, key_layer, value_layer = self.qkv(hidden_states).split(
+                    self.hidden_size, dim=2
+                )
+                # (B, S, T * head_size) -> (B, S, T, head_size)
+                query_layer = self.reshape_for_scores(query_layer)
+                key_layer = self.reshape_for_scores(key_layer)
+                value_layer = self.reshape_for_scores(value_layer)
         else:
             query_layer = self.query(hidden_states)
             key_layer = self.key(hidden_states)

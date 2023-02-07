@@ -28,7 +28,7 @@ pip3 install -e ".[dev]"
 ```
 git clone https://github.com/jfc4050/flash-attention.git
 cd flash-attention
-git checkout 528c70e
+git checkout 3676bd2
 pip3 install -e ".[dev]"
 ```
 

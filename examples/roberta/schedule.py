@@ -6,6 +6,7 @@ import inspect
 import torch
 import torch.distributed as dist
 import torch.nn as nn
+import torch.nn.functional as F
 
 from slapo import init_empty_weights
 from slapo.pattern import call_module
@@ -159,6 +160,19 @@ def shard_word_embedding(sch, vocab_size, word_embed_name="embeddings.word_embed
         return output
 
     sch[word_embed_name].sync(mode="fwd_post", sync_op_or_fn=fwd_post_hook)
+
+
+def fuse_bias_gelu(sch, config, path="encoder.layer.N.intermediate"):
+    def bias_gelu_pattern(x, bias):
+        return F.gelu(x + bias)
+
+    for idx in range(config.num_hidden_layers):
+        subsch = sch[path.replace("N", str(idx))]
+        subsch["dense"].decompose()
+        subsch.trace(flatten=True)
+
+        subgraph = subsch.find(bias_gelu_pattern)
+        subsch.fuse(subgraph, compiler="TorchScript", name="FusedBiasGeLU")
 
 
 def shard_mlp(sch, config, path="encoder.layer.N", fc_names=["intermediate", "output"]):

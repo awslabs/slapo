@@ -11,6 +11,7 @@ from schedule import (
     checkpoint,
     replace_and_shard_attention,
     shard_mlp,
+    fuse_bias_gelu,
     shard_word_embedding,
 )
 
@@ -27,6 +28,7 @@ def schedule_model(
     group=None,
     bcast_input=False,
     pipeline_cuts=None,
+    separate_op_fusion=False,
     delay_init=True,
 ):
     logger.info("Scheduling Bert", ranks=0)
@@ -48,6 +50,11 @@ def schedule_model(
         disable_flash_attn=disable_flash_attn,
     )
     logger.info(f"Replace {cnt} attention patterns", ranks=0)
+
+    # Operator fusion
+    if separate_op_fusion:
+        fuse_bias_gelu(sch[prefix], config)
+        logger.info(f"Fused Bias+GeLU", ranks=0)
 
     # Shard other parameters if MP group > 1.
     if sch.world_size > 1:

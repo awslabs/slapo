@@ -239,7 +239,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--model_name",
         type=str,
-        default="gpt2-xl", # 1.5B
+        default="gpt2-xl",  # 1.5B
         help="Model name",
     )
     parser.add_argument(

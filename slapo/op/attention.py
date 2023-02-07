@@ -220,7 +220,20 @@ def get_xfoemers_attn_op_by_name(attn_name):
 
 
 class FlashAttentionOp(nn.Module):
-    """A wrapper module that processes HF attention mask to flash attention mask."""
+    """A wrapper module that processes HF attention mask to flash attention mask.
+
+    Parameters
+    ----------
+    attn_op_name : str
+        The name of the attention operator. Can be "native_xformers",
+        "native_flash_attn", "triton", "cutlass", or "auto". "triton" uses
+        the kernel from flash-attention; while "cutlass" and "auto" use the
+        kernel from xFormers.
+    apply_causal_mask : bool
+        Whether to apply causal mask.
+    scale : Optional[float]
+        The softmax scale. If None, use 1 / sqrt(d).
+    """
 
     def __init__(self, attn_op_name, apply_causal_mask, scale=None):
         super().__init__()
@@ -318,7 +331,6 @@ class FlashSelfAttention(nn.Module):
         attn_op_name="auto",
         bias=True,
         fused_qkv=False,
-        world_size=1,
     ):
         super().__init__()
         if hidden_size % num_attention_heads != 0:
@@ -347,7 +359,6 @@ class FlashSelfAttention(nn.Module):
             self.out_proj = nn.Linear(hidden_size, hidden_size, bias=bias)
             self.resid_dropout = nn.Dropout(resid_pdrop)
 
-        self.world_size = world_size
         self.attn_op_name = attn_op_name
         self.attn_op = FlashAttentionOp(attn_op_name, self.is_decoder)
 
@@ -393,40 +404,17 @@ class FlashSelfAttention(nn.Module):
             )
 
         if self.fused_qkv:
-            layers = self.qkv(hidden_states)
-
-            # Note that the weight layouts of sharding and non-sharding are
-            # different so we need to handle them separately. This also means
-            # if we want to load a model checkpoint from non-sharding to
-            # sharding, we have to transpose the weights first.
-            if self.world_size > 1:
-                # (B, S, 3 * T * head_size) -> (B, S, T, 3 * head_size)
-                # - split -> (B, S, T, head_size)
-                # where T is #heads and we use -1 to cover the sharding case.
-                new_shape = layers.size()[:-1] + (-1, 3 * self.attention_head_size)
-                layers = layers.view(new_shape)
-                query_layer, key_layer, value_layer = layers.split(
-                    self.attention_head_size, dim=-1
-                )
-                query_layer = torch.squeeze(query_layer, -1).contiguous()
-                key_layer = torch.squeeze(key_layer, -1).contiguous()
-                value_layer = torch.squeeze(value_layer, -1).contiguous()
-            else:
-                # (B, S, 3 * T * head_size) - split -> (B, S, T * head_size)
-                query_layer, key_layer, value_layer = self.qkv(hidden_states).split(
-                    self.hidden_size, dim=2
-                )
-                # (B, S, T * head_size) -> (B, S, T, head_size)
-                query_layer = self.reshape_for_scores(query_layer)
-                key_layer = self.reshape_for_scores(key_layer)
-                value_layer = self.reshape_for_scores(value_layer)
+            # (B, S, 3 * T * head_size) - split -> 3 x (B, S, T * head_size)
+            query_layer, key_layer, value_layer = self.qkv(hidden_states).chunk(
+                3, dim=2
+            )
         else:
             query_layer = self.query(hidden_states)
             key_layer = self.key(hidden_states)
             value_layer = self.value(hidden_states)
-            query_layer = self.reshape_for_scores(query_layer)
-            key_layer = self.reshape_for_scores(key_layer)
-            value_layer = self.reshape_for_scores(value_layer)
+        query_layer = self.reshape_for_scores(query_layer)
+        key_layer = self.reshape_for_scores(key_layer)
+        value_layer = self.reshape_for_scores(value_layer)
 
         if layer_past is not None:
             past_key, past_value = layer_past

@@ -9,7 +9,7 @@ import deepspeed
 import torch
 import torch.distributed as dist
 from deepspeed.utils import RepeatingLoader
-from transformers import GPTNeoForCausalLM, AutoConfig
+from transformers import GPT2LMHeadModel, AutoConfig
 
 import slapo
 from slapo import set_random_seed
@@ -35,19 +35,15 @@ logger = get_logger()
 def reconfig_model(args, model_config):
     if args.hidden_size > 0:
         model_config.hidden_size = args.hidden_size
-        model_config.num_layers = args.nlayers
-        model_config.num_heads = args.num_attn_heads
-
-        assert args.nlayers % 2 == 0, "number of layers must be even"
-        # config "attention_types"
-        model_config.attention_types = [[["global"], model_config.num_layers]]
-        model_config.attention_layers = ["global"] * model_config.num_layers
+        model_config.num_hidden_layers = args.nlayers
+        model_config.num_attention_heads = args.num_attn_heads
 
     if args.dropout > 0:
-        model_config.attention_dropout = args.dropout
-        model_config.resid_dropout = args.dropout
-        model_config.embed_dropout = args.dropout
+        model_config.attn_pdrop = args.dropout
+        model_config.resid_pdrop = args.dropout
+        model_config.embd_pdrop = args.dropout
 
+    model_config.activation_function = args.activation_function
     model_config.max_position_embeddings = args.seq_len
 
     return model_config
@@ -106,14 +102,14 @@ def train(args):
 
     report_memory(msg="Before creating model")
     with slapo.init_empty_weights(enable=enable_pipeline):
-        model = GPTNeoForCausalLM(config)
+        model = GPT2LMHeadModel(config)
     report_memory(msg="After creating model")
 
     # Evenly partition layers for pipelining.
     if enable_pipeline:
-        pipeline_cuts = generate_pipeline_cuts(config.num_layers, num_pp)
+        pipeline_cuts = generate_pipeline_cuts(config.num_hidden_layers, num_pp)
     elif SINGLE_DEVICE_FOR_DEBUG:
-        pipeline_cuts = generate_pipeline_cuts(config.num_layers, 4)
+        pipeline_cuts = generate_pipeline_cuts(config.num_hidden_layers, 4)
     else:
         pipeline_cuts = []
     logger.info(f"Pipeline cuts: {pipeline_cuts}", ranks=0)
@@ -244,7 +240,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--model_name",
         type=str,
-        default="EleutherAI/gpt-neo-2.7B",
+        default="gpt2-xl",  # 1.5B
         help="Model name",
     )
     parser.add_argument(
@@ -270,6 +266,12 @@ if __name__ == "__main__":
         type=int,
         default=1024,
         help="Sequence length",
+    )
+    parser.add_argument(
+        "--activation_function",
+        type=str,
+        default="gelu_new",
+        help="Activation function",
     )
     parser.add_argument(
         "--disable_pipeline",

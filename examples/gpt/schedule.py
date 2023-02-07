@@ -63,7 +63,6 @@ def replace_and_shard_attention(
         attn_op_name=attn_op_name,
         fused_qkv=True,
         bias=False,  # GPT-Neo does not use bias in attention.
-        world_size=sch.world_size,
     )
 
     class SelfAttention(nn.Module):

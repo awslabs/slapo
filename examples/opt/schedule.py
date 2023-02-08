@@ -207,7 +207,7 @@ def replace_and_shard_mlp(
     path="decoder.layers.N",
     fc_names=["fc1", "fc2"],
     delay_init=True,
-    disable_fuse_bias_gelu=False,
+    disable_fuse_bias_gelu=True,
 ):
     from epoi.inject.policy.gpt import InjectHFGPTMLPPolicy
 

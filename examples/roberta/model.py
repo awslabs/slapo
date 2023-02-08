@@ -28,7 +28,7 @@ def schedule_model(
     group=None,
     bcast_input=False,
     pipeline_cuts=None,
-    disable_fuse_bias_gelu=False,
+    disable_fuse_bias_gelu=True,
     delay_init=True,
 ):
     logger.info("Scheduling Bert", ranks=0)

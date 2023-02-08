@@ -53,7 +53,7 @@ def get_model(
             disable_flash_attn=disable_flash_attn,
             fp16=fp16,
             ckpt_ratio=ckpt_ratio,
-            disable_fuse_bias_gelu=True,
+            disable_fuse_bias_gelu=False,
             delay_init=delay_init,
         )
         model, _ = slapo.build(sch, init_weights=model._init_weights)

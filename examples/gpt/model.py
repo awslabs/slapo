@@ -45,7 +45,6 @@ def schedule_model(
 
     # Replace self attention with flash attention, and shard QKV/output
     # if MP group > 1.
-    attn_path, out_proj_name = "h.N.attn.attention", "out_proj"
     if disable_flash_attn:
         logger.info("Disabled Flash Attention", ranks=0)
     cnt, attn_op_name = replace_and_shard_attention(

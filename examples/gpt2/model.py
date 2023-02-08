@@ -44,13 +44,13 @@ def schedule_model(
     # Replace self attention with flash attention.
     if disable_flash_attn:
         logger.info("Disabled Flash Attention", ranks=0)
-    cnt = replace_attention(
+    cnt, attn_op_name = replace_attention(
         sch[prefix],
         config,
         delay_init=delay_init,
         disable_flash_attn=disable_flash_attn,
     )
-    logger.info(f"Replaced {cnt} attention layers", ranks=0)
+    logger.info(f"Replace {cnt} attention layers with {attn_op_name} op", ranks=0)
 
     # Replace MLP with fused kernels.
     cnt = replace_mlp(sch[prefix], config, delay_init=delay_init)

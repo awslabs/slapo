@@ -242,7 +242,7 @@ def replace_and_shard_mlp(
         prefix = path.replace("N", str(idx))
         if config.activation_function in ["gelu", "gelu_new"]:
             sub_sch = sch[prefix]
-            inter_size, hidden_size = sub_sch.mod.c_fc.weight.shape
+            hidden_size, inter_size = sub_sch.mod.c_fc.weight.shape
             with init_empty_weights(enable=delay_init):
                 new_mod = FusedMLP(
                     hidden_size,

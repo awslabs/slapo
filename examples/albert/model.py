@@ -52,7 +52,7 @@ def schedule_model(
     logger.info(f"Replace {cnt} attention patterns", ranks=0)
 
     # Operator fusion
-    if disable_fuse_bias_gelu:
+    if not disable_fuse_bias_gelu:
         fuse_bias_gelu(sch[prefix], config)
         logger.info(f"Fused Bias+GeLU", ranks=0)
 

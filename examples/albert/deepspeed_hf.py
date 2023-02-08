@@ -118,7 +118,7 @@ def train(args):
             target="deepspeed",
             config=ds_config_dict,
             loss_fn=loss_fn,
-            init_weights=model._init_weights
+            init_weights=model._init_weights,
         )
     else:
         if batch_size is not None:
@@ -134,7 +134,7 @@ def train(args):
             topology=topology,
             target="deepspeed",
             config=ds_config_dict,
-            init_weights=model._init_weights
+            init_weights=model._init_weights,
         )
         model = model.to(device)
     report_memory(msg="After building model")

@@ -1,6 +1,7 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 """Utilities for the examples."""
+import torch
 import torch.distributed as dist
 from deepspeed.runtime.pipe.topology import PipeModelDataParallelTopology
 
@@ -130,10 +131,13 @@ def train_with_deepspeed_engine(
 ):
     """The training loop for DeepSpeedEngine (without pipeline)."""
 
+    device = torch.cuda.current_device()
     for micro_batch_step, batch in enumerate(dataloader):
         inputs, labels = (
             preproc(micro_batch_step, batch) if preproc is not None else batch
         )
+        inputs = [inp.to(device) if inp is not None else None for inp in inputs]
+        labels = labels.to(device)
         if loss_fn is None:
             loss = model(*inputs, labels=labels).loss
         else:

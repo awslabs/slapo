@@ -196,6 +196,29 @@ def xformers_ref(q, k, v, attn_bias, p=0.0, scale=None):
     return out.permute((0, 2, 1, 3))
 
 
+def validate_sm_version(name, min_sm, max_sm=None):
+    """Validate the sm version.
+
+    Parameters
+    ----------
+    name : str
+        The name of the kernel.
+    min_sm : tuple[int, int]
+        The minimum sm version.
+    max_sm : Optional[tuple[int, int]]
+        The maximum sm version. If None, the maximum sm version is not checked.
+    """
+    allow_range = f"sm_{min_sm[0]}{min_sm[1]}"
+    allow_range += f"-sm_{max_sm[0]}{max_sm[1]}" if max_sm is not None else "+"
+
+    cuda_sm = torch.cuda.get_device_capability("cuda")
+    if cuda_sm < min_sm or (max_sm is not None and cuda_sm > max_sm):
+        raise RuntimeError(
+            f"{name} is only supported on GPUs with {allow_range} "
+            f"but got sm_{cuda_sm[0]}{cuda_sm[1]}"
+        )
+
+
 def get_xfoemers_attn_op_by_name(attn_name):
     """Get the xformers attention operator by name."""
     xformers_ops = importlib_or_none("xformers.ops")
@@ -226,9 +249,9 @@ class FlashAttentionOp(nn.Module):
     ----------
     attn_op_name : str
         The name of the attention operator. Can be "native_xformers",
-        "native_flash_attn", "triton", "cutlass", or "auto". "triton" uses
-        the kernel from flash-attention; while "cutlass" and "auto" use the
-        kernel from xFormers.
+        "native_flash_attn", "triton", "cuda", "cutlass", or "auto". "triton"
+        and "cuda" uses the kernel from flash-attention; while
+        "cutlass" and "auto" use the kernel from xFormers.
     apply_causal_mask : bool
         Whether to apply causal mask.
     scale : Optional[float]
@@ -257,16 +280,18 @@ class FlashAttentionOp(nn.Module):
             )
         elif attn_op_name == "triton":
             self.pkg = "flash_attn"
-            cuda_sm = torch.cuda.get_device_capability("cuda")
-            if cuda_sm < (8, 0):
-                raise RuntimeError(
-                    f"flash_attn_triton is only supported on GPUs with sm_80+, "
-                    f"but got sm_{cuda_sm[0]}{cuda_sm[1]}"
-                )
+            validate_sm_version("flash_attn_triton", (8, 0))
             flash_attn_triton = importlib_or_none("flash_attn.flash_attn_triton")
             if flash_attn_triton is None:
                 raise RuntimeError("flash_attn is not installed")
             self.attn_fn = flash_attn_triton.flash_attn_func
+        elif attn_op_name == "cuda":
+            self.pkg = "flash_attn"
+            validate_sm_version("flash_attn_unpadded_func", (8, 0))
+            flash_attn_interface = importlib_or_none("flash_attn.flash_attn_interface")
+            if flash_attn_interface is None:
+                raise RuntimeError("flash_attn is not installed")
+            self.attn_fn = flash_attn_interface.flash_attn_unpadded_func
         else:
             self.pkg = "xformers"
             # When op=None, the xformers attention op will be automatically selected.
@@ -290,7 +315,7 @@ class FlashAttentionOp(nn.Module):
             ret = self.attn_fn(query_layer, key_layer, value_layer, attn_bias, p=p)
         else:
             assert self.pkg == "flash_attn"
-            if self.attn_op_name == "triton" and attention_mask is not None:
+            if self.attn_op_name != "native_flash_attn" and attention_mask is not None:
                 warning_once(
                     "WARNING: bias gradient is not supported yet. "
                     "The given mask will be ignored"
@@ -299,15 +324,45 @@ class FlashAttentionOp(nn.Module):
             else:
                 attn_bias = attention_mask
 
-            ret = self.attn_fn(
-                query_layer,
-                key_layer,
-                value_layer,
-                attn_bias,  # bias
-                self.apply_causal_mask,  # causal
-                p,  # dropout_p
-                self.scale,  # softmax_scale
-            )
+            if self.attn_op_name == "triton":
+                ret = self.attn_fn(
+                    query_layer,
+                    key_layer,
+                    value_layer,
+                    attn_bias,  # bias
+                    self.apply_causal_mask,  # causal
+                    p,  # dropout_p
+                    self.scale,  # softmax_scale
+                )
+            else:
+                assert self.attn_op_name == "cuda"
+                # CUDA kernel in flash-attention requires qkv to be in
+                # [B x S, H, D] layout.
+                batch_size, seq_len, num_heads, head_size = query_layer.shape
+                query_layer, key_layer, value_layer = [
+                    x.reshape(batch_size * seq_len, num_heads, head_size)
+                    for x in (query_layer, key_layer, value_layer)
+                ]
+                cu_seqlens = torch.arange(
+                    0,
+                    (batch_size + 1) * seq_len,
+                    step=seq_len,
+                    dtype=torch.int32,
+                    device=query_layer.device,
+                )
+                ret = self.attn_fn(
+                    query_layer,
+                    key_layer,
+                    value_layer,
+                    cu_seqlens,
+                    cu_seqlens,
+                    seq_len,
+                    seq_len,
+                    p,
+                    causal=self.apply_causal_mask,
+                    softmax_scale=self.scale,
+                )
+                ret = ret.reshape(batch_size, seq_len, num_heads, head_size)
         ret = ret.to(query_layer.dtype)
         return ret
 

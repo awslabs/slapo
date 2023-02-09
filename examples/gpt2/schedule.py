@@ -16,7 +16,7 @@ def replace_attention(
     config,
     attn_path="h.N.attn",
     delay_init=True,
-    disable_flash_attn=False,
+    attn_op_name="cuda",
 ):
     """Replace the attention module with flash attention.
 
@@ -30,15 +30,18 @@ def replace_attention(
         The path to the attention module.
     delay_init : bool
         Whether to delay the initialization of the new module.
-    disable_flash_attn : bool
-        Whether to disable the flash attention.
+    attn_op_name : str
+        The name of attention op to use. Can be "native_xformers", "cutlass",
+        "cuda", or "triton". Except for "native_xformers", all ops implement
+        Flash Attention. If specified "cuda" or "triton" but they are not
+        available (e.g., missing required library or unsupported GPU arch),
+        it will fallback to "cutlass".
 
     Returns
     -------
     tuple[int, str]
         The number of attention layers replaced and the name of the attention.
     """
-    attn_op_name = "native_xformers" if disable_flash_attn else "triton"
     init_config = dict(
         hidden_size=config.hidden_size,
         num_attention_heads=config.num_attention_heads,
@@ -110,7 +113,7 @@ def replace_attention(
             f"The attention op is not consistent across layers, including {attn_op}"
         )
 
-    return cnt, attn_op
+    return cnt, attn_op[0]
 
 
 def replace_mlp(

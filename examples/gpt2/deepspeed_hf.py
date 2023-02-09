@@ -121,6 +121,7 @@ def train(args):
             model,
             config,
             prefix="transformer",
+            attn_op_name=args.attn_op_name,
             ckpt_ratio=args.checkpoint,
             bcast_input=True,
             fp16=args.fp16,
@@ -144,7 +145,6 @@ def train(args):
         return lm_loss
 
     if enable_pipeline:
-        # FIXME: is mbs=1 correct?
         batch_size = 16 if batch_size is None else batch_size
         micro_batch_size = 4 if micro_batch_size is None else micro_batch_size
         zero_opt_stage = 0
@@ -278,6 +278,14 @@ if __name__ == "__main__":
         type=str,
         default="gelu_new",
         help="Activation function",
+    )
+    parser.add_argument(
+        "--attn_op_name",
+        type=str,
+        default="cuda",
+        help="Attention op name {'native_xformers', 'cutlass', 'triton', 'cuda'}. "
+        "'cuda' and 'triton' only support sm_80+, and other archs will "
+        "fallback to 'cutlas'",
     )
     parser.add_argument(
         "--disable_pipeline",

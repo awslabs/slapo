@@ -21,7 +21,7 @@ def schedule_model(
     model,
     config,
     prefix="",
-    disable_flash_attn=False,
+    attn_op_name="cuda",
     fp16=True,
     bf16=False,
     ckpt_ratio=0.0,
@@ -43,15 +43,17 @@ def schedule_model(
     logger.info(f"Scheduling GPT with TP={sch.world_size}", ranks=0)
 
     # Replace self attention with flash attention.
-    if disable_flash_attn:
+    if attn_op_name == "native_xformers":
         logger.info("Disabled Flash Attention", ranks=0)
-    cnt, attn_op_name = replace_attention(
+    cnt, applied_attn_op_name = replace_attention(
         sch[prefix],
         config,
         delay_init=delay_init,
-        disable_flash_attn=disable_flash_attn,
+        attn_op_name=attn_op_name,
     )
-    logger.info(f"Replace {cnt} attention layers with {attn_op_name} op", ranks=0)
+    logger.info(
+        f"Replace {cnt} attention layers with {applied_attn_op_name} op", ranks=0
+    )
 
     # Replace MLP with fused kernels.
     cnt = replace_mlp(sch[prefix], config, delay_init=delay_init)

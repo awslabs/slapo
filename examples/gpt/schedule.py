@@ -50,10 +50,9 @@ def replace_and_shard_attention(
     config,
     attn_path="h.N.attn.attention",
     delay_init=True,
-    disable_flash_attn=False,
+    attn_op_name="cuda",
     sequence_parallel=False,
 ):
-    attn_op_name = "native_xformers" if disable_flash_attn else "triton"
     init_config = dict(
         hidden_size=config.hidden_size,
         num_attention_heads=config.num_attention_heads,

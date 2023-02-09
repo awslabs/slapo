@@ -284,7 +284,7 @@ if __name__ == "__main__":
         type=str,
         default="cuda",
         help="Attention op name {'native_xformers', 'cutlass', 'triton', 'cuda'}. "
-        "'cuda' and 'triton' only support sm_75+, and other archs will "
+        "'cuda' and 'triton' only support sm_80+, and other archs will "
         "fallback to 'cutlas'",
     )
     parser.add_argument(

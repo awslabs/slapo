@@ -287,7 +287,7 @@ class FlashAttentionOp(nn.Module):
             self.attn_fn = flash_attn_triton.flash_attn_func
         elif attn_op_name == "cuda":
             self.pkg = "flash_attn"
-            validate_sm_version("flash_attn_unpadded_func", (7, 5), (8, 5))
+            validate_sm_version("flash_attn_unpadded_func", (8, 0))
             flash_attn_interface = importlib_or_none("flash_attn.flash_attn_interface")
             if flash_attn_interface is None:
                 raise RuntimeError("flash_attn is not installed")

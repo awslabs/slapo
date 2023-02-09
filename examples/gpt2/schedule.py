@@ -357,7 +357,7 @@ def shard(
                 sub_sch[fc_names[2]].sync(mode="fwd_post", sync_op_or_fn="all_reduce")
 
 
-def checkpoint(sch, config, path="h.N", ckpt_ratio=1.0, method="uniform"):
+def checkpoint(sch, config, path="h.N", ckpt_ratio=1.0, checkpoint_method="uniform"):
     """Add activation checkpointing to the model. The ckpt_ratio specifies
     the ratio of the attention layers to be checkpointed. For example, if
     ckpt_ratio is 0.5, then half of the attention layers will be checkpointed.
@@ -405,10 +405,10 @@ def checkpoint(sch, config, path="h.N", ckpt_ratio=1.0, method="uniform"):
         )
 
     n_ckpt = int(config.num_hidden_layers * ckpt_ratio)
-    if method == "head":
+    if checkpoint_method == "head":
         for idx in range(n_ckpt):
             sch[path.replace("N", str(idx))].checkpoint(order_args_fn=order_args_fn)
-    elif method == "uniform" and ckpt_ratio > 0:
+    elif checkpoint_method == "uniform" and ckpt_ratio > 0:
         for idx in range(0, config.num_hidden_layers, max(1, int(1 / ckpt_ratio))):
             sch[path.replace("N", str(idx))].checkpoint(order_args_fn=order_args_fn)
     return n_ckpt

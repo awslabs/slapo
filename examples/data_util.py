@@ -30,8 +30,7 @@ class LossTestDataset(Dataset):
 
 def collate_fn(batch, enable_pipeline=True):
     input_ids = torch.tensor([x[0] for x in batch], dtype=torch.long)
-    attention_mask = torch.tensor(
-        [x[1] for x in batch], dtype=torch.float16)
+    attention_mask = torch.tensor([x[1] for x in batch], dtype=torch.float16)
     position_ids = torch.stack([x[2] for x in batch])
     labels = torch.tensor([x[3] for x in batch], dtype=torch.long)
 

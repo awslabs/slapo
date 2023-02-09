@@ -341,7 +341,7 @@ class FlashAttentionOp(nn.Module):
                 batch_size, seq_len, num_heads, head_size = query_layer.shape
                 query_layer, key_layer, value_layer = [
                     x.reshape(batch_size * seq_len, num_heads, head_size)
-                    for x in [query_layer, key_layer, value_layer]
+                    for x in (query_layer, key_layer, value_layer)
                 ]
                 cu_seqlens = torch.arange(
                     0,

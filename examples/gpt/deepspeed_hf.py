@@ -49,7 +49,6 @@ def reconfig_model(args, model_config):
 
     model_config.activation_function = args.activation_function
     model_config.max_position_embeddings = args.seq_len
-    model_config.activation_function = args.activation_function
 
     return model_config
 
@@ -329,12 +328,6 @@ if __name__ == "__main__":
         "--bf16",
         action="store_true",
         help="bf16 is enabled",
-    )
-    parser.add_argument(
-        "--activation_function",
-        type=str,
-        default="gelu_new",
-        help="Activation function",
     )
     args = parser.parse_args()
 

@@ -43,13 +43,13 @@ def reconfig_model(args, model_config):
         model_config.attention_types = [[["global"], model_config.num_layers]]
         model_config.attention_layers = ["global"] * model_config.num_layers
 
-    if args.dropout > 0:
-        model_config.attention_dropout = args.dropout
-        model_config.resid_dropout = args.dropout
-        model_config.embed_dropout = args.dropout
+    model_config.attention_dropout = args.dropout
+    model_config.resid_dropout = args.dropout
+    model_config.embed_dropout = args.dropout
 
     model_config.activation_function = args.activation_function
     model_config.max_position_embeddings = args.seq_len
+    model_config.activation_function = args.activation_function
 
     return model_config
 
@@ -135,13 +135,14 @@ def train(args):
             pipeline_cuts=pipeline_cuts,
             delay_init=enable_pipeline,
             sequence_parallel=args.sequence_parallel,
+            checkpoint_method=args.checkpoint_method,
         )
     tp_rank = sch.rank
 
     loss_fct = ParallelCrossEntropy(group=group)
 
     def loss_fn(outputs, labels):
-        prediction_scores = outputs.to(torch.float32)
+        prediction_scores = outputs
         shifted_prediction_scores = prediction_scores[..., :-1, :].contiguous()
         labels = labels[..., 1:].contiguous()
         lm_loss = loss_fct(shifted_prediction_scores, labels)
@@ -255,6 +256,12 @@ if __name__ == "__main__":
         help="Activation checkpointing ratio. 1.0 means all",
     )
     parser.add_argument(
+        "--checkpoint_method",
+        type=str,
+        default="uniform",
+        help="Activation checkpointing method {'head', 'uniform'}",
+    )
+    parser.add_argument(
         "--batch_size",
         type=int,
         default=None,
@@ -322,6 +329,12 @@ if __name__ == "__main__":
         "--bf16",
         action="store_true",
         help="bf16 is enabled",
+    )
+    parser.add_argument(
+        "--activation_function",
+        type=str,
+        default="gelu_new",
+        help="Activation function",
     )
     args = parser.parse_args()
 

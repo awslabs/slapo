@@ -30,6 +30,7 @@ def schedule_model(
     pipeline_cuts=None,
     delay_init=True,
     sequence_parallel=False,
+    checkpoint_method="uniform",
 ):
     assert "GPT2" not in config.architectures[0], "GPT-2 schedule is not working"
 
@@ -79,7 +80,12 @@ def schedule_model(
 
     # Insert activation checkpoints.
     if ckpt_ratio > 0.0:
-        n_ckpt = checkpoint(sch[prefix], config, ckpt_ratio=ckpt_ratio)
+        n_ckpt = checkpoint(
+            sch[prefix],
+            config,
+            ckpt_ratio=ckpt_ratio,
+            checkpoint_method=checkpoint_method,
+        )
         logger.info(f"Checkpointing {n_ckpt} layers", ranks=0)
 
     # Cut pipeline stages.

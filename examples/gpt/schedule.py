@@ -290,7 +290,7 @@ def replace_and_shard_mlp(
                 )
 
 
-def checkpoint(sch, config, path="h.N", ckpt_ratio=1.0):
+def checkpoint(sch, config, path="h.N", ckpt_ratio=1.0, checkpoint_method="uniform"):
     if ckpt_ratio == 0.0:
         return
 
@@ -310,8 +310,12 @@ def checkpoint(sch, config, path="h.N", ckpt_ratio=1.0):
         return (args[0], None, attention_mask, head_mask, False, output_attentions)
 
     n_ckpt = int(config.num_hidden_layers * ckpt_ratio)
-    for idx in range(n_ckpt):
-        sch[path.replace("N", str(idx))].checkpoint(order_args_fn=order_args_fn)
+    if checkpoint_method == "head":
+        for idx in range(n_ckpt):
+            sch[path.replace("N", str(idx))].checkpoint(order_args_fn=order_args_fn)
+    elif checkpoint_method == "uniform" and ckpt_ratio > 0:
+        for idx in range(0, config.num_hidden_layers, max(1, int(1 / ckpt_ratio))):
+            sch[path.replace("N", str(idx))].checkpoint(order_args_fn=order_args_fn)
     return n_ckpt
 
 

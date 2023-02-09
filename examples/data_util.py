@@ -5,6 +5,7 @@ from transformers import AutoTokenizer
 from torch.utils.data import Dataset, DataLoader
 from torch.utils.data.distributed import DistributedSampler
 import torch
+from functools import partial
 
 
 class LossTestDataset(Dataset):
@@ -27,26 +28,20 @@ class LossTestDataset(Dataset):
         return ret
 
 
-def get_data_move_and_group_fn(enable_pipeline):
-    def _collate_fn(batch):
-        device = torch.cuda.current_device()
-        input_ids = torch.tensor([x[0] for x in batch], dtype=torch.long, device=device)
-        attention_mask = torch.tensor(
-            [x[1] for x in batch], dtype=torch.float16, device=device
-        )
-        position_ids = torch.stack([x[2] for x in batch]).to(device=device)
-        labels = torch.tensor([x[3] for x in batch], dtype=torch.long, device=device)
+def collate_fn(batch, enable_pipeline=True):
+    input_ids = torch.tensor([x[0] for x in batch], dtype=torch.long)
+    attention_mask = torch.tensor([x[1] for x in batch], dtype=torch.float16)
+    position_ids = torch.stack([x[2] for x in batch])
+    labels = torch.tensor([x[3] for x in batch], dtype=torch.long)
 
-        ret = [input_ids, attention_mask, position_ids, labels]
-        if not enable_pipeline:
-            # insert None in second and fourth position
-            ret.insert(1, None)  # past_key_values
-            ret.insert(3, None)  # token_type_ids
+    ret = [input_ids, attention_mask, position_ids, labels]
+    if not enable_pipeline:
+        # insert None in second and fourth position
+        ret.insert(1, None)  # past_key_values
+        ret.insert(3, None)  # token_type_ids
 
-        # group first inputs
-        return [ret[:-1], ret[-1]]
-
-    return _collate_fn
+    # group first inputs
+    return [ret[:-1], ret[-1]]
 
 
 def get_dataloader(
@@ -82,16 +77,20 @@ def get_dataloader(
         train_dataset,
         batch_size=micro_batch_size,
         sampler=DistributedSampler(train_dataset, num_replicas=num_replicas, rank=rank),
-        collate_fn=get_data_move_and_group_fn(enable_pipeline),
+        collate_fn=partial(collate_fn, enable_pipeline=enable_pipeline),
         drop_last=True,
+        num_workers=2,
+        pin_memory=True,
     )
 
     val_loader = DataLoader(
         val_dataset,
         batch_size=micro_batch_size,
         sampler=DistributedSampler(val_dataset, num_replicas=num_replicas, rank=rank),
-        collate_fn=get_data_move_and_group_fn(enable_pipeline),
+        collate_fn=partial(collate_fn, enable_pipeline=enable_pipeline),
         drop_last=True,
+        num_workers=2,
+        pin_memory=True,
     )
     return train_loader, val_loader
 

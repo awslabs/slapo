@@ -32,6 +32,11 @@ def replace_attention(
         Whether to delay the initialization of the new module.
     disable_flash_attn : bool
         Whether to disable the flash attention.
+
+    Returns
+    -------
+    tuple[int, str]
+        The number of attention layers replaced and the name of the attention.
     """
     attn_op_name = "native_xformers" if disable_flash_attn else "triton"
     init_config = dict(
@@ -89,14 +94,23 @@ def replace_attention(
             return outputs[:1]
 
     cnt = 0
+    attn_op = []
     for idx in range(config.num_hidden_layers):
         sub_sch = sch[attn_path.replace("N", str(idx))]
         with init_empty_weights(enable=delay_init):
             new_mod = SelfAttention(**init_config)
+            attn_op.append(new_mod.module.attn_op_name)
         sub_sch.replace(new_mod)
         cnt += 1
 
-    return cnt
+    # Check if all attention ops are the same.
+    attn_op = list(set(attn_op))
+    if len(attn_op) > 1:
+        raise RuntimeError(
+            f"The attention op is not consistent across layers, including {attn_op}"
+        )
+
+    return cnt, attn_op
 
 
 def replace_mlp(
@@ -117,6 +131,11 @@ def replace_mlp(
         The path to the MLP module.
     delay_init : bool
         Whether to delay the initialization of the new module.
+
+    Returns
+    -------
+    int
+        The number of MLP layers replaced.
     """
     for idx in range(config.num_hidden_layers):
         prefix = path.replace("N", str(idx))
@@ -130,6 +149,7 @@ def replace_mlp(
                 config.resid_pdrop,
             )
         sub_sch.replace(new_mod)
+    return config.num_hidden_layers
 
 
 def gen_embedding_hooks(sch, vocab_size):

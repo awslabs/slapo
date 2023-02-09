@@ -48,6 +48,7 @@ def reconfig_model(args, model_config):
         model_config.resid_dropout = args.dropout
         model_config.embed_dropout = args.dropout
 
+    model_config.activation_function = args.activation_function
     model_config.max_position_embeddings = args.seq_len
 
     return model_config
@@ -270,6 +271,12 @@ if __name__ == "__main__":
         type=int,
         default=1024,
         help="Sequence length",
+    )
+    parser.add_argument(
+        "--activation_function",
+        type=str,
+        default="gelu_new",
+        help="Activation function",
     )
     parser.add_argument(
         "--disable_pipeline",

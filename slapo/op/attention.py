@@ -404,17 +404,25 @@ class FlashSelfAttention(nn.Module):
             )
 
         if self.fused_qkv:
-            # (B, S, 3 * T * head_size) - split -> 3 x (B, S, T * head_size)
-            query_layer, key_layer, value_layer = self.qkv(hidden_states).chunk(
-                3, dim=2
+            # (B, S, 3 * T * head_size) -> (B, S, T, 3 * head_size)
+            # - split -> (B, S, T, head_size)
+            # where T is #heads and we use -1 to cover the sharding case.
+            layers = self.qkv(hidden_states)
+            new_shape = layers.size()[:-1] + (-1, 3 * self.attention_head_size)
+            layers = layers.view(new_shape)
+            query_layer, key_layer, value_layer = layers.split(
+                self.attention_head_size, dim=-1
             )
+            query_layer = torch.squeeze(query_layer, -1)
+            key_layer = torch.squeeze(key_layer, -1)
+            value_layer = torch.squeeze(value_layer, -1)
         else:
             query_layer = self.query(hidden_states)
             key_layer = self.key(hidden_states)
             value_layer = self.value(hidden_states)
-        query_layer = self.reshape_for_scores(query_layer)
-        key_layer = self.reshape_for_scores(key_layer)
-        value_layer = self.reshape_for_scores(value_layer)
+            query_layer = self.reshape_for_scores(query_layer)
+            key_layer = self.reshape_for_scores(key_layer)
+            value_layer = self.reshape_for_scores(value_layer)
 
         if layer_past is not None:
             past_key, past_value = layer_past

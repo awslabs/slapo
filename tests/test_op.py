@@ -106,6 +106,17 @@ def test_attention(op_name, shape):
         torch.cuda.synchronize()
         return outs
 
+    def _relayout_qkv(gpts_attn, weight):
+        # GPT-2 uses contiguous weight layout; while we use interleaved
+        # which is more efficient for sharding, so we need to transpose the
+        # weights. Bias is all 0's so it is fine.
+        weight = weight.view(
+            3, gpts_attn.num_heads, gpts_attn.head_dim, gpts_attn.embed_dim
+        )
+        split_weights = [w.squeeze(0) for w in weight.split(1, dim=0)]
+        weight = torch.concatenate(split_weights, dim=1)
+        return weight.view(-1, weight.shape[-1]).contiguous()
+
     # Initialize the attention module.
     attn_ref = _init(None, config)
     attn = _init(op_name, config)
@@ -113,12 +124,14 @@ def test_attention(op_name, shape):
     # Sync parameters. Note that GPT-2 uses fused QKV and Conv1D.
     requires_grad = attn_ref.c_attn.weight.requires_grad
     attn.qkv.weight = torch.nn.Parameter(
-        attn_ref.c_attn.weight.transpose(-1, 0).contiguous(),
+        _relayout_qkv(
+            attn_ref, attn_ref.c_attn.weight.detach().clone().transpose(1, 0)
+        ),
         requires_grad=requires_grad,
     )
     attn.qkv.bias = attn_ref.c_attn.bias
     attn.out_proj.weight = torch.nn.Parameter(
-        attn_ref.c_proj.weight.transpose(-1, 0).contiguous(),
+        attn_ref.c_proj.weight.detach().clone().transpose(1, 0).contiguous(),
         requires_grad=requires_grad,
     )
     attn.out_proj.bias = attn_ref.c_proj.bias

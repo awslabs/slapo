@@ -52,7 +52,7 @@ def test_dropout(init_dist):
         torch.testing.assert_close(out * world_size, out_reduced)
 
 
-@pytest.mark.parametrize("op_name", ["cutlass", "triton"])
+@pytest.mark.parametrize("op_name", ["cutlass", "cuda", "triton"])
 @pytest.mark.parametrize("shape", [(4, 1024, 2048, 16, 50264)])
 def test_attention(op_name, shape):
     try:

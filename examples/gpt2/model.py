@@ -43,7 +43,7 @@ def schedule_model(
     logger.info(f"Scheduling GPT with TP={sch.world_size}", ranks=0)
 
     # Replace self attention with flash attention.
-    if disable_flash_attn:
+    if attn_op_name == "native_xformers":
         logger.info("Disabled Flash Attention", ranks=0)
     cnt, applied_attn_op_name = replace_attention(
         sch[prefix],

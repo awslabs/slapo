@@ -252,7 +252,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--checkpoint_method",
         type=str,
-        default="uniform",
+        default="head",
         help="Activation checkpointing method {'head', 'uniform'}",
     )
     parser.add_argument(

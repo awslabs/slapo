@@ -50,9 +50,8 @@ def replace_and_shard_attention(
     config,
     attn_path="decoder.layers.N.self_attn",
     delay_init=True,
-    disable_flash_attn=False,
+    attn_op_name="cuda",
 ):
-    attn_op_name = "native_xformers" if disable_flash_attn else "triton"
     init_config = dict(
         hidden_size=config.hidden_size,
         num_attention_heads=config.num_attention_heads,
@@ -62,7 +61,6 @@ def replace_and_shard_attention(
         attn_op_name=attn_op_name,
         fused_qkv=True,
         bias=True,
-        world_size=sch.world_size,
     )
 
     class Attention(nn.Module):
@@ -70,7 +68,19 @@ def replace_and_shard_attention(
 
         def __init__(self, **kwargs):
             super().__init__()
-            self.module = FlashAttention(**kwargs)
+            try:
+                self.module = FlashAttention(**kwargs)
+            except Exception as err:
+                if kwargs["attn_op_name"] == "native_xformers":
+                    raise RuntimeError(
+                        f"Failed to create native attention: {err}"
+                    ) from None
+
+                # Failed to use the triton kernel. This may due to unsupported
+                # GPU (< sm_75) or flash-attention is not installed. Fallback
+                # to xFormers' cutlass.
+                kwargs["attn_op_name"] = "cutlass"
+                self.module = FlashAttention(**kwargs)
 
         def forward(
             self,
@@ -117,7 +127,14 @@ def replace_and_shard_attention(
             sub_sch["module.out_proj"].sync(mode="fwd_post", sync_op_or_fn="all_reduce")
         cnt += 1
 
-    return cnt, attn_op
+    # Check if all attention ops are the same.
+    attn_op = list(set(attn_op))
+    if len(attn_op) > 1:
+        raise RuntimeError(
+            f"The attention op is not consistent across layers, including {attn_op}"
+        )
+
+    return cnt, attn_op[0]
 
 
 def remove_cast(sch, config, attn_path="h.N.attn.attention"):

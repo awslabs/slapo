@@ -21,7 +21,7 @@ def schedule_model(
     model,
     config,
     prefix="",
-    disable_flash_attn=False,
+    attn_op_name="cuda",
     fp16=True,
     ckpt_ratio=0.0,
     group=None,
@@ -40,15 +40,17 @@ def schedule_model(
 
     # Replace self attention with flash attention, and shard QKV/output
     # if MP group > 1.
-    if disable_flash_attn:
+    if attn_op_name == "native_xformers":
         logger.info("Disable Flash Attention", rank=0)
-    cnt, attn_op_name = replace_and_shard_attention(
+    cnt, applied_attn_op_name = replace_and_shard_attention(
         sch[prefix],
         config,
         delay_init=delay_init,
-        disable_flash_attn=disable_flash_attn,
+        attn_op_name=attn_op_name,
     )
-    logger.info(f"Replace {cnt} attention layers with {attn_op_name} op", ranks=0)
+    logger.info(
+        f"Replace {cnt} attention layers with {applied_attn_op_name} op", ranks=0
+    )
 
     # Shard other parameters if MP group > 1.
     if sch.world_size > 1:

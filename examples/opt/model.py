@@ -41,7 +41,7 @@ def schedule_model(
     # Replace self attention with flash attention, and shard QKV/output
     # if MP group > 1.
     if attn_op_name == "native_xformers":
-        logger.info("Disable Flash Attention", rank=0)
+        logger.info("Disabled Flash Attention", ranks=0)
     cnt, applied_attn_op_name = replace_and_shard_attention(
         sch[prefix],
         config,

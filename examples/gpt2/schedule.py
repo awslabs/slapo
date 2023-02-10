@@ -213,7 +213,7 @@ def fix_attention_mask_shape(sch):
         return out.contiguous()
 
     for op in ops:
-        sch.replace(new_expand, op[1])
+        sch.replace(new_expand, op)
 
 
 class AttentionOpWithRNG(FlashAttentionOp):

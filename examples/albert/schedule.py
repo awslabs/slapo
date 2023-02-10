@@ -69,7 +69,7 @@ def replace_and_shard_attention(
     )
 
     class AlbertXFAttention(nn.Module):
-        def __init__(self, config, **kwargs):
+        def __init__(self, **kwargs):
             super().__init__()
             try:
                 self.self_attn = FlashAttention(**kwargs)
@@ -100,7 +100,7 @@ def replace_and_shard_attention(
     for idx in range(1):  # use layer group
         prefix = attn_path.replace("N", str(idx))
         with init_empty_weights(enable=delay_init):
-            attn = AlbertXFAttention(config, **init_config)
+            attn = AlbertXFAttention(**init_config)
         sch[f"{prefix}.attention"].replace(attn)
 
         if sch.world_size > 1:

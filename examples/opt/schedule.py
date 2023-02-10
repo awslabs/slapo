@@ -8,8 +8,8 @@ import torch.nn as nn
 import torch.distributed as dist
 
 from slapo import init_empty_weights
+from slapo.op import FlashAttention, FusedMLP
 from slapo.pattern import call_module
-from slapo.op.linear import FusedQKV
 
 
 def trace_attention(sch, config, attn_path="h.N.attn.attention"):
@@ -50,17 +50,37 @@ def replace_and_shard_attention(
     config,
     attn_path="decoder.layers.N.self_attn",
     delay_init=True,
-    disable_flash_attn=False,
+    attn_op_name="cuda",
 ):
-    from epoi.inject.policy.gpt import InjectHFGPTAttentionPolicy
-    from epoi.ops.xformers_attn import GenericSelfAttention
+    init_config = dict(
+        hidden_size=config.hidden_size,
+        num_attention_heads=config.num_attention_heads,
+        output_proj=True,
+        attn_pdrop=config.attention_dropout,
+        resid_pdrop=config.dropout,
+        attn_op_name=attn_op_name,
+        fused_qkv=True,
+        bias=True,
+    )
 
-    class SelfAttention(nn.Module):
-        """A wrapper to align the original GPTNeoAttention forward signature."""
+    class Attention(nn.Module):
+        """A wrapper to align the original OPT forward signature."""
 
         def __init__(self, **kwargs):
             super().__init__()
-            self.module = GenericSelfAttention(**kwargs)
+            try:
+                self.module = FlashAttention(**kwargs)
+            except Exception as err:
+                if kwargs["attn_op_name"] == "native_xformers":
+                    raise RuntimeError(
+                        f"Failed to create native attention: {err}"
+                    ) from None
+
+                # Failed to use the triton kernel. This may due to unsupported
+                # GPU (< sm_75) or flash-attention is not installed. Fallback
+                # to xFormers' cutlass.
+                kwargs["attn_op_name"] = "cutlass"
+                self.module = FlashAttention(**kwargs)
 
         def forward(
             self,
@@ -71,63 +91,50 @@ def replace_and_shard_attention(
             output_attentions=False,
             use_cache=False,
         ):
-            outputs = self.module(
-                hidden_states, attention_mask, past_key_value, use_cache
-            )
+            outputs = self.module(hidden_states, attention_mask, past_key_value)
             # FIXME: The original output is (hidden_states, None) where the None
             # is present_key_value and only used by in inference.
             # OPT output is (hidden_states, self_attn_weights, present_key_value)
             return outputs[0], None, None
 
-    num_layers, num_heads, hidden_size = (
-        config.num_hidden_layers,
-        config.num_attention_heads,
-        config.hidden_size,
-    )
-
     cnt = 0
-    for idx in range(num_layers):
+    attn_op = []
+    for idx in range(config.num_hidden_layers):
         sub_sch = sch[attn_path.replace("N", str(idx))]
-        init_config = InjectHFGPTAttentionPolicy.gen_init_config_from_object(
-            sub_sch.mod
-        )
-        if disable_flash_attn:
-            init_config["attn_op_name"] = "native"
         with init_empty_weights(enable=delay_init):
-            new_mod = SelfAttention(**init_config)
+            new_mod = Attention(**init_config)
+            attn_op.append(new_mod.module.attn_op_name)
         sub_sch.replace(new_mod)
-        sub_sch.trace(
-            tracer="pytorch",
-            leaf_modules=["MemoryEfficientAttentionOp"],
-            concrete_args={
-                "layer_past": None,
-                "use_cache": False,
-            },
-        )
 
-        def pattern(x: torch.Tensor) -> torch.Tensor:
-            x = call_module("query|key|value", x)
-            new_x_shape = x.size()[:-1] + (num_heads, hidden_size)
-            x = x.view(new_x_shape)
-            return x
-
-        subgraphs = sub_sch["module"].find(pattern)
-        assert len(subgraphs) == 3
-        with init_empty_weights(enable=delay_init):
-            new_fused_qkv = FusedQKV(hidden_size, num_heads, sch.world_size)
-        sub_sch["module"].replace(new_fused_qkv, subgraphs)
         if sch.world_size > 1:
-            sub_sch["module.FusedQKV_0.fused_linear"].shard("weight", axis=0)
-            sub_sch["module.FusedQKV_0.fused_linear"].shard("bias", axis=0)
-            fix_attention_mask_shape(sub_sch["module"])
-            sub_sch["module.FusedQKV_0.fused_linear"].sync(
-                mode="bwd_post", sync_op_or_fn="all_reduce"
+            sub_sch.trace(
+                tracer="pytorch",
+                leaf_modules=["FlashAttentionOp"],
+                concrete_args={
+                    "layer_past": None,
+                    "head_mask": None,
+                    "encoder_hidden_states": None,
+                    "encoder_attention_mask": None,
+                    "use_cache": False,
+                    "output_attentions": False,
+                },
             )
+            sub_sch["module.qkv"].shard("weight", axis=0)
+            sub_sch["module.qkv"].shard("bias", axis=0)
+            fix_attention_mask_shape(sub_sch["module"])
+            sub_sch["module.qkv"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
             sub_sch["module.out_proj"].shard("weight", axis=1)
             sub_sch["module.out_proj"].sync(mode="fwd_post", sync_op_or_fn="all_reduce")
         cnt += 1
 
-    return cnt
+    # Check if all attention ops are the same.
+    attn_op = list(set(attn_op))
+    if len(attn_op) > 1:
+        raise RuntimeError(
+            f"The attention op is not consistent across layers, including {attn_op}"
+        )
+
+    return cnt, attn_op[0]
 
 
 def remove_cast(sch, config, attn_path="h.N.attn.attention"):
@@ -187,35 +194,61 @@ def shard_word_embedding(
 
 
 def replace_and_shard_mlp(
-    sch, config, path="decoder.layers.N", fc_names=["fc1", "fc2"], delay_init=True
+    sch,
+    config,
+    path="decoder.layers.N",
+    fc_names=["fc1", "fc2"],
+    delay_init=True,
+    disable_fuse_bias_gelu=True,
 ):
-    from epoi.inject.policy.gpt import InjectHFGPTMLPPolicy
-
     for idx in range(config.num_hidden_layers):
         prefix = path.replace("N", str(idx))
+        replaced_new_mlp = False
         if config.activation_function in ["gelu", "gelu_new"]:
-            sub_sch = sch[prefix]
-            with init_empty_weights(enable=delay_init):
-                new_mod = InjectHFGPTMLPPolicy.init_from_object(sub_sch.mod)
-            sub_sch.replace(new_mod)
-            sub_sch.trace(leaf_modules=["FusedBiasGELU", "FusedBiasNewGELU"])
+            if disable_fuse_bias_gelu:
+                sub_sch = sch[prefix]
+                inter_size, hidden_size = sub_sch.mod.c_fc.weight.shape
+                with init_empty_weights(enable=delay_init):
+                    new_mod = FusedMLP(
+                        hidden_size,
+                        inter_size,
+                        config.activation_function,
+                        config.resid_dropout,
+                    )
+                sub_sch.replace(new_mod)
+                sub_sch.trace(leaf_modules=["FusedBiasGELU", "FusedBiasNewGELU"])
+            else:
 
-            if sch.world_size > 1:
+                def bias_gelu_pattern(x, bias):
+                    x = x + bias
+                    x = call_module("activation_fn", x)
+                    return x
+
+                subsch = sch[prefix]
+                subsch["fc1"].decompose()
+                subsch.trace(flatten=True)
+
+                subgraphs = subsch.find(bias_gelu_pattern)
+                assert len(subgraphs) == 1
+                assert len(subgraphs[0]) == 2
+                subsch.fuse(subgraphs, compiler="TorchScript", name="FusedBiasGeLU")
+        if sch.world_size > 1:
+            if replaced_new_mlp:
                 sub_sch["fc_in"].shard("weight", axis=0)
                 sub_sch["act"].shard("bias", axis=0)
                 sub_sch["fc_in"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
                 sub_sch["fc_out"].shard("weight", axis=1)
                 sub_sch["fc_out"].sync(mode="fwd_post", sync_op_or_fn="all_reduce")
-        elif sch.world_size > 1:
-            sch[f"{prefix}.{fc_names[0]}"].shard("weight", axis=0)
-            sch[f"{prefix}.{fc_names[0]}"].shard("bias", axis=0)
-            sch[f"{prefix}.{fc_names[0]}"].sync(
-                mode="bwd_post", sync_op_or_fn="all_reduce"
-            )
-            sch[f"{prefix}.{fc_names[1]}"].shard("weight", axis=1)
-            sch[f"{prefix}.{fc_names[1]}"].sync(
-                mode="fwd_post", sync_op_or_fn="all_reduce"
-            )
+            else:
+                sch[f"{prefix}.{fc_names[0]}"].shard("weight", axis=0)
+                sch[f"{prefix}.{fc_names[0]}"].shard("bias", axis=0)
+                sch[f"{prefix}.{fc_names[0]}"].sync(
+                    mode="bwd_post", sync_op_or_fn="all_reduce"
+                )
+                sch[f"{prefix}.{fc_names[1]}"].shard("weight", axis=1)
+                sch[f"{prefix}.{fc_names[1]}"].sync(
+                    mode="fwd_post", sync_op_or_fn="all_reduce"
+                )
 
 
 def checkpoint(sch, config, path="decoder.layers.N", ckpt_ratio=1.0):

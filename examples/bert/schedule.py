@@ -1,31 +1,12 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-import inspect
-
-import torch
 import torch.distributed as dist
 import torch.nn as nn
+import torch.nn.functional as F
 
 from slapo import init_empty_weights
-from slapo.pattern import call_module
-from slapo.op.linear import FusedQKV
-
-
-def trace_attention(sch, config, attn_path="encoder.layer.N.attention"):
-    cnt = 0
-    for idx in range(config.num_hidden_layers):
-        sub_sch = sch[attn_path.replace("N", str(idx))]
-        input_names = ["hidden_states", "attention_mask"]
-        sig = inspect.signature(sub_sch.mod.forward)
-        concrete_args = {
-            p.name: p.default
-            for p in sig.parameters.values()
-            if p.name not in input_names
-        }
-        if sub_sch.trace(tracer="pytorch", concrete_args=concrete_args):
-            cnt += 1
-    return cnt
+from slapo.op import FlashAttention
 
 
 def fix_attention_mask_shape(sch):
@@ -50,17 +31,37 @@ def replace_and_shard_attention(
     config,
     attn_path="encoder.layer.N.attention",
     delay_init=True,
-    disable_flash_attn=False,
+    attn_op_name="cuda",
 ):
-    from epoi.inject.policy.bert import InjectHFBertSelfAttentionPolicy
-    from epoi.ops.xformers_attn import GenericSelfAttention
+    init_config = dict(
+        hidden_size=config.hidden_size,
+        num_attention_heads=config.num_attention_heads,
+        output_proj=False,
+        attn_pdrop=config.attention_probs_dropout_prob,
+        resid_pdrop=config.hidden_dropout_prob,
+        attn_op_name=attn_op_name,
+        fused_qkv=True,
+        bias=True,
+    )
 
     class SelfAttention(nn.Module):
         """A wrapper to align the original BertSelfAttention forward signature."""
 
         def __init__(self, **kwargs):
             super().__init__()
-            self.module = GenericSelfAttention(**kwargs)
+            try:
+                self.module = FlashAttention(**kwargs)
+            except Exception as err:
+                if kwargs["attn_op_name"] == "native_xformers":
+                    raise RuntimeError(
+                        f"Failed to create native attention: {err}"
+                    ) from None
+
+                # Failed to use the triton kernel. This may due to unsupported
+                # GPU (< sm_75) or flash-attention is not installed. Fallback
+                # to xFormers' cutlass.
+                kwargs["attn_op_name"] = "cutlass"
+                self.module = FlashAttention(**kwargs)
 
         def forward(
             self,
@@ -72,64 +73,52 @@ def replace_and_shard_attention(
             past_key_value=None,
             output_attentions=False,
         ):
-            outputs = self.module(hidden_states, attention_mask, past_key_value, False)
+            outputs = self.module(hidden_states, attention_mask, past_key_value)
             # FIXME: The original output is (hidden_states, None) where the None
             # is present_key_value and only used by decoder (e.g., GPT).
             return outputs[:1]
 
-    num_layers, num_heads, hidden_size = (
-        config.num_hidden_layers,
-        config.num_attention_heads,
-        config.hidden_size,
-    )
-
     cnt = 0
-    for idx in range(num_layers):
+    attn_op = []
+    for idx in range(config.num_hidden_layers):
         prefix = attn_path.replace("N", str(idx))
-        sub_sch = sch[f"{prefix}.self"]
-        init_config = InjectHFBertSelfAttentionPolicy.gen_init_config_from_object(
-            sub_sch.mod
-        )
-        if disable_flash_attn:
-            init_config["attn_op_name"] = "native"
         with init_empty_weights(enable=delay_init):
             new_mod = SelfAttention(**init_config)
-        sub_sch.replace(new_mod)
-        sub_sch.trace(
-            tracer="pytorch",
-            leaf_modules=["MemoryEfficientAttentionOp"],
-            concrete_args={
-                "past_key_value": None,
-                "layer_past": None,
-                "use_cache": False,
-            },
-        )
+            attn_op.append(new_mod.module.attn_op_name)
+        sch[f"{prefix}.self"].replace(new_mod)
 
-        def pattern(x: torch.Tensor) -> torch.Tensor:
-            x = call_module("query|key|value", x)
-            new_x_shape = x.size()[:-1] + (num_heads, hidden_size)
-            x = x.view(new_x_shape)
-            return x
-
-        subgraphs = sub_sch["module"].find(pattern)
-        assert len(subgraphs) == 3
-        with init_empty_weights(enable=delay_init):
-            new_fused_qkv = FusedQKV(hidden_size, num_heads, sch.world_size)
-        sub_sch["module"].replace(new_fused_qkv, subgraphs)
         if sch.world_size > 1:
-            sub_sch["module.FusedQKV_0.fused_linear"].shard("weight", axis=0)
-            sub_sch["module.FusedQKV_0.fused_linear"].shard("bias", axis=0)
-            sub_sch["module.FusedQKV_0.fused_linear"].sync(
-                mode="bwd_post", sync_op_or_fn="all_reduce"
+            sch[f"{prefix}.self.module"].trace(
+                tracer="pytorch",
+                leaf_modules=["FlashAttentionOp"],
+                concrete_args={
+                    "layer_past": None,
+                    "head_mask": None,
+                    "encoder_hidden_states": None,
+                    "encoder_attention_mask": None,
+                    "use_cache": False,
+                    "output_attentions": False,
+                },
             )
-            fix_attention_mask_shape(sub_sch["module"])
+            sub_sch = sch[f"{prefix}.self.module"]
+            sub_sch["qkv"].shard("weight", axis=0)
+            sub_sch["qkv"].shard("bias", axis=0)
+            sub_sch["qkv"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
+            fix_attention_mask_shape(sub_sch)
             sch[f"{prefix}.output.dense"].shard("weight", axis=1)
             sch[f"{prefix}.output.dense"].sync(
                 mode="fwd_post", sync_op_or_fn="all_reduce"
             )
         cnt += 1
 
-    return cnt
+    # Check if all attention ops are the same.
+    attn_op = list(set(attn_op))
+    if len(attn_op) > 1:
+        raise RuntimeError(
+            f"The attention op is not consistent across layers, including {attn_op}"
+        )
+
+    return cnt, attn_op[0]
 
 
 def shard_word_embedding(sch, vocab_size, word_embed_name="embeddings.word_embeddings"):
@@ -160,6 +149,19 @@ def shard_word_embedding(sch, vocab_size, word_embed_name="embeddings.word_embed
         return output
 
     sch[word_embed_name].sync(mode="fwd_post", sync_op_or_fn=fwd_post_hook)
+
+
+def fuse_bias_gelu(sch, config, path="encoder.layer.N.intermediate"):
+    def bias_gelu_pattern(x, bias):
+        return F.gelu(x + bias)
+
+    for idx in range(config.num_hidden_layers):
+        subsch = sch[path.replace("N", str(idx))]
+        subsch["dense"].decompose()
+        subsch.trace(flatten=True)
+
+        subgraph = subsch.find(bias_gelu_pattern)
+        subsch.fuse(subgraph, compiler="TorchScript", name="FusedBiasGeLU")
 
 
 def shard_mlp(sch, config, path="encoder.layer.N", fc_names=["intermediate", "output"]):

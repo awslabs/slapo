@@ -56,12 +56,12 @@ def get_model(
         sch = schedule_model(
             model,
             config,
-            disable_flash_attn=disable_flash_attn,
+            attn_op_name="native_xformers" if disable_flash_attn else "cuda",
             fp16=fp16,
             ckpt_ratio=ckpt_ratio,
             delay_init=delay_init,
         )
-        model, _ = slapo.build(sch)
+        model, _ = slapo.build(sch, init_weights=model._init_weights)
         report_memory()
 
     elif impl == "torchscript":

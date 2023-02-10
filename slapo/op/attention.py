@@ -367,24 +367,32 @@ class FlashAttentionOp(nn.Module):
         return ret
 
 
-class FlashSelfAttention(nn.Module):
+class FlashAttention(nn.Module):
     """A HuggingFace self attention module with flash attention kernels.
     Note that this module has limited supports to specialized processing,
     documetned as follows:
     - Only support absolute positional embeddings.
     - Do not support cross attention.
     - Do not support head mask, encoder_attention_mask, and output attention.
+
+    We organize the Attention module as follows:
+    Attention
+        - SelfAttention
+            - Q, K, V
+            - CoreAttention
+        - Projection
+            - OutDense
     """
 
     def __init__(
         self,
         hidden_size,
         num_attention_heads,
-        is_decoder,
         attn_pdrop=0.0,
         resid_pdrop=0.0,
         attn_op_name="auto",
         bias=True,
+        output_proj=True,
         fused_qkv=False,
     ):
         super().__init__()
@@ -407,15 +415,15 @@ class FlashSelfAttention(nn.Module):
             self.key = nn.Linear(hidden_size, self.all_head_size, bias=bias)
             self.value = nn.Linear(hidden_size, self.all_head_size, bias=bias)
 
-        self.is_decoder = is_decoder
+        self.output_proj = output_proj
         self.attn_pdrop = attn_pdrop
 
-        if self.is_decoder:
+        if self.output_proj:
             self.out_proj = nn.Linear(hidden_size, hidden_size, bias=bias)
             self.resid_dropout = nn.Dropout(resid_pdrop)
 
         self.attn_op_name = attn_op_name
-        self.attn_op = FlashAttentionOp(attn_op_name, self.is_decoder)
+        self.attn_op = FlashAttentionOp(attn_op_name, self.output_proj)
 
     @staticmethod
     def layout_attention_mask(mask, num_attention_heads):
@@ -436,27 +444,24 @@ class FlashSelfAttention(nn.Module):
     def forward(
         self,
         hidden_states: Optional[tuple[torch.FloatTensor]],
-        layer_past: Optional[tuple[torch.Tensor]] = None,
         attention_mask: Optional[torch.FloatTensor] = None,
+        layer_past: Optional[tuple[torch.Tensor]] = None,
         head_mask: Optional[torch.FloatTensor] = None,
         encoder_hidden_states: Optional[torch.Tensor] = None,
         encoder_attention_mask: Optional[torch.FloatTensor] = None,
         use_cache: Optional[bool] = False,
         output_attentions: Optional[bool] = False,
     ) -> tuple[torch.Tensor]:
-        """The forward signature aligns to HuggingFace GPT-2."""
         if encoder_hidden_states is not None or encoder_attention_mask is not None:
             raise NotImplementedError(
-                "FlashSelfAttention does not support cross attention yet."
+                "FlashAttention does not support cross attention yet."
             )
         if output_attentions:
             raise NotImplementedError(
-                "FlashSelfAttention does not support output attention yet."
+                "FlashAttention does not support output attention yet."
             )
         if head_mask is not None:
-            raise NotImplementedError(
-                "FlashSelfAttention does not support head mask yet."
-            )
+            raise NotImplementedError("FlashAttention does not support head mask yet.")
 
         if self.fused_qkv:
             # (B, S, 3 * T * head_size) -> (B, S, T, 3 * head_size)
@@ -503,7 +508,7 @@ class FlashSelfAttention(nn.Module):
         new_context_layer_shape = context_layer.size()[:-2] + (-1,)
         context_layer = context_layer.view(new_context_layer_shape)
 
-        if self.is_decoder:
+        if self.output_proj:
             context_layer = self.out_proj(context_layer)
             context_layer = self.resid_dropout(context_layer)
 

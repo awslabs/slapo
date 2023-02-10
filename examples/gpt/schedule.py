@@ -8,7 +8,7 @@ from torch.distributed import distributed_c10d as dist
 
 import slapo
 from slapo import init_empty_weights
-from slapo.op import FlashSelfAttention, FlashAttentionOp, FusedMLP
+from slapo.op import FlashAttention, FlashAttentionOp, FusedMLP
 from slapo import init_empty_weights, get_cuda_rng_tracker
 
 
@@ -56,7 +56,7 @@ def replace_and_shard_attention(
     init_config = dict(
         hidden_size=config.hidden_size,
         num_attention_heads=config.num_attention_heads,
-        is_decoder=True,
+        output_proj=True,
         attn_pdrop=config.attention_dropout,
         resid_pdrop=config.resid_dropout,
         attn_op_name=attn_op_name,
@@ -64,13 +64,13 @@ def replace_and_shard_attention(
         bias=False,  # GPT-Neo does not use bias in attention.
     )
 
-    class SelfAttention(nn.Module):
+    class Attention(nn.Module):
         """A wrapper to align the original GPTNeoAttention forward signature."""
 
         def __init__(self, **kwargs):
             super().__init__()
             try:
-                self.module = FlashSelfAttention(**kwargs)
+                self.module = FlashAttention(**kwargs)
             except Exception as err:
                 if kwargs["attn_op_name"] == "native_xformers":
                     raise RuntimeError(
@@ -81,7 +81,7 @@ def replace_and_shard_attention(
                 # GPU (< sm_75) or flash-attention is not installed. Fallback
                 # to xFormers' cutlass.
                 kwargs["attn_op_name"] = "cutlass"
-                self.module = FlashSelfAttention(**kwargs)
+                self.module = FlashAttention(**kwargs)
 
         def forward(
             self,
@@ -95,8 +95,8 @@ def replace_and_shard_attention(
             """Match the original GPTNeoAttention forward signature."""
             outputs = self.module(
                 hidden_states,
-                layer_past,
                 attention_mask,
+                layer_past,
                 head_mask,
                 None,
                 None,
@@ -119,23 +119,23 @@ def replace_and_shard_attention(
     for idx in range(config.num_layers):
         sub_sch = sch[attn_path.replace("N", str(idx))]
         with init_empty_weights(enable=delay_init):
-            new_mod = SelfAttention(**init_config)
+            new_mod = Attention(**init_config)
             attn_op.append(new_mod.module.attn_op_name)
         sub_sch.replace(new_mod)
-        sub_sch.trace(
-            tracer="pytorch",
-            leaf_modules=["FlashAttentionOp"],
-            concrete_args={
-                "layer_past": None,
-                "head_mask": None,
-                "encoder_hidden_states": None,
-                "encoder_attention_mask": None,
-                "use_cache": False,
-                "output_attentions": False,
-            },
-        )
 
         if sch.world_size > 1:
+            sub_sch.trace(
+                tracer="pytorch",
+                leaf_modules=["FlashAttentionOp"],
+                concrete_args={
+                    "layer_past": None,
+                    "head_mask": None,
+                    "encoder_hidden_states": None,
+                    "encoder_attention_mask": None,
+                    "use_cache": False,
+                    "output_attentions": False,
+                },
+            )
             sub_sch["module.qkv"].shard("weight", axis=0)
             sub_sch["module.out_proj"].shard("weight", axis=1)
             fix_attention_mask_shape(sub_sch["module"])

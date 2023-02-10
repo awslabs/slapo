@@ -24,6 +24,18 @@ git submodule update --init --recursive
 pip3 install -e ".[dev]"
 ```
 
+Note currently we need to apply the following patch to the `xformers` library:
+```
+XFORMER_PATH=`python3 -c "import xformers, pathlib; print(pathlib.Path(xformers.__path__[0]).parent)"`
+cp scripts/xformers_patch $XFORMER_PATH
+pushd $XFORMER_PATH
+git config --global --add safe.directory $XFORMER_PATH
+git reset --hard
+git apply xformers_patch
+git --no-pager diff
+popd
+```
+
 - flash-attention:
 ```
 git clone https://github.com/jfc4050/flash-attention.git

@@ -88,6 +88,7 @@ def train(args):
             model,
             config,
             prefix="albert",
+            attn_op_name=args.attn_op_name,
             ckpt_ratio=args.checkpoint,
             bcast_input=True,
             group=group,
@@ -95,7 +96,7 @@ def train(args):
             delay_init=enable_pipeline,
         )
     if SINGLE_DEVICE_FOR_DEBUG:
-        slapo.build(sch)
+        slapo.build(sch, init_weights=model._init_weights)
         assert False
 
     if enable_pipeline:
@@ -118,6 +119,7 @@ def train(args):
             target="deepspeed",
             config=ds_config_dict,
             loss_fn=loss_fn,
+            init_weights=model._init_weights,
         )
     else:
         if batch_size is not None:
@@ -133,6 +135,7 @@ def train(args):
             topology=topology,
             target="deepspeed",
             config=ds_config_dict,
+            init_weights=model._init_weights,
         )
         model = model.to(device)
     report_memory(msg="After building model")
@@ -215,6 +218,14 @@ if __name__ == "__main__":
         type=int,
         default=None,
         help="Micro batch size per GPU",
+    )
+    parser.add_argument(
+        "--attn_op_name",
+        type=str,
+        default="cuda",
+        help="Attention op name {'native_xformers', 'cutlass', 'triton', 'cuda'}. "
+        "'cuda' and 'triton' only support sm_80+, and other archs will "
+        "fallback to 'cutlas'",
     )
     parser.add_argument(
         "--seq_len",

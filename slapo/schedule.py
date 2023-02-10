@@ -831,6 +831,7 @@ class SubgraphWrapper(nn.Module):
                 # [[s0, v0]]
                 ops = subgraphs[0]
                 path, first_node = ops[0]
+                ops = [op[1] for op in ops]
                 target_mod = self.mod
                 if path:
                     assert hasattr(
@@ -841,9 +842,6 @@ class SubgraphWrapper(nn.Module):
                 target_mod.add_module(name, new_mod)
                 with target_mod.graph.inserting_before(first_node):
                     sig = inspect.signature(new_mod.forward)
-                    assert len(sig.parameters) <= len(
-                        first_node.args
-                    ), f"The number of arguments of the replaced module should be less or equal to the number of the original subgraph inputs. Got {sig.parameters}, but expect {first_node.args}."
                     default_args = {
                         k: v.default
                         for k, v in sig.parameters.items()
@@ -853,13 +851,17 @@ class SubgraphWrapper(nn.Module):
                     for key, value in default_args:
                         if key in first_node.kwargs:
                             new_kwargs[key] = value
-                    n_args = len(sig.parameters) - len(default_args)
+                    new_args = []
+                    for node in ops:
+                        for arg in node.args:
+                            if isinstance(arg, fx.Node) and arg not in ops:
+                                new_args.append(arg)
                     new_node = target_mod.graph.call_module(
-                        name, first_node.args[:n_args], new_kwargs
+                        name, tuple(new_args), new_kwargs
                     )
-                _, last_node = ops[-1]
+                last_node = ops[-1]
                 last_node.replace_all_uses_with(new_node)
-                for _, node in reversed(ops):
+                for node in reversed(ops):
                     target_mod.graph.erase_node(node)
 
     @register_primitive()

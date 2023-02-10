@@ -369,6 +369,7 @@ def list_envs(append_to=None):
         "epoi",
         "transformers",
         "xformers",
+        "flash_attn",
         "megatron",
         "deepspeed",
         "triton",

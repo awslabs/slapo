@@ -10,6 +10,7 @@ from schedule import (
     broadcast_input,
     checkpoint,
     replace_and_shard_attention,
+    fuse_bias_gelu,
     shard_mlp,
     shard_word_embedding,
 )
@@ -21,12 +22,13 @@ def schedule_model(
     model,
     config,
     prefix="",
-    disable_flash_attn=False,
+    attn_op_name="cuda",
     fp16=True,
     ckpt_ratio=0.0,
     group=None,
     bcast_input=False,
     pipeline_cuts=None,
+    disable_fuse_bias_gelu=True,
     delay_init=True,
 ):
     if fp16:
@@ -38,15 +40,22 @@ def schedule_model(
 
     # Replace self attention with flash attention, and shard QKV/output
     # if MP group > 1.
-    if disable_flash_attn:
-        logger.info("Disabled Flash Attention", rank=0)
-    cnt = replace_and_shard_attention(
+    if attn_op_name == "native_xformers":
+        logger.info("Disabled Flash Attention", ranks=0)
+    cnt, applied_attn_op_name = replace_and_shard_attention(
         sch[prefix],
         config,
         delay_init=delay_init,
-        disable_flash_attn=disable_flash_attn,
+        attn_op_name=attn_op_name,
     )
-    logger.info(f"Replace {cnt} attention patterns", ranks=0)
+    logger.info(
+        f"Replace {cnt} attention layers with {applied_attn_op_name} op", ranks=0
+    )
+
+    # Operator fusion
+    if not disable_fuse_bias_gelu:
+        fuse_bias_gelu(sch[prefix], config)
+        logger.info(f"Fused Bias+GeLU", ranks=0)
 
     # Shard other parameters if MP group > 1.
     if sch.world_size > 1:

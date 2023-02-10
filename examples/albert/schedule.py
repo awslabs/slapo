@@ -10,7 +10,7 @@ import torch.nn as nn
 from slapo import init_empty_weights
 from typing import Optional
 from slapo.pattern import call_module
-from slapo.op.linear import FusedQKV
+from slapo.op import FlashAttention
 
 
 def trace_attention(
@@ -32,25 +32,20 @@ def trace_attention(
 
 
 def fix_attention_mask_shape(sch):
-    # EPOI attention module uses repeat to process attention mask to
-    # align xformer attention mask shape:
-    # (B, 1, 1, S) -repeat->  (B, H, S, S) -reshape-> (B x H, S, S),
-    # so we need to replace "repeat" wit the sharded H.
+    # Attention mask may needed to be expanded from (B, 1, 1, S)
+    # to (B, H, S, S), where H is sharded.
     ops = sch.find_node(
-        lambda node: node.op == "call_method"
-        and node.target == "repeat"
-        and len(node.args) == 5  # args[0] is self
-        and node.args[1] == 1
-        and node.args[-1] == 1
+        lambda node: node.op == "call_method" and node.target == "expand"
     )
 
-    def new_repeat(tensor, *old_args):
-        assert len(old_args) == 4
-        new_args = (old_args[0],) + (old_args[1] // sch.world_size,) + old_args[2:]
-        return tensor.repeat(*new_args)
+    def new_expand(tensor, *args):
+        # (B, 1, 1, S) -> (B, H, S, S)
+        assert len(args) == 4
+        out = tensor.expand(args[0], args[1] // sch.world_size, *args[2:])
+        return out.contiguous()
 
     for op in ops:
-        sch.replace(new_repeat, op[1])
+        sch.replace(new_expand, op[1])
 
 
 def replace_and_shard_attention(
@@ -58,54 +53,35 @@ def replace_and_shard_attention(
     config,
     attn_path="encoder.albert_layer_groups.N.albert_layers.N",
     delay_init=True,
-    disable_flash_attn=False,
+    attn_op_name="cuda",
 ):
-    from epoi.inject.policy.bert import InjectHFBertSelfAttentionPolicy
-    from epoi.ops.xformers_attn import GenericSelfAttention
-    from transformers.pytorch_utils import apply_chunking_to_forward
-    from epoi.ops.torchscript_ops import FusedBiasNewGELU
-
-    # TODO: Use subgraph matching to obtain FFN module
-    class FFN(nn.Module):
-        def __init__(self, config):
-            super().__init__()
-            self.config = config
-            self.chunk_size_feed_forward = config.chunk_size_feed_forward
-            self.ffn = nn.Linear(
-                config.hidden_size, config.intermediate_size, bias=None
-            )
-            self.ffn_output = nn.Linear(config.intermediate_size, config.hidden_size)
-            self.activation = FusedBiasNewGELU(config.intermediate_size)
-            self.dropout = nn.Dropout(float(config.hidden_dropout_prob))
-            self.seq_len_dim = 1
-            self.full_layer_layer_norm = nn.LayerNorm(
-                config.hidden_size, eps=config.layer_norm_eps
-            )
-
-        def forward(self, context_layer: torch.Tensor):
-            ffn_output = apply_chunking_to_forward(
-                self.ff_chunk,
-                self.chunk_size_feed_forward,
-                self.seq_len_dim,
-                context_layer,
-            )
-            hidden_states = self.full_layer_layer_norm(ffn_output + context_layer)
-
-            return (hidden_states,)
-
-        def ff_chunk(self, attention_output: torch.Tensor) -> torch.Tensor:
-            ffn_output = self.ffn(attention_output)
-            ffn_output = self.activation(ffn_output)
-            ffn_output = self.ffn_output(ffn_output)
-            return ffn_output
+    init_config = dict(
+        hidden_size=config.hidden_size,
+        num_attention_heads=config.num_attention_heads,
+        output_proj=True,
+        attn_pdrop=config.attention_probs_dropout_prob,
+        resid_pdrop=config.hidden_dropout_prob,
+        attn_op_name=attn_op_name,
+        fused_qkv=True,
+        bias=True,
+    )
 
     class AlbertXFAttention(nn.Module):
-        def __init__(self, config, **kwargs):
+        def __init__(self, **kwargs):
             super().__init__()
-            self.self_attn = GenericSelfAttention(**kwargs)
-            self.output_dropout = nn.Dropout(float(config.hidden_dropout_prob))
-            self.dense = nn.Linear(config.hidden_size, config.hidden_size)
-            self.LayerNorm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
+            try:
+                self.self_attn = FlashAttention(**kwargs)
+            except Exception as err:
+                if kwargs["attn_op_name"] == "native_xformers":
+                    raise RuntimeError(
+                        f"Failed to create native attention: {err}"
+                    ) from None
+
+                # Failed to use the triton kernel. This may due to unsupported
+                # GPU (< sm_75) or flash-attention is not installed. Fallback
+                # to xFormers' cutlass.
+                kwargs["attn_op_name"] = "cutlass"
+                self.self_attn = FlashAttention(**kwargs)
 
         def forward(
             self,
@@ -116,90 +92,49 @@ def replace_and_shard_attention(
         ):
             outputs = self.self_attn(hidden_states, attention_mask)
             context_layer = outputs[0]
-
-            projected_context_layer = self.dense(context_layer)
-            projected_context_layer_dropout = self.output_dropout(
-                projected_context_layer
-            )
-            layernormed_context_layer = self.LayerNorm(
-                hidden_states + projected_context_layer_dropout
-            )
-            return (layernormed_context_layer, None)
-
-    class AlbertLayer(nn.Module):
-        def __init__(self, config, **kwargs):
-            super().__init__()
-            self.config = config
-            self.attention = AlbertXFAttention(config, **kwargs)
-            self.ffn = FFN(config)
-
-        def forward(
-            self,
-            hidden_states: torch.Tensor,
-            attention_mask: Optional[torch.FloatTensor] = None,
-            head_mask: Optional[torch.FloatTensor] = None,
-            output_attentions: bool = False,
-            output_hidden_states: bool = False,
-        ):
-            attention_output = self.attention(
-                hidden_states, attention_mask, head_mask, output_attentions
-            )
-            res = self.ffn(attention_output[0])
-            return res
+            return (context_layer, None)
 
     cnt = 0
+    attn_op = []
     for idx in range(1):  # use layer group
         prefix = attn_path.replace("N", str(idx))
-        sub_sch = sch[f"{prefix}.attention"]
-        init_config = InjectHFBertSelfAttentionPolicy.gen_init_config_from_object(
-            sub_sch.mod
-        )
-        if disable_flash_attn:
-            init_config["attn_op_name"] = "native"
-        with init_empty_weights(enable=False):
-            albert_layer = AlbertLayer(config, **init_config)
-        sch[f"{prefix}"].replace(albert_layer)
-
-        num_layers, num_heads, hidden_size = (
-            config.num_hidden_layers,
-            config.num_attention_heads,
-            config.hidden_size,
-        )
+        with init_empty_weights(enable=delay_init):
+            attn = AlbertXFAttention(**init_config)
+            attn_op.append(attn.self_attn.attn_op_name)
+        sch[f"{prefix}.attention"].replace(attn)
 
         if sch.world_size > 1:
             sch[f"{prefix}.attention.self_attn"].trace(
                 tracer="pytorch",
-                leaf_modules=["MemoryEfficientAttentionOp"],
+                leaf_modules=["FlashAttentionOp"],
                 concrete_args={
-                    "past_key_value": None,
                     "layer_past": None,
+                    "head_mask": None,
+                    "encoder_hidden_states": None,
+                    "encoder_attention_mask": None,
                     "use_cache": False,
+                    "output_attentions": False,
                 },
             )
-
-            def pattern(x: torch.Tensor) -> torch.Tensor:
-                x = call_module("query|key|value", x)
-                new_x_shape = x.size()[:-1] + (num_heads, hidden_size)
-                x = x.view(new_x_shape)
-                return x
-
             sub_sch = sch[f"{prefix}.attention"]
-            subgraphs = sub_sch["self_attn"].find(pattern)
-            assert len(subgraphs) == 3
-            with init_empty_weights(enable=delay_init):
-                new_fused_qkv = FusedQKV(hidden_size, num_heads, sch.world_size)
-            sub_sch["self_attn"].replace(new_fused_qkv, subgraphs)
-            sub_sch["self_attn.FusedQKV_0.fused_linear"].shard("weight", axis=0)
-            sub_sch["self_attn.FusedQKV_0.fused_linear"].shard("bias", axis=0)
-            sub_sch["self_attn.FusedQKV_0.fused_linear"].sync(
-                mode="bwd_post", sync_op_or_fn="all_reduce"
-            )
+            sub_sch["self_attn.qkv"].shard("weight", axis=0)
+            sub_sch["self_attn.qkv"].shard("bias", axis=0)
+            sub_sch["self_attn.qkv"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
             fix_attention_mask_shape(sub_sch["self_attn"])
-            sub_sch["dense"].shard("weight", axis=1)
-            sub_sch["dense"].sync(mode="fwd_post", sync_op_or_fn="all_reduce")
+            sub_sch["self_attn.out_proj"].shard("weight", axis=1)
+            sub_sch["self_attn.out_proj"].sync(
+                mode="fwd_post", sync_op_or_fn="all_reduce"
+            )
         cnt += 1
 
-    return cnt
+    # Check if all attention ops are the same.
+    attn_op = list(set(attn_op))
+    if len(attn_op) > 1:
+        raise RuntimeError(
+            f"The attention op is not consistent across layers, including {attn_op}"
+        )
+
+    return cnt, attn_op[0]
 
 
 def shard_word_embedding(sch, vocab_size, word_embed_name="embeddings.word_embeddings"):
@@ -232,11 +167,36 @@ def shard_word_embedding(sch, vocab_size, word_embed_name="embeddings.word_embed
     sch[word_embed_name].sync(mode="fwd_post", sync_op_or_fn=fwd_post_hook)
 
 
+def fuse_bias_gelu(sch, config, path="encoder.albert_layer_groups.N.albert_layers.N"):
+    def bias_gelu_pattern(x, bias):
+        x = bias + x
+        x = call_module("activation", x)
+        return x
+
+    for idx in range(1):
+        subsch = sch[path.replace("N", str(idx))]
+        subsch["ffn"].decompose()
+        subsch.trace(
+            flatten=True,
+            leaf_modules=[
+                "AlbertAttention",
+                "AlbertXFAttention",
+                "NewGELUActivation",
+                "GELUActivation",
+            ],
+        )
+
+        subgraphs = subsch.find(bias_gelu_pattern)
+        assert len(subgraphs) == 1
+        assert len(subgraphs[0]) == 2
+        subsch.fuse(subgraphs, compiler="TorchScript", name="FusedBiasGeLU")
+
+
 def shard_mlp(
     sch,
     config,
     path="encoder.albert_layer_groups.N.albert_layers.N",
-    fc_names=["ffn.ffn", "ffn.ffn_output"],
+    fc_names=["ffn", "ffn_output"],
 ):
     if sch.world_size == 1:
         return
@@ -244,7 +204,7 @@ def shard_mlp(
     for idx in range(1):  # use layer group
         prefix = path.replace("N", str(idx))
         sch[f"{prefix}.{fc_names[0]}"].shard("weight", axis=0)
-        sch[f"{prefix}.ffn.activation"].shard("bias", axis=0)
+        sch[f"{prefix}.{fc_names[0]}"].shard("bias", axis=0)
         sch[f"{prefix}.{fc_names[0]}"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
         sch[f"{prefix}.{fc_names[1]}"].shard("weight", axis=1)
         sch[f"{prefix}.{fc_names[1]}"].sync(mode="fwd_post", sync_op_or_fn="all_reduce")

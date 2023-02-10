@@ -78,10 +78,10 @@ def test_attention(op_name, shape):
             attn = GPT2Attention(config)
         else:
             try:
-                attn = op.FlashSelfAttention(
+                attn = op.FlashAttention(
                     hidden_size=config.hidden_size,
                     num_attention_heads=config.num_attention_heads,
-                    is_decoder=True,
+                    output_proj=True,
                     attn_pdrop=config.attn_pdrop,
                     resid_pdrop=config.resid_pdrop,
                     attn_op_name=attn_op_name,

@@ -37,7 +37,7 @@ def replace_and_shard_attention(
     init_config = dict(
         hidden_size=config.hidden_size,
         num_attention_heads=config.num_attention_heads,
-        output_proj=True,
+        output_proj=False,
         attn_pdrop=config.attention_probs_dropout_prob,
         resid_pdrop=config.hidden_dropout_prob,
         attn_op_name=attn_op_name,
@@ -46,7 +46,7 @@ def replace_and_shard_attention(
         world_size=sch.world_size,
     )
 
-    class Attention(nn.Module):
+    class SelfAttention(nn.Module):
         """A wrapper to align the original BertSelfAttention forward signature."""
 
         def __init__(self, **kwargs):
@@ -84,7 +84,7 @@ def replace_and_shard_attention(
     for idx in range(config.num_hidden_layers):
         prefix = attn_path.replace("N", str(idx))
         with init_empty_weights(enable=delay_init):
-            new_mod = Attention(**init_config)
+            new_mod = SelfAttention(**init_config)
         sch[f"{prefix}.self"].replace(new_mod)
 
         if sch.world_size > 1:
@@ -105,8 +105,8 @@ def replace_and_shard_attention(
             sub_sch["qkv"].shard("bias", axis=0)
             sub_sch["qkv"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
             fix_attention_mask_shape(sub_sch)
-            sub_sch["out_proj"].shard("weight", axis=1)
-            sub_sch["out_proj"].sync(mode="fwd_post", sync_op_or_fn="all_reduce")
+            sch[f"{prefix}.output.dense"].shard("weight", axis=1)
+            sch[f"{prefix}.output.dense"].sync(mode="fwd_post", sync_op_or_fn="all_reduce")
         cnt += 1
 
     return cnt

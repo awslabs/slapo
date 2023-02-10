@@ -7,7 +7,7 @@ from torch.distributed import distributed_c10d as dist
 
 import slapo
 from slapo import init_empty_weights
-from slapo.op import FlashSelfAttention, FlashAttentionOp, FusedMLP
+from slapo.op import FlashAttention, FlashAttentionOp, FusedMLP
 from slapo import init_empty_weights, get_cuda_rng_tracker
 
 
@@ -45,20 +45,20 @@ def replace_attention(
     init_config = dict(
         hidden_size=config.hidden_size,
         num_attention_heads=config.num_attention_heads,
-        is_decoder=True,
+        output_proj=True,
         attn_pdrop=config.attn_pdrop,
         resid_pdrop=config.resid_pdrop,
         attn_op_name=attn_op_name,
         fused_qkv=True,
     )
 
-    class SelfAttention(nn.Module):
-        """A wrapper to align the original GPTNeoAttention forward signature."""
+    class Attention(nn.Module):
+        """A wrapper to align the original GPTAttention forward signature."""
 
         def __init__(self, **kwargs):
             super().__init__()
             try:
-                self.module = FlashSelfAttention(**kwargs)
+                self.module = FlashAttention(**kwargs)
             except Exception as err:
                 if kwargs["attn_op_name"] == "native_xformers":
                     raise RuntimeError(
@@ -69,7 +69,7 @@ def replace_attention(
                 # GPU (< sm_75) or flash-attention is not installed. Fallback
                 # to xFormers' cutlass.
                 kwargs["attn_op_name"] = "cutlass"
-                self.module = FlashSelfAttention(**kwargs)
+                self.module = FlashAttention(**kwargs)
 
         def forward(
             self,
@@ -84,8 +84,8 @@ def replace_attention(
         ):
             outputs = self.module(
                 hidden_states,
-                layer_past,
                 attention_mask,
+                layer_past,
                 head_mask,
                 encoder_hidden_states,
                 encoder_attention_mask,
@@ -101,7 +101,7 @@ def replace_attention(
     for idx in range(config.num_hidden_layers):
         sub_sch = sch[attn_path.replace("N", str(idx))]
         with init_empty_weights(enable=delay_init):
-            new_mod = SelfAttention(**init_config)
+            new_mod = Attention(**init_config)
             attn_op.append(new_mod.module.attn_op_name)
         sub_sch.replace(new_mod)
         cnt += 1

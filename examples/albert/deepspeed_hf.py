@@ -88,6 +88,7 @@ def train(args):
             model,
             config,
             prefix="albert",
+            attn_op_name=args.attn_op_name,
             ckpt_ratio=args.checkpoint,
             bcast_input=True,
             group=group,
@@ -217,6 +218,14 @@ if __name__ == "__main__":
         type=int,
         default=None,
         help="Micro batch size per GPU",
+    )
+    parser.add_argument(
+        "--attn_op_name",
+        type=str,
+        default="cuda",
+        help="Attention op name {'native_xformers', 'cutlass', 'triton', 'cuda'}. "
+        "'cuda' and 'triton' only support sm_80+, and other archs will "
+        "fallback to 'cutlas'",
     )
     parser.add_argument(
         "--seq_len",

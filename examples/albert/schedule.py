@@ -53,9 +53,8 @@ def replace_and_shard_attention(
     config,
     attn_path="encoder.albert_layer_groups.N.albert_layers.N",
     delay_init=True,
-    disable_flash_attn=False,
+    attn_op_name="cuda",
 ):
-    attn_op_name = "native_xformers" if disable_flash_attn else "triton"
     init_config = dict(
         hidden_size=config.hidden_size,
         num_attention_heads=config.num_attention_heads,
@@ -65,7 +64,6 @@ def replace_and_shard_attention(
         attn_op_name=attn_op_name,
         fused_qkv=True,
         bias=True,
-        world_size=sch.world_size,
     )
 
     class AlbertXFAttention(nn.Module):
@@ -97,10 +95,12 @@ def replace_and_shard_attention(
             return (context_layer, None)
 
     cnt = 0
+    attn_op = []
     for idx in range(1):  # use layer group
         prefix = attn_path.replace("N", str(idx))
         with init_empty_weights(enable=delay_init):
             attn = AlbertXFAttention(**init_config)
+            attn_op.append(attn.self_attn.attn_op_name)
         sch[f"{prefix}.attention"].replace(attn)
 
         if sch.world_size > 1:
@@ -122,10 +122,19 @@ def replace_and_shard_attention(
             sub_sch["self_attn.qkv"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
             fix_attention_mask_shape(sub_sch["self_attn"])
             sub_sch["self_attn.out_proj"].shard("weight", axis=1)
-            sub_sch["self_attn.out_proj"].sync(mode="fwd_post", sync_op_or_fn="all_reduce")
+            sub_sch["self_attn.out_proj"].sync(
+                mode="fwd_post", sync_op_or_fn="all_reduce"
+            )
         cnt += 1
 
-    return cnt
+    # Check if all attention ops are the same.
+    attn_op = list(set(attn_op))
+    if len(attn_op) > 1:
+        raise RuntimeError(
+            f"The attention op is not consistent across layers, including {attn_op}"
+        )
+
+    return cnt, attn_op[0]
 
 
 def shard_word_embedding(sch, vocab_size, word_embed_name="embeddings.word_embeddings"):

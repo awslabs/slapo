@@ -10,7 +10,7 @@ import torch.nn as nn
 from slapo import init_empty_weights
 from typing import Optional
 from slapo.pattern import call_module
-from slapo.op.linear import FusedQKV
+from slapo.op import FlashAttention
 
 
 def trace_attention(
@@ -55,16 +55,35 @@ def replace_and_shard_attention(
     delay_init=True,
     disable_flash_attn=False,
 ):
-    from epoi.inject.policy.bert import InjectHFBertSelfAttentionPolicy
-    from epoi.ops.xformers_attn import GenericSelfAttention
+    attn_op_name = "native_xformers" if disable_flash_attn else "triton"
+    init_config = dict(
+        hidden_size=config.hidden_size,
+        num_attention_heads=config.num_attention_heads,
+        output_proj=True,
+        attn_pdrop=config.attention_probs_dropout_prob,
+        resid_pdrop=config.hidden_dropout_prob,
+        attn_op_name=attn_op_name,
+        fused_qkv=True,
+        bias=True,
+        world_size=sch.world_size,
+    )
 
     class AlbertXFAttention(nn.Module):
         def __init__(self, config, **kwargs):
             super().__init__()
-            self.self_attn = GenericSelfAttention(**kwargs)
-            self.output_dropout = nn.Dropout(float(config.hidden_dropout_prob))
-            self.dense = nn.Linear(config.hidden_size, config.hidden_size)
-            self.LayerNorm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
+            try:
+                self.self_attn = FlashAttention(**kwargs)
+            except Exception as err:
+                if kwargs["attn_op_name"] == "native_xformers":
+                    raise RuntimeError(
+                        f"Failed to create native attention: {err}"
+                    ) from None
+
+                # Failed to use the triton kernel. This may due to unsupported
+                # GPU (< sm_75) or flash-attention is not installed. Fallback
+                # to xFormers' cutlass.
+                kwargs["attn_op_name"] = "cutlass"
+                self.self_attn = FlashAttention(**kwargs)
 
         def forward(
             self,
@@ -75,66 +94,35 @@ def replace_and_shard_attention(
         ):
             outputs = self.self_attn(hidden_states, attention_mask)
             context_layer = outputs[0]
-
-            projected_context_layer = self.dense(context_layer)
-            projected_context_layer_dropout = self.output_dropout(
-                projected_context_layer
-            )
-            layernormed_context_layer = self.LayerNorm(
-                hidden_states + projected_context_layer_dropout
-            )
-            return (layernormed_context_layer, None)
+            return (context_layer, None)
 
     cnt = 0
     for idx in range(1):  # use layer group
         prefix = attn_path.replace("N", str(idx))
-        sub_sch = sch[f"{prefix}.attention"]
-        init_config = InjectHFBertSelfAttentionPolicy.gen_init_config_from_object(
-            sub_sch.mod
-        )
-        if disable_flash_attn:
-            init_config["attn_op_name"] = "native"
-        with init_empty_weights(enable=False):
+        with init_empty_weights(enable=delay_init):
             attn = AlbertXFAttention(config, **init_config)
         sch[f"{prefix}.attention"].replace(attn)
-
-        num_layers, num_heads, hidden_size = (
-            config.num_hidden_layers,
-            config.num_attention_heads,
-            config.hidden_size,
-        )
 
         if sch.world_size > 1:
             sch[f"{prefix}.attention.self_attn"].trace(
                 tracer="pytorch",
-                leaf_modules=["MemoryEfficientAttentionOp"],
+                leaf_modules=["FlashAttentionOp"],
                 concrete_args={
-                    "past_key_value": None,
                     "layer_past": None,
+                    "head_mask": None,
+                    "encoder_hidden_states": None,
+                    "encoder_attention_mask": None,
                     "use_cache": False,
+                    "output_attentions": False,
                 },
             )
-
-            def pattern(x: torch.Tensor) -> torch.Tensor:
-                x = call_module("query|key|value", x)
-                new_x_shape = x.size()[:-1] + (num_heads, hidden_size)
-                x = x.view(new_x_shape)
-                return x
-
             sub_sch = sch[f"{prefix}.attention"]
-            subgraphs = sub_sch["self_attn"].find(pattern)
-            assert len(subgraphs) == 3
-            with init_empty_weights(enable=delay_init):
-                new_fused_qkv = FusedQKV(hidden_size, num_heads, sch.world_size)
-            sub_sch["self_attn"].replace(new_fused_qkv, subgraphs)
-            sub_sch["self_attn.FusedQKV_0.fused_linear"].shard("weight", axis=0)
-            sub_sch["self_attn.FusedQKV_0.fused_linear"].shard("bias", axis=0)
-            sub_sch["self_attn.FusedQKV_0.fused_linear"].sync(
-                mode="bwd_post", sync_op_or_fn="all_reduce"
-            )
+            sub_sch["self_attn.qkv"].shard("weight", axis=0)
+            sub_sch["self_attn.qkv"].shard("bias", axis=0)
+            sub_sch["self_attn.qkv"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
             fix_attention_mask_shape(sub_sch["self_attn"])
-            sub_sch["dense"].shard("weight", axis=1)
-            sub_sch["dense"].sync(mode="fwd_post", sync_op_or_fn="all_reduce")
+            sub_sch["self_attn.out_proj"].shard("weight", axis=1)
+            sub_sch["self_attn.out_proj"].sync(mode="fwd_post", sync_op_or_fn="all_reduce")
         cnt += 1
 
     return cnt

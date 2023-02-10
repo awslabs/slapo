@@ -1,6 +1,6 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Framework model dialect registration."""
+"""Framework dialect registration."""
 
 DIALECTS = {
     "pipeline_stage": {},
@@ -10,15 +10,15 @@ DIALECTS = {
 }
 
 
-def register_model_dialect(target, cls_type):
-    """Register a framework model dialect."""
+def register_framework_dialect(target, cls_type):
+    """Register a framework dialect."""
     if cls_type not in DIALECTS:
         raise ValueError(f"Only support {DIALECTS.keys()}, but got {cls_type}")
 
     def decorator(dialect_cls):
         if "target" in DIALECTS[cls_type]:
             raise ValueError(
-                f"Target {target} already registered for {cls_type} model dialects"
+                f"Target {target} already registered for {cls_type} dialects"
             )
         DIALECTS[cls_type][target] = dialect_cls
         return dialect_cls
@@ -27,14 +27,14 @@ def register_model_dialect(target, cls_type):
 
 
 def get_all_dialects(cls_type):
-    """Get all registered framework model dialects."""
+    """Get all registered framework dialects."""
     if cls_type not in DIALECTS:
         raise ValueError(f"Only support {DIALECTS.keys()}, but got {cls_type}")
     return DIALECTS[cls_type]
 
 
 def get_dialect_cls(cls_type, target, allow_none=False):
-    """Get the framework model dialect class."""
+    """Get the framework dialect class."""
     if cls_type not in DIALECTS:
         raise ValueError(f"Only support {DIALECTS.keys()}, but got {cls_type}")
     if target not in DIALECTS[cls_type]:
@@ -46,7 +46,5 @@ def get_dialect_cls(cls_type, target, allow_none=False):
                     f"Target {target} does not register default dialect for {cls_type}"
                 )
         else:
-            raise ValueError(
-                f"Target {target} not registered for {cls_type} model dialects"
-            )
+            raise ValueError(f"Target {target} not registered for {cls_type} dialects")
     return DIALECTS[cls_type][target]

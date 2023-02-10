@@ -461,9 +461,7 @@ class FlashAttention(nn.Module):
                 "FlashAttention does not support output attention yet."
             )
         if head_mask is not None:
-            raise NotImplementedError(
-                "FlashAttention does not support head mask yet."
-            )
+            raise NotImplementedError("FlashAttention does not support head mask yet.")
 
         if self.fused_qkv:
             # (B, S, 3 * T * head_size) -> (B, S, T, 3 * head_size)

@@ -8,7 +8,7 @@ import torch.nn as nn
 import torch.distributed as dist
 
 from slapo import init_empty_weights
-from slapo.op import FlashAttention
+from slapo.op import FlashAttention, FusedMLP
 from slapo.pattern import call_module
 
 
@@ -201,19 +201,22 @@ def replace_and_shard_mlp(
     delay_init=True,
     disable_fuse_bias_gelu=True,
 ):
-    from epoi.inject.policy.gpt import InjectHFGPTMLPPolicy
-
     for idx in range(config.num_hidden_layers):
         prefix = path.replace("N", str(idx))
         replaced_new_mlp = False
         if config.activation_function in ["gelu", "gelu_new"]:
             if disable_fuse_bias_gelu:
                 sub_sch = sch[prefix]
+                inter_size, hidden_size = sub_sch.mod.c_fc.weight.shape
                 with init_empty_weights(enable=delay_init):
-                    new_mod = InjectHFGPTMLPPolicy.init_from_object(sub_sch.mod)
+                    new_mod = FusedMLP(
+                        hidden_size,
+                        inter_size,
+                        config.activation_function,
+                        config.resid_dropout,
+                    )
                 sub_sch.replace(new_mod)
                 sub_sch.trace(leaf_modules=["FusedBiasGELU", "FusedBiasNewGELU"])
-                replaced_new_mlp = True
             else:
 
                 def bias_gelu_pattern(x, bias):

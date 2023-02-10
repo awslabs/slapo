@@ -3,10 +3,151 @@
 """Test replace primitives."""
 import pytest
 
+import operator
 from torch import nn
+import torch.nn.functional as F
 
 import slapo
 from slapo.utils.common import get_hooks
+from slapo.pattern import call_module
+
+
+def test_replace_single_module():
+    class Model(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.linear = nn.Linear(1024, 1024)
+            self.activation = nn.ReLU()
+
+        def forward(self, x):
+            x = self.linear(x)
+            x = self.activation(x)
+            return x
+
+    model = Model()
+    sch = slapo.create_schedule(model)
+    new_act = nn.GELU()
+    sch["activation"].replace(new_act)
+    assert isinstance(sch["activation"].mod, nn.GELU)
+
+
+def test_vertical_replacement():
+    class Model(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.linear = nn.Linear(1024, 1024)
+            self.bn = nn.BatchNorm1d(1024)
+            self.activation = nn.ReLU()
+
+        def forward(self, x):
+            x = self.linear(x)
+            x = self.bn(x)
+            x = self.activation(x)
+            return x
+
+    model = Model()
+    sch = slapo.create_schedule(model)
+
+    def pattern(x):
+        x = call_module("linear", x)
+        x = call_module("bn", x)
+        return x
+
+    subgraph = sch.find(pattern)
+    assert len(subgraph) == 1
+    assert len(subgraph[0]) == 2
+
+    class Identity(nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+
+        def forward(self, x):
+            return x
+
+    mod = Identity()
+    sch.replace(mod, subgraph)
+    assert isinstance(sch["Identity_0"].mod, Identity)
+
+    # test naming
+    model = Model()
+    sch = slapo.create_schedule(model)
+    subgraph = sch.find(pattern)
+    sch.replace(mod, subgraph, name="test")
+    assert isinstance(sch["test_0"].mod, Identity)
+
+
+def test_horizontal_replacement():
+    class CoreAttention(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.fc1 = nn.Linear(32, 32)
+            self.fc2 = nn.Linear(32, 32)
+
+        def permute(self, x):
+            return x.permute(0, 2, 1, 3)
+
+        def forward(self, x):
+            y1 = self.permute(self.fc1(x))
+            y2 = self.permute(self.fc2(x))
+            return y1 + y2
+
+    attn = CoreAttention()
+    sch = slapo.create_schedule(attn)
+
+    def pattern(x):
+        x = call_module(r"fc1|fc2", x)
+        return x.permute(0, 2, 1, 3)
+
+    subgraph = sch.find(pattern)
+    assert len(subgraph) == 2
+    assert len(subgraph[-1]) == 2
+    assert subgraph[0][0][1].target == "fc1"
+    assert subgraph[1][0][1].target == "fc2"
+    assert subgraph[0][1][1].target == "permute"
+
+    class Identity(nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+
+        def forward(self, x):
+            return (x, x)
+
+    mod = Identity()
+    sch.replace(mod, subgraph, name="test")
+    assert isinstance(sch["test_0"].mod, Identity)
+    cnt = 0
+    for node in sch.mod.graph.nodes:
+        if node.target == operator.getitem and node.args[0].target == "test_0":
+            cnt += 1
+    assert cnt == 2
+
+
+def test_replace_function():
+    class Model(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.linear = nn.Linear(1024, 1024)
+
+        def forward(self, x):
+            x = self.linear(x)
+            x = F.relu(x)
+            return x
+
+    def identity(x):
+        return x
+
+    model = Model()
+    sch = slapo.create_schedule(model)
+    nodes = sch.find_node(
+        lambda node: node.op == "call_function" and node.target == F.relu
+    )
+    assert len(nodes) == 1
+    sch.replace(identity, nodes[0])
+    cnt = 0
+    for node in sch.mod.graph.nodes:
+        if node.op == "call_function" and node.target == identity:
+            cnt += 1
+    assert cnt == 1
 
 
 def test_transfer_hook():

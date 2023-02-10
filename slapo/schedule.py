@@ -744,10 +744,12 @@ class SubgraphWrapper(nn.Module):
         ----------
         func : Callable
             The new function to replace the current function.
-        target_op : torch.fx.Node
+        target_op : List[Tuple[str, torch.fx.Node]]
             The call_function node to be replaced.
+            The string in the tuple is the name of the parent module that
+            the node belongs to.
         """
-        node = target_op
+        _, node = target_op
         with self.mod.graph.inserting_after(node):
             new_node = self.mod.graph.call_function(func, node.args, node.kwargs)
             node.replace_all_uses_with(new_node)
@@ -756,6 +758,9 @@ class SubgraphWrapper(nn.Module):
     def replace_module(self, new_mod, subgraphs=None, name=None):
         """Replace an entire module with a new one.
         Do NOT directly call this function, use `.replace()` instead.
+
+        If subgraphs is None, replace the whole self module;
+        Otherwise, replace target forward subgraphs with the new module.
 
         Parameters
         ----------
@@ -769,14 +774,25 @@ class SubgraphWrapper(nn.Module):
             will be automatically generated.
         """
         if subgraphs is None:
-            # If subgraphs is None, replace the whole self module and the schedule.
-            new_sch = create_schedule(
-                new_mod, self.name, self.path, self.parent, self.group
-            )
-
+            if name is not None:
+                raise RuntimeError(
+                    "Cannot specify name when replacing the whole module"
+                )
+            name = self.name
+        else:
+            if name is None:
+                name = new_mod._get_name().split(".")[-1]
+            name = _get_unique_module_name(self.mod, name)
+        # Create a new schedule for the replaced module
+        new_sch = create_schedule(
+            new_mod, name, self.path, self.parent, self.group
+        )
+        # Replace the corresponding part in the current module
+        if subgraphs is None:
+            # If subgraphs is None, replace the whole self module.
             # Transfer hooks from the old module to the new module.
             transfer_hooks(self.mod, new_sch.mod)
-
+            # Update schedules
             self.mod = new_sch.mod
             self.child = new_sch.child
             for _, sch in self.child.items():
@@ -784,13 +800,9 @@ class SubgraphWrapper(nn.Module):
             if self.parent:
                 self.update_submodule(self.parent.mod, self.name, new_mod)
         else:
-            # Otherwise, replace target forward subgraphs with the new module.
-            # Note that this requires the current module in torch.fx so it
-            # has to be traced.
+            # Replacing target forward subgraphs with the new module
+            # requires the current module in torch.fx so it has to be traced.
             self.trace()
-            if name is None:
-                name = new_mod._get_name().split(".")[-1]
-            name = _get_unique_module_name(self.mod, name)
             assert len(subgraphs) > 0, "Should have at least one operator to replace"
             if len(subgraphs) > 1:
                 # horizontal fusion, e.g.,
@@ -825,6 +837,7 @@ class SubgraphWrapper(nn.Module):
                             if node.users not in sublst:
                                 node.replace_all_uses_with(getitem)
                             target_mod.graph.erase_node(node)
+                # TODO: Transfer hooks from the old module to the new module
             else:
                 # vertical fusion, e.g.,
                 # s0->v0
@@ -863,6 +876,9 @@ class SubgraphWrapper(nn.Module):
                 last_node.replace_all_uses_with(new_node)
                 for node in reversed(ops):
                     target_mod.graph.erase_node(node)
+                # TODO: Transfer hooks from the old module to the new module
+            # Update schedules
+            self.child[name] = new_sch
 
     @register_primitive()
     def replace(self, new_mod_or_func, target_ops=None, name=None):
@@ -871,9 +887,9 @@ class SubgraphWrapper(nn.Module):
         2. Replace a part of the forward function (target_ops) with a new module or function.
         """
         if isinstance(new_mod_or_func, FunctionType):
-            if target_ops is None and isinstance(target_ops, list):
+            if isinstance(target_ops, list):
                 raise ValueError(
-                    "Cannot replace multiple subgraphs in forward with one function"
+                    "Cannot replace multiple nodes in forward with one function"
                 )
             self.replace_function(new_mod_or_func, target_ops)
         else:

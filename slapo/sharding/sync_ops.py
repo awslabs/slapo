@@ -35,7 +35,7 @@ def all_gather_along_dim(inp, dim, world_size, group):
         temp = temp.contiguous()
         gather_shape = list(temp.shape)
         gather_shape[0] = world_size * gather_shape[0]
-        ret = torch.empty(gather_shape, dtype=temp.dtype).to(inp.device)
+        ret = torch.empty(gather_shape, dtype=temp.dtype, device=inp.device)
         dist.all_gather_into_tensor(ret, temp, group=group)
         ret = ret.transpose(0, dim).contiguous() if dim != 0 else ret
     else:
@@ -79,7 +79,7 @@ def reduce_scatter_along_dim(inp, dim, world_size, group):
     temp = temp.contiguous()
     scatter_shape = list(temp.shape)
     scatter_shape[0] //= world_size
-    ret = torch.empty(scatter_shape, dtype=inp.dtype).to(inp.device)
+    ret = torch.empty(scatter_shape, dtype=inp.dtype, device=inp.device)
 
     dist.reduce_scatter_tensor(ret, temp, group=group)
     if dim != 0:

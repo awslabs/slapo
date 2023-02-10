@@ -8,8 +8,8 @@ import torch.nn as nn
 import torch.distributed as dist
 
 from slapo import init_empty_weights
+from slapo.op import FlashAttention
 from slapo.pattern import call_module
-from slapo.op.linear import FusedQKV
 
 
 def trace_attention(sch, config, attn_path="h.N.attn.attention"):
@@ -52,32 +52,25 @@ def replace_and_shard_attention(
     delay_init=True,
     disable_flash_attn=False,
 ):
-    from epoi.inject.policy.gpt import InjectHFGPTAttentionPolicy
-    from epoi.ops.xformers_attn import GenericSelfAttention, MemoryEfficientAttentionOp
+    attn_op_name = "native_xformers" if disable_flash_attn else "triton"
+    init_config = dict(
+        hidden_size=config.hidden_size,
+        num_attention_heads=config.num_attention_heads,
+        output_proj=True,
+        attn_pdrop=config.attention_dropout,
+        resid_pdrop=config.dropout,
+        attn_op_name=attn_op_name,
+        fused_qkv=True,
+        bias=True,
+        world_size=sch.world_size,
+    )
 
-    try:
-        # Backward compatibility
-        from epoi.ops.flash_attention import FlashSelfAttention, FlashAttentionTritonOp
-    except ImportError:
-        FlashSelfAttention = None
-        FlashAttentionTritonOp = None
-
-    cuda_sm = torch.cuda.get_device_capability("cuda")
-    if not disable_flash_attn and FlashSelfAttention is not None and cuda_sm == (8, 0):
-        SelfAttentionModule = FlashSelfAttention
-        AttentionOp = FlashAttentionTritonOp
-        attn_op_name = "triton"
-    else:
-        SelfAttentionModule = GenericSelfAttention
-        AttentionOp = MemoryEfficientAttentionOp
-        attn_op_name = "native" if disable_flash_attn else "cutlass"
-
-    class SelfAttention(nn.Module):
-        """A wrapper to align the original GPTNeoAttention forward signature."""
+    class Attention(nn.Module):
+        """A wrapper to align the original OPT forward signature."""
 
         def __init__(self, **kwargs):
             super().__init__()
-            self.module = SelfAttentionModule(**kwargs)
+            self.module = FlashAttention(**kwargs)
 
         def forward(
             self,
@@ -88,61 +81,43 @@ def replace_and_shard_attention(
             output_attentions=False,
             use_cache=False,
         ):
-            outputs = self.module(
-                hidden_states, attention_mask, past_key_value, use_cache
-            )
+            outputs = self.module(hidden_states, attention_mask, past_key_value)
             # FIXME: The original output is (hidden_states, None) where the None
             # is present_key_value and only used by in inference.
             # OPT output is (hidden_states, self_attn_weights, present_key_value)
             return outputs[0], None, None
 
-    num_layers, num_heads, hidden_size = (
-        config.num_hidden_layers,
-        config.num_attention_heads,
-        config.hidden_size,
-    )
-
     cnt = 0
-    for idx in range(num_layers):
+    attn_op = []
+    for idx in range(config.num_hidden_layers):
         sub_sch = sch[attn_path.replace("N", str(idx))]
-        init_config = InjectHFGPTAttentionPolicy.gen_init_config_from_object(
-            sub_sch.mod, attn_op_name=attn_op_name
-        )
         with init_empty_weights(enable=delay_init):
-            new_mod = SelfAttention(**init_config)
+            new_mod = Attention(**init_config)
+            attn_op.append(new_mod.module.attn_op_name)
         sub_sch.replace(new_mod)
-        sub_sch.trace(
-            tracer="pytorch",
-            leaf_modules=["MemoryEfficientAttentionOp"],
-            concrete_args={
-                "layer_past": None,
-                "use_cache": False,
-            },
-        )
 
-        def pattern(x: torch.Tensor) -> torch.Tensor:
-            x = call_module("query|key|value", x)
-            new_x_shape = x.size()[:-1] + (num_heads, hidden_size)
-            x = x.view(new_x_shape)
-            return x
-
-        subgraphs = sub_sch["module"].find(pattern)
-        assert len(subgraphs) == 3
-        with init_empty_weights(enable=delay_init):
-            new_fused_qkv = FusedQKV(hidden_size, num_heads, sch.world_size)
-        sub_sch["module"].replace(new_fused_qkv, subgraphs)
         if sch.world_size > 1:
-            sub_sch["module.FusedQKV_0.fused_linear"].shard("weight", axis=0)
-            sub_sch["module.FusedQKV_0.fused_linear"].shard("bias", axis=0)
-            fix_attention_mask_shape(sub_sch["module"])
-            sub_sch["module.FusedQKV_0.fused_linear"].sync(
-                mode="bwd_post", sync_op_or_fn="all_reduce"
+            sub_sch.trace(
+                tracer="pytorch",
+                leaf_modules=["FlashAttentionOp"],
+                concrete_args={
+                    "layer_past": None,
+                    "head_mask": None,
+                    "encoder_hidden_states": None,
+                    "encoder_attention_mask": None,
+                    "use_cache": False,
+                    "output_attentions": False,
+                },
             )
+            sub_sch["module.qkv"].shard("weight", axis=0)
+            sub_sch["module.qkv"].shard("bias", axis=0)
+            fix_attention_mask_shape(sub_sch["module"])
+            sub_sch["module.qkv"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
             sub_sch["module.out_proj"].shard("weight", axis=1)
             sub_sch["module.out_proj"].sync(mode="fwd_post", sync_op_or_fn="all_reduce")
         cnt += 1
 
-    return cnt
+    return cnt, attn_op
 
 
 def remove_cast(sch, config, attn_path="h.N.attn.attention"):

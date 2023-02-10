@@ -40,16 +40,15 @@ def schedule_model(
 
     # Replace self attention with flash attention, and shard QKV/output
     # if MP group > 1.
-    attn_path, out_proj_name = "decoder.layers.N.self_attn", "out_proj"
     if disable_flash_attn:
         logger.info("Disable Flash Attention", rank=0)
-    cnt = replace_and_shard_attention(
+    cnt, attn_op_name = replace_and_shard_attention(
         sch[prefix],
         config,
         delay_init=delay_init,
         disable_flash_attn=disable_flash_attn,
     )
-    logger.info(f"Replace {cnt} attention patterns", ranks=0)
+    logger.info(f"Replace {cnt} attention layers with {attn_op_name} op", ranks=0)
 
     # Shard other parameters if MP group > 1.
     if sch.world_size > 1:

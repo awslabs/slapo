@@ -161,6 +161,7 @@ def test_attention(op_name, shape):
             inp.grad = None
 
     # Run custom op.
+    inputs = [hidden_states, attn_mask, None]
     out = _run_forward_backward(attn, inputs)
     grads = [inp.grad for inp in inputs if inp is not None]
 

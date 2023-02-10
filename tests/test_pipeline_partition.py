@@ -107,7 +107,10 @@ def test_deepspeed_analyze_tie_ranks():
         model.stage2.linear.weight = model.stage1.linear.weight
 
     tie_weights = list(slapo.pipeline.analyze_tie_weights(model, True).values())
-    tie_ranks, tie_stages = slapo.model_dialect.deepspeed.pipeline.analyze_tie_ranks(
+    (
+        tie_ranks,
+        tie_stages,
+    ) = slapo.framework_dialect.deepspeed.pipeline.analyze_tie_ranks(
         tie_weights, topology
     )
 

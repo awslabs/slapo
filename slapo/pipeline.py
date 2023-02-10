@@ -8,7 +8,7 @@ from torch import fx
 from torch.fx.passes.split_module import split_module
 
 from .logger import get_logger
-from .model_dialect import get_dialect_cls
+from .framework_dialect import get_dialect_cls
 from .utils.common import transfer_hooks
 
 logger = get_logger()

@@ -1,10 +1,11 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 """HuggingFace GPT-Neo with model schedule."""
+# pylint: disable=too-many-arguments, logging-fstring-interpolation, unused-argument
 
 import inspect
 
-import torch.nn as nn
+from torch import nn
 from torch.distributed import distributed_c10d as dist
 
 from ..schedule import create_schedule
@@ -326,6 +327,7 @@ def shard_word_embedding(
         head_sch.sync(mode="bwd_post", sync_op_or_fn="all_reduce")
 
 
+# pylint: disable=dangerous-default-value
 def replace_and_shard_mlp(
     sch,
     config,
@@ -336,7 +338,7 @@ def replace_and_shard_mlp(
 ):
     for idx in range(config.num_layers):
         prefix = path.replace("N", str(idx))
-        if config.activation_function in ["gelu", "gelu_new"]:
+        if config.activation_function in {"gelu", "gelu_new"}:
             sub_sch = sch[prefix]
             inter_size, hidden_size = sub_sch.mod.c_fc.weight.shape
             with init_empty_weights(enable=delay_init):
@@ -388,7 +390,7 @@ def replace_and_shard_mlp(
 
 def checkpoint(sch, config, path="h.N", ckpt_ratio=1.0, checkpoint_method="uniform"):
     if ckpt_ratio == 0.0:
-        return
+        return 0
 
     def order_args_fn(*args, **kwargs):
         assert len(args) == 1

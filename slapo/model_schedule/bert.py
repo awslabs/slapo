@@ -1,10 +1,11 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 """HuggingFace Bert with model schedule."""
+# pylint: disable=too-many-arguments, logging-fstring-interpolation, unused-argument
 
 import inspect
 import torch.distributed as dist
-import torch.nn as nn
+from torch import nn
 import torch.nn.functional as F
 
 from ..schedule import create_schedule
@@ -52,7 +53,7 @@ def schedule_model(
     # Operator fusion
     if not disable_fuse_bias_gelu:
         fuse_bias_gelu(sch[prefix], config)
-        logger.info(f"Fused Bias+GeLU", ranks=0)
+        logger.info("Fused Bias+GeLU", ranks=0)
 
     # Shard other parameters if MP group > 1.
     if sch.world_size > 1:
@@ -247,6 +248,7 @@ def fuse_bias_gelu(sch, config, path="encoder.layer.N.intermediate"):
         subsch.fuse(subgraph, compiler="TorchScript", name="FusedBiasGeLU")
 
 
+# pylint: disable=dangerous-default-value
 def shard_mlp(sch, config, path="encoder.layer.N", fc_names=["intermediate", "output"]):
     if sch.world_size == 1:
         return
@@ -266,7 +268,7 @@ def shard_mlp(sch, config, path="encoder.layer.N", fc_names=["intermediate", "ou
 
 def checkpoint(sch, config, path="encoder.layer.N", ckpt_ratio=1.0):
     if ckpt_ratio == 0.0:
-        return
+        return 0
 
     n_ckpt = int(config.num_hidden_layers * ckpt_ratio)
     for idx in range(n_ckpt):
@@ -275,9 +277,9 @@ def checkpoint(sch, config, path="encoder.layer.N", ckpt_ratio=1.0):
 
 
 def broadcast_input(sch):
-    def broadcast_input(inputs):
+    def broadcast(inputs):
         for inp in inputs:
             dist.broadcast(inp, src=0, group=sch.group)
         return inputs
 
-    sch.sync(mode="fwd_pre", sync_op_or_fn=broadcast_input)
+    sch.sync(mode="fwd_pre", sync_op_or_fn=broadcast)

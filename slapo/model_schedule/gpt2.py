@@ -1,10 +1,11 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 """HuggingFace GPT-2 with model schedule."""
+# pylint: disable=too-many-arguments, logging-fstring-interpolation, unused-argument
 
 import inspect
 
-import torch.nn as nn
+from torch import nn
 from torch.distributed import distributed_c10d as dist
 
 from ..schedule import create_schedule
@@ -457,9 +458,11 @@ def checkpoint(sch, config, path="h.N", ckpt_ratio=1.0, checkpoint_method="unifo
         The path to the attention layer. Default: "h.N.attn".
     ckpt_ratio : float
         The ratio of the attention layers to be checkpointed. Default: 1.0.
+    checkpoint_method : str
+        The checkpointing method. Default: "uniform".
     """
     if ckpt_ratio == 0.0:
-        return
+        return 0
 
     def order_args_fn(*args, **kwargs):
         assert len(args) == 1

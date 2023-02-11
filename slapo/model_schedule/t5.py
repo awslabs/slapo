@@ -1,11 +1,12 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 """HuggingFace T5 with model schedule."""
+# pylint: disable=logging-fstring-interpolation
 
 import inspect
 
 import torch
-import torch.nn as nn
+from torch import nn
 import torch.distributed as dist
 
 from ..schedule import create_schedule
@@ -29,7 +30,7 @@ def schedule_model(
     delay_init=True,
 ):
 
-    logger.info(f"Scheduling T5", ranks=0)
+    logger.info("Scheduling T5", ranks=0)
 
     if fp16:
         logger.info("Change model dtype to fp16", ranks=0)
@@ -152,13 +153,13 @@ def fix_position_bias_shape(sch, delay_init=True):
         from epoi.ops.xformers_attn import RelativeBias
 
         old_mod = sch["relative_attention_bias"].mod
-        new_mod = RelativeBias(
+        new_bias_mod = RelativeBias(
             old_mod.relative_attention_num_buckets,
             old_mod.relative_attention_max_distance,
             old_mod.n_heads // sch.world_size,
             old_mod.is_decoder,
         )
-        sch["relative_attention_bias"].replace(new_mod)
+        sch["relative_attention_bias"].replace(new_bias_mod)
         cnt += 1
     return cnt
 
@@ -385,6 +386,7 @@ def shard_word_embedding(sch, vocab_size, word_embed_name="shared"):
     sch[word_embed_name].sync(mode="fwd_post", sync_op_or_fn=fwd_post_hook)
 
 
+# pylint: disable=dangerous-default-value
 def shard_mlp(sch, config, path, fc_names=["wi", "wo"]):
     if sch.world_size == 1:
         return
@@ -400,7 +402,7 @@ def shard_mlp(sch, config, path, fc_names=["wi", "wo"]):
 
 def checkpoint(sch, config, path, ckpt_ratio=1.0):
     if ckpt_ratio == 0.0:
-        return
+        return 0
 
     n_ckpt = int(config.num_hidden_layers * ckpt_ratio)
     for idx in range(n_ckpt):
@@ -409,9 +411,9 @@ def checkpoint(sch, config, path, ckpt_ratio=1.0):
 
 
 def broadcast_input(sch):
-    def broadcast_input(inputs):
+    def broadcast(inputs):
         for inp in inputs:
             dist.broadcast(inp, src=0, group=sch.group)
         return inputs
 
-    sch.sync(mode="fwd_pre", sync_op_or_fn=broadcast_input)
+    sch.sync(mode="fwd_pre", sync_op_or_fn=broadcast)

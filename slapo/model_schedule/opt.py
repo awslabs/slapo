@@ -1,11 +1,12 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 """HuggingFace OPT with model schedule."""
+# pylint: disable=logging-fstring-interpolation, unused-argument
 
 import inspect
 
 import torch
-import torch.nn as nn
+from torch import nn
 import torch.distributed as dist
 
 from ..schedule import create_schedule
@@ -30,7 +31,7 @@ def schedule_model(
     delay_init=True,
 ):
 
-    logger.info(f"Scheduling OPT", ranks=0)
+    logger.info("Scheduling OPT", ranks=0)
 
     if fp16:
         logger.info("Change model dtype to fp16", ranks=0)
@@ -267,7 +268,7 @@ def shard_word_embedding(
     if head_sch is not None:
         head_sch.shard("weight", axis=0)
 
-
+# pylint: disable=dangerous-default-value
 def replace_and_shard_mlp(
     sch,
     config,
@@ -279,7 +280,7 @@ def replace_and_shard_mlp(
     for idx in range(config.num_hidden_layers):
         prefix = path.replace("N", str(idx))
         replaced_new_mlp = False
-        if config.activation_function in ["gelu", "gelu_new"]:
+        if config.activation_function in {"gelu", "gelu_new"}:
             if disable_fuse_bias_gelu:
                 sub_sch = sch[prefix]
                 inter_size, hidden_size = sub_sch.mod.c_fc.weight.shape
@@ -328,7 +329,7 @@ def replace_and_shard_mlp(
 
 def checkpoint(sch, config, path="decoder.layers.N", ckpt_ratio=1.0):
     if ckpt_ratio == 0.0:
-        return
+        return 0
 
     n_ckpt = int(config.num_hidden_layers * ckpt_ratio)
     for idx in range(n_ckpt):
@@ -337,9 +338,9 @@ def checkpoint(sch, config, path="decoder.layers.N", ckpt_ratio=1.0):
 
 
 def broadcast_input(sch):
-    def broadcast_input(inputs):
+    def broadcast(inputs):
         for inp in inputs:
             dist.broadcast(inp, src=0, group=sch.group)
         return inputs
 
-    sch.sync(mode="fwd_pre", sync_op_or_fn=broadcast_input)
+    sch.sync(mode="fwd_pre", sync_op_or_fn=broadcast)

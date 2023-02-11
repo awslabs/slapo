@@ -1,13 +1,14 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 """HuggingFace Albert with model schedule."""
+# pylint: disable=too-many-arguments, logging-fstring-interpolation, unused-argument
 
 import inspect
 from typing import Optional
 
 import torch
 import torch.distributed as dist
-import torch.nn as nn
+from torch import nn
 
 from ..schedule import create_schedule
 from ..initialization import init_empty_weights
@@ -56,7 +57,7 @@ def schedule_model(
     # Operator fusion
     if not disable_fuse_bias_gelu:
         fuse_bias_gelu(sch[prefix], config)
-        logger.info(f"Fused Bias+GeLU", ranks=0)
+        logger.info("Fused Bias+GeLU", ranks=0)
 
     # Shard other parameters if MP group > 1.
     if sch.world_size > 1:
@@ -275,6 +276,7 @@ def fuse_bias_gelu(sch, config, path="encoder.albert_layer_groups.N.albert_layer
         subsch.fuse(subgraphs, compiler="TorchScript", name="FusedBiasGeLU")
 
 
+# pylint: disable=dangerous-default-value
 def shard_mlp(
     sch,
     config,
@@ -297,7 +299,7 @@ def checkpoint(
     sch, config, path="encoder.albert_layer_groups.N.albert_layers.N", ckpt_ratio=1.0
 ):
     if ckpt_ratio == 0.0:
-        return
+        return 0
 
     n_ckpt = int(config.num_hidden_layers * ckpt_ratio)
     # TODO: Only checkpoint part of the layers
@@ -307,9 +309,9 @@ def checkpoint(
 
 
 def broadcast_input(sch):
-    def broadcast_input(inputs):
+    def broadcast(inputs):
         for inp in inputs:
             dist.broadcast(inp, src=0, group=sch.group)
         return inputs
 
-    sch.sync(mode="fwd_pre", sync_op_or_fn=broadcast_input)
+    sch.sync(mode="fwd_pre", sync_op_or_fn=broadcast)

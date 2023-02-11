@@ -1,10 +1,12 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
+"""TorchVision WideResNet with model schedule."""
+# pylint: disable=logging-fstring-interpolation
 
 import inspect
 
 import torch
-import torch.nn as nn
+from torch import nn
 import torch.distributed as dist
 
 from ..schedule import create_schedule
@@ -169,7 +171,7 @@ def shard_layers(sch, config):
 
 def checkpoint(sch, config, ckpt_ratio=1.0):
     if ckpt_ratio == 0.0:
-        return
+        return 0
 
     _, n_layers = config
 
@@ -189,9 +191,9 @@ def checkpoint(sch, config, ckpt_ratio=1.0):
 
 
 def broadcast_input(sch):
-    def broadcast_input(inputs):
+    def broadcast(inputs):
         for inp in inputs:
             dist.broadcast(inp, src=0, group=sch.group)
         return inputs
 
-    sch.sync(mode="fwd_pre", sync_op_or_fn=broadcast_input)
+    sch.sync(mode="fwd_pre", sync_op_or_fn=broadcast)

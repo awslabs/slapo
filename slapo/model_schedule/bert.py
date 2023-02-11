@@ -1,12 +1,95 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
+"""HuggingFace Bert with model schedule."""
 
+import inspect
 import torch.distributed as dist
 import torch.nn as nn
 import torch.nn.functional as F
 
-from slapo import init_empty_weights
-from slapo.op import FlashAttention
+from ..schedule import create_schedule
+from ..initialization import init_empty_weights
+from ..op import FlashAttention
+from ..logger import get_logger
+
+logger = get_logger("Bert")
+
+
+def schedule_model(
+    model,
+    config,
+    prefix="",
+    attn_op_name="cuda",
+    fp16=True,
+    ckpt_ratio=0.0,
+    group=None,
+    bcast_input=False,
+    pipeline_cuts=None,
+    disable_fuse_bias_gelu=True,
+    delay_init=True,
+):
+    if fp16:
+        logger.info("Change model dtype to fp16", ranks=0)
+        model.half()
+
+    sch = create_schedule(model, group=group)
+    logger.info(f"Scheduling Bert with TP={sch.world_size}", ranks=0)
+
+    # Replace self attention with flash attention, and shard QKV/output
+    # if MP group > 1.
+    if attn_op_name == "native_xformers":
+        logger.info("Disabled Flash Attention", ranks=0)
+    cnt, applied_attn_op_name = replace_and_shard_attention(
+        sch[prefix],
+        config,
+        delay_init=delay_init,
+        attn_op_name=attn_op_name,
+    )
+    logger.info(
+        f"Replace {cnt} attention layers with {applied_attn_op_name} op", ranks=0
+    )
+
+    # Operator fusion
+    if not disable_fuse_bias_gelu:
+        fuse_bias_gelu(sch[prefix], config)
+        logger.info(f"Fused Bias+GeLU", ranks=0)
+
+    # Shard other parameters if MP group > 1.
+    if sch.world_size > 1:
+        shard_mlp(sch[prefix], config)
+        shard_word_embedding(sch[prefix], config.vocab_size)
+
+        # Broadcast input to all devices within the MP group.
+        # This is not required when running on Megatron.
+        if bcast_input:
+            broadcast_input(sch)
+
+    # Insert activation checkpoints.
+    if ckpt_ratio > 0.0:
+        n_ckpt = checkpoint(sch[prefix], config, ckpt_ratio=ckpt_ratio)
+        logger.info(f"Checkpointing {n_ckpt} layers", ranks=0)
+
+    # Cut pipeline stages.
+    if pipeline_cuts:
+        input_names = [
+            "input_ids",
+            "attention_mask",
+            "token_type_ids",
+        ]
+        sig = inspect.signature(model.forward)
+        concrete_args = {
+            p.name: p.default
+            for p in sig.parameters.values()
+            if p.name not in input_names
+        }
+        _prefix = f"{prefix}." if prefix else ""
+        sch.trace_for_pipeline(
+            f"{_prefix}encoder", tracer="huggingface", concrete_args=concrete_args
+        )
+        for cut in pipeline_cuts:
+            sch[f"{_prefix}encoder.layer.{cut}"].cut_pipeline_stage()
+
+    return sch
 
 
 def fix_attention_mask_shape(sch):

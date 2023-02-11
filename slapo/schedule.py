@@ -39,7 +39,7 @@ from .sharding import (
 from .tracer import trace as trace_module
 from .initialization import init_empty_weights
 from .op.linear import LinearWithSeparateBias
-from .utils.common import transfer_hooks, is_lambda_function
+from .utils.common import transfer_hooks, get_hooks, is_lambda_function
 from .utils.mapping import MAPPING_FROM_FUNCTIONAL_TO_MODULE
 from .pattern import Pattern, ModulePattern, call_module
 
@@ -784,9 +784,7 @@ class SubgraphWrapper(nn.Module):
                 name = new_mod._get_name().split(".")[-1]
             name = _get_unique_module_name(self.mod, name)
         # Create a new schedule for the replaced module
-        new_sch = create_schedule(
-            new_mod, name, self.path, self.parent, self.group
-        )
+        new_sch = create_schedule(new_mod, name, self.path, self.parent, self.group)
         # Replace the corresponding part in the current module
         if subgraphs is None:
             # If subgraphs is None, replace the whole self module.
@@ -837,7 +835,18 @@ class SubgraphWrapper(nn.Module):
                             if node.users not in sublst:
                                 node.replace_all_uses_with(getitem)
                             target_mod.graph.erase_node(node)
-                # TODO: Transfer hooks from the old module to the new module
+                # Since horizontal fusion needs to combine the hooks together,
+                # we cannot support it for now.
+                hook_types = ["fwd_pre", "fwd_post", "bwd_post"]
+                for i, sublst in enumerate(subgraphs):
+                    for _, node in sublst:
+                        if node.op == "call_module":
+                            old_mod = self.get_module(node.target)
+                            for hook in hook_types:
+                                if len(get_hooks(old_mod)[hook]) > 0:
+                                    raise RuntimeError(
+                                        f"Cannot use horizontal fusion since module {node.target} has a {hook} hook"
+                                    )
             else:
                 # vertical fusion, e.g.,
                 # s0->v0
@@ -876,7 +885,18 @@ class SubgraphWrapper(nn.Module):
                 last_node.replace_all_uses_with(new_node)
                 for node in reversed(ops):
                     target_mod.graph.erase_node(node)
-                # TODO: Transfer hooks from the old module to the new module
+                for i, node in enumerate(ops):
+                    if node.op == "call_module":
+                        old_mod = self.get_module(node.target)
+                        hooks = get_hooks(old_mod)
+                        if i == 0:
+                            transfer_hooks(old_mod, new_mod, ["fwd_pre", "bwd_post"])
+                        elif i == len(ops) - 1:
+                            transfer_hooks(old_mod, new_mod, ["fwd_post"])
+                        elif any([len(hooks[x]) > 0 for x in hook_types]):
+                            raise RuntimeError(
+                                f"Cannot transfer hooks from {node.target} to {name} since the {node.target} is in the middle of the subgraph"
+                            )
             # Update schedules
             self.child[name] = new_sch
 

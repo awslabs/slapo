@@ -786,6 +786,7 @@ class SubgraphWrapper(nn.Module):
             name = _get_unique_module_name(self.mod, name)
         # Create a new schedule for the replaced module
         new_sch = create_schedule(new_mod, name, self.path, self.parent, self.group)
+        hook_types = ["fwd_pre", "fwd_post", "bwd_post"]
         # Replace the corresponding part in the current module
         if subgraphs is None:
             # If subgraphs is None, replace the whole self module.
@@ -838,7 +839,6 @@ class SubgraphWrapper(nn.Module):
                             target_mod.graph.erase_node(node)
                 # Since horizontal fusion needs to combine the hooks together,
                 # we cannot support it for now.
-                hook_types = ["fwd_pre", "fwd_post", "bwd_post"]
                 for i, sublst in enumerate(subgraphs):
                     for _, node in sublst:
                         if node.op == "call_module":

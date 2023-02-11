@@ -50,6 +50,20 @@ def test_vertical_replacement():
     model = Model()
     sch = slapo.create_schedule(model)
 
+    def fwd_pre_hook(mod, inp):
+        return inp
+
+    def fwd_post_hook(mod, inp, out):
+        return out
+
+    def bwd_post_hook(mod, grad_inp, grad_out):
+        return grad_inp
+
+    # Directly register hooks instead of using .sync, because
+    # we do not want to test .sync in this test.
+    sch.mod.linear.register_forward_pre_hook(fwd_pre_hook)
+    sch.mod.linear.register_backward_hook(bwd_post_hook)
+
     def pattern(x):
         x = call_module("linear", x)
         x = call_module("bn", x)
@@ -67,12 +81,25 @@ def test_vertical_replacement():
     sch.replace(mod, subgraph)
     assert isinstance(sch["Identity_0"].mod, Identity)
 
+    # test valid hooks
+    all_hooks = get_hooks(sch["Identity_0"].mod)
+    assert len(all_hooks["fwd_pre"]) == 1
+    assert len(all_hooks["bwd_post"]) == 1
+
     # test naming
     model = Model()
     sch = slapo.create_schedule(model)
     subgraph = sch.find(pattern)
     sch.replace(mod, subgraph, name="test")
     assert isinstance(sch["test_0"].mod, Identity)
+
+    # test invalid hooks
+    model = Model()
+    sch = slapo.create_schedule(model)
+    sch.mod.linear.register_forward_hook(fwd_post_hook)
+    subgraph = sch.find(pattern)
+    with pytest.raises(Exception):
+        sch.replace(mod, subgraph)
 
 
 def test_horizontal_replacement():

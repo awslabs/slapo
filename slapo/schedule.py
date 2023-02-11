@@ -39,7 +39,7 @@ from .sharding import (
 from .tracer import trace as trace_module
 from .initialization import init_empty_weights
 from .op.linear import LinearWithSeparateBias
-from .utils.common import transfer_hooks, get_hooks, is_lambda_function
+from .utils.common import transfer_hooks, has_hook, is_lambda_function
 from .utils.mapping import MAPPING_FROM_FUNCTIONAL_TO_MODULE
 from .pattern import Pattern, ModulePattern, call_module
 
@@ -844,7 +844,7 @@ class SubgraphWrapper(nn.Module):
                         if node.op == "call_module":
                             old_mod = self.get_module(node.target)
                             for hook in hook_types:
-                                if len(get_hooks(old_mod)[hook]) > 0:
+                                if has_hook(old_mod, hook) > 0:
                                     raise RuntimeError(
                                         f"Cannot use horizontal fusion since module {node.target} has a {hook} hook"
                                     )
@@ -889,14 +889,23 @@ class SubgraphWrapper(nn.Module):
                 for i, node in enumerate(ops):
                     if node.op == "call_module":
                         old_mod = self.get_module(node.target)
-                        hooks = get_hooks(old_mod)
                         if i == 0:
+                            if has_hook(old_mod, "fwd_post"):
+                                raise RuntimeError(
+                                    f"Cannot transfer hooks from {node.target} to {name} since {node.target} has a fwd_post hook"
+                                )
                             transfer_hooks(old_mod, new_mod, ["fwd_pre", "bwd_post"])
                         elif i == len(ops) - 1:
+                            if has_hook(old_mod, "fwd_pre") or has_hook(
+                                old_mod, "bwd_post"
+                            ):
+                                raise RuntimeError(
+                                    f"Cannot transfer hooks from {node.target} to {name} since {node.target} has a fwd_pre/bwd_post hook"
+                                )
                             transfer_hooks(old_mod, new_mod, ["fwd_post"])
-                        elif any(len(hooks[x]) > 0 for x in hook_types):
+                        elif any(has_hook(old_mod, x) for x in hook_types):
                             raise RuntimeError(
-                                f"Cannot transfer hooks from {node.target} to {name} since the {node.target} is in the middle of the subgraph"
+                                f"Cannot transfer hooks from {node.target} to {name} since {node.target} is in the middle of the subgraph"
                             )
             # Update schedules
             self.child[name] = new_sch

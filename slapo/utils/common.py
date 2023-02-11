@@ -6,6 +6,13 @@ from functools import lru_cache
 from types import FunctionType
 
 
+HOOK_TYPE_TO_ATTR = {
+    "fwd_pre": "_forward_pre_hooks",
+    "fwd_post": "_forward_hooks",
+    "bwd_post": "_backward_hooks",
+}
+
+
 def get_hooks(mod):
     """Get the hooks of a module.
 
@@ -32,6 +39,10 @@ def get_hooks(mod):
     return hooks
 
 
+def has_hook(mod, hook_type):
+    return len(getattr(mod, HOOK_TYPE_TO_ATTR[hook_type])) > 0
+
+
 def transfer_hooks(old_mod, new_mod, hook_types=None):
     """Transfer the hooks from old_mod to new_mod.
 
@@ -44,11 +55,6 @@ def transfer_hooks(old_mod, new_mod, hook_types=None):
     hook_types : Optional[List[str]]
         The types of hooks to transfer. If None, transfer all hooks.
     """
-    HOOK_TYPE_TO_ATTR = {
-        "fwd_pre": "_forward_pre_hooks",
-        "fwd_post": "_forward_hooks",
-        "bwd_post": "_backward_hooks",
-    }
     if hook_types is None:
         hook_types = ["fwd_pre", "fwd_post", "bwd_post"]
 

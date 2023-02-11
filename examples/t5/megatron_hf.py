@@ -67,7 +67,7 @@ def get_model(
     if "slapo" in impl:
         import slapo
         from slapo.utils.report import report_memory
-        from model import schedule_model
+        from slapo.model_schedule.t5 import schedule_model
 
         report_memory()
         with slapo.init_empty_weights(enable=delay_init):

@@ -755,6 +755,7 @@ class SubgraphWrapper(nn.Module):
             node.replace_all_uses_with(new_node)
         self.mod.graph.erase_node(node)
 
+    # pylint: disable=too-many-branches
     def replace_module(self, new_mod, subgraphs=None, name=None):
         """Replace an entire module with a new one.
         Do NOT directly call this function, use `.replace()` instead.
@@ -893,7 +894,7 @@ class SubgraphWrapper(nn.Module):
                             transfer_hooks(old_mod, new_mod, ["fwd_pre", "bwd_post"])
                         elif i == len(ops) - 1:
                             transfer_hooks(old_mod, new_mod, ["fwd_post"])
-                        elif any([len(hooks[x]) > 0 for x in hook_types]):
+                        elif any(len(hooks[x]) > 0 for x in hook_types):
                             raise RuntimeError(
                                 f"Cannot transfer hooks from {node.target} to {name} since the {node.target} is in the middle of the subgraph"
                             )

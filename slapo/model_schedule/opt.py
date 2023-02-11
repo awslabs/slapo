@@ -268,6 +268,7 @@ def shard_word_embedding(
     if head_sch is not None:
         head_sch.shard("weight", axis=0)
 
+
 # pylint: disable=dangerous-default-value
 def replace_and_shard_mlp(
     sch,

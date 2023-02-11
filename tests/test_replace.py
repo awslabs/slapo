@@ -1,9 +1,11 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 """Test replace primitives."""
-import pytest
+# pylint: disable=comparison-with-callable
 
 import operator
+import pytest
+
 from torch import nn
 import torch.nn.functional as F
 
@@ -58,9 +60,6 @@ def test_vertical_replacement():
     assert len(subgraph[0]) == 2
 
     class Identity(nn.Module):
-        def __init__(self) -> None:
-            super().__init__()
-
         def forward(self, x):
             return x
 
@@ -106,9 +105,6 @@ def test_horizontal_replacement():
     assert subgraph[0][1][1].target == "permute"
 
     class Identity(nn.Module):
-        def __init__(self) -> None:
-            super().__init__()
-
         def forward(self, x):
             return (x, x)
 

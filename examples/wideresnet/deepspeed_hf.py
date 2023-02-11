@@ -14,8 +14,9 @@ import slapo
 from slapo.logger import get_logger
 from slapo.op.cross_entropy import ParallelCrossEntropy
 from slapo.utils.report import report_memory
+from slapo.model_schedule.wideresnet import schedule_model
 
-from model import schedule_model, get_model_config, get_model
+from model import get_model_config, get_model
 from utils import count_parameters, get_data_loader
 from examples.utils import (
     train_with_deepspeed_engine,

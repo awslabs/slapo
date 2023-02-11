@@ -49,7 +49,7 @@ def get_model(
 
     if "slapo" in impl:
         import slapo
-        from model import schedule_model
+        from slapo.model_schedule.wideresnet import schedule_model
 
         with slapo.init_empty_weights(enable=delay_init):
             model = get_wideresnet_model(*config)

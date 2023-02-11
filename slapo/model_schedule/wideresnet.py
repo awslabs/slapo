@@ -1,9 +1,76 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+import inspect
+
 import torch
 import torch.nn as nn
 import torch.distributed as dist
+
+from ..schedule import create_schedule
+from ..logger import get_logger
+
+logger = get_logger("WideResNet")
+
+
+def schedule_model(
+    model,
+    config,
+    prefix="",
+    fp16=False,
+    ckpt_ratio=0.0,
+    group=None,
+    bcast_input=False,
+    pipeline_cuts=None,
+    fuse_conv=False,
+):
+    if fp16:
+        logger.info("Change model dtype to fp16", ranks=0)
+        model.half()
+
+    sch = create_schedule(model, group=group)
+    logger.info(f"Scheduling Wide-ResNet with TP={sch.world_size}", ranks=0)
+
+    if fuse_conv:
+        fuse_conv_bn(sch[prefix], config)
+
+    if sch.world_size > 1:
+        # Shard layers.
+        shard_layers(sch[prefix], config)
+
+        # Broadcast input to all devices within the MP group.
+        # This is not required when running on Megatron.
+        if bcast_input:
+            broadcast_input(sch)
+
+    # Insert activation checkpoints.
+    if ckpt_ratio > 0.0:
+        n_ckpt = checkpoint(sch[prefix], config, ckpt_ratio=ckpt_ratio)
+        logger.info(f"Checkpointing {n_ckpt} layers", ranks=0)
+
+    # Cut pipeline stages.
+    if pipeline_cuts:
+        assert len(pipeline_cuts) == 4
+        input_names = ["x"]
+        sig = inspect.signature(model.forward)
+        concrete_args = {
+            p.name: p.default
+            for p in sig.parameters.values()
+            if p.name not in input_names
+        }
+        _prefix = f"{prefix}." if prefix else ""
+
+        leaves = [f"{_prefix}layer{idx + 1}" for idx in range(4) if pipeline_cuts[idx]]
+        sch.trace_for_pipeline(
+            leaves,
+            tracer="pytorch",
+            concrete_args=concrete_args,
+        )
+        for idx, cuts in enumerate(pipeline_cuts):
+            for cut in cuts:
+                sch[f"{_prefix}layer{idx + 1}"][str(cut)].cut_pipeline_stage()
+
+    return sch
 
 
 def fuse_conv_bn(sch, config):

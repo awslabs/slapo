@@ -1,7 +1,7 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 """Test replace primitives."""
-# pylint: disable=comparison-with-callable
+# pylint: disable=comparison-with-callable, unused-argument
 
 import operator
 import pytest
@@ -189,7 +189,6 @@ def test_replace_function():
 
 def test_transfer_hook():
     """Test whether the hooks are transferred to the new replaced module."""
-    # pylint: disable=unused-argument
 
     class Model(nn.Module):
         def __init__(self):

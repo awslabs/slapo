@@ -1,14 +1,96 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
+"""HuggingFace GPT-2 with model schedule."""
+
 import inspect
 
 import torch.nn as nn
 from torch.distributed import distributed_c10d as dist
 
-import slapo
-from slapo import init_empty_weights
-from slapo.op import FlashAttention, FlashAttentionOp, FusedMLP
-from slapo import init_empty_weights, get_cuda_rng_tracker
+from ..schedule import create_schedule
+from ..op import FlashAttention, FlashAttentionOp, FusedMLP
+from ..initialization import init_empty_weights
+from ..random import get_cuda_rng_tracker
+from ..sharding import reduce_forward_output
+from ..logger import get_logger
+
+logger = get_logger("GPT")
+
+
+def schedule_model(
+    model,
+    config,
+    prefix="",
+    attn_op_name="cuda",
+    fp16=True,
+    bf16=False,
+    ckpt_ratio=0.0,
+    group=None,
+    bcast_input=False,
+    pipeline_cuts=None,
+    delay_init=True,
+    sequence_parallel=False,
+    checkpoint_method="uniform",
+):
+    if fp16:
+        logger.info("Change model dtype to fp16", ranks=0)
+        model.half()
+    elif bf16:
+        logger.info("Change model dtype to bf16", ranks=0)
+        model.bfloat16()
+
+    sch = create_schedule(model, group=group)
+    logger.info(f"Scheduling GPT with TP={sch.world_size}", ranks=0)
+
+    # Replace self attention with flash attention.
+    if attn_op_name == "native_xformers":
+        logger.info("Disabled Flash Attention", ranks=0)
+    cnt, applied_attn_op_name = replace_attention(
+        sch[prefix],
+        config,
+        delay_init=delay_init,
+        attn_op_name=attn_op_name,
+    )
+    logger.info(
+        f"Replace {cnt} attention layers with {applied_attn_op_name} op", ranks=0
+    )
+
+    # Replace MLP with fused kernels.
+    cnt = replace_mlp(sch[prefix], config, delay_init=delay_init)
+    logger.info(f"Replaced {cnt} MLP layers", ranks=0)
+
+    # Shard parameters if MP group > 1.
+    if sch.world_size > 1:
+        head_sch = sch["lm_head"] if "lm_head" in sch else None
+        shard_target = ["embed", "attention", "mlp"]
+        shard(
+            sch[prefix],
+            head_sch,
+            config,
+            shard_target,
+            sequence_parallel=sequence_parallel,
+        )
+
+        # Broadcast input to all devices within the MP group.
+        # This is not required if it will be done by the training framework.
+        if bcast_input:
+            broadcast_input(sch)
+
+    # Insert activation checkpoints.
+    if ckpt_ratio > 0.0:
+        n_ckpt = checkpoint(
+            sch[prefix],
+            config,
+            ckpt_ratio=ckpt_ratio,
+            checkpoint_method=checkpoint_method,
+        )
+        logger.info(f"Checkpointing {n_ckpt} layers", ranks=0)
+
+    # Cut pipeline stages.
+    if pipeline_cuts:
+        pipeline(sch, prefix, pipeline_cuts)
+
+    return sch
 
 
 def replace_attention(
@@ -185,7 +267,7 @@ def gen_embedding_hooks(sch, vocab_size):
         input_mask = (_input[0] < vocab_start_index) | (_input[0] >= vocab_end_index)
         output[input_mask, :] = 0.0
         # Reduce across all the model parallel GPUs
-        output = slapo.sharding.reduce_forward_output(output, sch.group)
+        output = reduce_forward_output(output, sch.group)
         return output
 
     return fwd_pre_hook, fwd_post_hook

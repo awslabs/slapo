@@ -3,10 +3,10 @@
 
 import re
 
-from ..registry import register_model_dialect
+from ..registry import register_framework_dialect
 
 
-@register_model_dialect("deepspeed", "log_parser")
+@register_framework_dialect("deepspeed", "log_parser")
 class DeepSpeedLogParser:
     @staticmethod
     def parse_log(log_filename):

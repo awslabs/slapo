@@ -8,7 +8,7 @@ import torch
 from torch import distributed as dist
 from torch import fx, nn
 
-from ..registry import register_model_dialect
+from ..registry import register_framework_dialect
 from ...logger import get_logger, DEBUG, INFO
 
 # Change INFO to DEBUG for more verbose logging.
@@ -196,7 +196,7 @@ def analyze_tie_ranks(tie_weight_groups, topology):
     return tie_ranks, tie_stages
 
 
-@register_model_dialect("deepspeed", "pipeline_stage")
+@register_framework_dialect("deepspeed", "pipeline_stage")
 class DeepSpeedPipeStageWrapper(nn.Module):
     def __init__(
         self,
@@ -323,7 +323,7 @@ class DeepSpeedPipeStageWrapper(nn.Module):
         return ret
 
 
-@register_model_dialect("deepspeed", "pipeline_engine")
+@register_framework_dialect("deepspeed", "pipeline_engine")
 def deepspeed_pipe_engine(
     sch_metadata,
     stage_modules,

@@ -13,7 +13,7 @@ import sys
 import time
 
 from slapo.logger import get_logger
-from slapo.model_dialect import get_dialect_cls
+from slapo.framework_dialect import get_dialect_cls
 
 
 logger = get_logger()

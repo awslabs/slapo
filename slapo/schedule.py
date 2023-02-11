@@ -22,7 +22,7 @@ import torch.nn.functional as F
 
 from .checkpoint import checkpoint as checkpoint_module
 from .logger import get_logger
-from .model_dialect import get_dialect_cls
+from .framework_dialect import get_dialect_cls
 from .pipeline import (
     analyze_tie_weights,
     build_pipeline_model,

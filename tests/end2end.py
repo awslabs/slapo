@@ -8,7 +8,7 @@ End-to-end tests
 import os
 import pytest
 
-from slapo.model_dialect import get_dialect_cls
+from slapo.framework_dialect import get_dialect_cls
 
 
 def parse_log(impl, log_file):

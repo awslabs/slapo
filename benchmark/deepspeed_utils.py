@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
-from slapo.model_dialect import get_dialect_cls
+from slapo.framework_dialect import get_dialect_cls
 
 
 def add_deepspeed_parser(common_parser, subprasers):

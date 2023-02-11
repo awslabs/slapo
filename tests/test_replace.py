@@ -144,6 +144,20 @@ def test_horizontal_replacement():
             cnt += 1
     assert cnt == 2
 
+    # test invalid hooks
+    attn = CoreAttention()
+    sch = slapo.create_schedule(attn)
+
+    def fwd_pre_hook(mod, inp):
+        return inp
+
+    # Directly register hooks instead of using .sync, because
+    # we do not want to test .sync in this test.
+    sch.mod.fc1.register_forward_pre_hook(fwd_pre_hook)
+    subgraph = sch.find(pattern)
+    with pytest.raises(Exception):
+        sch.replace(mod, subgraph)
+
 
 def test_replace_function():
     class Model(nn.Module):

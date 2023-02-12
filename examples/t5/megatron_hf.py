@@ -63,17 +63,19 @@ def get_model(
     config = AutoConfig.from_pretrained(model_name)
     config.vocab_size = padded_vocab_size
     config.use_cache = False
+    print_rank_0(config)
 
     if "slapo" in impl:
         import slapo
         from slapo.utils.report import report_memory
-        from slapo.model_schedule.t5 import schedule_model
+        from slapo.model_schedule import apply_schedule
 
         report_memory()
         with slapo.init_empty_weights(enable=delay_init):
             model = T5Model(config)
         report_memory()
-        sch = schedule_model(
+        print_rank_0(model)
+        sch = apply_schedule(
             model,
             config,
             disable_flash_attn=disable_flash_attn,

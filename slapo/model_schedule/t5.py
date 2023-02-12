@@ -9,40 +9,30 @@ import torch
 from torch import nn
 import torch.distributed as dist
 
-from ..schedule import create_schedule
 from ..initialization import init_empty_weights
 from ..pattern import call_module
 from ..logger import get_logger
+from .registry import register_schedule_method
 
-logger = get_logger("T5")
+MODEL_SHORT_NAME = "t5"
 
 
-def schedule_model(
-    model,
-    config,
-    prefix="",
-    disable_flash_attn=False,
-    fp16=True,
-    ckpt_ratio=0.0,
-    group=None,
-    bcast_input=False,
-    pipeline_cuts=None,
-    delay_init=True,
-):
-
-    logger.info("Scheduling T5", ranks=0)
-
-    if fp16:
-        logger.info("Change model dtype to fp16", ranks=0)
-        model.half()
-
-    sch = create_schedule(model, group=group)
-
+@register_schedule_method(MODEL_SHORT_NAME)
+def shard_parameters(sch, model_config, sch_config):
+    model_name = model_config._name_or_path
+    logger = get_logger(model_name)
+    prefix = sch_config.get("prefix", "")
+    delay_init = sch_config.get("delay_init", True)
     # Replace self attention with flash attention, and shard QKV/output
     # if MP group > 1.
+    attn_op_name = sch_config.get("attn_op_name", "cuda")
+    if attn_op_name == "native_xformers":
+        disable_flash_attn = True
+    else:
+        disable_flash_attn = False
     cnt, fix_shape_cnt = replace_and_shard_attention(
         sch[prefix],
-        config,
+        model_config,
         "encoder.block.N.layer.0.SelfAttention",
         delay_init=delay_init,
         disable_flash_attn=disable_flash_attn,
@@ -54,7 +44,7 @@ def schedule_model(
     )
     cnt, fix_shape_cnt = replace_and_shard_attention(
         sch[prefix],
-        config,
+        model_config,
         "decoder.block.N.layer.0.SelfAttention",
         delay_init=delay_init,
         disable_flash_attn=disable_flash_attn,
@@ -66,7 +56,7 @@ def schedule_model(
     )
     cnt, fix_shape_cnt = replace_and_shard_attention(
         sch[prefix],
-        config,
+        model_config,
         "decoder.block.N.layer.1.EncDecAttention",
         cross_attn=True,
         delay_init=delay_init,
@@ -80,24 +70,36 @@ def schedule_model(
 
     # Shard other parameters if MP group > 1.
     if sch.world_size > 1:
-        shard_mlp(sch[prefix], config, "encoder.block.N.layer.1.DenseReluDense")
-        shard_mlp(sch[prefix], config, "decoder.block.N.layer.2.DenseReluDense")
-        shard_word_embedding(sch[prefix], config.vocab_size)
+        shard_mlp(sch[prefix], model_config, "encoder.block.N.layer.1.DenseReluDense")
+        shard_mlp(sch[prefix], model_config, "decoder.block.N.layer.2.DenseReluDense")
+        shard_word_embedding(sch[prefix], model_config.vocab_size)
 
-        # Broadcast input to all devices within the MP group.
-        # This is not required when running on Megatron.
-        if bcast_input:
-            broadcast_input(sch)
 
+@register_schedule_method(MODEL_SHORT_NAME)
+def checkpoint(
+    sch,
+    model_config,
+    path="",
+    ckpt_ratio=1.0,
+    checkpoint_method="uniform",
+):
+    if checkpoint_method != "uniform":
+        raise NotImplementedError(
+            f"Checkpoint method {checkpoint_method} is not supported yet."
+        )
     if ckpt_ratio > 0.0:
-        n_ckpt = checkpoint(
-            sch[prefix], config, "encoder.block.N", ckpt_ratio=ckpt_ratio
+        n_ckpt = _checkpoint(
+            sch, model_config, "encoder.block.N", ckpt_ratio=ckpt_ratio
         )
-        n_ckpt += checkpoint(
-            sch[prefix], config, "decoder.block.N", ckpt_ratio=ckpt_ratio
+        n_ckpt += _checkpoint(
+            sch, model_config, "decoder.block.N", ckpt_ratio=ckpt_ratio
         )
-        logger.info(f"Checkpointing {n_ckpt} layers", ranks=0)
 
+
+@register_schedule_method(MODEL_SHORT_NAME)
+def generate_pipeline_schedule(sch, model_config, sch_config):
+    pipeline_cuts = sch_config.get("pipeline_cuts", None)
+    prefix = sch_config.get("prefix", "")
     # Cut pipeline stages. For example, [[11], [11]] means to cut
     # encoder.block.11, decoder.block.11. And we always cut between encoder/decoder,
     # so there will be 4 stages in total.
@@ -109,7 +111,7 @@ def schedule_model(
             "decoder_attention_mask",
             "attention_mask",
         ]
-        sig = inspect.signature(model.forward)
+        sig = inspect.signature(sch.mod.forward)
         concrete_args = {
             p.name: p.default
             for p in sig.parameters.values()
@@ -166,7 +168,7 @@ def fix_position_bias_shape(sch, delay_init=True):
 
 def replace_and_shard_attention(
     sch,
-    config,
+    model_config,
     attn_path,
     cross_attn=False,
     delay_init=True,
@@ -176,10 +178,10 @@ def replace_and_shard_attention(
     from epoi.ops.xformers_attn import T5Attention
 
     num_layers, num_heads, hidden_size, d_kv = (
-        config.num_hidden_layers,
-        config.num_attention_heads,
-        config.hidden_size,
-        config.d_kv,
+        model_config.num_hidden_layers,
+        model_config.num_attention_heads,
+        model_config.hidden_size,
+        model_config.d_kv,
     )
 
     cnt = 0
@@ -387,12 +389,12 @@ def shard_word_embedding(sch, vocab_size, word_embed_name="shared"):
 
 
 # pylint: disable=dangerous-default-value
-def shard_mlp(sch, config, path, fc_names=["wi", "wo"]):
+def shard_mlp(sch, model_config, path, fc_names=["wi", "wo"]):
     if sch.world_size == 1:
         return
-    assert not config.is_gated_act, "Gated activation is not supported yet."
+    assert not model_config.is_gated_act, "Gated activation is not supported yet."
 
-    for idx in range(config.num_hidden_layers):
+    for idx in range(model_config.num_hidden_layers):
         prefix = path.replace("N", str(idx))
         sch[f"{prefix}.{fc_names[0]}"].shard("weight", axis=0)
         sch[f"{prefix}.{fc_names[0]}"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
@@ -400,16 +402,17 @@ def shard_mlp(sch, config, path, fc_names=["wi", "wo"]):
         sch[f"{prefix}.{fc_names[1]}"].sync(mode="fwd_post", sync_op_or_fn="all_reduce")
 
 
-def checkpoint(sch, config, path, ckpt_ratio=1.0):
+def _checkpoint(sch, model_config, path, ckpt_ratio=1.0):
     if ckpt_ratio == 0.0:
         return 0
 
-    n_ckpt = int(config.num_hidden_layers * ckpt_ratio)
+    n_ckpt = int(model_config.num_hidden_layers * ckpt_ratio)
     for idx in range(n_ckpt):
         sch[path.replace("N", str(idx))].checkpoint()
     return n_ckpt
 
 
+@register_schedule_method(MODEL_SHORT_NAME)
 def broadcast_input(sch):
     def broadcast(inputs):
         for inp in inputs:

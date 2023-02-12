@@ -286,7 +286,12 @@ def checkpoint(
     model_config,
     path="encoder.albert_layer_groups.N.albert_layers.N",
     ckpt_ratio=1.0,
+    checkpoint_method="uniform",
 ):
+    if checkpoint_method != "uniform":
+        raise NotImplementedError(
+            f"Checkpoint method {checkpoint_method} is not supported yet."
+        )
     if ckpt_ratio == 0.0:
         return 0
 

@@ -33,3 +33,21 @@ from .opt import (
     checkpoint as opt_checkpoint,
     broadcast_input as opt_broadcast_input,
 )
+from .roberta import (
+    shard_parameters as roberta_shard_parameters,
+    generate_pipeline_schedule as roberta_generate_pipeline_schedule,
+    checkpoint as roberta_checkpoint,
+    broadcast_input as roberta_broadcast_input,
+)
+# from .t5 import (
+#     shard_parameters as t5_shard_parameters,
+#     generate_pipeline_schedule as t5_generate_pipeline_schedule,
+#     checkpoint as t5_checkpoint,
+#     broadcast_input as t5_broadcast_input,
+# )
+# from .wideresnet import (
+#     shard_parameters as wideresnet_shard_parameters,
+#     generate_pipeline_schedule as wideresnet_generate_pipeline_schedule,
+#     checkpoint as wideresnet_checkpoint,
+#     broadcast_input as wideresnet_broadcast_input,
+# )

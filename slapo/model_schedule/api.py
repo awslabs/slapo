@@ -11,7 +11,11 @@ def apply_schedule(
     model_config,
     **sch_config,
 ):
-    model_name = model_config._name_or_path
+    model_name = model_config.get("_name_or_path", None)
+    if model_name is None:
+        raise ValueError(
+            "Model name is not specified in model_config. Please use `_name_or_path` to specify the model name."
+        )
     short_name = model_name.split("/")[-1].split("-")[0]
     short_name = "gpt_neo" if short_name == "gpt" else short_name
     logger = get_logger(f"{model_name}")

@@ -46,14 +46,16 @@ def get_model(
 ):
     config = get_model_config(model_name)
     dtype = torch.float if not fp16 else torch.half
+    print_rank_0(config)
 
     if "slapo" in impl:
         import slapo
-        from slapo.model_schedule.wideresnet import schedule_model
+        from slapo.model_schedule import apply_schedule
 
         with slapo.init_empty_weights(enable=delay_init):
-            model = get_wideresnet_model(*config)
-        sch = schedule_model(
+            model = get_wideresnet_model(*config["block_size"])
+        print_rank_0(model)
+        sch = apply_schedule(
             model,
             config,
             prefix="model",

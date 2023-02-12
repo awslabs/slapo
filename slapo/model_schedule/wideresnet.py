@@ -9,52 +9,33 @@ import torch
 from torch import nn
 import torch.distributed as dist
 
-from ..schedule import create_schedule
-from ..logger import get_logger
+from .registry import register_schedule_method
 
-logger = get_logger("WideResNet")
+MODEL_SHORT_NAME = "wideresnet"
 
 
-def schedule_model(
-    model,
-    config,
-    prefix="",
-    fp16=False,
-    ckpt_ratio=0.0,
-    group=None,
-    bcast_input=False,
-    pipeline_cuts=None,
-    fuse_conv=False,
-):
-    if fp16:
-        logger.info("Change model dtype to fp16", ranks=0)
-        model.half()
+@register_schedule_method(MODEL_SHORT_NAME)
+def shard_parameters(sch, model_config, sch_config):
+    prefix = sch_config.get("prefix", "")
 
-    sch = create_schedule(model, group=group)
-    logger.info(f"Scheduling Wide-ResNet with TP={sch.world_size}", ranks=0)
-
-    if fuse_conv:
-        fuse_conv_bn(sch[prefix], config)
+    # Operator fusion
+    if sch_config.get("fuse_conv", False):
+        fuse_conv_bn(sch[prefix], model_config)
 
     if sch.world_size > 1:
         # Shard layers.
-        shard_layers(sch[prefix], config)
+        shard_layers(sch[prefix], model_config)
 
-        # Broadcast input to all devices within the MP group.
-        # This is not required when running on Megatron.
-        if bcast_input:
-            broadcast_input(sch)
 
-    # Insert activation checkpoints.
-    if ckpt_ratio > 0.0:
-        n_ckpt = checkpoint(sch[prefix], config, ckpt_ratio=ckpt_ratio)
-        logger.info(f"Checkpointing {n_ckpt} layers", ranks=0)
-
+@register_schedule_method(MODEL_SHORT_NAME)
+def generate_pipeline_schedule(sch, model_config, sch_config):
+    pipeline_cuts = sch_config.get("pipeline_cuts", None)
+    prefix = sch_config.get("prefix", "")
     # Cut pipeline stages.
     if pipeline_cuts:
         assert len(pipeline_cuts) == 4
         input_names = ["x"]
-        sig = inspect.signature(model.forward)
+        sig = inspect.signature(sch.mod.forward)
         concrete_args = {
             p.name: p.default
             for p in sig.parameters.values()
@@ -75,7 +56,7 @@ def schedule_model(
     return sch
 
 
-def fuse_conv_bn(sch, config):
+def fuse_conv_bn(sch, model_config):
     from torchvision.models.resnet import Bottleneck
 
     inplanes = 64
@@ -83,7 +64,7 @@ def fuse_conv_bn(sch, config):
     all_planes = [64, 128, 256, 512]
     all_strides = [1, 2, 2, 2]
     in_sizes = [112, 56, 28, 14]
-    base_width, num_layers = config
+    base_width, num_layers = model_config["block_size"]
     for i in range(4):
         planes = all_planes[i]
         layers = num_layers[i]
@@ -129,11 +110,11 @@ def fuse_conv_bn(sch, config):
     print(sch.mod)
 
 
-def shard_layers(sch, config):
+def shard_layers(sch, model_config):
     if sch.world_size == 1:
         return
 
-    _, n_layers = config
+    _, n_layers = model_config["block_size"]
     for idx, n_layer in enumerate(n_layers):
         for lidx in range(n_layer):
             # ResNet implements layers using nn.Sequential instead of
@@ -169,11 +150,21 @@ def shard_layers(sch, config):
             sub_sch["conv3"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
 
 
-def checkpoint(sch, config, ckpt_ratio=1.0):
+@register_schedule_method(MODEL_SHORT_NAME)
+def checkpoint(
+    sch,
+    model_config,
+    ckpt_ratio=1.0,
+    checkpoint_method="uniform",
+):
+    if checkpoint_method != "uniform":
+        raise NotImplementedError(
+            f"Checkpoint method {checkpoint_method} is not supported yet."
+        )
     if ckpt_ratio == 0.0:
         return 0
 
-    _, n_layers = config
+    _, n_layers = model_config["block_size"]
 
     total_ckpt = 0
     for idx, n_layer in enumerate(n_layers):
@@ -190,6 +181,7 @@ def checkpoint(sch, config, ckpt_ratio=1.0):
     return total_ckpt
 
 
+@register_schedule_method(MODEL_SHORT_NAME)
 def broadcast_input(sch):
     def broadcast(inputs):
         for inp in inputs:

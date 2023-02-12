@@ -43,13 +43,20 @@ def get_model_config(name) -> Module:
     _, size = name.split("-")
 
     if size == "250M":
-        return (128, [6, 8, 46, 6])
-    if size == "1.3B":
-        return (320, [6, 8, 46, 6])
-    if size == "2.4B":
-        return (448, [6, 8, 46, 6])
-    if size == "3B":
-        return (512, [6, 8, 46, 6])
-    if size == "4.6B":
-        return (640, [6, 8, 46, 6])
-    raise ValueError(f"Unsupported model size: {size}")
+        block_size = (128, [6, 8, 46, 6])
+    elif size == "1.3B":
+        block_size = (320, [6, 8, 46, 6])
+    elif size == "2.4B":
+        block_size = (448, [6, 8, 46, 6])
+    elif size == "3B":
+        block_size = (512, [6, 8, 46, 6])
+    elif size == "4.6B":
+        block_size = (640, [6, 8, 46, 6])
+    else:
+        raise ValueError(f"Unsupported model size: {size}")
+
+    config = {
+        "_name_or_path": name,
+        "block_size": block_size,
+    }
+    return config

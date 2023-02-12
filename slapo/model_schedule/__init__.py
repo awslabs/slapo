@@ -45,9 +45,9 @@ from .t5 import (
     checkpoint as t5_checkpoint,
     broadcast_input as t5_broadcast_input,
 )
-# from .wideresnet import (
-#     shard_parameters as wideresnet_shard_parameters,
-#     generate_pipeline_schedule as wideresnet_generate_pipeline_schedule,
-#     checkpoint as wideresnet_checkpoint,
-#     broadcast_input as wideresnet_broadcast_input,
-# )
+from .wideresnet import (
+    shard_parameters as wideresnet_shard_parameters,
+    generate_pipeline_schedule as wideresnet_generate_pipeline_schedule,
+    checkpoint as wideresnet_checkpoint,
+    broadcast_input as wideresnet_broadcast_input,
+)

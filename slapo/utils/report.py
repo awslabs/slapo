@@ -14,13 +14,11 @@ def report_memory(msg="", report_gc=False):
         f"{msg} CPU RAM used: {psutil.virtual_memory()[3] / 1024 / 1024 / 1024:.4f} GiB"
     )
     if not dist.is_initialized():
-        return
+        return 0.0
     torch.cuda.empty_cache()
     torch.cuda.reset_peak_memory_stats()
-    print(
-        f"{msg} GPU rank {dist.get_rank()} "
-        f"used: {torch.cuda.max_memory_allocated() / 1024 / 1024:.4f} MiB"
-    )
+    gpu_mem = torch.cuda.max_memory_allocated()
+    print(f"{msg} GPU rank {dist.get_rank()} " f"used: {gpu_mem / 1024 / 1024:.4f} MiB")
     if report_gc:
         gc.collect()
         tc = 0
@@ -34,6 +32,7 @@ def report_memory(msg="", report_gc=False):
                     tc += obj.numel()
             except Exception:
                 pass
+    return gpu_mem
 
 
 def profile_perf(model, inputs, backward=False):

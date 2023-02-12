@@ -12,6 +12,7 @@ import pytest
 
 import torch
 import slapo
+from slapo.utils.report import report_memory
 
 
 def verify_weights(module: torch.nn.Module):
@@ -38,6 +39,28 @@ class Model(torch.nn.Module):
         out = self.linear1(data)
         out = self.linear2(out)
         return out
+
+
+@pytest.mark.parametrize("ngpu", ["single", "multi"])
+def test_consolidation_default_init(init_dist, ngpu):
+
+    local_rank = int(os.environ["LOCAL_RANK"])
+    torch.cuda.set_device(local_rank)
+    gpu_mem_0 = report_memory("Before model init")
+    with slapo.init_empty_weights(enable=True):
+        _ = Model()
+    gpu_mem_1 = report_memory("After model init")
+    assert gpu_mem_1 == gpu_mem_0
+
+    model = Model()
+    sch = slapo.create_schedule(copy.deepcopy(model))
+    sch_model, _ = slapo.build(sch, init_weights=False)
+
+    model.cuda(local_rank)
+    sch_model.cuda(local_rank)
+    torch.testing.assert_allclose(sch_model.linear1.weight, model.linear1.weight)
+    torch.testing.assert_allclose(sch_model.linear1.bias, model.linear1.bias)
+    torch.testing.assert_allclose(sch_model.linear2.weight, model.linear2.weight)
 
 
 @pytest.mark.parametrize("ngpu", ["single", "multi"])

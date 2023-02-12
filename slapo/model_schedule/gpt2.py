@@ -1,7 +1,7 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 """HuggingFace GPT-2 with model schedule."""
-# pylint: disable=too-many-arguments, logging-fstring-interpolation, unused-argument
+# pylint: disable=unused-argument
 
 import inspect
 
@@ -478,17 +478,19 @@ def broadcast_input(sch):
 
 
 @register_schedule_method(MODEL_SHORT_NAME)
-def generate_pipeline_schedule(sch, model_config, sch_config):
+def generate_pipeline_schedule(sch, sch_config):
     """Trace the top module of the model and cut the pipeline stages.
 
     Parameters
     ----------
     sch : slapo.Schedule
         The schedule to be cut.
-    prefix : str
-        The prefix of the top module.
-    pipeline_cuts : list[str]
-        The list of attention layer index indicating cut points.
+    sch_config : dict
+        The configuration of the schedule. Should contain the following keys:
+        prefix : str
+            The prefix of the top module.
+        pipeline_cuts : list[str]
+            The list of attention layer index indicating cut points.
     """
     pipeline_cuts = sch_config.get("pipeline_cuts", None)
     prefix = sch_config.get("prefix", "")

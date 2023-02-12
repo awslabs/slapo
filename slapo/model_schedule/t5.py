@@ -1,7 +1,7 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 """HuggingFace T5 with model schedule."""
-# pylint: disable=logging-fstring-interpolation, import-error
+# pylint: disable=unused-argument, import-error
 
 import inspect
 
@@ -26,10 +26,7 @@ def shard_parameters(sch, model_config, sch_config):
     # Replace self attention with flash attention, and shard QKV/output
     # if MP group > 1.
     attn_op_name = sch_config.get("attn_op_name", "cuda")
-    if attn_op_name == "native_xformers":
-        disable_flash_attn = True
-    else:
-        disable_flash_attn = False
+    disable_flash_attn = attn_op_name == "native_xformers"
     cnt, fix_shape_cnt = replace_and_shard_attention(
         sch[prefix],
         model_config,
@@ -97,7 +94,7 @@ def checkpoint(
 
 
 @register_schedule_method(MODEL_SHORT_NAME)
-def generate_pipeline_schedule(sch, model_config, sch_config):
+def generate_pipeline_schedule(sch, sch_config):
     pipeline_cuts = sch_config.get("pipeline_cuts", None)
     prefix = sch_config.get("prefix", "")
     # Cut pipeline stages. For example, [[11], [11]] means to cut

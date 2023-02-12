@@ -1,7 +1,7 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 """HuggingFace Albert with model schedule."""
-# pylint: disable=too-many-arguments, logging-fstring-interpolation, unused-argument
+# pylint: disable=unused-argument
 
 import inspect
 from typing import Optional
@@ -52,7 +52,7 @@ def shard_parameters(sch, model_config, sch_config):
 
 
 @register_schedule_method(MODEL_SHORT_NAME)
-def generate_pipeline_schedule(sch, model_config, sch_config):
+def generate_pipeline_schedule(sch, sch_config):
     pipeline_cuts = sch_config.get("pipeline_cuts", None)
     prefix = sch_config.get("prefix", "")
     # Cut pipeline stages.

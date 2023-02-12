@@ -10,10 +10,9 @@ def get_schedule_method(model_name, schedule_name):
     """Get the schedule method."""
     if model_name not in SCHEDULE_METHODS:
         return None
-    elif schedule_name not in SCHEDULE_METHODS[model_name]:
+    if schedule_name not in SCHEDULE_METHODS[model_name]:
         return None
-    else:
-        return SCHEDULE_METHODS[model_name][schedule_name]
+    return SCHEDULE_METHODS[model_name][schedule_name]
 
 
 def register_schedule_method(model_name):

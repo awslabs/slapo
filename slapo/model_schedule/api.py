@@ -13,7 +13,7 @@ def apply_schedule(
 ):
     try:
         model_name = model_config._name_or_path
-    except:
+    except Exception:
         model_name = model_config.get("_name_or_path", None)
     if model_name is None:
         raise ValueError(
@@ -30,7 +30,7 @@ def apply_schedule(
     bf16 = sch_config.get("bf16", False)
     if fp16 and bf16:
         raise ValueError("Cannot use both fp16 and bf16")
-    elif fp16:
+    if fp16:
         logger.info("Change model dtype to fp16", ranks=0)
         model.half()
     elif bf16:
@@ -80,6 +80,6 @@ def apply_schedule(
         pipeline_fn = get_schedule_method(short_name, "generate_pipeline_schedule")
         if pipeline_fn:
             logger.info("Generate pipeline schedule", ranks=0)
-            pipeline_fn(sch, model_config, sch_config)
+            pipeline_fn(sch, sch_config)
 
     return sch

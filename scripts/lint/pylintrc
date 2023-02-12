@@ -108,7 +108,9 @@ disable=
     # Needs Python 3.10+
     consider-alternative-union-syntax,
     too-many-statements,
+    too-many-arguments,
     duplicate-code,
+    logging-fstring-interpolation,
 
 
 [REPORTS]

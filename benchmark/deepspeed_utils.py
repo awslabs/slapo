@@ -21,6 +21,7 @@ def identify_model_key(exp):
     for model_key in ["bert", "gpt", "albert", "t5", "opt", "roberta", "wideresnet"]:
         short_name = exp.model.split("/")[-1].split("-")[0]
         if model_key == short_name:
+            model_key = "gpt_neo" if model_key == "gpt" else model_key
             return model_key
     raise ValueError(f"Unknown model key for {exp.model}")
 

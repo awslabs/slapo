@@ -41,17 +41,19 @@ def get_model(
     if padded_vocab_size is not None:
         config.vocab_size = padded_vocab_size
     config.type_vocab_size = 2 if binary_head else 0
+    print_rank_0(config)
 
     if "slapo" in impl:
         import slapo
         from slapo.utils.report import report_memory
-        from slapo.model_schedule.bert import schedule_model
+        from slapo.model_schedule import apply_schedule
 
         report_memory()
         with slapo.init_empty_weights(enable=delay_init):
             model = BertModel(config, add_pooling_layer=add_pooling_layer)
         report_memory()
-        sch = schedule_model(
+        print_rank_0(model)
+        sch = apply_schedule(
             model,
             config,
             attn_op_name="native_xformers" if disable_flash_attn else "cuda",

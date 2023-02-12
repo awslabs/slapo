@@ -21,3 +21,9 @@ from .gpt_neo import (
     checkpoint as gpt_neo_checkpoint,
     broadcast_input as gpt_neo_broadcast_input,
 )
+from .gpt2 import (
+    shard_parameters as gpt2_shard_parameters,
+    generate_pipeline_schedule as gpt2_generate_pipeline_schedule,
+    checkpoint as gpt2_checkpoint,
+    broadcast_input as gpt2_broadcast_input,
+)

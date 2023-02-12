@@ -8,56 +8,25 @@ import inspect
 from torch import nn
 from torch.distributed import distributed_c10d as dist
 
-from ..schedule import create_schedule
 from ..op import FlashAttention, FlashAttentionOp, FusedMLP
 from ..initialization import init_empty_weights
 from ..random import get_cuda_rng_tracker
 from ..sharding import reduce_forward_output
 from ..logger import get_logger
+from .registry import register_schedule_method
 
-logger = get_logger("GPT")
+MODEL_SHORT_NAME = "gpt2"
 
 
-def schedule_model(
-    model,
-    config,
-    prefix="",
-    attn_op_name="cuda",
-    fp16=True,
-    bf16=False,
-    ckpt_ratio=0.0,
-    group=None,
-    bcast_input=False,
-    pipeline_cuts=None,
-    delay_init=True,
-    sequence_parallel=False,
-    checkpoint_method="uniform",
-):
-    if fp16:
-        logger.info("Change model dtype to fp16", ranks=0)
-        model.half()
-    elif bf16:
-        logger.info("Change model dtype to bf16", ranks=0)
-        model.bfloat16()
-
-    sch = create_schedule(model, group=group)
-    logger.info(f"Scheduling GPT with TP={sch.world_size}", ranks=0)
-
-    # Replace self attention with flash attention.
-    if attn_op_name == "native_xformers":
-        logger.info("Disabled Flash Attention", ranks=0)
-    cnt, applied_attn_op_name = replace_attention(
-        sch[prefix],
-        config,
-        delay_init=delay_init,
-        attn_op_name=attn_op_name,
-    )
-    logger.info(
-        f"Replace {cnt} attention layers with {applied_attn_op_name} op", ranks=0
-    )
-
+@register_schedule_method(MODEL_SHORT_NAME)
+def shard_parameters(sch, model_config, sch_config):
+    model_name = model_config._name_or_path
+    logger = get_logger(model_name)
+    prefix = sch_config.get("prefix", "")
+    delay_init = sch_config.get("delay_init", True)
+    sequence_parallel = sch_config.get("sequence_parallel", False)
     # Replace MLP with fused kernels.
-    cnt = replace_mlp(sch[prefix], config, delay_init=delay_init)
+    cnt = replace_mlp(sch[prefix], model_config, delay_init=delay_init)
     logger.info(f"Replaced {cnt} MLP layers", ranks=0)
 
     # Shard parameters if MP group > 1.
@@ -67,36 +36,15 @@ def schedule_model(
         shard(
             sch[prefix],
             head_sch,
-            config,
+            model_config,
             shard_target,
             sequence_parallel=sequence_parallel,
         )
 
-        # Broadcast input to all devices within the MP group.
-        # This is not required if it will be done by the training framework.
-        if bcast_input:
-            broadcast_input(sch)
-
-    # Insert activation checkpoints.
-    if ckpt_ratio > 0.0:
-        n_ckpt = checkpoint(
-            sch[prefix],
-            config,
-            ckpt_ratio=ckpt_ratio,
-            checkpoint_method=checkpoint_method,
-        )
-        logger.info(f"Checkpointing {n_ckpt} layers", ranks=0)
-
-    # Cut pipeline stages.
-    if pipeline_cuts:
-        pipeline(sch, prefix, pipeline_cuts)
-
-    return sch
-
 
 def replace_attention(
     sch,
-    config,
+    model_config,
     attn_path="h.N.attn",
     delay_init=True,
     attn_op_name="cuda",
@@ -107,7 +55,7 @@ def replace_attention(
     ----------
     sch : slapo.Schedule
         The schedule of the entire model.
-    config : GPT2Config
+    model_config : GPT2Config
         The model configuration.
     attn_path : str
         The path to the attention module.
@@ -126,11 +74,11 @@ def replace_attention(
         The number of attention layers replaced and the name of the attention.
     """
     init_config = dict(
-        hidden_size=config.hidden_size,
-        num_attention_heads=config.num_attention_heads,
+        hidden_size=model_config.hidden_size,
+        num_attention_heads=model_config.num_attention_heads,
         output_proj=True,
-        attn_pdrop=config.attn_pdrop,
-        resid_pdrop=config.resid_pdrop,
+        attn_pdrop=model_config.attn_pdrop,
+        resid_pdrop=model_config.resid_pdrop,
         attn_op_name=attn_op_name,
         fused_qkv=True,
     )
@@ -181,7 +129,7 @@ def replace_attention(
 
     cnt = 0
     attn_op = []
-    for idx in range(config.num_hidden_layers):
+    for idx in range(model_config.num_hidden_layers):
         sub_sch = sch[attn_path.replace("N", str(idx))]
         with init_empty_weights(enable=delay_init):
             new_mod = Attention(**init_config)
@@ -201,7 +149,7 @@ def replace_attention(
 
 def replace_mlp(
     sch,
-    config,
+    model_config,
     path="h.N.mlp",
     delay_init=True,
 ):
@@ -211,7 +159,7 @@ def replace_mlp(
     ----------
     sch : slapo.Schedule
         The schedule of the entire model.
-    config : GPT2Config
+    model_config : GPT2Config
         The model configuration.
     path : str
         The path to the MLP module.
@@ -223,7 +171,7 @@ def replace_mlp(
     int
         The number of MLP layers replaced.
     """
-    for idx in range(config.num_hidden_layers):
+    for idx in range(model_config.num_hidden_layers):
         prefix = path.replace("N", str(idx))
         sub_sch = sch[prefix]
         hidden_size, inter_size = sub_sch.mod.c_fc.weight.shape
@@ -231,11 +179,11 @@ def replace_mlp(
             new_mod = FusedMLP(
                 hidden_size,
                 inter_size,
-                config.activation_function,
-                config.resid_pdrop,
+                model_config.activation_function,
+                model_config.resid_pdrop,
             )
         sub_sch.replace(new_mod)
-    return config.num_hidden_layers
+    return model_config.num_hidden_layers
 
 
 def gen_embedding_hooks(sch, vocab_size):
@@ -310,7 +258,7 @@ class AttentionOpWithRNG(FlashAttentionOp):
 def shard(
     sch,
     head_sch,
-    config,
+    model_config,
     shard_target,
     sequence_parallel=False,
 ):
@@ -323,7 +271,7 @@ def shard(
         The schedule of the transformer model.
     head_sch : slapo.Schedule
         The schedule of the lm_head.
-    config: GPT2Config
+    model_config: GPT2Config
         The configuration of the model.
     shard_target : list[str]
         The sharding target. This function shards the corresponding layers
@@ -340,7 +288,7 @@ def shard(
         word_embed_name, pos_embed_name, final_ln_name = "wte", "wpe", "ln_f"
 
         sch[word_embed_name].shard("weight", axis=0)
-        fwd_pre_hook, fwd_post_hook = gen_embedding_hooks(sch, config.vocab_size)
+        fwd_pre_hook, fwd_post_hook = gen_embedding_hooks(sch, model_config.vocab_size)
         sch[word_embed_name].sync(mode="fwd_pre", sync_op_or_fn=fwd_pre_hook)
         sch[word_embed_name].sync(mode="fwd_post", sync_op_or_fn=fwd_post_hook)
 
@@ -363,7 +311,7 @@ def shard(
     if "attention" in shard_target:
         path = "h.N.attn"
 
-        for idx in range(config.num_hidden_layers):
+        for idx in range(model_config.num_hidden_layers):
             sub_sch = sch[path.replace("N", str(idx))]
             sub_sch["module.qkv"].shard("weight", axis=0)
             sub_sch["module.qkv"].shard("bias", axis=0)
@@ -413,7 +361,7 @@ def shard(
     if "mlp" in shard_target:
         path = "h.N.mlp"
 
-        for idx in range(config.num_hidden_layers):
+        for idx in range(model_config.num_hidden_layers):
             prefix = path.replace("N", str(idx))
             sub_sch = sch[prefix]
 
@@ -443,7 +391,10 @@ def shard(
                 sub_sch[fc_names[2]].sync(mode="fwd_post", sync_op_or_fn="all_reduce")
 
 
-def checkpoint(sch, config, path="h.N", ckpt_ratio=1.0, checkpoint_method="uniform"):
+@register_schedule_method(MODEL_SHORT_NAME)
+def checkpoint(
+    sch, model_config, path="h.N", ckpt_ratio=1.0, checkpoint_method="uniform"
+):
     """Add activation checkpointing to the model. The ckpt_ratio specifies
     the ratio of the attention layers to be checkpointed. For example, if
     ckpt_ratio is 0.5, then half of the attention layers will be checkpointed.
@@ -452,7 +403,7 @@ def checkpoint(sch, config, path="h.N", ckpt_ratio=1.0, checkpoint_method="unifo
     ----------
     sch : slapo.Schedule
         The schedule of the model.
-    config : GPT2Config
+    model_config : GPT2Config
         The configuration of the model.
     path : str
         The path to the attention layer. Default: "h.N.attn".
@@ -492,16 +443,19 @@ def checkpoint(sch, config, path="h.N", ckpt_ratio=1.0, checkpoint_method="unifo
             output_attentions,
         )
 
-    n_ckpt = int(config.num_hidden_layers * ckpt_ratio)
+    n_ckpt = int(model_config.num_hidden_layers * ckpt_ratio)
     if checkpoint_method == "head":
         for idx in range(n_ckpt):
             sch[path.replace("N", str(idx))].checkpoint(order_args_fn=order_args_fn)
     elif checkpoint_method == "uniform" and ckpt_ratio > 0:
-        for idx in range(0, config.num_hidden_layers, max(1, int(1 / ckpt_ratio))):
+        for idx in range(
+            0, model_config.num_hidden_layers, max(1, int(1 / ckpt_ratio))
+        ):
             sch[path.replace("N", str(idx))].checkpoint(order_args_fn=order_args_fn)
     return n_ckpt
 
 
+@register_schedule_method(MODEL_SHORT_NAME)
 def broadcast_input(sch):
     """Add a hook in the beinning of the model to broadcast the input.
     This is used when tensor parallelism is used and the runtime does not
@@ -523,7 +477,8 @@ def broadcast_input(sch):
     sch.sync(mode="fwd_pre", sync_op_or_fn=_broadcast_input)
 
 
-def pipeline(sch, prefix, pipeline_cuts):
+@register_schedule_method(MODEL_SHORT_NAME)
+def generate_pipeline_schedule(sch, model_config, sch_config):
     """Trace the top module of the model and cut the pipeline stages.
 
     Parameters
@@ -535,6 +490,8 @@ def pipeline(sch, prefix, pipeline_cuts):
     pipeline_cuts : list[str]
         The list of attention layer index indicating cut points.
     """
+    pipeline_cuts = sch_config.get("pipeline_cuts", None)
+    prefix = sch_config.get("prefix", "")
     input_names = ["input_ids", "attention_mask", "position_ids"]
     sig = inspect.signature(sch.mod.forward)
     concrete_args = {

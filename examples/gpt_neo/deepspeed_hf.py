@@ -15,7 +15,7 @@ from slapo.logger import get_logger
 from slapo.op import ParallelCrossEntropy
 from slapo.utils.report import report_memory
 
-from slapo.model_schedule.gpt_neo import schedule_model
+from slapo.model_schedule import apply_schedule
 from examples.utils import (
     train_with_deepspeed_engine,
     get_ds_config,
@@ -120,7 +120,7 @@ def train(args):
         assert not enable_pipeline
         sch = slapo.create_schedule(model, group=group)
     else:
-        sch = schedule_model(
+        sch = apply_schedule(
             model,
             config,
             prefix="transformer",

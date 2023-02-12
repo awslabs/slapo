@@ -39,19 +39,19 @@ def get_model(
     config.use_cache = False
     config.attention_types = [[["global"], config.num_layers]]
     config.attention_layers = ["global"] * config.num_layers
-    print(config)
+    print_rank_0(config)
 
     if "slapo" in impl:
         import slapo
         from slapo.utils.report import report_memory
-        from slapo.model_schedule.gpt_neo import schedule_model
+        from slapo.model_schedule import apply_schedule
 
         report_memory()
         with slapo.init_empty_weights(enable=delay_init):
             model = GPTNeoModel(config)
         report_memory()
-        print(model)
-        sch = schedule_model(
+        print_rank_0(model)
+        sch = apply_schedule(
             model,
             config,
             attn_op_name="native_xformers" if disable_flash_attn else "cuda",

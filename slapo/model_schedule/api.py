@@ -16,6 +16,7 @@ def apply_schedule(
     short_name = "gpt_neo" if short_name == "gpt" else short_name
     logger = get_logger(f"{model_name}")
     logger.info(f"Scheduling {model_name}", ranks=0)
+    logger.info(f"Schdeule config: {sch_config}", ranks=0)
 
     # Change data type.
     fp16 = sch_config.get("fp16", False)
@@ -40,6 +41,8 @@ def apply_schedule(
     if shard_params_fn:
         logger.info("Shard model parameters", ranks=0)
         shard_params_fn(sch, model_config, sch_config)
+    elif sch.world_size > 1:
+        raise RuntimeError(f"Shard parameters not implemented for {model_name}.")
 
     if sch.world_size > 1 and sch_config.get("bcast_input", False):
         # Broadcast input to all devices within the MP group.

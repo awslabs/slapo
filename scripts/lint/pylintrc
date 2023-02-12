@@ -108,6 +108,7 @@ disable=
     # Needs Python 3.10+
     consider-alternative-union-syntax,
     too-many-statements,
+    duplicate-code,
 
 
 [REPORTS]

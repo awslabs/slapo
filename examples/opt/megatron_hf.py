@@ -37,18 +37,19 @@ def get_model(
     if padded_vocab_size is not None:
         config.vocab_size = padded_vocab_size
     config.use_cache = False
+    print_rank_0(config)
 
     if "slapo" in impl:
         import slapo
         from slapo.utils.report import report_memory
-        from slapo.model_schedule.opt import schedule_model
+        from slapo.model_schedule import apply_schedule
 
         report_memory()
         with slapo.init_empty_weights(enable=delay_init):
             model = OPTModel(config)
         report_memory()
-        print(model)
-        sch = schedule_model(
+        print_rank_0(model)
+        sch = apply_schedule(
             model,
             config,
             attn_op_name="native_xformers" if disable_flash_attn else "cuda",
@@ -57,7 +58,6 @@ def get_model(
             delay_init=delay_init,
         )
         model, _ = slapo.build(sch, init_weights=model._init_weights)
-        print(model)
         report_memory()
 
     elif impl == "torchscript":

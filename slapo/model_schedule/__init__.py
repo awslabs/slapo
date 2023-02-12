@@ -27,3 +27,9 @@ from .gpt2 import (
     checkpoint as gpt2_checkpoint,
     broadcast_input as gpt2_broadcast_input,
 )
+from .opt import (
+    shard_parameters as opt_shard_parameters,
+    generate_pipeline_schedule as opt_generate_pipeline_schedule,
+    checkpoint as opt_checkpoint,
+    broadcast_input as opt_broadcast_input,
+)

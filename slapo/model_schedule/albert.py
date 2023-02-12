@@ -10,43 +10,29 @@ import torch
 import torch.distributed as dist
 from torch import nn
 
-from ..schedule import create_schedule
 from ..initialization import init_empty_weights
 from ..pattern import call_module
 from ..op import FlashAttention
 from ..logger import get_logger
+from .registry import register_schedule_method
 
-logger = get_logger("Albert")
+MODEL_SHORT_NAME = "albert"
 
 
-def schedule_model(
-    model,
-    config,
-    prefix="",
-    attn_op_name="cuda",
-    fp16=True,
-    ckpt_ratio=0.0,
-    group=None,
-    bcast_input=False,
-    pipeline_cuts=None,
-    disable_fuse_bias_gelu=True,
-    delay_init=True,
-):
-    logger.info("Scheduling Albert", ranks=0)
-
-    if fp16:
-        logger.info("Change model dtype to fp16", ranks=0)
-        model.half()
-
-    sch = create_schedule(model, group=group)
-
+@register_schedule_method(MODEL_SHORT_NAME)
+def shard_parameters(sch, model_config, sch_config):
+    model_name = model_config._name_or_path
+    logger = get_logger(model_name)
+    prefix = sch_config.get("prefix", "")
+    delay_init = sch_config.get("delay_init", True)
     # Replace self attention with flash attention, and shard QKV/output
     # if MP group > 1.
+    attn_op_name = sch_config.get("attn_op_name", "cuda")
     if attn_op_name == "native_xformers":
         logger.info("Disabled Flash Attention", ranks=0)
     cnt, applied_attn_op_name = replace_and_shard_attention(
         sch[prefix],
-        config,
+        model_config,
         delay_init=delay_init,
         attn_op_name=attn_op_name,
     )
@@ -55,25 +41,20 @@ def schedule_model(
     )
 
     # Operator fusion
-    if not disable_fuse_bias_gelu:
-        fuse_bias_gelu(sch[prefix], config)
+    if not sch_config.get("disable_fuse_bias_gelu", True):
+        fuse_bias_gelu(sch[prefix], model_config)
         logger.info("Fused Bias+GeLU", ranks=0)
 
     # Shard other parameters if MP group > 1.
     if sch.world_size > 1:
-        shard_mlp(sch[prefix], config)
-        shard_word_embedding(sch[prefix], config.vocab_size)
+        shard_mlp(sch[prefix], model_config)
+        shard_word_embedding(sch[prefix], model_config.vocab_size)
 
-        # Broadcast input to all devices within the MP group.
-        # This is not required when running on Megatron.
-        if bcast_input:
-            broadcast_input(sch)
 
-    # Insert activation checkpoints.
-    if ckpt_ratio > 0.0:
-        n_ckpt = checkpoint(sch[prefix], config, ckpt_ratio=ckpt_ratio)
-        logger.info(f"Checkpointing {n_ckpt} layers", ranks=0)
-
+@register_schedule_method(MODEL_SHORT_NAME)
+def generate_pipeline_schedule(sch, model_config, sch_config):
+    pipeline_cuts = sch_config.get("pipeline_cuts", None)
+    prefix = sch_config.get("prefix", "")
     # Cut pipeline stages.
     if pipeline_cuts:
         input_names = [
@@ -81,7 +62,7 @@ def schedule_model(
             "attention_mask",
             "token_type_ids",
         ]
-        sig = inspect.signature(model.forward)
+        sig = inspect.signature(sch.mod.forward)
         concrete_args = {
             p.name: p.default
             for p in sig.parameters.values()
@@ -98,10 +79,12 @@ def schedule_model(
 
 
 def trace_attention(
-    sch, config, attn_path="encoder.albert_layer_groups.N.albert_layers.N.attention"
+    sch,
+    model_config,
+    attn_path="encoder.albert_layer_groups.N.albert_layers.N.attention",
 ):
     cnt = 0
-    for idx in range(config.num_hidden_layers):
+    for idx in range(model_config.num_hidden_layers):
         sub_sch = sch[attn_path.replace("N", str(idx))]
         input_names = ["hidden_states", "attention_mask"]
         sig = inspect.signature(sub_sch.mod.forward)
@@ -134,17 +117,17 @@ def fix_attention_mask_shape(sch):
 
 def replace_and_shard_attention(
     sch,
-    config,
+    model_config,
     attn_path="encoder.albert_layer_groups.N.albert_layers.N",
     delay_init=True,
     attn_op_name="cuda",
 ):
     init_config = dict(
-        hidden_size=config.hidden_size,
-        num_attention_heads=config.num_attention_heads,
+        hidden_size=model_config.hidden_size,
+        num_attention_heads=model_config.num_attention_heads,
         output_proj=True,
-        attn_pdrop=config.attention_probs_dropout_prob,
-        resid_pdrop=config.hidden_dropout_prob,
+        attn_pdrop=model_config.attention_probs_dropout_prob,
+        resid_pdrop=model_config.hidden_dropout_prob,
         attn_op_name=attn_op_name,
         fused_qkv=True,
         bias=True,
@@ -251,7 +234,9 @@ def shard_word_embedding(sch, vocab_size, word_embed_name="embeddings.word_embed
     sch[word_embed_name].sync(mode="fwd_post", sync_op_or_fn=fwd_post_hook)
 
 
-def fuse_bias_gelu(sch, config, path="encoder.albert_layer_groups.N.albert_layers.N"):
+def fuse_bias_gelu(
+    sch, model_config, path="encoder.albert_layer_groups.N.albert_layers.N"
+):
     def bias_gelu_pattern(x, bias):
         x = bias + x
         x = call_module("activation", x)
@@ -279,7 +264,7 @@ def fuse_bias_gelu(sch, config, path="encoder.albert_layer_groups.N.albert_layer
 # pylint: disable=dangerous-default-value
 def shard_mlp(
     sch,
-    config,
+    model_config,
     path="encoder.albert_layer_groups.N.albert_layers.N",
     fc_names=["ffn", "ffn_output"],
 ):
@@ -295,19 +280,24 @@ def shard_mlp(
         sch[f"{prefix}.{fc_names[1]}"].sync(mode="fwd_post", sync_op_or_fn="all_reduce")
 
 
+@register_schedule_method(MODEL_SHORT_NAME)
 def checkpoint(
-    sch, config, path="encoder.albert_layer_groups.N.albert_layers.N", ckpt_ratio=1.0
+    sch,
+    model_config,
+    path="encoder.albert_layer_groups.N.albert_layers.N",
+    ckpt_ratio=1.0,
 ):
     if ckpt_ratio == 0.0:
         return 0
 
-    n_ckpt = int(config.num_hidden_layers * ckpt_ratio)
+    n_ckpt = int(model_config.num_hidden_layers * ckpt_ratio)
     # TODO: Only checkpoint part of the layers
     for idx in range(1):  # use layer group
         sch[path.replace("N", str(idx))].checkpoint()
     return n_ckpt
 
 
+@register_schedule_method(MODEL_SHORT_NAME)
 def broadcast_input(sch):
     def broadcast(inputs):
         for inp in inputs:

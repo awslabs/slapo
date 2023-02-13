@@ -22,6 +22,11 @@ def verify_weights(module: torch.nn.Module):
         )
 
 
+def get_partial_tensor(param: torch.Tensor, axis: int, rank: int, world_size: int):
+    sharded_size = param.shape[axis] // world_size
+    return param.detach().split(sharded_size, dim=axis)[rank]
+
+
 def init_module(module: torch.nn.Module):
     if isinstance(module, torch.nn.Linear):
         module.weight.data.zero_()
@@ -54,13 +59,38 @@ def test_consolidation_default_init(init_dist, ngpu):
 
     model = Model()
     sch = slapo.create_schedule(copy.deepcopy(model))
+    if ngpu == "multi":
+        # Tensor parallelism.
+        sch["linear1"].shard("weight", axis=0)
+        sch["linear1"].shard("bias", axis=0)
+        sch["linear1"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
+        sch["linear2"].shard("weight", axis=1)
+        sch["linear2"].sync(mode="fwd_post", sync_op_or_fn="all_reduce")
+    else:
+        # Data parallelism.
+        pass
     sch_model, _ = slapo.build(sch, init_weights=False)
 
     model.cuda(local_rank)
     sch_model.cuda(local_rank)
-    torch.testing.assert_allclose(sch_model.linear1.weight, model.linear1.weight)
-    torch.testing.assert_allclose(sch_model.linear1.bias, model.linear1.bias)
-    torch.testing.assert_allclose(sch_model.linear2.weight, model.linear2.weight)
+    torch.testing.assert_allclose(
+        sch_model.linear1.weight,
+        get_partial_tensor(model.linear1.weight, 0, local_rank, sch.world_size)
+        if ngpu == "multi"
+        else model.linear1.weight,
+    )
+    torch.testing.assert_allclose(
+        sch_model.linear1.bias,
+        get_partial_tensor(model.linear1.bias, 0, local_rank, sch.world_size)
+        if ngpu == "multi"
+        else model.linear1.bias,
+    )
+    torch.testing.assert_allclose(
+        sch_model.linear2.weight,
+        get_partial_tensor(model.linear2.weight, 1, local_rank, sch.world_size)
+        if ngpu == "multi"
+        else model.linear2.weight,
+    )
 
 
 @pytest.mark.parametrize("ngpu", ["single", "multi"])

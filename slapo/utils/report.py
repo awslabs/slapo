@@ -1,5 +1,6 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
+# pylint: disable=logging-fstring-interpolation
 
 import gc
 
@@ -32,7 +33,7 @@ def report_memory(msg="", report_gc=False):
                     hasattr(obj, "data") and torch.is_tensor(obj.data)
                 ):
                     if dist.get_rank() == 0:
-                        logger.info("GC Tensor", type(obj), obj.size())
+                        logger.info(f"GC Tensor: {type(obj)}, {obj.size()}")
                     tc += obj.numel()
             except Exception:
                 pass

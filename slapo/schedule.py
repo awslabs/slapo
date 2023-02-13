@@ -519,9 +519,9 @@ class Schedule:
     def get_module(self, name):
         return dict(self.mod.named_modules())[name]
 
-    def construct_fx_graph(self, subgraph):
+    def _construct_fx_graph(self, subgraph):
         """Construct a new fx.Graph based on the subgraph extracted from the
-        original graph.
+        original graph. This function should NOT be called directly.
 
         Parameters
         ----------
@@ -778,7 +778,7 @@ class SubgraphWrapper(nn.Module):
             return self.find_node(regex_or_pattern_fn)
         raise RuntimeError(f"Unrecognized pattern type {type(regex_or_pattern_fn)}")
 
-    def replace_function(self, func, target_op):
+    def _replace_function(self, func, target_op):
         """Replace a function, in terms of a call_function node in fx graph.
         Do NOT directly call this function, use `.replace()` instead
 
@@ -795,7 +795,7 @@ class SubgraphWrapper(nn.Module):
             node.replace_all_uses_with(new_node)
         self.mod.graph.erase_node(node)
 
-    def replace_module(self, new_mod, subgraphs=None, name=None):
+    def _replace_module(self, new_mod, subgraphs=None, name=None):
         """Replace an entire module with a new one.
         Do NOT directly call this function, use `.replace()` instead.
 
@@ -917,9 +917,9 @@ class SubgraphWrapper(nn.Module):
                 raise ValueError(
                     "Cannot replace multiple subgraphs in forward with one function"
                 )
-            self.replace_function(new_mod_or_func, target_ops)
+            self._replace_function(new_mod_or_func, target_ops)
         else:
-            self.replace_module(new_mod_or_func, target_ops, name)
+            self._replace_module(new_mod_or_func, target_ops, name)
 
         # Clean up and update the schedule child list.
         if isinstance(self.mod, fx.GraphModule):
@@ -957,7 +957,7 @@ class SubgraphWrapper(nn.Module):
         assert (
             len(subgraph) == 1 and len(subgraph[0]) > 1
         ), "Only vertical fusion is supported"
-        new_gm = self.construct_fx_graph(subgraph[0])
+        new_gm = self._construct_fx_graph(subgraph[0])
         new_mod = torch.jit.script(new_gm)
         self.replace(new_mod, subgraph, name)
 
@@ -1011,7 +1011,7 @@ class SubgraphWrapper(nn.Module):
             self.replace(CheckPointWrapper(self.mod))
         else:
             # Checkpoint the subgraph
-            new_gm = self.construct_fx_graph(subgraph[0])
+            new_gm = self._construct_fx_graph(subgraph[0])
             self.replace(CheckPointWrapper(new_gm), subgraph)
 
     @register_primitive()

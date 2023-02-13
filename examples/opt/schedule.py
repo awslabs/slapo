@@ -42,7 +42,7 @@ def fix_attention_mask_shape(sch):
         return out.contiguous()
 
     for op in ops:
-        sch.replace(new_expand, op[1])
+        sch.replace(new_expand, op)
 
 
 def replace_and_shard_attention(
@@ -152,7 +152,7 @@ def remove_cast(sch, config, attn_path="h.N.attn.attention"):
         )
 
         for op in ops:
-            sub_sch.replace(lambda x, *args: x, op[1])
+            sub_sch.replace(lambda x, *args: x, op)
             cnt += 1
     return cnt
 

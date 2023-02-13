@@ -523,6 +523,48 @@ class Schedule:
     def get_module(self, name):
         return dict(self.mod.named_modules())[name]
 
+    def _construct_fx_graph(self, subgraph):
+        """Construct a new fx.Graph based on the subgraph extracted from the
+        original graph. This function should NOT be called directly.
+
+        Parameters
+        ----------
+        subgraph : List[Tuple[str, Node]]
+            The extracted subgraph from .find() containing the path of the node
+            and the corresponding fx.Node.
+
+        Returns
+        -------
+        fx.Graph
+            The new fx.Graph constructed from the subgraph.
+        """
+        #
+        new_graph = fx.Graph()
+        # Create input arguments for the new graph
+        node_names = []
+        value_remap = {}
+        for _, node in subgraph:
+            for arg in node.args:
+                if isinstance(arg, fx.Node) and arg.name not in node_names:
+                    value_remap[arg] = new_graph.placeholder(arg.name)
+                    node_names.append(arg.name)
+            node_names.append(node.name)
+        # Copy nodes from extracted subgraph to new graph
+        mod_mapping = {}
+        for _, node in subgraph:
+            value_remap[node] = new_graph.node_copy(node, lambda n: value_remap[n])
+            if node.op == "call_module":
+                mod = self.get_module(node.target)
+                mod_mapping[node.target] = mod
+        # Return output from new graph
+        new_graph.output(value_remap[subgraph[-1][1]])
+        new_gm = fx.GraphModule(mod_mapping, new_graph)
+        new_gm.delete_all_unused_submodules()
+        new_gm.graph.eliminate_dead_code()
+        new_gm.graph.lint()
+        new_gm.recompile()
+        return new_gm
+
     def find_node(self, regex_or_pattern_fn):
         """Find a node in a static dataflow graph
 
@@ -535,7 +577,7 @@ class Schedule:
             The pattern_fn should be in `lambda node: ...` format.
 
         Returns
-        ----------
+        -------
         Union[List[Tuple[str, fx.Node]], List[List[Tuple[str, fx.Node]]]
             Returns all the nodes whose names satisfying the regex, or the nodes satisfying
             the given pattern constraints.
@@ -572,7 +614,7 @@ class Schedule:
             class provides the ability to create patterns include submodules.
 
         Returns
-        ----------
+        -------
         List[List[Tuple[str, fx.Node]]
             Returns all the subgraphs containing the nodes satisfying the pattern constraints.
             The outer-most list contains different subgraphs, and the inner list contains
@@ -725,7 +767,7 @@ class SubgraphWrapper(nn.Module):
             a callable function/Pattern class specifying the subgraph pattern
 
         Returns
-        ----------
+        -------
         Union[List[Tuple[str, fx.Node]], List[List[Tuple[str, fx.Node]]]
             For `find_node`, it returns all the nodes whose names satisfying the regex.
             For `find_subgraph`, it returns all the subgraphs containing the nodes
@@ -740,7 +782,7 @@ class SubgraphWrapper(nn.Module):
             return self.find_node(regex_or_pattern_fn)
         raise RuntimeError(f"Unrecognized pattern type {type(regex_or_pattern_fn)}")
 
-    def replace_function(self, func, target_op):
+    def _replace_function(self, func, target_op):
         """Replace a function, in terms of a call_function node in fx graph.
         Do NOT directly call this function, use `.replace()` instead
 
@@ -759,7 +801,7 @@ class SubgraphWrapper(nn.Module):
             node.replace_all_uses_with(new_node)
         self.mod.graph.erase_node(node)
 
-    def replace_module(self, new_mod, subgraphs=None, name=None):
+    def _replace_module(self, new_mod, subgraphs=None, name=None):
         """Replace an entire module with a new one.
         Do NOT directly call this function, use `.replace()` instead.
 
@@ -896,9 +938,9 @@ class SubgraphWrapper(nn.Module):
                 raise ValueError(
                     "Cannot replace multiple nodes in forward with one function"
                 )
-            self.replace_function(new_mod_or_func, target_ops)
+            self._replace_function(new_mod_or_func, target_ops)
         else:
-            self.replace_module(new_mod_or_func, target_ops, name)
+            self._replace_module(new_mod_or_func, target_ops, name)
 
         # Clean up and update the schedule child list.
         if isinstance(self.mod, fx.GraphModule):
@@ -936,34 +978,7 @@ class SubgraphWrapper(nn.Module):
         assert (
             len(subgraph) == 1 and len(subgraph[0]) > 1
         ), "Only vertical fusion is supported"
-        # Construct a new fx.Graph
-        new_graph = fx.Graph()
-        # Since the extracted subgraph from .find() is a list of list,
-        # only the first element contains the nodes
-        path_and_nodes = subgraph[0]
-        # Create input arguments for the new graph
-        node_names = []
-        value_remap = {}
-        for _, node in path_and_nodes:
-            for arg in node.args:
-                if isinstance(arg, fx.Node) and arg.name not in node_names:
-                    value_remap[arg] = new_graph.placeholder(arg.name)
-                    node_names.append(arg.name)
-            node_names.append(node.name)
-        # Copy nodes from extracted subgraph to new graph
-        mod_mapping = {}
-        for _, node in path_and_nodes:
-            value_remap[node] = new_graph.node_copy(node, lambda n: value_remap[n])
-            if node.op == "call_module":
-                mod = self.get_module(node.target)
-                mod_mapping[node.target] = mod
-        # Return output from new graph
-        new_graph.output(value_remap[path_and_nodes[-1][1]])
-        new_gm = fx.GraphModule(mod_mapping, new_graph)
-        new_gm.delete_all_unused_submodules()
-        new_gm.graph.eliminate_dead_code()
-        new_gm.graph.lint()
-        new_gm.recompile()
+        new_gm = self._construct_fx_graph(subgraph[0])
         new_mod = torch.jit.script(new_gm)
         self.replace(new_mod, subgraph, name)
 
@@ -994,7 +1009,7 @@ class SubgraphWrapper(nn.Module):
             self.replace(new_mod)
 
     @register_primitive()
-    def checkpoint(self, order_args_fn=None):
+    def checkpoint(self, subgraph=None, order_args_fn=None):
         class CheckPointWrapper(nn.Module):
             def __init__(self, mod) -> None:
                 super().__init__()
@@ -1012,7 +1027,13 @@ class SubgraphWrapper(nn.Module):
                 # Note: checkpoint cannot accept kwargs
                 return checkpoint_module(self.mod, *ordered_args)
 
-        self.replace(CheckPointWrapper(self.mod))
+        if subgraph is None:
+            # Checkpoint the entire module.
+            self.replace(CheckPointWrapper(self.mod))
+        else:
+            # Checkpoint the subgraph
+            new_gm = self._construct_fx_graph(subgraph[0])
+            self.replace(CheckPointWrapper(new_gm), subgraph)
 
     @register_primitive()
     def cut_pipeline_stage(self):

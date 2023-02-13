@@ -39,7 +39,11 @@ from .sharding import (
 from .tracer import trace as trace_module
 from .initialization import init_empty_weights
 from .op.linear import LinearWithSeparateBias
-from .utils.common import transfer_hooks, has_hook, is_lambda_function
+from .utils.common import (
+    transfer_hooks,
+    transfer_hooks_for_fusion,
+    is_lambda_function,
+)
 from .utils.mapping import MAPPING_FROM_FUNCTIONAL_TO_MODULE
 from .pattern import Pattern, ModulePattern, call_module
 
@@ -755,7 +759,6 @@ class SubgraphWrapper(nn.Module):
             node.replace_all_uses_with(new_node)
         self.mod.graph.erase_node(node)
 
-    # pylint: disable=too-many-branches
     def replace_module(self, new_mod, subgraphs=None, name=None):
         """Replace an entire module with a new one.
         Do NOT directly call this function, use `.replace()` instead.
@@ -775,9 +778,12 @@ class SubgraphWrapper(nn.Module):
             will be automatically generated.
         """
         if subgraphs is None:
-            if name is not None:
-                raise RuntimeError(
-                    "Cannot specify name when replacing the whole module"
+            if name is not None and name != self.name:
+                logger.warning(
+                    "Cannot change the name of %s when replacing the whole module. "
+                    "The given name %s will be ignored",
+                    self.name,
+                    name,
                 )
             name = self.name
         else:
@@ -786,7 +792,6 @@ class SubgraphWrapper(nn.Module):
             name = _get_unique_module_name(self.mod, name)
         # Create a new schedule for the replaced module
         new_sch = create_schedule(new_mod, name, self.path, self.parent, self.group)
-        hook_types = ["fwd_pre", "fwd_post", "bwd_post"]
         # Replace the corresponding part in the current module
         if subgraphs is None:
             # If subgraphs is None, replace the whole self module.
@@ -837,17 +842,7 @@ class SubgraphWrapper(nn.Module):
                             if node.users not in sublst:
                                 node.replace_all_uses_with(getitem)
                             target_mod.graph.erase_node(node)
-                # Since horizontal fusion needs to combine the hooks together,
-                # we cannot support it for now.
-                for i, sublst in enumerate(subgraphs):
-                    for _, node in sublst:
-                        if node.op == "call_module":
-                            old_mod = self.get_module(node.target)
-                            for hook in hook_types:
-                                if has_hook(old_mod, hook) > 0:
-                                    raise RuntimeError(
-                                        f"Cannot use horizontal fusion since module {node.target} has a {hook} hook"
-                                    )
+                transfer_hooks_for_fusion(self, subgraphs, new_mod)
             else:
                 # vertical fusion, e.g.,
                 # s0->v0
@@ -886,27 +881,7 @@ class SubgraphWrapper(nn.Module):
                 last_node.replace_all_uses_with(new_node)
                 for node in reversed(ops):
                     target_mod.graph.erase_node(node)
-                for i, node in enumerate(ops):
-                    if node.op == "call_module":
-                        old_mod = self.get_module(node.target)
-                        if i == 0:
-                            if has_hook(old_mod, "fwd_post"):
-                                raise RuntimeError(
-                                    f"Cannot transfer hooks from {node.target} to {name} since {node.target} has a fwd_post hook"
-                                )
-                            transfer_hooks(old_mod, new_mod, ["fwd_pre", "bwd_post"])
-                        elif i == len(ops) - 1:
-                            if has_hook(old_mod, "fwd_pre") or has_hook(
-                                old_mod, "bwd_post"
-                            ):
-                                raise RuntimeError(
-                                    f"Cannot transfer hooks from {node.target} to {name} since {node.target} has a fwd_pre/bwd_post hook"
-                                )
-                            transfer_hooks(old_mod, new_mod, ["fwd_post"])
-                        elif any(has_hook(old_mod, x) for x in hook_types):
-                            raise RuntimeError(
-                                f"Cannot transfer hooks from {node.target} to {name} since {node.target} is in the middle of the subgraph"
-                            )
+                transfer_hooks_for_fusion(self, subgraphs, new_mod)
             # Update schedules
             self.child[name] = new_sch
 

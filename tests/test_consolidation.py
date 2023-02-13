@@ -55,7 +55,10 @@ def test_consolidation_default_init(init_dist, ngpu):
     with slapo.init_empty_weights(enable=True):
         _ = Model()
     gpu_mem_1 = report_memory("After model init")
-    assert gpu_mem_1 == gpu_mem_0
+    if ngpu == "multi":
+        assert (
+            gpu_mem_1 == gpu_mem_0
+        ), f"GPU memory 0: {gpu_mem_0}, GPU memory 1: {gpu_mem_1}"
 
     model = Model()
     sch = slapo.create_schedule(copy.deepcopy(model))

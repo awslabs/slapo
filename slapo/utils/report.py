@@ -17,13 +17,11 @@ def report_memory(msg="", report_gc=False):
     logger.info(
         f"{msg} CPU RAM used: {psutil.virtual_memory()[3] / 1024 / 1024 / 1024:.4f} GiB"
     )
-    if not dist.is_initialized():
-        return 0.0
     torch.cuda.empty_cache()
     torch.cuda.reset_peak_memory_stats()
-    gpu_mem = torch.cuda.max_memory_allocated()
+    gpu_mem = torch.cuda.max_memory_allocated(torch.cuda.current_device()) / 1024 / 1024
     logger.info(
-        f"{msg} GPU rank {dist.get_rank()} used: {gpu_mem / 1024 / 1024:.4f} MiB"
+        f"{msg} GPU rank {dist.get_rank() if dist.is_initialized() else 0} used: {gpu_mem:.4f} MiB"
     )
     if report_gc:
         gc.collect()

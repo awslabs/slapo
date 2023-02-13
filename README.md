@@ -89,7 +89,7 @@ And the following primitives for static graph optimizations:
 | Pattern matching | `s.find(regex_or_pattern_fn)` |
 | Operator fusion | `s[op].fuse(compiler, subgraph)` |
 | Partial module replacement | `s[op].replace(new_module, subgraph)` |
-| Partial gradient checkpointing | `s[op].checkpoint()` |
+| Partial gradient checkpointing | `s[op].checkpoint(subgraph)` |
 | Pipeline parallelism | `s[op].pipeline_split()` |
 
 

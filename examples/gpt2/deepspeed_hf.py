@@ -144,6 +144,12 @@ def train(args):
         lm_loss = lm_loss.contiguous().mean()
         return lm_loss
 
+    # After scheduling, we check again whether the pipeline is really enabled.
+    # If users specified to enable pipeline but the number of pipeline stage is 1,
+    # then we set enable_pipeline=False for the rest process to propertly setup
+    # DeepSpeed config and runtime engine.
+    enable_pipeline = enable_pipeline and pipeline_cuts
+
     if enable_pipeline:
         batch_size = 16 if batch_size is None else batch_size
         micro_batch_size = 4 if micro_batch_size is None else micro_batch_size
@@ -171,8 +177,8 @@ def train(args):
         if batch_size is None and micro_batch_size is not None:
             batch_size = micro_batch_size * args.world_size
 
-        # if the TP == 1 use zero 3, otherwise use stage-1 optimizer
-        zero_opt_stage = 3 if args.tmp == 1 else 1
+        # if the TP == 1 use zero 3, otherwise disable ZeRO.
+        zero_opt_stage = 3 if args.tmp == 1 else 0
         logger.info(f"BS={batch_size}, MBS={micro_batch_size}", ranks=0)
         ds_config_dict = get_ds_config(
             batch_size,
@@ -202,8 +208,6 @@ def train(args):
             tp_rank,
         )
 
-    # for now always use seq_length 1024
-    # TODO: make the dataloader generic to different sequence length
     train_loader, _ = get_dataloader(
         args.model_name,
         micro_batch_size,

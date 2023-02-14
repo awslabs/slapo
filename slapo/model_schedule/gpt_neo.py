@@ -1,12 +1,8 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 """HuggingFace GPT-Neo with model schedule."""
-# pylint: disable=unused-argument
-
-import inspect
 
 from torch import nn
-from torch.distributed import distributed_c10d as dist
 
 from ..schedule import create_schedule
 from ..op import FlashAttention, FlashAttentionOp, FusedMLP
@@ -15,6 +11,8 @@ from ..random import get_cuda_rng_tracker
 from ..sharding import reduce_forward_output
 from ..logger import get_logger
 from .registry import register_schedule_method
+
+from .gpt2 import generate_pipeline_schedule, broadcast_input
 
 
 @register_schedule_method()
@@ -95,46 +93,43 @@ def shard_parameters(sch, model_config, sch_config):
     prefix = sch_config.get("prefix", "")
     delay_init = sch_config.get("delay_init", True)
     sequence_parallel = sch_config.get("sequence_parallel", False)
-    # Replace self attention with flash attention, and shard QKV/output
-    # if MP group > 1.
+    # Replace self attention with flash attention.
     attn_op_name = sch_config.get("attn_op_name", "cuda")
     if attn_op_name == "native_xformers":
         logger.info("Disabled Flash Attention", ranks=0)
-    cnt, applied_attn_op_name = replace_and_shard_attention(
+    cnt, applied_attn_op_name = replace_attention(
         sch[prefix],
         model_config,
         delay_init=delay_init,
         attn_op_name=attn_op_name,
-        sequence_parallel=sequence_parallel,
     )
     logger.info(
         "Replace %d attention layers with %s op", cnt, applied_attn_op_name, ranks=0
     )
 
+    # Replace MLP with fused kernels.
+    cnt = replace_mlp(sch[prefix], model_config, delay_init=delay_init)
+    logger.info("Replaced %d MLP layers", cnt, ranks=0)
+
     # Shard other parameters if MP group > 1.
     if sch.world_size > 1:
-        replace_and_shard_mlp(
-            sch[prefix],
-            model_config,
-            delay_init=delay_init,
-            sequence_parallel=sequence_parallel,
-        )
         head_sch = sch["lm_head"] if "lm_head" in sch else None
-        shard_word_embedding(
+        shard_target = ["embed", "attention", "mlp"]
+        shard(
             sch[prefix],
             head_sch,
-            model_config.vocab_size,
+            model_config,
+            shard_target,
             sequence_parallel=sequence_parallel,
         )
 
 
-def replace_and_shard_attention(
+def replace_attention(
     sch,
     model_config,
     attn_path="h.N.attn.attention",
     delay_init=True,
     attn_op_name="cuda",
-    sequence_parallel=False,
 ):
     """Replace the attention module with flash attention.
 
@@ -214,13 +209,6 @@ def replace_and_shard_attention(
             # is present_key_value and only used by in inference.
             return outputs[:1]
 
-    class AttentionOpWithRNG(FlashAttentionOp):
-        def forward(self, query_layer, key_layer, value_layer, attention_mask, p):
-            with get_cuda_rng_tracker().fork():
-                return super().forward(
-                    query_layer, key_layer, value_layer, attention_mask, p
-                )
-
     cnt = 0
     attn_op = []
     for idx in range(model_config.num_layers):
@@ -229,48 +217,6 @@ def replace_and_shard_attention(
             new_mod = Attention(**init_config)
             attn_op.append(new_mod.module.attn_op_name)
         sub_sch.replace(new_mod)
-
-        if sch.world_size > 1:
-            sub_sch.trace(
-                tracer="pytorch",
-                leaf_modules=["FlashAttentionOp"],
-                concrete_args={
-                    "layer_past": None,
-                    "head_mask": None,
-                    "encoder_hidden_states": None,
-                    "encoder_attention_mask": None,
-                    "use_cache": False,
-                    "output_attentions": False,
-                },
-            )
-            sub_sch["module.qkv"].shard("weight", axis=0)
-            sub_sch["module.out_proj"].shard("weight", axis=1)
-            fix_attention_mask_shape(sub_sch["module"])
-
-            if sequence_parallel:
-                sub_sch["module.qkv"].sync(
-                    mode="fwd_pre", sync_op_or_fn="all_gather", axis=1
-                )
-
-                sub_sch["module.out_proj"].sync(
-                    mode="fwd_post", sync_op_or_fn="reduce_scatter", axis=1
-                )
-            else:
-                # Shard qkv and output projection.
-                sub_sch["module.qkv"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
-                sub_sch["module.out_proj"].sync(
-                    mode="fwd_post", sync_op_or_fn="all_reduce"
-                )
-
-                # In this case, the attention dropout in between has to
-                # use different random seeds.
-                new_op = AttentionOpWithRNG(
-                    sub_sch["module"]["attn_op"].mod.attn_op_name,
-                    sub_sch["module"]["attn_op"].mod.apply_causal_mask,
-                    sub_sch["module"]["attn_op"].mod.scale,
-                )
-                sub_sch["module"]["attn_op"].replace(new_op)
-
         cnt += 1
 
     # Check if all attention ops are the same.
@@ -283,21 +229,60 @@ def replace_and_shard_attention(
     return cnt, attn_op[0]
 
 
-def shard_word_embedding(
+def replace_mlp(
     sch,
-    head_sch,
-    vocab_size,
-    word_embed_name="wte",
-    pos_embed_name="wpe",
-    final_ln_name="ln_f",
-    sequence_parallel=False,
+    model_config,
+    path="h.N.mlp",
+    delay_init=True,
 ):
-    if sch.world_size == 1:
-        return
+    """Replace the MLP module with a fused MLP module.
 
-    # Embedding
-    sch[word_embed_name].shard("weight", axis=0)
-    # Build the mask
+    Parameters
+    ----------
+    sch : slapo.Schedule
+        The schedule of the entire model.
+    model_config : GPT2Config
+        The model configuration.
+    path : str
+        The path to the MLP module.
+    delay_init : bool
+        Whether to delay the initialization of the new module.
+
+    Returns
+    -------
+    int
+        The number of MLP layers replaced.
+    """
+    for idx in range(model_config.num_layers):
+        prefix = path.replace("N", str(idx))
+        sub_sch = sch[prefix]
+        inter_size, hidden_size = sub_sch.mod.c_fc.weight.shape
+        with init_empty_weights(enable=delay_init):
+            new_mod = FusedMLP(
+                hidden_size,
+                inter_size,
+                model_config.activation_function,
+                model_config.resid_dropout,
+            )
+        sub_sch.replace(new_mod)
+    return model_config.num_layers
+
+
+def gen_embedding_hooks(sch, vocab_size):
+    """Generate hooks for input embedding layer to deal with word embedding sharding.
+
+    Parameters
+    ----------
+    sch : slapo.Schedule
+        The schedule of the entire model.
+    vocab_size : int
+        The total vocabulary size.
+
+    Returns
+    -------
+    tuple(callable, callable)
+        The forward pre-hook and post-hook for the embedding layer.
+    """
     vocab_start_index = sch.rank * vocab_size // sch.world_size
     vocab_end_index = (sch.rank + 1) * vocab_size // sch.world_size
 
@@ -308,8 +293,6 @@ def shard_word_embedding(
         masked_input[input_mask] = 0
         return masked_input
 
-    sch[word_embed_name].sync(mode="fwd_pre", sync_op_or_fn=fwd_pre_hook)
-
     def fwd_post_hook(_module, _input, output):
         # Mask the output embedding
         input_mask = (_input[0] < vocab_start_index) | (_input[0] >= vocab_end_index)
@@ -318,22 +301,7 @@ def shard_word_embedding(
         output = reduce_forward_output(output, sch.group)
         return output
 
-    sch[word_embed_name].sync(mode="fwd_post", sync_op_or_fn=fwd_post_hook)
-
-    if sequence_parallel:
-        sch[word_embed_name].sync(mode="fwd_post", sync_op_or_fn="scatter", axis=1)
-        sch[pos_embed_name].sync(mode="fwd_post", sync_op_or_fn="scatter", axis=1)
-        sch[final_ln_name].sync(
-            mode="fwd_post",
-            sync_op_or_fn="all_gather",
-            axis=1,
-            tensor_parallel_output_grad=False,
-        )
-
-    # Shard output embedding.
-    if head_sch is not None:
-        head_sch.shard("weight", axis=0)
-        head_sch.sync(mode="bwd_post", sync_op_or_fn="all_reduce")
+    return fwd_pre_hook, fwd_post_hook
 
 
 def fix_attention_mask_shape(sch):
@@ -361,65 +329,138 @@ def fix_attention_mask_shape(sch):
         sch.replace(new_expand, op)
 
 
-# pylint: disable=dangerous-default-value
-def replace_and_shard_mlp(
+class AttentionOpWithRNG(FlashAttentionOp):
+    def forward(self, query_layer, key_layer, value_layer, attention_mask, p):
+        with get_cuda_rng_tracker().fork():
+            return super().forward(
+                query_layer, key_layer, value_layer, attention_mask, p
+            )
+
+
+def shard(
     sch,
+    head_sch,
     model_config,
-    path="h.N.mlp",
-    fc_names=["c_fc", "c_proj"],
-    delay_init=True,
+    shard_target,
     sequence_parallel=False,
 ):
-    for idx in range(model_config.num_layers):
-        prefix = path.replace("N", str(idx))
-        if model_config.activation_function in {"gelu", "gelu_new"}:
-            sub_sch = sch[prefix]
-            inter_size, hidden_size = sub_sch.mod.c_fc.weight.shape
-            with init_empty_weights(enable=delay_init):
-                new_mod = FusedMLP(
-                    hidden_size,
-                    inter_size,
-                    model_config.activation_function,
-                    model_config.resid_dropout,
-                )
-            sub_sch.replace(new_mod)
-            sub_sch.trace(leaf_modules=["FusedBiasGELU", "FusedBiasNewGELU"])
+    """Shard the model for tensor parallelism. This function assumes
+    the attention layers are already replaced with the Slapo ops.
 
-            if sch.world_size > 1:
-                sub_sch["fc_in"].shard("weight", axis=0)
-                sub_sch["act"].shard("bias", axis=0)
-                sub_sch["fc_out"].shard("weight", axis=1)
+    Parameters
+    ----------
+    sch : slapo.Schedule
+        The schedule of the transformer model.
+    head_sch : slapo.Schedule
+        The schedule of the lm_head.
+    model_config: GPT2Config
+        The configuration of the model.
+    shard_target : list[str]
+        The sharding target. This function shards the corresponding layers
+        specified in this target. It could include "embed", "attention", "mlp".
+    sequence_parallel : bool
+        Whether to use sequence parallelism. Default False.
+    """
 
-                if sequence_parallel:
-                    sub_sch["fc_in"].sync(
-                        mode="fwd_pre", sync_op_or_fn="all_gather", axis=1
-                    )
-                    sub_sch["fc_out"].sync(
-                        mode="fwd_post", sync_op_or_fn="reduce_scatter", axis=1
-                    )
-                else:
-                    sub_sch["fc_in"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
-                    sub_sch["fc_out"].sync(mode="fwd_post", sync_op_or_fn="all_reduce")
+    if sch.world_size == 1:
+        return
 
-        elif sch.world_size > 1:
-            sch[f"{prefix}.{fc_names[0]}"].shard("weight", axis=0)
-            sch[f"{prefix}.{fc_names[0]}"].shard("bias", axis=0)
-            sch[f"{prefix}.{fc_names[1]}"].shard("weight", axis=1)
+    # Shard input embedding.
+    if "embed" in shard_target:
+        word_embed_name, pos_embed_name, final_ln_name = "wte", "wpe", "ln_f"
+
+        sch[word_embed_name].shard("weight", axis=0)
+        fwd_pre_hook, fwd_post_hook = gen_embedding_hooks(sch, model_config.vocab_size)
+        sch[word_embed_name].sync(mode="fwd_pre", sync_op_or_fn=fwd_pre_hook)
+        sch[word_embed_name].sync(mode="fwd_post", sync_op_or_fn=fwd_post_hook)
+
+        if sequence_parallel:
+            sch[word_embed_name].sync(mode="fwd_post", sync_op_or_fn="scatter", axis=1)
+            sch[pos_embed_name].sync(mode="fwd_post", sync_op_or_fn="scatter", axis=1)
+            sch[final_ln_name].sync(
+                mode="fwd_post",
+                sync_op_or_fn="all_gather",
+                axis=1,
+                tensor_parallel_output_grad=False,
+            )
+
+        # Shard output embedding.
+        if head_sch is not None:
+            head_sch.shard("weight", axis=0)
+            head_sch.sync(mode="bwd_post", sync_op_or_fn="all_reduce")
+
+    # Shard attention.
+    if "attention" in shard_target:
+        path = "h.N.attn.attention"
+
+        for idx in range(model_config.num_layers):
+            sub_sch = sch[path.replace("N", str(idx))]
+            sub_sch["module.qkv"].shard("weight", axis=0)
+            sub_sch["module.out_proj"].shard("weight", axis=1)
+
+            # Fix attention mask shape to consider the sharded size. This requires
+            # the attention module to be in static graph, and thus we need to trace it.
+            sub_sch.trace(
+                tracer="pytorch",
+                leaf_modules=["FlashAttentionOp"],
+                concrete_args={
+                    "layer_past": None,
+                    "head_mask": None,
+                    "encoder_hidden_states": None,
+                    "encoder_attention_mask": None,
+                    "use_cache": False,
+                    "output_attentions": False,
+                },
+            )
+            fix_attention_mask_shape(sub_sch["module"])
 
             if sequence_parallel:
-                sch[f"{prefix}.{fc_names[0]}"].sync(
+                sub_sch["module.qkv"].sync(
                     mode="fwd_pre", sync_op_or_fn="all_gather", axis=1
                 )
-                sch[f"{prefix}.{fc_names[1]}"].sync(
+
+                sub_sch["module.out_proj"].sync(
                     mode="fwd_post", sync_op_or_fn="reduce_scatter", axis=1
                 )
             else:
-                sch[f"{prefix}.{fc_names[0]}"].sync(
-                    mode="bwd_post", sync_op_or_fn="all_reduce"
-                )
-                sch[f"{prefix}.{fc_names[1]}"].sync(
+                # Shard qkv and output projection.
+                sub_sch["module.qkv"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
+                sub_sch["module.out_proj"].sync(
                     mode="fwd_post", sync_op_or_fn="all_reduce"
                 )
+
+                # In this case, the attention dropout in between has to
+                # use different random seeds.
+                new_op = AttentionOpWithRNG(
+                    sub_sch["module"]["attn_op"].mod.attn_op_name,
+                    sub_sch["module"]["attn_op"].mod.apply_causal_mask,
+                    sub_sch["module"]["attn_op"].mod.scale,
+                )
+                sub_sch["module"]["attn_op"].replace(new_op)
+
+    # Shard MLP.
+    if "mlp" in shard_target:
+        path = "h.N.mlp"
+
+        for idx in range(model_config.num_layers):
+            prefix = path.replace("N", str(idx))
+            sub_sch = sch[prefix]
+            fc_names = ["fc_in", "act", "fc_out"]
+
+            sub_sch[fc_names[0]].shard("weight", axis=0)
+            sub_sch[fc_names[1]].shard("bias", axis=0)
+            sub_sch[fc_names[2]].shard("weight", axis=1)
+
+            if sequence_parallel:
+                sub_sch[fc_names[0]].sync(
+                    mode="fwd_pre", sync_op_or_fn="all_gather", axis=1
+                )
+                sub_sch[fc_names[2]].sync(
+                    mode="fwd_post", sync_op_or_fn="reduce_scatter", axis=1
+                )
+            else:
+                sub_sch[fc_names[0]].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
+                sub_sch[fc_names[2]].sync(mode="fwd_post", sync_op_or_fn="all_reduce")
 
 
 def checkpoint(
@@ -460,69 +501,11 @@ def checkpoint(
         # )
         return (args[0], None, attention_mask, head_mask, False, output_attentions)
 
-    n_ckpt = int(model_config.num_hidden_layers * ckpt_ratio)
+    n_ckpt = int(model_config.num_layers * ckpt_ratio)
     if checkpoint_method == "head":
         for idx in range(n_ckpt):
             sch[path.replace("N", str(idx))].checkpoint(order_args_fn=order_args_fn)
     elif checkpoint_method == "uniform" and ckpt_ratio > 0:
-        for idx in range(
-            0, model_config.num_hidden_layers, max(1, int(1 / ckpt_ratio))
-        ):
+        for idx in range(0, model_config.num_layers, max(1, int(1 / ckpt_ratio))):
             sch[path.replace("N", str(idx))].checkpoint(order_args_fn=order_args_fn)
     return n_ckpt
-
-
-def broadcast_input(sch):
-    """Add a hook in the beginning of the model to broadcast the input.
-    This is used when tensor parallelism is used and the runtime does not
-    broadcast the input automatically.
-
-    Parameters
-    ----------
-    sch : slapo.Schedule
-        The schedule of the model.
-    """
-    group_src_rank = dist.get_global_rank(sch.group, 0)
-
-    def _broadcast_input(module, inputs):
-        for inp in inputs:
-            if inp is not None:
-                dist.broadcast(inp, src=group_src_rank, group=sch.group)
-        return inputs
-
-    sch.sync(mode="fwd_pre", sync_op_or_fn=_broadcast_input)
-
-
-def generate_pipeline_schedule(sch, sch_config):
-    """Trace the top module of the model and cut the pipeline stages.
-
-    Parameters
-    ----------
-    sch : slapo.Schedule
-        The schedule to be cut.
-    sch_config : dict
-        The configuration of the schedule. Should contain the following keys:
-        prefix : str
-            The prefix of the top module.
-        pipeline_cuts : list[str]
-            The list of attention layer index indicating cut points.
-    """
-    pipeline_cuts = sch_config.get("pipeline_cuts", None)
-    prefix = sch_config.get("prefix", "")
-    # Cut pipeline stages.
-    if pipeline_cuts:
-        input_names = ["input_ids", "attention_mask", "position_ids"]
-        sig = inspect.signature(sch.mod.forward)
-        concrete_args = {
-            p.name: p.default
-            for p in sig.parameters.values()
-            if p.name not in input_names
-        }
-        sch.trace_for_pipeline(
-            f"{prefix}", tracer="huggingface", concrete_args=concrete_args
-        )
-        _prefix = f"{prefix}." if prefix else ""
-        for cut in pipeline_cuts:
-            sch[f"{_prefix}h.{cut}"].cut_pipeline_stage()
-
-    return sch

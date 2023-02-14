@@ -95,11 +95,25 @@ def shard_parameters(sch, model_config, sch_config):
     prefix = sch_config.get("prefix", "")
     delay_init = sch_config.get("delay_init", True)
     sequence_parallel = sch_config.get("sequence_parallel", False)
+    # Replace self attention with flash attention.
+    attn_op_name = sch_config.get("attn_op_name", "cuda")
+    if attn_op_name == "native_xformers":
+        logger.info("Disabled Flash Attention", ranks=0)
+    cnt, applied_attn_op_name = replace_attention(
+        sch[prefix],
+        model_config,
+        delay_init=delay_init,
+        attn_op_name=attn_op_name,
+    )
+    logger.info(
+        "Replace %d attention layers with %s op", cnt, applied_attn_op_name, ranks=0
+    )
+
     # Replace MLP with fused kernels.
     cnt = replace_mlp(sch[prefix], model_config, delay_init=delay_init)
     logger.info("Replaced %d MLP layers", cnt, ranks=0)
 
-    # Shard parameters if MP group > 1.
+    # Shard other parameters if MP group > 1.
     if sch.world_size > 1:
         head_sch = sch["lm_head"] if "lm_head" in sch else None
         shard_target = ["embed", "attention", "mlp"]
@@ -561,14 +575,20 @@ def generate_pipeline_schedule(sch, sch_config):
     """
     pipeline_cuts = sch_config.get("pipeline_cuts", None)
     prefix = sch_config.get("prefix", "")
-    input_names = ["input_ids", "attention_mask", "position_ids"]
-    sig = inspect.signature(sch.mod.forward)
-    concrete_args = {
-        p.name: p.default for p in sig.parameters.values() if p.name not in input_names
-    }
-    sch.trace_for_pipeline(
-        f"{prefix}", tracer="huggingface", concrete_args=concrete_args
-    )
-    _prefix = f"{prefix}." if prefix else ""
-    for cut in pipeline_cuts:
-        sch[f"{_prefix}h.{cut}"].cut_pipeline_stage()
+    # Cut pipeline stages.
+    if pipeline_cuts:
+        input_names = ["input_ids", "attention_mask", "position_ids"]
+        sig = inspect.signature(sch.mod.forward)
+        concrete_args = {
+            p.name: p.default
+            for p in sig.parameters.values()
+            if p.name not in input_names
+        }
+        sch.trace_for_pipeline(
+            f"{prefix}", tracer="huggingface", concrete_args=concrete_args
+        )
+        _prefix = f"{prefix}." if prefix else ""
+        for cut in pipeline_cuts:
+            sch[f"{_prefix}h.{cut}"].cut_pipeline_stage()
+
+    return sch

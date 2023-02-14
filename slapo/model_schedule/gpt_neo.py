@@ -10,7 +10,12 @@ from ..initialization import init_empty_weights
 from ..logger import get_logger
 from .registry import register_schedule_method
 
-from .gpt2 import generate_pipeline_schedule, broadcast_input, gen_embedding_hooks, fix_attention_mask_shape
+from .gpt2 import (
+    generate_pipeline_schedule,
+    broadcast_input,
+    gen_embedding_hooks,
+    fix_attention_mask_shape,
+)
 
 
 @register_schedule_method()

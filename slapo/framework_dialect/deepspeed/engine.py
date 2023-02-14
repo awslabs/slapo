@@ -12,6 +12,7 @@ logger = get_logger("DS-Engine", INFO)
 def init_ds_engine(model, **kwargs):
     """Initialize the DeepSpeed engine."""
     import deepspeed
+    from deepspeed.pipe import PipelineModule
     from deepspeed.runtime.pipe.topology import (
         PipeModelDataParallelTopology,
         PipelineParallelGrid,
@@ -19,13 +20,15 @@ def init_ds_engine(model, **kwargs):
 
     if "config" not in kwargs:
         raise ValueError("DeepSpeed config not provided.")
+
     mpu = kwargs.get("topology", None)
-    if mpu is not None and isinstance(mpu, PipeModelDataParallelTopology):
-        if mpu.get_dim("pipe") <= 1:
-            # in the case that pipeline is disabled
-            mpu = PipelineParallelGrid(topology=mpu)
-        else:
-            mpu = None
+    if isinstance(model, PipelineModule):
+        # If the model is already a PipelineModule, the device grid (i.e., mesh)
+        # is already configured, so we pass mpu=None to deepspeed.initialize to
+        # avoid re-configuration.
+        mpu = None
+    elif mpu is not None and isinstance(mpu, PipeModelDataParallelTopology):
+        mpu = PipelineParallelGrid(topology=mpu)
 
     # pylint: disable=unbalanced-tuple-unpacking
     model, optimizer, _, _ = deepspeed.initialize(

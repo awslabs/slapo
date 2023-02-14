@@ -9,9 +9,9 @@ from torch import nn
 from torch.distributed import distributed_c10d as dist
 
 from ..schedule import create_schedule
+from ..op import FlashAttention, FlashAttentionOp, FusedMLP
 from ..initialization import init_empty_weights
 from ..random import get_cuda_rng_tracker
-from ..op import FlashAttention, FlashAttentionOp, FusedMLP
 from ..sharding import reduce_forward_output
 from ..logger import get_logger
 from .registry import register_schedule_method
@@ -128,61 +128,6 @@ def shard_parameters(sch, model_config, sch_config):
         )
 
 
-def generate_pipeline_schedule(sch, sch_config):
-    pipeline_cuts = sch_config.get("pipeline_cuts", None)
-    prefix = sch_config.get("prefix", "")
-    # Cut pipeline stages.
-    if pipeline_cuts:
-        input_names = ["input_ids", "attention_mask", "position_ids"]
-        sig = inspect.signature(sch.mod.forward)
-        concrete_args = {
-            p.name: p.default
-            for p in sig.parameters.values()
-            if p.name not in input_names
-        }
-        sch.trace_for_pipeline(
-            f"{prefix}", tracer="huggingface", concrete_args=concrete_args
-        )
-        _prefix = f"{prefix}." if prefix else ""
-        for cut in pipeline_cuts:
-            sch[f"{_prefix}h.{cut}"].cut_pipeline_stage()
-
-    return sch
-
-
-def trace_attention(sch, model_config, attn_path="h.N.attn.attention"):
-    cnt = 0
-    for idx in range(model_config.num_layers):
-        sub_sch = sch[attn_path.replace("N", str(idx))]
-        input_names = ["hidden_states", "attention_mask"]
-        sig = inspect.signature(sub_sch.mod.forward)
-        concrete_args = {
-            p.name: p.default
-            for p in sig.parameters.values()
-            if p.name not in input_names
-        }
-        if sub_sch.trace(tracer="pytorch", concrete_args=concrete_args):
-            cnt += 1
-    return cnt
-
-
-def fix_attention_mask_shape(sch):
-    # Attention mask may needed to be expanded from (B, 1, 1, S)
-    # to (B, H, S, S), where H is sharded.
-    ops = sch.find_node(
-        lambda node: node.op == "call_method" and node.target == "expand"
-    )
-
-    def new_expand(tensor, *args):
-        # (B, 1, 1, S) -> (B, H, S, S)
-        assert len(args) == 4
-        out = tensor.expand(args[0], args[1] // sch.world_size, *args[2:])
-        return out.contiguous()
-
-    for op in ops:
-        sch.replace(new_expand, op)
-
-
 def replace_and_shard_attention(
     sch,
     model_config,
@@ -191,6 +136,30 @@ def replace_and_shard_attention(
     attn_op_name="cuda",
     sequence_parallel=False,
 ):
+    """Replace the attention module with flash attention.
+
+    Parameters
+    ----------
+    sch : slapo.Schedule
+        The schedule of the entire model.
+    model_config : GPT2Config
+        The model configuration.
+    attn_path : str
+        The path to the attention module.
+    delay_init : bool
+        Whether to delay the initialization of the new module.
+    attn_op_name : str
+        The name of attention op to use. Can be "native_xformers", "cutlass",
+        "cuda", or "triton". Except for "native_xformers", all ops implement
+        Flash Attention. If specified "cuda" or "triton" but they are not
+        available (e.g., missing required library or unsupported GPU arch),
+        it will fallback to "cutlass".
+
+    Returns
+    -------
+    tuple[int, str]
+        The number of attention layers replaced and the name of the attention.
+    """
     init_config = dict(
         hidden_size=model_config.hidden_size,
         num_attention_heads=model_config.num_attention_heads,
@@ -367,6 +336,31 @@ def shard_word_embedding(
         head_sch.sync(mode="bwd_post", sync_op_or_fn="all_reduce")
 
 
+def fix_attention_mask_shape(sch):
+    """A utility function to fix the attention mask shape.
+    The input attention mask shape is (B, 1, 1, S) where S is the sequence length.
+    However, xFormers kernels expect (B, H, S, S) where H is the number of heads.
+    Since we shard H to be H // world_size, we need to fix this expand op.
+
+    Parameters
+    ----------
+    sch : slapo.Schedule
+        The schedule of the entire model.
+    """
+    ops = sch.find_node(
+        lambda node: node.op == "call_method" and node.target == "expand"
+    )
+
+    def new_expand(tensor, *args):
+        # (B, 1, 1, S) -> (B, H, S, S)
+        assert len(args) == 4
+        out = tensor.expand(args[0], args[1] // sch.world_size, *args[2:])
+        return out.contiguous()
+
+    for op in ops:
+        sch.replace(new_expand, op)
+
+
 # pylint: disable=dangerous-default-value
 def replace_and_shard_mlp(
     sch,
@@ -431,6 +425,23 @@ def replace_and_shard_mlp(
 def checkpoint(
     sch, model_config, path="h.N", ckpt_ratio=1.0, checkpoint_method="uniform"
 ):
+    """Add activation checkpointing to the model. The ckpt_ratio specifies
+    the ratio of the attention layers to be checkpointed. For example, if
+    ckpt_ratio is 0.5, then half of the attention layers will be checkpointed.
+
+    Parameters
+    ----------
+    sch : slapo.Schedule
+        The schedule of the model.
+    model_config : GPT2Config
+        The configuration of the model.
+    path : str
+        The path to the attention layer. Default: "h.N.attn".
+    ckpt_ratio : float
+        The ratio of the attention layers to be checkpointed. Default: 1.0.
+    checkpoint_method : str
+        The checkpointing method. Default: "uniform".
+    """
     if ckpt_ratio == 0.0:
         return 0
 
@@ -462,6 +473,15 @@ def checkpoint(
 
 
 def broadcast_input(sch):
+    """Add a hook in the beginning of the model to broadcast the input.
+    This is used when tensor parallelism is used and the runtime does not
+    broadcast the input automatically.
+
+    Parameters
+    ----------
+    sch : slapo.Schedule
+        The schedule of the model.
+    """
     group_src_rank = dist.get_global_rank(sch.group, 0)
 
     def _broadcast_input(module, inputs):
@@ -471,3 +491,38 @@ def broadcast_input(sch):
         return inputs
 
     sch.sync(mode="fwd_pre", sync_op_or_fn=_broadcast_input)
+
+
+def generate_pipeline_schedule(sch, sch_config):
+    """Trace the top module of the model and cut the pipeline stages.
+
+    Parameters
+    ----------
+    sch : slapo.Schedule
+        The schedule to be cut.
+    sch_config : dict
+        The configuration of the schedule. Should contain the following keys:
+        prefix : str
+            The prefix of the top module.
+        pipeline_cuts : list[str]
+            The list of attention layer index indicating cut points.
+    """
+    pipeline_cuts = sch_config.get("pipeline_cuts", None)
+    prefix = sch_config.get("prefix", "")
+    # Cut pipeline stages.
+    if pipeline_cuts:
+        input_names = ["input_ids", "attention_mask", "position_ids"]
+        sig = inspect.signature(sch.mod.forward)
+        concrete_args = {
+            p.name: p.default
+            for p in sig.parameters.values()
+            if p.name not in input_names
+        }
+        sch.trace_for_pipeline(
+            f"{prefix}", tracer="huggingface", concrete_args=concrete_args
+        )
+        _prefix = f"{prefix}." if prefix else ""
+        for cut in pipeline_cuts:
+            sch[f"{_prefix}h.{cut}"].cut_pipeline_stage()
+
+    return sch

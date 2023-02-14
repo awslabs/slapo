@@ -525,7 +525,7 @@ def checkpoint(
 
 
 def broadcast_input(sch):
-    """Add a hook in the beinning of the model to broadcast the input.
+    """Add a hook in the beginning of the model to broadcast the input.
     This is used when tensor parallelism is used and the runtime does not
     broadcast the input automatically.
 

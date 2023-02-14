@@ -5,7 +5,6 @@
 
 import inspect
 
-import torch
 from torch import nn
 import torch.distributed as dist
 
@@ -15,6 +14,8 @@ from ..op import FlashAttention, FusedMLP
 from ..pattern import call_module
 from ..logger import get_logger
 from .registry import register_schedule
+
+from .gpt2 import broadcast_input
 
 
 @register_schedule()
@@ -59,7 +60,28 @@ def _apply_schedule(
 
     # Tensor parallelism.
     logger.info("Shard model parameters", ranks=0)
-    shard_parameters(sch, model_config, sch_config)
+    prefix = sch_config.get("prefix", "")
+    delay_init = sch_config.get("delay_init", True)
+    # Replace self attention with flash attention, and shard QKV/output
+    # if MP group > 1.
+    attn_op_name = sch_config.get("attn_op_name", "cuda")
+    if attn_op_name == "native_xformers":
+        logger.info("Disabled Flash Attention", ranks=0)
+    cnt, applied_attn_op_name = replace_and_shard_attention(
+        sch[prefix],
+        model_config,
+        delay_init=delay_init,
+        attn_op_name=attn_op_name,
+    )
+    logger.info(
+        "Replace %d attention layers with %s op", cnt, applied_attn_op_name, ranks=0
+    )
+
+    # Shard other parameters if MP group > 1.
+    if sch.world_size > 1:
+        replace_and_shard_mlp(sch[prefix], model_config, delay_init=delay_init)
+        head_sch = sch["lm_head"] if "lm_head" in sch else None
+        shard_word_embedding(sch[prefix], head_sch, model_config.vocab_size)
 
     if sch.world_size > 1 and sch_config.get("bcast_input", False):
         # Broadcast input to all devices within the MP group.
@@ -89,33 +111,6 @@ def _apply_schedule(
     return sch
 
 
-def shard_parameters(sch, model_config, sch_config):
-    model_name = model_config._name_or_path
-    logger = get_logger(model_name)
-    prefix = sch_config.get("prefix", "")
-    delay_init = sch_config.get("delay_init", True)
-    # Replace self attention with flash attention, and shard QKV/output
-    # if MP group > 1.
-    attn_op_name = sch_config.get("attn_op_name", "cuda")
-    if attn_op_name == "native_xformers":
-        logger.info("Disabled Flash Attention", ranks=0)
-    cnt, applied_attn_op_name = replace_and_shard_attention(
-        sch[prefix],
-        model_config,
-        delay_init=delay_init,
-        attn_op_name=attn_op_name,
-    )
-    logger.info(
-        "Replace %d attention layers with %s op", cnt, applied_attn_op_name, ranks=0
-    )
-
-    # Shard other parameters if MP group > 1.
-    if sch.world_size > 1:
-        replace_and_shard_mlp(sch[prefix], model_config, delay_init=delay_init)
-        head_sch = sch["lm_head"] if "lm_head" in sch else None
-        shard_word_embedding(sch[prefix], head_sch, model_config.vocab_size)
-
-
 def generate_pipeline_schedule(sch, sch_config):
     pipeline_cuts = sch_config.get("pipeline_cuts", None)
     prefix = sch_config.get("prefix", "")
@@ -136,22 +131,6 @@ def generate_pipeline_schedule(sch, sch_config):
             sch[f"{_prefix}h.{cut}"].cut_pipeline_stage()
 
     return sch
-
-
-def trace_attention(sch, model_config, attn_path="h.N.attn.attention"):
-    cnt = 0
-    for idx in range(model_config.num_hidden_layers):
-        sub_sch = sch[attn_path.replace("N", str(idx))]
-        input_names = ["hidden_states", "attention_mask"]
-        sig = inspect.signature(sub_sch.mod.forward)
-        concrete_args = {
-            p.name: p.default
-            for p in sig.parameters.values()
-            if p.name not in input_names
-        }
-        if sub_sch.trace(tracer="pytorch", concrete_args=concrete_args):
-            cnt += 1
-    return cnt
 
 
 def fix_attention_mask_shape(sch):
@@ -261,26 +240,6 @@ def replace_and_shard_attention(
         )
 
     return cnt, attn_op[0]
-
-
-def remove_cast(sch, model_config, attn_path="h.N.attn.attention"):
-    """[Untested] Remove .to(torch.float32) in GPT-Neo attention to align
-    HF and Megatron GPT-2 behavior.
-    """
-    cnt = 0
-    for idx in range(model_config.num_hidden_layers):
-        sub_sch = sch[attn_path.replace("N", str(idx))]
-        ops = sub_sch.find_node(
-            lambda node: node.op == "call_method"
-            and node.target == "to"
-            and len(node.args) == 2
-            and node.args[1] == torch.float32
-        )
-
-        for op in ops:
-            sub_sch.replace(lambda x, *args: x, op)
-            cnt += 1
-    return cnt
 
 
 def shard_word_embedding(
@@ -396,12 +355,3 @@ def checkpoint(
     for idx in range(n_ckpt):
         sch[path.replace("N", str(idx))].checkpoint()
     return n_ckpt
-
-
-def broadcast_input(sch):
-    def broadcast(inputs):
-        for inp in inputs:
-            dist.broadcast(inp, src=0, group=sch.group)
-        return inputs
-
-    sch.sync(mode="fwd_pre", sync_op_or_fn=broadcast)

@@ -57,8 +57,13 @@ def _apply_schedule(
     )
 
     # Tensor parallelism.
-    logger.info("Shard model parameters", ranks=0)
-    shard_parameters(sch, model_config, sch_config)
+    prefix = sch_config.get("prefix", "")
+    if sch.world_size > 1:
+        logger.info("Shard model parameters", ranks=0)
+        replace_and_shard_attention(sch, model_config, sch_config)
+        shard_mlp(sch[prefix], model_config, "encoder.block.N.layer.1.DenseReluDense")
+        shard_mlp(sch[prefix], model_config, "decoder.block.N.layer.2.DenseReluDense")
+        shard_word_embedding(sch[prefix], model_config.vocab_size)
 
     if sch.world_size > 1 and sch_config.get("bcast_input", False):
         # Broadcast input to all devices within the MP group.
@@ -69,7 +74,6 @@ def _apply_schedule(
     # Insert activation checkpoints.
     ckpt_ratio = sch_config.get("ckpt_ratio", 0.0)
     if ckpt_ratio > 0.0:
-        prefix = sch_config.get("prefix", "")
         checkpoint_method = sch_config.get("checkpoint_method", "uniform")
         logger.info("Checkpoint ratio: %.2f", ckpt_ratio, ranks=0)
         n_ckpt = checkpoint(
@@ -88,7 +92,7 @@ def _apply_schedule(
     return sch
 
 
-def shard_parameters(sch, model_config, sch_config):
+def replace_and_shard_attention(sch, model_config, sch_config):
     model_name = model_config._name_or_path
     logger = get_logger(model_name)
     prefix = sch_config.get("prefix", "")
@@ -97,7 +101,7 @@ def shard_parameters(sch, model_config, sch_config):
     # if MP group > 1.
     attn_op_name = sch_config.get("attn_op_name", "cuda")
     disable_flash_attn = attn_op_name == "native_xformers"
-    cnt, fix_shape_cnt = replace_and_shard_attention(
+    cnt, fix_shape_cnt = _replace_and_shard_attention(
         sch[prefix],
         model_config,
         "encoder.block.N.layer.0.SelfAttention",
@@ -110,7 +114,7 @@ def shard_parameters(sch, model_config, sch_config):
         fix_shape_cnt,
         ranks=0,
     )
-    cnt, fix_shape_cnt = replace_and_shard_attention(
+    cnt, fix_shape_cnt = _replace_and_shard_attention(
         sch[prefix],
         model_config,
         "decoder.block.N.layer.0.SelfAttention",
@@ -123,7 +127,7 @@ def shard_parameters(sch, model_config, sch_config):
         fix_shape_cnt,
         ranks=0,
     )
-    cnt, fix_shape_cnt = replace_and_shard_attention(
+    cnt, fix_shape_cnt = _replace_and_shard_attention(
         sch[prefix],
         model_config,
         "decoder.block.N.layer.1.EncDecAttention",
@@ -137,12 +141,6 @@ def shard_parameters(sch, model_config, sch_config):
         fix_shape_cnt,
         ranks=0,
     )
-
-    # Shard other parameters if MP group > 1.
-    if sch.world_size > 1:
-        shard_mlp(sch[prefix], model_config, "encoder.block.N.layer.1.DenseReluDense")
-        shard_mlp(sch[prefix], model_config, "decoder.block.N.layer.2.DenseReluDense")
-        shard_word_embedding(sch[prefix], model_config.vocab_size)
 
 
 def checkpoint(
@@ -236,7 +234,7 @@ def fix_position_bias_shape(sch, delay_init=True):
     return cnt
 
 
-def replace_and_shard_attention(
+def _replace_and_shard_attention(
     sch,
     model_config,
     attn_path,

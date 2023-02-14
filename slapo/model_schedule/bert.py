@@ -57,7 +57,32 @@ def _apply_schedule(
 
     # Tensor parallelism.
     logger.info("Shard model parameters", ranks=0)
-    shard_parameters(sch, model_config, sch_config)
+    prefix = sch_config.get("prefix", "")
+    delay_init = sch_config.get("delay_init", True)
+    # Replace self attention with flash attention, and shard QKV/output
+    # if MP group > 1.
+    attn_op_name = sch_config.get("attn_op_name", "cuda")
+    if attn_op_name == "native_xformers":
+        logger.info("Disabled Flash Attention", ranks=0)
+    cnt, applied_attn_op_name = replace_and_shard_attention(
+        sch[prefix],
+        model_config,
+        delay_init=delay_init,
+        attn_op_name=attn_op_name,
+    )
+    logger.info(
+        "Replace %d attention layers with %s op", cnt, applied_attn_op_name, ranks=0
+    )
+
+    # Operator fusion
+    if not sch_config.get("disable_fuse_bias_gelu", True):
+        fuse_bias_gelu(sch[prefix], model_config)
+        logger.info("Fused Bias+GeLU", ranks=0)
+
+    # Shard other parameters if MP group > 1.
+    if sch.world_size > 1:
+        shard_mlp(sch[prefix], model_config)
+        shard_word_embedding(sch[prefix], model_config.vocab_size)
 
     if sch.world_size > 1 and sch_config.get("bcast_input", False):
         # Broadcast input to all devices within the MP group.
@@ -85,37 +110,6 @@ def _apply_schedule(
         generate_pipeline_schedule(sch, sch_config)
 
     return sch
-
-
-def shard_parameters(sch, model_config, sch_config):
-    model_name = model_config._name_or_path
-    logger = get_logger(model_name)
-    prefix = sch_config.get("prefix", "")
-    delay_init = sch_config.get("delay_init", True)
-    # Replace self attention with flash attention, and shard QKV/output
-    # if MP group > 1.
-    attn_op_name = sch_config.get("attn_op_name", "cuda")
-    if attn_op_name == "native_xformers":
-        logger.info("Disabled Flash Attention", ranks=0)
-    cnt, applied_attn_op_name = replace_and_shard_attention(
-        sch[prefix],
-        model_config,
-        delay_init=delay_init,
-        attn_op_name=attn_op_name,
-    )
-    logger.info(
-        "Replace %d attention layers with %s op", cnt, applied_attn_op_name, ranks=0
-    )
-
-    # Operator fusion
-    if not sch_config.get("disable_fuse_bias_gelu", True):
-        fuse_bias_gelu(sch[prefix], model_config)
-        logger.info("Fused Bias+GeLU", ranks=0)
-
-    # Shard other parameters if MP group > 1.
-    if sch.world_size > 1:
-        shard_mlp(sch[prefix], model_config)
-        shard_word_embedding(sch[prefix], model_config.vocab_size)
 
 
 def generate_pipeline_schedule(sch, sch_config):

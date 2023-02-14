@@ -56,9 +56,14 @@ def _apply_schedule(
         ranks=0,
     )
 
+    # Replace modules.
+    prefix = sch_config.get("prefix", "")
+    logger.info("Replace Attention and MLP modules", ranks=0)
+    replace_attention_and_mlp(sch[prefix], model_config, sch_config)
+
     # Tensor parallelism.
     logger.info("Shard model parameters", ranks=0)
-    shard_parameters(sch, model_config, sch_config)
+    shard_parameters(sch[prefix], model_config, sch_config)
 
     if sch.world_size > 1 and sch_config.get("bcast_input", False):
         # Broadcast input to all devices within the MP group.
@@ -69,7 +74,6 @@ def _apply_schedule(
     # Insert activation checkpoints.
     ckpt_ratio = sch_config.get("ckpt_ratio", 0.0)
     if ckpt_ratio > 0.0:
-        prefix = sch_config.get("prefix", "")
         checkpoint_method = sch_config.get("checkpoint_method", "uniform")
         logger.info("Checkpoint ratio: %.2f", ckpt_ratio, ranks=0)
         n_ckpt = checkpoint(
@@ -88,18 +92,16 @@ def _apply_schedule(
     return sch
 
 
-def shard_parameters(sch, model_config, sch_config):
+def replace_attention_and_mlp(sch, model_config, sch_config):
+    delay_init = sch_config.get("delay_init", True)
     model_name = model_config._name_or_path
     logger = get_logger(model_name)
-    prefix = sch_config.get("prefix", "")
-    delay_init = sch_config.get("delay_init", True)
-    sequence_parallel = sch_config.get("sequence_parallel", False)
     # Replace self attention with flash attention.
     attn_op_name = sch_config.get("attn_op_name", "cuda")
     if attn_op_name == "native_xformers":
         logger.info("Disabled Flash Attention", ranks=0)
     cnt, applied_attn_op_name = replace_attention(
-        sch[prefix],
+        sch,
         model_config,
         delay_init=delay_init,
         attn_op_name=attn_op_name,
@@ -109,19 +111,20 @@ def shard_parameters(sch, model_config, sch_config):
     )
 
     # Replace MLP with fused kernels.
-    cnt = replace_mlp(sch[prefix], model_config, delay_init=delay_init)
+    cnt = replace_mlp(sch, model_config, delay_init=delay_init)
     logger.info("Replaced %d MLP layers", cnt, ranks=0)
 
-    # Shard other parameters if MP group > 1.
+
+def shard_parameters(sch, model_config, sch_config):
     if sch.world_size > 1:
         head_sch = sch["lm_head"] if "lm_head" in sch else None
         shard_target = ["embed", "attention", "mlp"]
         shard(
-            sch[prefix],
+            sch,
             head_sch,
             model_config,
             shard_target,
-            sequence_parallel=sequence_parallel,
+            sequence_parallel=sch_config.get("sequence_parallel", False),
         )
 
 

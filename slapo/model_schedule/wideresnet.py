@@ -53,9 +53,15 @@ def _apply_schedule(
         ranks=0,
     )
 
+    # Operator fusion
+    prefix = sch_config.get("prefix", "")
+    if sch_config.get("fuse_conv", False):
+        fuse_conv_bn(sch[prefix], model_config)
+
     # Tensor parallelism.
-    logger.info("Shard model parameters", ranks=0)
-    shard_parameters(sch, model_config, sch_config)
+    if sch.world_size > 1:
+        logger.info("Shard model parameters", ranks=0)
+        shard_layers(sch[prefix], model_config)
 
     if sch.world_size > 1 and sch_config.get("bcast_input", False):
         # Broadcast input to all devices within the MP group.
@@ -66,7 +72,6 @@ def _apply_schedule(
     # Insert activation checkpoints.
     ckpt_ratio = sch_config.get("ckpt_ratio", 0.0)
     if ckpt_ratio > 0.0:
-        prefix = sch_config.get("prefix", "")
         checkpoint_method = sch_config.get("checkpoint_method", "uniform")
         logger.info("Checkpoint ratio: %.2f", ckpt_ratio, ranks=0)
         n_ckpt = checkpoint(
@@ -83,18 +88,6 @@ def _apply_schedule(
         generate_pipeline_schedule(sch, sch_config)
 
     return sch
-
-
-def shard_parameters(sch, model_config, sch_config):
-    prefix = sch_config.get("prefix", "")
-
-    # Operator fusion
-    if sch_config.get("fuse_conv", False):
-        fuse_conv_bn(sch[prefix], model_config)
-
-    if sch.world_size > 1:
-        # Shard layers.
-        shard_layers(sch[prefix], model_config)
 
 
 def generate_pipeline_schedule(sch, sch_config):

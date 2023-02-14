@@ -7,7 +7,7 @@ import inspect
 SCHEDULE_METHODS = {}
 
 
-def get_schedule_method(model_name):
+def get_schedule(model_name):
     """Get the schedule method."""
     if model_name not in SCHEDULE_METHODS:
         return None

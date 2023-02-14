@@ -27,7 +27,10 @@ def apply_schedule(
         raise ValueError(
             "Model config is not specified in sch_config. Please provide `model_config` in the kwarg."
         )
-    model_name = model_config._name_or_path
+    try:
+        model_name = model_config._name_or_path
+    except Exception:
+        model_name = model_config.get("_name_or_path", None)
     logger = get_logger(f"{model_name}")
 
     # Change data type.
@@ -47,7 +50,10 @@ def apply_schedule(
     group = sch_config.get("group", None)
     sch = create_schedule(model, group=group)
     logger.info(
-        f"Scheduling {model_name} with TP={sch.world_size}, config: {sch_config}",
+        "Scheduling %s with TP=%d, config: %s",
+        model_name,
+        sch.world_size,
+        sch_config,
         ranks=0,
     )
 
@@ -66,14 +72,14 @@ def apply_schedule(
     if ckpt_ratio > 0.0:
         prefix = sch_config.get("prefix", "")
         checkpoint_method = sch_config.get("checkpoint_method", "uniform")
-        logger.info(f"Checkpoint ratio: {ckpt_ratio}", ranks=0)
+        logger.info("Checkpoint ratio: %.2f", ckpt_ratio, ranks=0)
         n_ckpt = checkpoint(
             sch[prefix],
             model_config,
             ckpt_ratio=ckpt_ratio,
             checkpoint_method=checkpoint_method,
         )
-        logger.info(f"Checkpointed {n_ckpt} layers", ranks=0)
+        logger.info("Checkpointed %d layers", n_ckpt, ranks=0)
 
     # Pipeline parallelism.
     if sch_config.get("pipeline_cuts", None):
@@ -102,7 +108,7 @@ def shard_parameters(sch, model_config, sch_config):
         sequence_parallel=sequence_parallel,
     )
     logger.info(
-        f"Replace {cnt} attention layers with {applied_attn_op_name} op", ranks=0
+        "Replace %d attention layers with %s op", cnt, applied_attn_op_name, ranks=0
     )
 
     # Shard other parameters if MP group > 1.

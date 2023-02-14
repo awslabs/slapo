@@ -26,7 +26,10 @@ def apply_schedule(
         raise ValueError(
             "Model config is not specified in sch_config. Please provide `model_config` in the kwarg."
         )
-    model_name = model_config._name_or_path
+    try:
+        model_name = model_config._name_or_path
+    except Exception:
+        model_name = model_config.get("_name_or_path", None)
     logger = get_logger(f"{model_name}")
 
     # Change data type.
@@ -46,7 +49,10 @@ def apply_schedule(
     group = sch_config.get("group", None)
     sch = create_schedule(model, group=group)
     logger.info(
-        f"Scheduling {model_name} with TP={sch.world_size}, config: {sch_config}",
+        "Scheduling %s with TP=%d, config: %s",
+        model_name,
+        sch.world_size,
+        sch_config,
         ranks=0,
     )
 
@@ -65,14 +71,14 @@ def apply_schedule(
     if ckpt_ratio > 0.0:
         prefix = sch_config.get("prefix", "")
         checkpoint_method = sch_config.get("checkpoint_method", "uniform")
-        logger.info(f"Checkpoint ratio: {ckpt_ratio}", ranks=0)
+        logger.info("Checkpoint ratio: %.2f", ckpt_ratio, ranks=0)
         n_ckpt = checkpoint(
             sch[prefix],
             model_config,
             ckpt_ratio=ckpt_ratio,
             checkpoint_method=checkpoint_method,
         )
-        logger.info(f"Checkpointed {n_ckpt} layers", ranks=0)
+        logger.info("Checkpointed %d layers", n_ckpt, ranks=0)
 
     # Pipeline parallelism.
     if sch_config.get("pipeline_cuts", None):
@@ -99,8 +105,9 @@ def shard_parameters(sch, model_config, sch_config):
         disable_flash_attn=disable_flash_attn,
     )
     logger.info(
-        f"Replace {cnt} encoder self attention patterns "
-        f"with {fix_shape_cnt} shape fixing",
+        "Replace %d encoder self attention patterns with %d shape fixing",
+        cnt,
+        fix_shape_cnt,
         ranks=0,
     )
     cnt, fix_shape_cnt = replace_and_shard_attention(
@@ -111,8 +118,9 @@ def shard_parameters(sch, model_config, sch_config):
         disable_flash_attn=disable_flash_attn,
     )
     logger.info(
-        f"Replace {cnt} decoder self attention patterns "
-        f"with {fix_shape_cnt} shape fixing",
+        "Replace %d decoder self attention patterns with %d shape fixing",
+        cnt,
+        fix_shape_cnt,
         ranks=0,
     )
     cnt, fix_shape_cnt = replace_and_shard_attention(
@@ -124,8 +132,9 @@ def shard_parameters(sch, model_config, sch_config):
         disable_flash_attn=disable_flash_attn,
     )
     logger.info(
-        f"Replace {cnt} decoder cross attention patterns "
-        f"with {fix_shape_cnt} shape fixing",
+        "Replace %d decoder cross attention patterns with %d shape fixing",
+        cnt,
+        fix_shape_cnt,
         ranks=0,
     )
 
@@ -147,13 +156,15 @@ def checkpoint(
         raise NotImplementedError(
             f"Checkpoint method {checkpoint_method} is not supported yet."
         )
+    n_ckpt = 0
     if ckpt_ratio > 0.0:
-        n_ckpt = _checkpoint(
+        n_ckpt += _checkpoint(
             sch, model_config, "encoder.block.N", ckpt_ratio=ckpt_ratio
         )
         n_ckpt += _checkpoint(
             sch, model_config, "decoder.block.N", ckpt_ratio=ckpt_ratio
         )
+    return n_ckpt
 
 
 def generate_pipeline_schedule(sch, sch_config):

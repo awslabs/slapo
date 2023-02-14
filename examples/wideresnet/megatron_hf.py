@@ -57,7 +57,8 @@ def get_model(
         print_rank_0(model)
         sch = apply_schedule(
             model,
-            config,
+            "wideresnet",
+            model_config=config,
             prefix="model",
             fp16=fp16,
             ckpt_ratio=ckpt_ratio,

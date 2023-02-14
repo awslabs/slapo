@@ -29,8 +29,6 @@ def apply_schedule(
         )
     model_name = model_config._name_or_path
     logger = get_logger(f"{model_name}")
-    logger.info(f"Scheduling {model_name}", ranks=0)
-    logger.info(f"Schdeule config: {sch_config}", ranks=0)
 
     # Change data type.
     fp16 = sch_config.get("fp16", False)
@@ -48,7 +46,10 @@ def apply_schedule(
 
     group = sch_config.get("group", None)
     sch = create_schedule(model, group=group)
-    logger.info(f"Scheduling {model_name} with TP={sch.world_size}", ranks=0)
+    logger.info(
+        f"Scheduling {model_name} with TP={sch.world_size}, config: {sch_config}",
+        ranks=0,
+    )
 
     # Tensor parallelism.
     logger.info("Shard model parameters", ranks=0)

@@ -86,7 +86,8 @@ def train(args):
     else:
         sch = apply_schedule(
             model,
-            config,
+            "t5",
+            model_config=config,
             ckpt_ratio=args.checkpoint,
             bcast_input=True,
             group=group,

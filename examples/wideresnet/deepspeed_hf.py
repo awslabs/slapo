@@ -86,7 +86,8 @@ def train(args):
     else:
         sch = apply_schedule(
             model,
-            model_config,
+            "wideresnet",
+            model_config=model_config,
             prefix="model",
             ckpt_ratio=args.checkpoint,
             bcast_input=True,

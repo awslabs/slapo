@@ -77,7 +77,8 @@ def get_model(
         print_rank_0(model)
         sch = apply_schedule(
             model,
-            config,
+            "t5",
+            model_config=config,
             disable_flash_attn=disable_flash_attn,
             fp16=fp16,
             ckpt_ratio=ckpt_ratio,

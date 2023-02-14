@@ -99,7 +99,8 @@ def train(args):
     else:
         sch = apply_schedule(
             model,
-            model_config,
+            "bert",
+            model_config=model_config,
             prefix="bert",
             attn_op_name=args.attn_op_name,
             ckpt_ratio=args.checkpoint,

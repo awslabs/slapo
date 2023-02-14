@@ -19,5 +19,5 @@ files = [
 for file in files:
     mod = import_module(f".{file.split('.')[0]}", package="slapo.model_schedule")
     # register the schedule method using the decorator
-    if hasattr(mod, "apply_schedule"):
+    if hasattr(mod, "_apply_schedule"):
         getattr(mod, "_apply_schedule")

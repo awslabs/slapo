@@ -147,26 +147,6 @@ def generate_pipeline_schedule(sch, sch_config):
     return sch
 
 
-def trace_attention(
-    sch,
-    model_config,
-    attn_path="encoder.albert_layer_groups.N.albert_layers.N.attention",
-):
-    cnt = 0
-    for idx in range(model_config.num_hidden_layers):
-        sub_sch = sch[attn_path.replace("N", str(idx))]
-        input_names = ["hidden_states", "attention_mask"]
-        sig = inspect.signature(sub_sch.mod.forward)
-        concrete_args = {
-            p.name: p.default
-            for p in sig.parameters.values()
-            if p.name not in input_names
-        }
-        if sub_sch.trace(tracer="pytorch", concrete_args=concrete_args):
-            cnt += 1
-    return cnt
-
-
 def fix_attention_mask_shape(sch):
     # Attention mask may needed to be expanded from (B, 1, 1, S)
     # to (B, H, S, S), where H is sharded.

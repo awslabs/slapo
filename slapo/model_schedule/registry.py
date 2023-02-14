@@ -10,7 +10,7 @@ SCHEDULE_METHODS = {}
 def get_schedule(model_name):
     """Get the schedule method."""
     if model_name not in SCHEDULE_METHODS:
-        return None
+        raise ValueError(f"Schedule for {model_name} does not exist.")
     return SCHEDULE_METHODS[model_name]
 
 

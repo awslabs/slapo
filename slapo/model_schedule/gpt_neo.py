@@ -5,14 +5,12 @@
 from torch import nn
 
 from ..schedule import create_schedule
-from ..op import FlashAttention, FlashAttentionOp, FusedMLP
+from ..op import FlashAttention, FusedMLP, AttentionOpWithRNG
 from ..initialization import init_empty_weights
-from ..random import get_cuda_rng_tracker
-from ..sharding import reduce_forward_output
 from ..logger import get_logger
 from .registry import register_schedule_method
 
-from .gpt2 import generate_pipeline_schedule, broadcast_input
+from .gpt2 import generate_pipeline_schedule, broadcast_input, gen_embedding_hooks, fix_attention_mask_shape
 
 
 @register_schedule_method()
@@ -266,75 +264,6 @@ def replace_mlp(
             )
         sub_sch.replace(new_mod)
     return model_config.num_layers
-
-
-def gen_embedding_hooks(sch, vocab_size):
-    """Generate hooks for input embedding layer to deal with word embedding sharding.
-
-    Parameters
-    ----------
-    sch : slapo.Schedule
-        The schedule of the entire model.
-    vocab_size : int
-        The total vocabulary size.
-
-    Returns
-    -------
-    tuple(callable, callable)
-        The forward pre-hook and post-hook for the embedding layer.
-    """
-    vocab_start_index = sch.rank * vocab_size // sch.world_size
-    vocab_end_index = (sch.rank + 1) * vocab_size // sch.world_size
-
-    def fwd_pre_hook(_module, _input):
-        # Mask the input
-        input_mask = (_input[0] < vocab_start_index) | (_input[0] >= vocab_end_index)
-        masked_input = _input[0].clone() - vocab_start_index
-        masked_input[input_mask] = 0
-        return masked_input
-
-    def fwd_post_hook(_module, _input, output):
-        # Mask the output embedding
-        input_mask = (_input[0] < vocab_start_index) | (_input[0] >= vocab_end_index)
-        output[input_mask, :] = 0.0
-        # Reduce across all the model parallel GPUs
-        output = reduce_forward_output(output, sch.group)
-        return output
-
-    return fwd_pre_hook, fwd_post_hook
-
-
-def fix_attention_mask_shape(sch):
-    """A utility function to fix the attention mask shape.
-    The input attention mask shape is (B, 1, 1, S) where S is the sequence length.
-    However, xFormers kernels expect (B, H, S, S) where H is the number of heads.
-    Since we shard H to be H // world_size, we need to fix this expand op.
-
-    Parameters
-    ----------
-    sch : slapo.Schedule
-        The schedule of the entire model.
-    """
-    ops = sch.find_node(
-        lambda node: node.op == "call_method" and node.target == "expand"
-    )
-
-    def new_expand(tensor, *args):
-        # (B, 1, 1, S) -> (B, H, S, S)
-        assert len(args) == 4
-        out = tensor.expand(args[0], args[1] // sch.world_size, *args[2:])
-        return out.contiguous()
-
-    for op in ops:
-        sch.replace(new_expand, op)
-
-
-class AttentionOpWithRNG(FlashAttentionOp):
-    def forward(self, query_layer, key_layer, value_layer, attention_mask, p):
-        with get_cuda_rng_tracker().fork():
-            return super().forward(
-                query_layer, key_layer, value_layer, attention_mask, p
-            )
 
 
 def shard(

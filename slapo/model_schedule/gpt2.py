@@ -9,9 +9,8 @@ from torch import nn
 from torch.distributed import distributed_c10d as dist
 
 from ..schedule import create_schedule
-from ..op import FlashAttention, FlashAttentionOp, FusedMLP
+from ..op import FlashAttention, FusedMLP, AttentionOpWithRNG
 from ..initialization import init_empty_weights
-from ..random import get_cuda_rng_tracker
 from ..sharding import reduce_forward_output
 from ..logger import get_logger
 from .registry import register_schedule_method
@@ -329,14 +328,6 @@ def fix_attention_mask_shape(sch):
 
     for op in ops:
         sch.replace(new_expand, op)
-
-
-class AttentionOpWithRNG(FlashAttentionOp):
-    def forward(self, query_layer, key_layer, value_layer, attention_mask, p):
-        with get_cuda_rng_tracker().fork():
-            return super().forward(
-                query_layer, key_layer, value_layer, attention_mask, p
-            )
 
 
 def shard(

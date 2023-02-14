@@ -9,12 +9,12 @@ from torch import nn
 import torch.distributed as dist
 
 from ..schedule import create_schedule
-from .registry import register_schedule_method
+from .registry import register_schedule
 from ..logger import get_logger
 
 
-@register_schedule_method()
-def apply_schedule(
+@register_schedule()
+def _apply_schedule(
     model,
     **sch_config,
 ):

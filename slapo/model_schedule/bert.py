@@ -12,11 +12,11 @@ from ..schedule import create_schedule
 from ..initialization import init_empty_weights
 from ..op import FlashAttention
 from ..logger import get_logger
-from .registry import register_schedule_method
+from .registry import register_schedule
 
 
-@register_schedule_method()
-def apply_schedule(
+@register_schedule()
+def _apply_schedule(
     model,
     **sch_config,
 ):

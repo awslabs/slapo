@@ -15,7 +15,5 @@ files = [f for f in os.listdir(path) if isfile(join(path, f)) and f != "__init__
 for file in files:
     mod = import_module(f".{file.split('.')[0]}", package="slapo.model_schedule")
     # register the schedule method using the decorator
-    try:
-        getattr(mod, "apply_schedule")
-    except Exception:
-        pass
+    if hasattr(mod, "apply_schedule"):
+        getattr(mod, "_apply_schedule")

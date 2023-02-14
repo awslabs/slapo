@@ -14,7 +14,7 @@ def get_schedule_method(model_name):
     return SCHEDULE_METHODS[model_name]
 
 
-def register_schedule_method():
+def register_schedule():
     """Register a schedule method."""
 
     def decorator(schedule_method):

@@ -2,11 +2,11 @@
 # SPDX-License-Identifier: Apache-2.0
 """HuggingFace RoBERTa with Slapo schedule."""
 
-from .registry import register_schedule_method, get_schedule_method
+from .registry import register_schedule, get_schedule_method
 
 
-@register_schedule_method()
-def apply_schedule(
+@register_schedule()
+def _apply_schedule(
     model,
     **sch_config,
 ):

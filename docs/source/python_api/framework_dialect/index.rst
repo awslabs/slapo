@@ -1,4 +1,4 @@
-hidet.model_dialect
+hidet.framework_dialect
 ===================
 
 .. toctree::

@@ -1,4 +1,4 @@
-hidet.model_dialect.deepspeed
+hidet.framework_dialect.deepspeed
 =============================
 
 .. toctree::

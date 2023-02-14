@@ -53,7 +53,8 @@ def get_model(
         print_rank_0(model)
         sch = apply_schedule(
             model,
-            config,
+            schedule_key="gpt_neo",
+            model_config=config,
             attn_op_name="native_xformers" if disable_flash_attn else "cuda",
             fp16=fp16,
             ckpt_ratio=ckpt_ratio,

@@ -122,7 +122,8 @@ def train(args):
     else:
         sch = apply_schedule(
             model,
-            config,
+            schedule_key="gpt_neo",
+            model_config=config,
             prefix="transformer",
             attn_op_name=args.attn_op_name,
             ckpt_ratio=args.checkpoint,

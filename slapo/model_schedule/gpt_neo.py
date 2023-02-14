@@ -8,6 +8,7 @@ import inspect
 from torch import nn
 from torch.distributed import distributed_c10d as dist
 
+from ..schedule import create_schedule
 from ..initialization import init_empty_weights
 from ..random import get_cuda_rng_tracker
 from ..op import FlashAttention, FlashAttentionOp, FusedMLP
@@ -15,10 +16,72 @@ from ..sharding import reduce_forward_output
 from ..logger import get_logger
 from .registry import register_schedule_method
 
-MODEL_SHORT_NAME = "gpt_neo"
+
+@register_schedule_method()
+def apply_schedule(
+    model,
+    **sch_config,
+):
+    model_config = sch_config.get("model_config", None)
+    if model_config is None:
+        raise ValueError(
+            "Model config is not specified in sch_config. Please provide `model_config` in the kwarg."
+        )
+    model_name = model_config._name_or_path
+    logger = get_logger(f"{model_name}")
+    logger.info(f"Scheduling {model_name}", ranks=0)
+    logger.info(f"Schdeule config: {sch_config}", ranks=0)
+
+    # Change data type.
+    fp16 = sch_config.get("fp16", False)
+    bf16 = sch_config.get("bf16", False)
+    if fp16 and bf16:
+        raise ValueError("Cannot use both fp16 and bf16")
+    if fp16:
+        logger.info("Change model dtype to fp16", ranks=0)
+        model.half()
+    elif bf16:
+        logger.info("Change model dtype to bf16", ranks=0)
+        model.bfloat16()
+    else:
+        logger.info("Use fp32 as default model dtype", ranks=0)
+
+    group = sch_config.get("group", None)
+    sch = create_schedule(model, group=group)
+    logger.info(f"Scheduling {model_name} with TP={sch.world_size}", ranks=0)
+
+    # Tensor parallelism.
+    logger.info("Shard model parameters", ranks=0)
+    shard_parameters(sch, model_config, sch_config)
+
+    if sch.world_size > 1 and sch_config.get("bcast_input", False):
+        # Broadcast input to all devices within the MP group.
+        # This is not required when running on Megatron.
+        logger.info("Broadcast input to all devices", ranks=0)
+        broadcast_input(sch)
+
+    # Insert activation checkpoints.
+    ckpt_ratio = sch_config.get("ckpt_ratio", 0.0)
+    if ckpt_ratio > 0.0:
+        prefix = sch_config.get("prefix", "")
+        checkpoint_method = sch_config.get("checkpoint_method", "uniform")
+        logger.info(f"Checkpoint ratio: {ckpt_ratio}", ranks=0)
+        n_ckpt = checkpoint(
+            sch[prefix],
+            model_config,
+            ckpt_ratio=ckpt_ratio,
+            checkpoint_method=checkpoint_method,
+        )
+        logger.info(f"Checkpointed {n_ckpt} layers", ranks=0)
+
+    # Pipeline parallelism.
+    if sch_config.get("pipeline_cuts", None):
+        logger.info("Generate pipeline schedule", ranks=0)
+        generate_pipeline_schedule(sch, sch_config)
+
+    return sch
 
 
-@register_schedule_method(MODEL_SHORT_NAME)
 def shard_parameters(sch, model_config, sch_config):
     model_name = model_config._name_or_path
     logger = get_logger(model_name)
@@ -58,7 +121,6 @@ def shard_parameters(sch, model_config, sch_config):
         )
 
 
-@register_schedule_method(MODEL_SHORT_NAME)
 def generate_pipeline_schedule(sch, sch_config):
     pipeline_cuts = sch_config.get("pipeline_cuts", None)
     prefix = sch_config.get("prefix", "")
@@ -359,7 +421,6 @@ def replace_and_shard_mlp(
                 )
 
 
-@register_schedule_method(MODEL_SHORT_NAME)
 def checkpoint(
     sch, model_config, path="h.N", ckpt_ratio=1.0, checkpoint_method="uniform"
 ):
@@ -393,7 +454,6 @@ def checkpoint(
     return n_ckpt
 
 
-@register_schedule_method(MODEL_SHORT_NAME)
 def broadcast_input(sch):
     group_src_rank = dist.get_global_rank(sch.group, 0)
 

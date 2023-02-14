@@ -1,31 +1,28 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 """Model schedule registration."""
+import inspect
 
 # Mapping from model name to schedule method.
 SCHEDULE_METHODS = {}
 
 
-def get_schedule_method(model_name, schedule_name):
+def get_schedule_method(model_name):
     """Get the schedule method."""
     if model_name not in SCHEDULE_METHODS:
         return None
-    if schedule_name not in SCHEDULE_METHODS[model_name]:
-        return None
-    return SCHEDULE_METHODS[model_name][schedule_name]
+    return SCHEDULE_METHODS[model_name]
 
 
-def register_schedule_method(model_name):
+def register_schedule_method():
     """Register a schedule method."""
 
     def decorator(schedule_method):
+        model_name = inspect.getfile(schedule_method).split("/")[-1].split(".")[0]
         if model_name not in SCHEDULE_METHODS:
-            SCHEDULE_METHODS[model_name] = {}
-        if schedule_method.__name__ in SCHEDULE_METHODS[model_name]:
-            raise ValueError(
-                f"Schedule method {schedule_method.__name__} already registered for {model_name}"
-            )
-        SCHEDULE_METHODS[model_name][schedule_method.__name__] = schedule_method
+            SCHEDULE_METHODS[model_name] = schedule_method
+        else:
+            raise ValueError(f"Schedule method for {model_name} already exists.")
         return schedule_method
 
     return decorator

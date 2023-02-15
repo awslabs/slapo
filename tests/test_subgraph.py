@@ -196,9 +196,6 @@ def test_two_paths():
 
 def test_tree_pattern():
     class Model(nn.Module):
-        def __init__(self):
-            super().__init__()
-
         def forward(self, x, y, z):
             a = x + y
             b = y - z

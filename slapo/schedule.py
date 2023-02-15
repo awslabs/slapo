@@ -1377,8 +1377,9 @@ def consolidate_model(
         num_params, cnt_shard = _consolidate_and_broadcast(sch)
 
     logger.info(
-        "Finished consolidating %d parameters with %d being sharded"
-        % (num_params, cnt_shard)
+        "Finished consolidating %d parameter tensors with %d being sharded",
+        num_params,
+        cnt_shard,
     )
 
     gc.collect()

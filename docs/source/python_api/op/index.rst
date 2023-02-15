@@ -1,4 +1,4 @@
-hidet.op
+slapo.op
 ========
 
 .. toctree::

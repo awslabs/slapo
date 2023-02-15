@@ -1,4 +1,4 @@
-hidet.framework_dialect.deepspeed
+slapo.framework_dialect.deepspeed
 =============================
 
 .. toctree::

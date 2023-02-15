@@ -1,4 +1,4 @@
-hidet.framework_dialect
+slapo.framework_dialect
 ===================
 
 .. toctree::

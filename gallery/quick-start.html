@@ -40,7 +40,7 @@
     <script src="../_static/scripts/sphinx-book-theme.js?digest=9c920249402e914e316237a7dbc6769907cce411"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Optimize Attention Module on A Single GPU" href="attention-single-gpu.html" />
+    <link rel="next" title="Optimize Attention Module on A Single Device" href="attention-single-gpu.html" />
     <link rel="prev" title="Installation" href="../setup/index.html" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="docsearch:language" content="None">
@@ -111,7 +111,7 @@
 <ul class="nav bd-sidenav">
  <li class="toctree-l1">
   <a class="reference internal" href="attention-single-gpu.html">
-   Optimize Attention Module on A Single GPU
+   Optimize Attention Module on A Single Device
   </a>
  </li>
 </ul>
@@ -433,7 +433,7 @@ This is the model definition part.</p>
 </pre></div>
 </div>
 <div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Downloading (…)lve/main/config.json:   0%|          | 0.00/571 [00:00&lt;?, ?B/s]
-Downloading (…)lve/main/config.json: 100%|##########| 571/571 [00:00&lt;00:00, 153kB/s]
+Downloading (…)lve/main/config.json: 100%|##########| 571/571 [00:00&lt;00:00, 65.9kB/s]
 If you want to use `BertLMHeadModel` as a standalone, add `is_decoder=True.`
 </pre></div>
 </div>
@@ -1171,7 +1171,7 @@ def forward(self, hidden_states : torch.Tensor) -&gt; torch.Tensor:
 </div>
 <p>We can see from the above result that the linear bias and GeLU function are indeed
 fused together and form a new module named <cite>FusedBiasGeLU_0</cite>.</p>
-<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> ( 0 minutes  7.195 seconds)</p>
+<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> ( 0 minutes  9.541 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-gallery-quick-start-py">
 <div class="sphx-glr-download sphx-glr-download-python docutils container">
 <p><a class="reference download internal" download="" href="../_downloads/02a1305de2ffa9a1ed991794ae6d8504/quick-start.py"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Python</span> <span class="pre">source</span> <span class="pre">code:</span> <span class="pre">quick-start.py</span></code></a></p>
@@ -1202,7 +1202,7 @@ fused together and form a new module named <cite>FusedBiasGeLU_0</cite>.</p>
     <a class='right-next' id="next-link" href="attention-single-gpu.html" title="next page">
     <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Optimize Attention Module on A Single GPU</p>
+        <p class="prev-next-title">Optimize Attention Module on A Single Device</p>
     </div>
     <i class="fas fa-angle-right"></i>
     </a>

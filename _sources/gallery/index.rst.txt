@@ -33,13 +33,13 @@ Gallery
 .. only:: html
 
   .. image:: /gallery/images/thumb/sphx_glr_attention-single-gpu_thumb.png
-    :alt: Optimize Attention Module on A Single GPU
+    :alt: Optimize Attention Module on A Single Device
 
   :ref:`sphx_glr_gallery_attention-single-gpu.py`
 
 .. raw:: html
 
-      <div class="sphx-glr-thumbnail-title">Optimize Attention Module on A Single GPU</div>
+      <div class="sphx-glr-thumbnail-title">Optimize Attention Module on A Single Device</div>
     </div>
 
 

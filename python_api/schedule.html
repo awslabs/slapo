@@ -111,7 +111,7 @@
 <ul class="nav bd-sidenav">
  <li class="toctree-l1">
   <a class="reference internal" href="../gallery/attention-single-gpu.html">
-   Optimize Attention Module on A Single GPU
+   Optimize Attention Module on A Single Device
   </a>
  </li>
 </ul>
@@ -480,14 +480,14 @@ in this function to make it general applicable.</p>
 <col style="width: 90%" />
 </colgroup>
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.schedule.SubgraphWrapper.forward" title="slapo.schedule.SubgraphWrapper.forward"><code class="xref py py-obj docutils literal notranslate"><span class="pre">forward</span></code></a>(x)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.schedule.SubgraphWrapper.forward" title="slapo.schedule.SubgraphWrapper.forward"><code class="xref py py-obj docutils literal notranslate"><span class="pre">forward</span></code></a>(x, bias, residual)</p></td>
 <td><p>Defines the computation performed at every call.</p></td>
 </tr>
 </tbody>
 </table>
 <dl class="py method">
 <dt class="sig sig-object py" id="slapo.schedule.SubgraphWrapper.forward">
-<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#slapo.schedule.SubgraphWrapper.forward" title="Permalink to this definition"><span>¶</span></a></dt>
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bias</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">residual</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#slapo.schedule.SubgraphWrapper.forward" title="Permalink to this definition"><span>¶</span></a></dt>
 <dd><p>Defines the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.</p>
 <div class="admonition note">

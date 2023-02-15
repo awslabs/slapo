@@ -109,7 +109,7 @@
 <ul class="nav bd-sidenav">
  <li class="toctree-l1">
   <a class="reference internal" href="../../gallery/attention-single-gpu.html">
-   Optimize Attention Module on A Single GPU
+   Optimize Attention Module on A Single Device
   </a>
  </li>
 </ul>
@@ -996,11 +996,9 @@ title="Source repository"
                 <span class="c1"># New matched.</span>
                 <span class="n">subgraphs</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">parent_name</span><span class="p">,</span> <span class="n">curr</span><span class="p">))</span>
             <span class="n">matched</span> <span class="o">=</span> <span class="kc">True</span>
-            <span class="k">for</span> <span class="n">curr_usr</span><span class="p">,</span> <span class="n">target_usr</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">curr</span><span class="o">.</span><span class="n">users</span><span class="p">,</span> <span class="n">target</span><span class="o">.</span><span class="n">users</span><span class="p">):</span>
-                <span class="c1"># DFS traverse. If any subgraph is not matched, the whole graph</span>
-                <span class="c1"># is not matched.</span>
+            <span class="k">if</span> <span class="n">curr</span><span class="o">.</span><span class="n">next</span> <span class="o">!=</span> <span class="n">curr</span> <span class="ow">and</span> <span class="n">target</span><span class="o">.</span><span class="n">next</span> <span class="o">!=</span> <span class="n">target</span><span class="p">:</span>
                 <span class="n">matched</span> <span class="o">=</span> <span class="n">matched</span> <span class="ow">and</span> <span class="n">find_match_subgraphs</span><span class="p">(</span>
-                    <span class="n">curr_usr</span><span class="p">,</span> <span class="n">target_usr</span><span class="p">,</span> <span class="n">subgraphs</span>
+                    <span class="n">curr</span><span class="o">.</span><span class="n">next</span><span class="p">,</span> <span class="n">target</span><span class="o">.</span><span class="n">next</span><span class="p">,</span> <span class="n">subgraphs</span>
                 <span class="p">)</span>
             <span class="k">return</span> <span class="n">matched</span>
 
@@ -1128,7 +1126,7 @@ title="Source repository"
             <span class="n">node</span><span class="o">.</span><span class="n">replace_all_uses_with</span><span class="p">(</span><span class="n">new_node</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">erase_node</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_replace_module</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_mod</span><span class="p">,</span> <span class="n">subgraphs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_replace_module</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_mod</span><span class="p">,</span> <span class="n">subgraphs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">concrete_args</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Replace an entire module with a new one.</span>
 <span class="sd">        Do NOT directly call this function, use `.replace()` instead.</span>
 
@@ -1145,6 +1143,8 @@ title="Source repository"
 <span class="sd">        name : Optional[str]</span>
 <span class="sd">            The name of the replaced module. If it is None, a default name</span>
 <span class="sd">            will be automatically generated.</span>
+<span class="sd">        concrete_args : Optional[Dict[str, Any]]</span>
+<span class="sd">            The concrete arguments of the forward function of the new module.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">subgraphs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">name</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">:</span>
@@ -1229,6 +1229,12 @@ title="Source repository"
                 <span class="n">target_mod</span><span class="o">.</span><span class="n">add_module</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">new_mod</span><span class="p">)</span>
                 <span class="k">with</span> <span class="n">target_mod</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">inserting_before</span><span class="p">(</span><span class="n">first_node</span><span class="p">):</span>
                     <span class="n">sig</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">signature</span><span class="p">(</span><span class="n">new_mod</span><span class="o">.</span><span class="n">forward</span><span class="p">)</span>
+                    <span class="n">mod_args_need_inputs</span> <span class="o">=</span> <span class="p">[</span>
+                        <span class="n">k</span>
+                        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">sig</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                        <span class="k">if</span> <span class="n">v</span><span class="o">.</span><span class="n">default</span> <span class="ow">is</span> <span class="n">inspect</span><span class="o">.</span><span class="n">Parameter</span><span class="o">.</span><span class="n">empty</span>
+                        <span class="ow">and</span> <span class="n">v</span><span class="o">.</span><span class="n">kind</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">inspect</span><span class="o">.</span><span class="n">Parameter</span><span class="o">.</span><span class="n">VAR_POSITIONAL</span>
+                    <span class="p">]</span>
                     <span class="n">default_args</span> <span class="o">=</span> <span class="p">{</span>
                         <span class="n">k</span><span class="p">:</span> <span class="n">v</span><span class="o">.</span><span class="n">default</span>
                         <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">sig</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
@@ -1238,13 +1244,27 @@ title="Source repository"
                     <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">default_args</span><span class="p">:</span>
                         <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">first_node</span><span class="o">.</span><span class="n">kwargs</span><span class="p">:</span>
                             <span class="n">new_kwargs</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
-                    <span class="n">new_args</span> <span class="o">=</span> <span class="p">[]</span>
+                    <span class="k">if</span> <span class="n">concrete_args</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="n">new_kwargs</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">concrete_args</span><span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">concrete_args</span> <span class="o">=</span> <span class="p">{}</span>
+                    <span class="n">subgraph_args</span> <span class="o">=</span> <span class="p">[]</span>
                     <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">ops</span><span class="p">:</span>
                         <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">args</span><span class="p">:</span>
-                            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">arg</span><span class="p">,</span> <span class="n">fx</span><span class="o">.</span><span class="n">Node</span><span class="p">)</span> <span class="ow">and</span> <span class="n">arg</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">ops</span><span class="p">:</span>
-                                <span class="n">new_args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span>
+                            <span class="k">if</span> <span class="p">(</span>
+                                <span class="nb">isinstance</span><span class="p">(</span><span class="n">arg</span><span class="p">,</span> <span class="n">fx</span><span class="o">.</span><span class="n">Node</span><span class="p">)</span>
+                                <span class="ow">and</span> <span class="n">arg</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">ops</span>
+                                <span class="ow">and</span> <span class="n">arg</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">subgraph_args</span>
+                            <span class="p">):</span>
+                                <span class="n">subgraph_args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">subgraph_args</span><span class="p">)</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">concrete_args</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span>
+                        <span class="n">mod_args_need_inputs</span>
+                    <span class="p">):</span>
+                        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">&quot;The number of arguments (w/o default values) of the new module ({len(mod_args_need_inputs)}) does not match the number of arguments of the original subgraph ({len(subgraph_args)}). Please use `concrete_args` to specify the arguments.&quot;</span>
+                        <span class="p">)</span>
                     <span class="n">new_node</span> <span class="o">=</span> <span class="n">target_mod</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">call_module</span><span class="p">(</span>
-                        <span class="n">name</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">new_args</span><span class="p">),</span> <span class="n">new_kwargs</span>
+                        <span class="n">name</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">subgraph_args</span><span class="p">),</span> <span class="n">new_kwargs</span>
                     <span class="p">)</span>
                 <span class="n">last_node</span> <span class="o">=</span> <span class="n">ops</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
                 <span class="n">last_node</span><span class="o">.</span><span class="n">replace_all_uses_with</span><span class="p">(</span><span class="n">new_node</span><span class="p">)</span>
@@ -1255,7 +1275,7 @@ title="Source repository"
             <span class="bp">self</span><span class="o">.</span><span class="n">child</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_sch</span>
 
     <span class="nd">@register_primitive</span><span class="p">()</span>
-    <span class="k">def</span> <span class="nf">replace</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_mod_or_func</span><span class="p">,</span> <span class="n">target_ops</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">replace</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_mod_or_func</span><span class="p">,</span> <span class="n">target_ops</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">concrete_args</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Replace one of the following scenarios:</span>
 <span class="sd">        1. Replace an entire module (new_mod_or_func is the new module object, target_ops=None).</span>
 <span class="sd">        2. Replace a part of the forward function (target_ops) with a new module or function.</span>
@@ -1267,7 +1287,7 @@ title="Source repository"
                 <span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_replace_function</span><span class="p">(</span><span class="n">new_mod_or_func</span><span class="p">,</span> <span class="n">target_ops</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_replace_module</span><span class="p">(</span><span class="n">new_mod_or_func</span><span class="p">,</span> <span class="n">target_ops</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_replace_module</span><span class="p">(</span><span class="n">new_mod_or_func</span><span class="p">,</span> <span class="n">target_ops</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">concrete_args</span><span class="p">)</span>
 
         <span class="c1"># Clean up and update the schedule child list.</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="p">,</span> <span class="n">fx</span><span class="o">.</span><span class="n">GraphModule</span><span class="p">):</span>

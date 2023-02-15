@@ -5,7 +5,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Optimize Attention Module on A Single GPU &#8212; Slapo Documentation</title>
+    <title>Optimize Attention Module on A Single Device &#8212; Slapo Documentation</title>
     
   <!-- Loaded before other Sphinx assets -->
   <link href="../_static/styles/theme.css?digest=1999514e3f237ded88cf" rel="stylesheet">
@@ -38,6 +38,7 @@
     <script src="../_static/clipboard.min.js"></script>
     <script src="../_static/copybutton.js"></script>
     <script src="../_static/scripts/sphinx-book-theme.js?digest=9c920249402e914e316237a7dbc6769907cce411"></script>
+    <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="Python API" href="../python_api/index.html" />
@@ -111,7 +112,7 @@
 <ul class="current nav bd-sidenav">
  <li class="toctree-l1 current active">
   <a class="current reference internal" href="#">
-   Optimize Attention Module on A Single GPU
+   Optimize Attention Module on A Single Device
   </a>
  </li>
 </ul>
@@ -360,7 +361,7 @@ title="Print to PDF"
         <div class="col pl-md-3 pl-lg-5 content-container">
             <!-- Table of contents that is only displayed when printing the page -->
             <div id="jb-print-docs-body" class="onlyprint">
-                <h1>Optimize Attention Module on A Single GPU</h1>
+                <h1>Optimize Attention Module on A Single Device</h1>
                 <!-- Table of contents -->
                 <div id="print-main-content">
                     <div id="jb-print-toc">
@@ -377,12 +378,13 @@ title="Print to PDF"
 <p>Click <a class="reference internal" href="#sphx-glr-download-gallery-attention-single-gpu-py"><span class="std std-ref">here</span></a>
 to download the full example code</p>
 </div>
-<div class="sphx-glr-example-title section" id="optimize-attention-module-on-a-single-gpu">
-<span id="sphx-glr-gallery-attention-single-gpu-py"></span><h1>Optimize Attention Module on A Single GPU<a class="headerlink" href="#optimize-attention-module-on-a-single-gpu" title="Permalink to this headline"><span>¶</span></a></h1>
+<div class="sphx-glr-example-title section" id="optimize-attention-module-on-a-single-device">
+<span id="sphx-glr-gallery-attention-single-gpu-py"></span><h1>Optimize Attention Module on A Single Device<a class="headerlink" href="#optimize-attention-module-on-a-single-device" title="Permalink to this headline"><span>¶</span></a></h1>
 <p>This guide uses the <a class="reference external" href="https://arxiv.org/abs/1706.03762">Attention</a> module,
 the core and most time-consuming module in Transformer-based models, as an
 example to show how we can leverage Slapo to optimize its performance on
-a single GPU.</p>
+a single device. We will cover pattern matching, operator fusion, and partial
+module replacement in this guide.</p>
 <p>We first import the necessary packages. Make sure you have already installed
 the PyTorch framework.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">torch</span>
@@ -391,13 +393,14 @@ the PyTorch framework.</p>
 <span class="kn">import</span> <span class="nn">slapo</span>
 </pre></div>
 </div>
-<p>The Attention module is consisted of SelfAttention and Projection modules, where
-SelfAttention takes in the hidden states and pass it through three diffferent
+<p>The Attention module consists of SelfAttention and Projection modules, where
+SelfAttention takes in the hidden states and passes it through three different
 linear layers to generate the query, key and value tensors. Then, those tensors
 will be performed the following scaled dot-product attention:</p>
-<p>$$ mathrm{CoreAttention}(Q, K, V) = mathrm{softmax}left(frac{QK^T}{sqrt(d_k)}right) * V $$</p>
-<p>where $d_k$ is the hidden dimension. Finally, the output of the attention module
-will be passed through a linear projection layer, added with the residual
+<div class="math notranslate nohighlight">
+\[\begin{split}\\mathrm{CoreAttention}(Q, K, V) = \\mathrm{softmax}\\left(\\frac{QK^{\\mathrm{T}}}{\\sqrt(d_k)}\\right) * V\end{split}\]</div>
+<p>where <span class="math notranslate nohighlight">\(d_k\)</span> is the hidden dimension. Finally, the output of the attention
+module will be passed through a linear projection layer, added with the residual
 connection, and conducted a layer norm to generate the final output.
 The following code shows the implementation of the Attention module.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">scaled_dot_product</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
@@ -413,13 +416,12 @@ The following code shows the implementation of the Attention module.</p>
 
 
 <span class="k">class</span> <span class="nc">SelfAttention</span><span class="p">(</span><a href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="torch.nn.Module" class="sphx-glr-backref-module-torch-nn sphx-glr-backref-type-py-class"><span class="n">nn</span><span class="o">.</span><span class="n">Module</span></a><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">hidden_size</span><span class="p">,</span> <span class="n">n_heads</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">q_proj</span> <span class="o">=</span> <a href="https://pytorch.org/docs/stable/generated/torch.nn.Linear.html#torch.nn.Linear" title="torch.nn.Linear" class="sphx-glr-backref-module-torch-nn sphx-glr-backref-type-py-class"><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span></a><span class="p">(</span><span class="mi">1024</span><span class="p">,</span> <span class="mi">1024</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">k_proj</span> <span class="o">=</span> <a href="https://pytorch.org/docs/stable/generated/torch.nn.Linear.html#torch.nn.Linear" title="torch.nn.Linear" class="sphx-glr-backref-module-torch-nn sphx-glr-backref-type-py-class"><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span></a><span class="p">(</span><span class="mi">1024</span><span class="p">,</span> <span class="mi">1024</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">v_proj</span> <span class="o">=</span> <a href="https://pytorch.org/docs/stable/generated/torch.nn.Linear.html#torch.nn.Linear" title="torch.nn.Linear" class="sphx-glr-backref-module-torch-nn sphx-glr-backref-type-py-class"><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span></a><span class="p">(</span><span class="mi">1024</span><span class="p">,</span> <span class="mi">1024</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">dropout</span> <span class="o">=</span> <a href="https://pytorch.org/docs/stable/generated/torch.nn.Dropout.html#torch.nn.Dropout" title="torch.nn.Dropout" class="sphx-glr-backref-module-torch-nn sphx-glr-backref-type-py-class"><span class="n">nn</span><span class="o">.</span><span class="n">Dropout</span></a><span class="p">(</span><span class="mf">0.1</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">n_heads</span> <span class="o">=</span> <span class="mi">16</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">q_proj</span> <span class="o">=</span> <a href="https://pytorch.org/docs/stable/generated/torch.nn.Linear.html#torch.nn.Linear" title="torch.nn.Linear" class="sphx-glr-backref-module-torch-nn sphx-glr-backref-type-py-class"><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span></a><span class="p">(</span><span class="n">hidden_size</span><span class="p">,</span> <span class="n">hidden_size</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">k_proj</span> <span class="o">=</span> <a href="https://pytorch.org/docs/stable/generated/torch.nn.Linear.html#torch.nn.Linear" title="torch.nn.Linear" class="sphx-glr-backref-module-torch-nn sphx-glr-backref-type-py-class"><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span></a><span class="p">(</span><span class="n">hidden_size</span><span class="p">,</span> <span class="n">hidden_size</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">v_proj</span> <span class="o">=</span> <a href="https://pytorch.org/docs/stable/generated/torch.nn.Linear.html#torch.nn.Linear" title="torch.nn.Linear" class="sphx-glr-backref-module-torch-nn sphx-glr-backref-type-py-class"><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span></a><span class="p">(</span><span class="n">hidden_size</span><span class="p">,</span> <span class="n">hidden_size</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_heads</span> <span class="o">=</span> <span class="n">n_heads</span>
 
     <span class="k">def</span> <span class="nf">permute_for_scores</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
         <span class="c1"># x: (batch_size, seq_len, hidden_size)</span>
@@ -443,24 +445,24 @@ The following code shows the implementation of the Attention module.</p>
 
 
 <span class="k">class</span> <span class="nc">Projection</span><span class="p">(</span><a href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="torch.nn.Module" class="sphx-glr-backref-module-torch-nn sphx-glr-backref-type-py-class"><span class="n">nn</span><span class="o">.</span><span class="n">Module</span></a><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">hidden_size</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">dense</span> <span class="o">=</span> <a href="https://pytorch.org/docs/stable/generated/torch.nn.Linear.html#torch.nn.Linear" title="torch.nn.Linear" class="sphx-glr-backref-module-torch-nn sphx-glr-backref-type-py-class"><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span></a><span class="p">(</span><span class="mi">1024</span><span class="p">,</span> <span class="mi">1024</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dense</span> <span class="o">=</span> <a href="https://pytorch.org/docs/stable/generated/torch.nn.Linear.html#torch.nn.Linear" title="torch.nn.Linear" class="sphx-glr-backref-module-torch-nn sphx-glr-backref-type-py-class"><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span></a><span class="p">(</span><span class="n">hidden_size</span><span class="p">,</span> <span class="n">hidden_size</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">dropout</span> <span class="o">=</span> <a href="https://pytorch.org/docs/stable/generated/torch.nn.Dropout.html#torch.nn.Dropout" title="torch.nn.Dropout" class="sphx-glr-backref-module-torch-nn sphx-glr-backref-type-py-class"><span class="n">nn</span><span class="o">.</span><span class="n">Dropout</span></a><span class="p">(</span><span class="mf">0.1</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">layer_norm</span> <span class="o">=</span> <a href="https://pytorch.org/docs/stable/generated/torch.nn.LayerNorm.html#torch.nn.LayerNorm" title="torch.nn.LayerNorm" class="sphx-glr-backref-module-torch-nn sphx-glr-backref-type-py-class"><span class="n">nn</span><span class="o">.</span><span class="n">LayerNorm</span></a><span class="p">(</span><span class="mi">1024</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">layer_norm</span> <span class="o">=</span> <a href="https://pytorch.org/docs/stable/generated/torch.nn.LayerNorm.html#torch.nn.LayerNorm" title="torch.nn.LayerNorm" class="sphx-glr-backref-module-torch-nn sphx-glr-backref-type-py-class"><span class="n">nn</span><span class="o">.</span><span class="n">LayerNorm</span></a><span class="p">(</span><span class="n">hidden_size</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">hidden_states</span><span class="p">,</span> <span class="n">input_tensor</span><span class="p">):</span>
         <span class="n">hidden_states</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dense</span><span class="p">(</span><span class="n">hidden_states</span><span class="p">)</span>
         <span class="n">hidden_states</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dropout</span><span class="p">(</span><span class="n">hidden_states</span><span class="p">)</span>
-        <span class="n">hidden_states</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">layer_norm</span><span class="p">(</span><span class="n">hidden_states</span><span class="p">,</span> <span class="n">input_tensor</span><span class="p">)</span>
+        <span class="n">hidden_states</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">layer_norm</span><span class="p">(</span><span class="n">hidden_states</span> <span class="o">+</span> <span class="n">input_tensor</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">hidden_states</span>
 
 
 <span class="k">class</span> <span class="nc">Attention</span><span class="p">(</span><a href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="torch.nn.Module" class="sphx-glr-backref-module-torch-nn sphx-glr-backref-type-py-class"><span class="n">nn</span><span class="o">.</span><span class="n">Module</span></a><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">hidden_size</span><span class="p">,</span> <span class="n">n_heads</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">self_attn</span> <span class="o">=</span> <a href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="torch.nn.Module" class="sphx-glr-backref-module-torch-nn sphx-glr-backref-type-py-class"><span class="n">SelfAttention</span></a><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">proj</span> <span class="o">=</span> <a href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="torch.nn.Module" class="sphx-glr-backref-module-torch-nn sphx-glr-backref-type-py-class"><span class="n">Projection</span></a><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">self_attn</span> <span class="o">=</span> <a href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="torch.nn.Module" class="sphx-glr-backref-module-torch-nn sphx-glr-backref-type-py-class"><span class="n">SelfAttention</span></a><span class="p">(</span><span class="n">hidden_size</span><span class="p">,</span> <span class="n">n_heads</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">proj</span> <span class="o">=</span> <a href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="torch.nn.Module" class="sphx-glr-backref-module-torch-nn sphx-glr-backref-type-py-class"><span class="n">Projection</span></a><span class="p">(</span><span class="n">hidden_size</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">hidden_states</span><span class="p">):</span>
         <span class="n">self_output</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">self_attn</span><span class="p">(</span><span class="n">hidden_states</span><span class="p">)</span>
@@ -469,7 +471,7 @@ The following code shows the implementation of the Attention module.</p>
 </pre></div>
 </div>
 <p>Users can instantiate the model based on the above definition as usual.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">model</span> <span class="o">=</span> <a href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="torch.nn.Module" class="sphx-glr-backref-module-torch-nn sphx-glr-backref-type-py-class"><span class="n">Attention</span></a><span class="p">()</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">model</span> <span class="o">=</span> <a href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="torch.nn.Module" class="sphx-glr-backref-module-torch-nn sphx-glr-backref-type-py-class"><span class="n">Attention</span></a><span class="p">(</span><span class="n">hidden_size</span><span class="o">=</span><span class="mi">1024</span><span class="p">,</span> <span class="n">n_heads</span><span class="o">=</span><span class="mi">16</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>Later, we pass the model to Slapo and create a default schedule for it.
@@ -484,7 +486,6 @@ Users can check the module by calling the <code class="docutils literal notransl
     (q_proj): Linear(in_features=1024, out_features=1024, bias=True)
     (k_proj): Linear(in_features=1024, out_features=1024, bias=True)
     (v_proj): Linear(in_features=1024, out_features=1024, bias=True)
-    (dropout): Dropout(p=0.1, inplace=False)
   )
   (proj): Projection(
     (dense): Linear(in_features=1024, out_features=1024, bias=True)
@@ -495,9 +496,22 @@ Users can check the module by calling the <code class="docutils literal notransl
 </pre></div>
 </div>
 <p>As we can see, Slapo works seamlessly with the PyTorch models and preserves
-the hierachical structure of the original model. As we have not added any
+the hierarchical structure of the original model. As we have not added any
 optimizations, the module is exactly the same as the original one.
-This is also the idea of progressive optimization – we only apply optimizations
+We can easily obtain the submodules by passing the module name to the schedule,
+which will return a new schedule for the submodule.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">attn_sch</span> <span class="o">=</span> <span class="n">sch</span><span class="p">[</span><span class="s2">&quot;self_attn&quot;</span><span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">attn_sch</span><span class="o">.</span><span class="n">mod</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>SelfAttention(
+  (q_proj): Linear(in_features=1024, out_features=1024, bias=True)
+  (k_proj): Linear(in_features=1024, out_features=1024, bias=True)
+  (v_proj): Linear(in_features=1024, out_features=1024, bias=True)
+)
+</pre></div>
+</div>
+<p>This is also the idea of progressive optimization – we only apply optimizations
 to a small part of the model at a time and do not affect other parts.
 If no optimizations are applied, then no changes will be made to the model, which
 is different from the traditional static graph optimization employed by deep
@@ -505,19 +519,20 @@ learning compilers.</p>
 <p>In the following, we will show how to gradually apply optimizations to the model.
 Since the three linear layers in the SelfAttention module are independent, we
 can merge them into a single linear layer to reduce the number of GEMM
-operations, and thus reduce the GPU kernel launch overheads.</p>
+operations, and thus reduce the kernel launch overheads.</p>
 <p>The first thing to do is to find those three linear layers and the consequential
 operations in the model. Slapo provides an easy-to-use API to help users
 define the pattern and find the corresponding module or subgraph in the model.
 We can define a subgraph pattern function as shown below. The <code class="docutils literal notranslate"><span class="pre">call_module</span></code>
 function will try to match a call node that satisfies the user-defined
 constraint in the dataflow graph. The first argument specifies the name of the
-module, where regular expression is supported, so the it can support fuzzy
+module, where regular expression is supported, so it can support fuzzy
 matching in this case. The latter arguments are the arguments of the call node.
 Using this function, we can use just one line of code to match the three linear
 layers. Also, we need to incorporate the <code class="docutils literal notranslate"><span class="pre">view</span></code> and <code class="docutils literal notranslate"><span class="pre">permute</span></code> operations,
 which should also be fused together instead of doing three times separately.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">slapo.pattern</span> <span class="kn">import</span> <span class="n">call_module</span>
+
 
 <span class="k">def</span> <span class="nf">pattern</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
     <span class="n">x</span> <span class="o">=</span> <span class="n">call_module</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;[qkv]_proj&quot;</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
@@ -527,18 +542,317 @@ which should also be fused together instead of doing three times separately.</p>
 </pre></div>
 </div>
 <p>After defining the pattern, we can use the <code class="docutils literal notranslate"><span class="pre">.find()</span></code> primitive to find the
-corresponding subgraph in the model. It will return a list of subgraphs that
-match the pattern. In our case, there will be three subgraphs, one for each
-linear layer and the <code class="docutils literal notranslate"><span class="pre">view</span></code> and <code class="docutils literal notranslate"><span class="pre">permute</span></code> operations.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">subgraphs</span> <span class="o">=</span> <span class="n">sch</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">pattern</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">subgraphs</span><span class="p">)</span>
+corresponding subgraph in the model.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">qkv_subgraphs</span> <span class="o">=</span> <span class="n">attn_sch</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">pattern</span><span class="p">)</span>
+
+<span class="c1"># The primitive basically does two things. First, it will `implicitly` trace the submodule</span>
+<span class="c1"># into a static subgraph. Currently, we use `torch.fx &lt;https://pytorch.org/docs/stable/fx.html&gt;`_</span>
+<span class="c1"># as the IR, so the traced module will become a ``torch.fx.GraphModule``, and we can also</span>
+<span class="c1"># see the forward function of it.</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="n">attn_sch</span><span class="o">.</span><span class="n">mod</span><span class="p">)</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>[[(&#39;self_attn&#39;, q_proj), (&#39;self_attn&#39;, getattr_1), (&#39;self_attn&#39;, getitem), (&#39;self_attn&#39;, add), (&#39;self_attn&#39;, view), (&#39;self_attn&#39;, permute)], [(&#39;self_attn&#39;, k_proj), (&#39;self_attn&#39;, getattr_2), (&#39;self_attn&#39;, getitem_1), (&#39;self_attn&#39;, add_1), (&#39;self_attn&#39;, view_1), (&#39;self_attn&#39;, permute_1)], [(&#39;self_attn&#39;, v_proj), (&#39;self_attn&#39;, getattr_3), (&#39;self_attn&#39;, getitem_2), (&#39;self_attn&#39;, add_2), (&#39;self_attn&#39;, view_2), (&#39;self_attn&#39;, permute_2)]]
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>GraphModule(
+  (q_proj): Linear(in_features=1024, out_features=1024, bias=True)
+  (k_proj): Linear(in_features=1024, out_features=1024, bias=True)
+  (v_proj): Linear(in_features=1024, out_features=1024, bias=True)
+)
+
+
+
+def forward(self, hidden_states):
+    q_proj = self.q_proj(hidden_states)
+    getattr_1 = q_proj.shape
+    getitem = getattr_1[slice(None, -1, None)];  getattr_1 = None
+    add = getitem + (16, -1);  getitem = None
+    view = q_proj.view(add);  q_proj = add = None
+    permute = view.permute(0, 2, 1, 3);  view = None
+    k_proj = self.k_proj(hidden_states)
+    getattr_2 = k_proj.shape
+    getitem_1 = getattr_2[slice(None, -1, None)];  getattr_2 = None
+    add_1 = getitem_1 + (16, -1);  getitem_1 = None
+    view_1 = k_proj.view(add_1);  k_proj = add_1 = None
+    permute_1 = view_1.permute(0, 2, 1, 3);  view_1 = None
+    v_proj = self.v_proj(hidden_states);  hidden_states = None
+    getattr_3 = v_proj.shape
+    getitem_2 = getattr_3[slice(None, -1, None)];  getattr_3 = None
+    add_2 = getitem_2 + (16, -1);  getitem_2 = None
+    view_2 = v_proj.view(add_2);  v_proj = add_2 = None
+    permute_2 = view_2.permute(0, 2, 1, 3);  view_2 = None
+    getattr_4 = permute.shape
+    getitem_3 = getattr_4[-1];  getattr_4 = None
+    transpose = permute_1.transpose(-2, -1);  permute_1 = None
+    matmul = torch.matmul(permute, transpose);  permute = transpose = None
+    sqrt = torch.sqrt(getitem_3);  getitem_3 = None
+    truediv = matmul / sqrt;  matmul = sqrt = None
+    softmax = torch.nn.functional.softmax(truediv, dim = -1, _stacklevel = 3, dtype = None);  truediv = None
+    dropout = torch.nn.functional.dropout(softmax, p = 0.1, training = True, inplace = False);  softmax = None
+    matmul_1 = torch.matmul(dropout, permute_2);  dropout = permute_2 = None
+    return matmul_1
+
+# To see more debug info, please use `graph_module.print_readable()`
 </pre></div>
 </div>
-<p>We can later define a fused QKV layer to replace the three linear layers.</p>
-<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> ( 0 minutes  0.046 seconds)</p>
+<p>Second, the <code class="docutils literal notranslate"><span class="pre">.find()`</span> <span class="pre">primitive</span> <span class="pre">will</span> <span class="pre">return</span> <span class="pre">a</span> <span class="pre">list</span> <span class="pre">of</span> <span class="pre">subgraphs</span> <span class="pre">that</span>
+<span class="pre">match</span> <span class="pre">the</span> <span class="pre">pattern.</span> <span class="pre">In</span> <span class="pre">our</span> <span class="pre">case,</span> <span class="pre">there</span> <span class="pre">will</span> <span class="pre">be</span> <span class="pre">three</span> <span class="pre">subgraphs,</span> <span class="pre">one</span> <span class="pre">for</span> <span class="pre">each</span>
+<span class="pre">linear</span> <span class="pre">layer</span> <span class="pre">and</span> <span class="pre">the</span> <span class="pre">consequential</span> <span class="pre">``view</span></code> and <code class="docutils literal notranslate"><span class="pre">permute</span></code> operations.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="n">qkv_subgraphs</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>[[(&#39;&#39;, q_proj), (&#39;&#39;, getattr_1), (&#39;&#39;, getitem), (&#39;&#39;, add), (&#39;&#39;, view), (&#39;&#39;, permute)], [(&#39;&#39;, k_proj), (&#39;&#39;, getattr_2), (&#39;&#39;, getitem_1), (&#39;&#39;, add_1), (&#39;&#39;, view_1), (&#39;&#39;, permute_1)], [(&#39;&#39;, v_proj), (&#39;&#39;, getattr_3), (&#39;&#39;, getitem_2), (&#39;&#39;, add_2), (&#39;&#39;, view_2), (&#39;&#39;, permute_2)]]
+</pre></div>
+</div>
+<p>Then, we define a fused QKV module as follows and instantiate it.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">FusedQKV</span><span class="p">(</span><a href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="torch.nn.Module" class="sphx-glr-backref-module-torch-nn sphx-glr-backref-type-py-class"><span class="n">nn</span><span class="o">.</span><span class="n">Module</span></a><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">hidden_size</span><span class="p">,</span> <span class="n">n_heads</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_heads</span> <span class="o">=</span> <span class="n">n_heads</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fused_linear</span> <span class="o">=</span> <a href="https://pytorch.org/docs/stable/generated/torch.nn.Linear.html#torch.nn.Linear" title="torch.nn.Linear" class="sphx-glr-backref-module-torch-nn sphx-glr-backref-type-py-class"><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span></a><span class="p">(</span><span class="n">hidden_size</span><span class="p">,</span> <span class="n">hidden_size</span> <span class="o">*</span> <span class="mi">3</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">permute_for_scores</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">new_shape</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_heads</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">new_shape</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">x</span><span class="o">.</span><span class="n">permute</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">hidden_states</span><span class="p">):</span>
+        <span class="n">qkv</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fused_linear</span><span class="p">(</span><span class="n">hidden_states</span><span class="p">)</span>
+        <span class="n">reshaped_qkv</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">permute_for_scores</span><span class="p">(</span><span class="n">qkv</span><span class="p">)</span>
+        <span class="n">q</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="o">=</span> <a href="https://pytorch.org/docs/stable/generated/torch.split.html#torch.split" title="torch.split" class="sphx-glr-backref-module-torch sphx-glr-backref-type-py-function"><span class="n">torch</span><span class="o">.</span><span class="n">split</span></a><span class="p">(</span><span class="n">reshaped_qkv</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">q</span> <span class="o">=</span> <a href="https://pytorch.org/docs/stable/generated/torch.squeeze.html#torch.squeeze" title="torch.squeeze" class="sphx-glr-backref-module-torch sphx-glr-backref-type-py-function"><span class="n">torch</span><span class="o">.</span><span class="n">squeeze</span></a><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">contiguous</span><span class="p">()</span>
+        <span class="n">k</span> <span class="o">=</span> <a href="https://pytorch.org/docs/stable/generated/torch.squeeze.html#torch.squeeze" title="torch.squeeze" class="sphx-glr-backref-module-torch sphx-glr-backref-type-py-function"><span class="n">torch</span><span class="o">.</span><span class="n">squeeze</span></a><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">contiguous</span><span class="p">()</span>
+        <span class="n">v</span> <span class="o">=</span> <a href="https://pytorch.org/docs/stable/generated/torch.squeeze.html#torch.squeeze" title="torch.squeeze" class="sphx-glr-backref-module-torch sphx-glr-backref-type-py-function"><span class="n">torch</span><span class="o">.</span><span class="n">squeeze</span></a><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">contiguous</span><span class="p">()</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">q</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">]</span>
+
+
+<span class="n">fused_qkv</span> <span class="o">=</span> <a href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="torch.nn.Module" class="sphx-glr-backref-module-torch-nn sphx-glr-backref-type-py-class"><span class="n">FusedQKV</span></a><span class="p">(</span><span class="n">hidden_size</span><span class="o">=</span><span class="mi">1024</span><span class="p">,</span> <span class="n">n_heads</span><span class="o">=</span><span class="mi">16</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>We can replace the subgraphs with the fused QKV module by calling the
+<code class="docutils literal notranslate"><span class="pre">.replace()</span></code> primitive. The first argument is the new module,
+and the second argument is the subgraph to be replaced.
+After replacing the subgraph, we can check the model again to see the
+changes.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">attn_sch</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">fused_qkv</span><span class="p">,</span> <span class="n">qkv_subgraphs</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">attn_sch</span><span class="o">.</span><span class="n">mod</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>GraphModule(
+  (FusedQKV_0): FusedQKV(
+    (fused_linear): Linear(in_features=1024, out_features=3072, bias=True)
+  )
+)
+
+
+
+def forward(self, hidden_states):
+    fused_qkv_0 = self.FusedQKV_0(hidden_states);  hidden_states = None
+    getitem_8 = fused_qkv_0[2]
+    getitem_7 = fused_qkv_0[1]
+    getitem_6 = fused_qkv_0[0];  fused_qkv_0 = None
+    getattr_4 = getitem_6.shape
+    getitem_3 = getattr_4[-1];  getattr_4 = None
+    transpose = getitem_7.transpose(-2, -1);  getitem_7 = None
+    matmul = torch.matmul(getitem_6, transpose);  getitem_6 = transpose = None
+    sqrt = torch.sqrt(getitem_3);  getitem_3 = None
+    truediv = matmul / sqrt;  matmul = sqrt = None
+    softmax = torch.nn.functional.softmax(truediv, dim = -1, _stacklevel = 3, dtype = None);  truediv = None
+    dropout = torch.nn.functional.dropout(softmax, p = 0.1, training = True, inplace = False);  softmax = None
+    matmul_1 = torch.matmul(dropout, getitem_8);  dropout = getitem_8 = None
+    return matmul_1
+
+# To see more debug info, please use `graph_module.print_readable()`
+</pre></div>
+</div>
+<p>From the above output, we can see there is a new module called <code class="docutils literal notranslate"><span class="pre">FusedQKV_0</span></code>
+with 3x <code class="docutils literal notranslate"><span class="pre">out_features</span></code> compared to the original linear layer.
+The corresponding forward function is also changed to leverage the fused
+module.</p>
+<p>Similarly, we can directly find the core attention function and replace it
+with a more efficient implementation.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">core_attn_subgraph</span> <span class="o">=</span> <span class="n">attn_sch</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">scaled_dot_product</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">core_attn_subgraph</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>[[(&#39;&#39;, getattr_4), (&#39;&#39;, getitem_3), (&#39;&#39;, transpose), (&#39;&#39;, matmul), (&#39;&#39;, sqrt), (&#39;&#39;, truediv), (&#39;&#39;, softmax), (&#39;&#39;, dropout), (&#39;&#39;, matmul_1)]]
+</pre></div>
+</div>
+<p>We can use the <code class="docutils literal notranslate"><span class="pre">FlashAttentionOp</span></code> from the <code class="docutils literal notranslate"><span class="pre">xformers</span></code> library to replace
+the core attention, which has been included in Slapo, so we can directly
+import and replace the subgraph with <code class="docutils literal notranslate"><span class="pre">FlashAttentionOp</span></code>.
+Notice, since the <code class="docutils literal notranslate"><span class="pre">scaled_dot_product</span></code> function we defined above only accepts
+the <code class="docutils literal notranslate"><span class="pre">query</span></code>, <code class="docutils literal notranslate"><span class="pre">key</span></code>, and <code class="docutils literal notranslate"><span class="pre">value</span></code> tensors, while <code class="docutils literal notranslate"><span class="pre">FlashAttentionOp</span></code> requires
+five arguments, so we need to explicitly pass <code class="docutils literal notranslate"><span class="pre">None</span></code> to the <cite>attention_mask`</cite>
+argument, and set the dropout probability <code class="docutils literal notranslate"><span class="pre">p</span></code> to 0.1 by setting the <code class="docutils literal notranslate"><span class="pre">concrete_args</span></code>.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">slapo.op.attention</span> <span class="kn">import</span> <a href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="torch.nn.Module" class="sphx-glr-backref-module-torch-nn sphx-glr-backref-type-py-class"><span class="n">FlashAttentionOp</span></a>
+
+<span class="n">flash_attn</span> <span class="o">=</span> <a href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="torch.nn.Module" class="sphx-glr-backref-module-torch-nn sphx-glr-backref-type-py-class"><span class="n">FlashAttentionOp</span></a><span class="p">(</span><span class="n">attn_op_name</span><span class="o">=</span><span class="s2">&quot;native_xformers&quot;</span><span class="p">,</span> <span class="n">apply_causal_mask</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">attn_sch</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span>
+    <span class="n">flash_attn</span><span class="p">,</span> <span class="n">core_attn_subgraph</span><span class="p">,</span> <span class="n">concrete_args</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;attention_mask&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;p&quot;</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">}</span>
+<span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">attn_sch</span><span class="o">.</span><span class="n">mod</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>GraphModule(
+  (FusedQKV_0): FusedQKV(
+    (fused_linear): Linear(in_features=1024, out_features=3072, bias=True)
+  )
+  (FlashAttentionOp_0): FlashAttentionOp()
+)
+
+
+
+def forward(self, hidden_states):
+    fused_qkv_0 = self.FusedQKV_0(hidden_states);  hidden_states = None
+    getitem_8 = fused_qkv_0[2]
+    getitem_7 = fused_qkv_0[1]
+    getitem_6 = fused_qkv_0[0];  fused_qkv_0 = None
+    flash_attention_op_0 = self.FlashAttentionOp_0(getitem_6, getitem_7, getitem_8, attention_mask = None, p = 0.1);  getitem_6 = getitem_7 = getitem_8 = None
+    return flash_attention_op_0
+
+# To see more debug info, please use `graph_module.print_readable()`
+</pre></div>
+</div>
+<p>Again, the <code class="docutils literal notranslate"><span class="pre">FlashAttentionOp</span></code> is attached to the GraphModule, and the forward
+function becomes much simpler to call those two submodules.</p>
+<p>We then optimize the <code class="docutils literal notranslate"><span class="pre">Projection</span></code> module. A common practice is to fuse the
+dropout and the layer norm layer with those element-wise addition operations.
+We first create a subschedule for the <code class="docutils literal notranslate"><span class="pre">Projection</span></code> module.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">proj_sch</span> <span class="o">=</span> <span class="n">sch</span><span class="p">[</span><span class="s2">&quot;proj&quot;</span><span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">proj_sch</span><span class="o">.</span><span class="n">mod</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Projection(
+  (dense): Linear(in_features=1024, out_features=1024, bias=True)
+  (dropout): Dropout(p=0.1, inplace=False)
+  (layer_norm): LayerNorm((1024,), eps=1e-05, elementwise_affine=True)
+)
+</pre></div>
+</div>
+<p>As we want to fuse the linear bias with the consequential layers, we need to
+decompose the linear layer into two separate matrix multiplication and bias add operations.
+In Slapo, this is easy to achieve by simply calling <code class="docutils literal notranslate"><span class="pre">.decompose()</span></code> on the linear module.</p>
+<div class="margin admonition note">
+<p class="admonition-title">Note</p>
+<p>The default <a class="reference external" href="https://pytorch.org/docs/stable/generated/torch.nn.Linear.html">nn.Linear</a> module
+in PyTorch will directly pass both weight and bias to the backend
+<a class="reference external" href="https://pytorch.org/docs/stable/generated/torch.nn.functional.linear.html">F.linear</a> function,
+and dispatch it to the corresponding C/CUDA library, so there is no way to fuse the bias if we
+do not take it apart. Another reason for decomposing is that we can still optimize the
+<code class="docutils literal notranslate"><span class="pre">weight</span></code> parameter later (e.g., sharding) even though the <code class="docutils literal notranslate"><span class="pre">bias</span></code> may be fused.</p>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">proj_sch</span><span class="p">[</span><span class="s2">&quot;dense&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">decompose</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">proj_sch</span><span class="o">.</span><span class="n">mod</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Projection(
+  (dense): LinearWithSeparateBias(in_features=1024, out_features=1024, bias=True)
+  (dropout): Dropout(p=0.1, inplace=False)
+  (layer_norm): LayerNorm((1024,), eps=1e-05, elementwise_affine=True)
+)
+</pre></div>
+</div>
+<p>We can see the <code class="docutils literal notranslate"><span class="pre">Linear</span></code> module changed into <code class="docutils literal notranslate"><span class="pre">LinearWithSeparateBias</span></code>, and other submodules
+remain the same. Next, we need to <cite>explicitly</cite> call the <code class="docutils literal notranslate"><span class="pre">.trace()</span></code> primitive to trace the module
+into a static subgraph. It gives us more control over the traced module. For example, we can
+pass in the <code class="docutils literal notranslate"><span class="pre">flatten</span></code> flag to let the tracer gets into each submodule so that the bias add
+can be depicted as a node in the subgraph.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">proj_sch</span><span class="o">.</span><span class="n">trace</span><span class="p">(</span><span class="n">flatten</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">proj_sch</span><span class="o">.</span><span class="n">mod</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>GraphModule(
+  (dense): Module()
+  (dropout): Dropout(p=0.1, inplace=False)
+  (layer_norm): LayerNorm((1024,), eps=1e-05, elementwise_affine=True)
+)
+
+
+
+def forward(self, hidden_states, input_tensor):
+    dense_weight = self.dense.weight
+    linear = torch._C._nn.linear(hidden_states, dense_weight, None);  hidden_states = dense_weight = None
+    dense_bias = self.dense.bias
+    add = linear + dense_bias;  linear = dense_bias = None
+    dropout = self.dropout(add);  add = None
+    add_1 = dropout + input_tensor;  dropout = input_tensor = None
+    layer_norm = self.layer_norm(add_1);  add_1 = None
+    return layer_norm
+
+# To see more debug info, please use `graph_module.print_readable()`
+</pre></div>
+</div>
+<p>We can again define the fusion pattern as follows. Here the pattern includes three input arguments,
+Slapo can still handle it correctly and grab all the required nodes in the subgraph.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">ln_pattern</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">bias</span><span class="p">,</span> <span class="n">residual</span><span class="p">):</span>
+    <span class="k">return</span> <a href="https://pytorch.org/docs/stable/generated/torch.nn.functional.layer_norm.html#torch.nn.functional.layer_norm" title="torch.nn.functional.layer_norm" class="sphx-glr-backref-module-torch-nn-functional sphx-glr-backref-type-py-function"><span class="n">F</span><span class="o">.</span><span class="n">layer_norm</span></a><span class="p">(</span><a href="https://pytorch.org/docs/stable/generated/torch.nn.functional.dropout.html#torch.nn.functional.dropout" title="torch.nn.functional.dropout" class="sphx-glr-backref-module-torch-nn-functional sphx-glr-backref-type-py-function"><span class="n">F</span><span class="o">.</span><span class="n">dropout</span></a><span class="p">(</span><span class="n">x</span> <span class="o">+</span> <span class="n">bias</span><span class="p">)</span> <span class="o">+</span> <span class="n">residual</span><span class="p">,</span> <span class="mi">1024</span><span class="p">)</span>
+
+
+<span class="n">ln_subgraph</span> <span class="o">=</span> <span class="n">proj_sch</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">ln_pattern</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">ln_subgraph</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>[[(&#39;&#39;, add), (&#39;&#39;, dropout), (&#39;&#39;, add_1), (&#39;&#39;, layer_norm)]]
+</pre></div>
+</div>
+<p>For this case of vertical fusion, Slapo provides a <code class="docutils literal notranslate"><span class="pre">.fuse()</span></code> primitive to easily fuse the subgraph.
+Users can specify the backend fusion compiler and the name of the fused module. By default, Slapo
+will use TorchScript (nvFuser) to fuse the subgraph.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">proj_sch</span><span class="o">.</span><span class="n">fuse</span><span class="p">(</span><span class="n">ln_subgraph</span><span class="p">,</span> <span class="n">compiler</span><span class="o">=</span><span class="s2">&quot;TorchScript&quot;</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;FusedLayerNorm&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">proj_sch</span><span class="o">.</span><span class="n">mod</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>/usr/local/lib/python3.8/site-packages/torch/jit/_check.py:181: UserWarning: The TorchScript type system doesn&#39;t support instance-level annotations on empty non-base types in `__init__`. Instead, either 1) use a type annotation in the class body, or 2) wrap the type in `torch.jit.Attribute`.
+  warnings.warn(&quot;The TorchScript type system doesn&#39;t support &quot;
+GraphModule(
+  (dense): Module()
+  (FusedLayerNorm_0): RecursiveScriptModule(
+    original_name=GraphModule
+    (dropout): RecursiveScriptModule(original_name=Dropout)
+    (layer_norm): RecursiveScriptModule(original_name=LayerNorm)
+  )
+)
+
+
+
+def forward(self, hidden_states, input_tensor):
+    dense_weight = self.dense.weight
+    linear = torch._C._nn.linear(hidden_states, dense_weight, None);  hidden_states = dense_weight = None
+    dense_bias = self.dense.bias
+    fused_layer_norm_0 = self.FusedLayerNorm_0(linear, dense_bias, input_tensor);  linear = dense_bias = input_tensor = None
+    return fused_layer_norm_0
+
+# To see more debug info, please use `graph_module.print_readable()`
+</pre></div>
+</div>
+<p>As shown in the above output, the <code class="docutils literal notranslate"><span class="pre">FusedLayerNorm</span></code> module is attached to the GraphModule, and
+only <code class="docutils literal notranslate"><span class="pre">torch._C._nn.Linear</span></code> and <code class="docutils literal notranslate"><span class="pre">FusedLayerNorm</span></code> are called in the forward function.</p>
+<p>Finally, we finish all the optimizations for Attention module on a single device.
+We can print out the top-level module to see the changes. The optimizations are clearly
+reflected in the new module, and we still keep the module hierarchy, which greatly enhances
+the readability and debuggability of the code.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Attention(
+  (self_attn): GraphModule(
+    (FusedQKV_0): FusedQKV(
+      (fused_linear): Linear(in_features=1024, out_features=3072, bias=True)
+    )
+    (FlashAttentionOp_0): FlashAttentionOp()
+  )
+  (proj): GraphModule(
+    (dense): Module()
+    (FusedLayerNorm_0): RecursiveScriptModule(
+      original_name=GraphModule
+      (dropout): RecursiveScriptModule(original_name=Dropout)
+      (layer_norm): RecursiveScriptModule(original_name=LayerNorm)
+    )
+  )
+)
+</pre></div>
+</div>
+<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> ( 0 minutes  0.154 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-gallery-attention-single-gpu-py">
 <div class="sphx-glr-download sphx-glr-download-python docutils container">
 <p><a class="reference download internal" download="" href="../_downloads/4011ed9eb8a93a419ccf3359a7195911/attention-single-gpu.py"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Python</span> <span class="pre">source</span> <span class="pre">code:</span> <span class="pre">attention-single-gpu.py</span></code></a></p>

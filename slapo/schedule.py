@@ -98,10 +98,6 @@ class ScheduleMetadata:
         default_factory=lambda: OrderedDict()
     )
 
-    # A mapping from parameter name to original shape
-    # Used for delay initialization
-    base_params: dict[str, tuple] = field(default_factory=lambda: DictWithValidation())
-
 
 def register_primitive(need_dist=False, finalize=False):
     """
@@ -160,10 +156,6 @@ class Schedule:
         self.parent = parent
         self.child = {}
         self.metadata = ScheduleMetadata()
-
-        # Record original shapes.
-        for param_name, param in mod.named_parameters():
-            self.metadata.base_params[param_name] = param.shape
 
         if parent is None:
             # Tie weight analysis only at the top level module.
@@ -269,6 +261,10 @@ class Schedule:
                     self.metadata.tie_weights[param] = new_param
             else:
                 new_param = nn.Parameter(new_tensor)
+
+            # Save the original size of the parameter for consolidation.
+            new_param.orig_shape = param.shape
+
             self.mod.register_parameter(tensor_name, new_param)
         except AttributeError:
             buffer = self.mod.get_buffer(tensor_name)
@@ -1312,7 +1308,7 @@ def consolidate_model(
         if isinstance(sch.mod, torch.jit.ScriptModule):
             # Scripted module requires the parameters to be initialized in advance,
             # so no need to consolidate
-            return
+            return 0, 0
 
         if hasattr(sch, "partition_idx") and topology is not None:
             curr_part_idx = sch.partition_idx
@@ -1324,39 +1320,39 @@ def consolidate_model(
 
         if global_rank not in curr_stage_devices:
             # do nothing if the target module is NOT on this device group
-            return
+            return 0, 0
 
-        # copy out new params after sharding
+        # Register parameters with the original shape (if sharded) for initialization.
         num_params = 0
         new_param_shapes = {}
         for param_name, param in sch.mod.named_parameters(recurse=False):
             num_params += 1
             new_param_shapes[param_name] = param.shape
-            assert param_name in sch.metadata.base_params
+            orig_shape = (
+                param.orig_shape if hasattr(param, "orig_shape") else param.shape
+            )
             sch.mod.register_parameter(
                 param_name,
                 nn.Parameter(
-                    torch.empty(
-                        sch.metadata.base_params[param_name],
-                        dtype=param.dtype,
-                        device=local_rank,
-                    )
+                    torch.empty(orig_shape, dtype=param.dtype, device=local_rank)
                 ),
             )
 
-        # use original shape to initialize parameters
+        # Use original shape to initialize parameters.
         if global_rank == curr_stage_devices[0] and num_params > 0:
             # only the first device in the PP group needs to initialize the weights
             _init_module(sch)
 
-        # need to broadcast params from rank 0 to make sure all the TP+DP ranks take the same params
+        # Broadcast complete params from rank 0 to make sure all the TP+DP ranks
+        # take the same params.
         if dist.is_initialized():
             curr_stage_group = stage_groups[curr_part_idx]
             for _, param in sch.mod.named_parameters(recurse=False):
                 dist.broadcast(param, src=curr_stage_devices[0], group=curr_stage_group)
 
-        # discard redundant values
+        # Only keep the partition for this device for sharded params.
         tp_rank = sch.rank
+        cnt_shard = 0
         for param_name, param in sch.mod.named_parameters(recurse=False):
             is_found = False
             for idx, new_size in enumerate(new_param_shapes[param_name]):
@@ -1366,14 +1362,25 @@ def consolidate_model(
                     axis = idx
                     is_found = True
             if is_found:
+                cnt_shard += 1
                 new_param = param.detach().split(sharded_size, dim=axis)[tp_rank]
                 sch.mod.register_parameter(param_name, nn.Parameter(new_param))
 
         for subsch in sch.child.values():
-            _consolidate_and_broadcast(subsch)
+            ret = _consolidate_and_broadcast(subsch)
+            num_params += ret[0]
+            cnt_shard += ret[1]
+
+        return num_params, cnt_shard
 
     if cnt_meta != 0 or cnt_materialized != 0:
-        _consolidate_and_broadcast(sch)
+        num_params, cnt_shard = _consolidate_and_broadcast(sch)
+
+    logger.info(
+        "Finished consolidating %d parameter tensors with %d being sharded",
+        num_params,
+        cnt_shard,
+    )
 
     gc.collect()
     torch.cuda.empty_cache()

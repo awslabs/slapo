@@ -11,5 +11,5 @@ Python API
    pattern
    pipeline
    tracer
-   model_dialect/index
+   framework_dialect/index
    op/index

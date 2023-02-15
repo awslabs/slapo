@@ -105,6 +105,18 @@
 </ul>
 <p aria-level="2" class="caption" role="heading">
  <span class="caption-text">
+  Tutorials
+ </span>
+</p>
+<ul class="nav bd-sidenav">
+ <li class="toctree-l1">
+  <a class="reference internal" href="../gallery/attention-single-gpu.html">
+   Optimize Attention Module on A Single GPU
+  </a>
+ </li>
+</ul>
+<p aria-level="2" class="caption" role="heading">
+ <span class="caption-text">
   Reference
  </span>
 </p>
@@ -150,8 +162,8 @@
     </a>
    </li>
    <li class="toctree-l2 has-children">
-    <a class="reference internal" href="model_dialect/index.html">
-     hidet.model_dialect
+    <a class="reference internal" href="framework_dialect/index.html">
+     hidet.framework_dialect
     </a>
     <input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/>
     <label for="toctree-checkbox-2">
@@ -160,13 +172,13 @@
     </label>
     <ul>
      <li class="toctree-l3">
-      <a class="reference internal" href="model_dialect/registry.html">
-       slapo.model_dialect.registry
+      <a class="reference internal" href="framework_dialect/registry.html">
+       slapo.framework_dialect.registry
       </a>
      </li>
      <li class="toctree-l3 has-children">
-      <a class="reference internal" href="model_dialect/deepspeed/index.html">
-       hidet.model_dialect.deepspeed
+      <a class="reference internal" href="framework_dialect/deepspeed/index.html">
+       hidet.framework_dialect.deepspeed
       </a>
       <input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/>
       <label for="toctree-checkbox-3">
@@ -175,13 +187,13 @@
       </label>
       <ul>
        <li class="toctree-l4">
-        <a class="reference internal" href="model_dialect/deepspeed/engine.html">
-         slapo.model_dialect.deepspeed.engine
+        <a class="reference internal" href="framework_dialect/deepspeed/engine.html">
+         slapo.framework_dialect.deepspeed.engine
         </a>
        </li>
        <li class="toctree-l4">
-        <a class="reference internal" href="model_dialect/deepspeed/pipeline.html">
-         slapo.model_dialect.deepspeed.pipeline
+        <a class="reference internal" href="framework_dialect/deepspeed/pipeline.html">
+         slapo.framework_dialect.deepspeed.pipeline
         </a>
        </li>
       </ul>
@@ -444,7 +456,7 @@ in this function to make it general applicable.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>sch</strong> (<em>Schedule</em>) – </p></li>
+<li><p><strong>sch</strong> (<a class="reference internal" href="#slapo.schedule.Schedule" title="slapo.schedule.Schedule"><em>Schedule</em></a>) – </p></li>
 <li><p><strong>target</strong> (<em>str</em>) – </p></li>
 <li><p><strong>param_init_fn</strong> (<em>Optional</em><em>[</em><em>Callable</em><em>[</em><em>[</em><em>nn.Module</em><em>]</em><em>, </em><em>None</em><em>]</em><em>]</em>) – </p></li>
 </ul>
@@ -468,14 +480,14 @@ in this function to make it general applicable.</p>
 <col style="width: 90%" />
 </colgroup>
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.schedule.SubgraphWrapper.forward" title="slapo.schedule.SubgraphWrapper.forward"><code class="xref py py-obj docutils literal notranslate"><span class="pre">forward</span></code></a>(x, bias)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.schedule.SubgraphWrapper.forward" title="slapo.schedule.SubgraphWrapper.forward"><code class="xref py py-obj docutils literal notranslate"><span class="pre">forward</span></code></a>(x)</p></td>
 <td><p>Defines the computation performed at every call.</p></td>
 </tr>
 </tbody>
 </table>
 <dl class="py method">
 <dt class="sig sig-object py" id="slapo.schedule.SubgraphWrapper.forward">
-<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bias</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#slapo.schedule.SubgraphWrapper.forward" title="Permalink to this definition"><span>¶</span></a></dt>
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#slapo.schedule.SubgraphWrapper.forward" title="Permalink to this definition"><span>¶</span></a></dt>
 <dd><p>Defines the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.</p>
 <div class="admonition note">
@@ -485,6 +497,97 @@ this function, one should call the <code class="xref py py-class docutils litera
 instead of this since the former takes care of running the
 registered hooks while the latter silently ignores them.</p>
 </div>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="slapo.schedule.Schedule">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">slapo.schedule.</span></span><span class="sig-name descname"><span class="pre">Schedule</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mod</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parent</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/schedule.html#Schedule"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.schedule.Schedule" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>mod</strong> (<em>nn.Module</em>) – </p></li>
+<li><p><strong>name</strong> (<em>str</em>) – </p></li>
+<li><p><strong>path</strong> (<em>str</em>) – </p></li>
+<li><p><strong>parent</strong> (<em>Optional</em><em>[</em><em>'Schedule'</em><em>]</em>) – </p></li>
+<li><p><strong>group</strong> (<em>Optional</em><em>[</em><em>dist.ProcessGroup</em><em>]</em>) – </p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="slapo.schedule.Schedule.find_node">
+<span class="sig-name descname"><span class="pre">find_node</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">regex_or_pattern_fn</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/schedule.html#Schedule.find_node"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.schedule.Schedule.find_node" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Find a node in a static dataflow graph</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>regex_or_pattern_fn</strong> (<em>Union</em><em>[</em><em>str</em><em>, </em><em>Callable</em><em>]</em>) – If this argument is a regular expression, it will only match the <cite>call_module</cite> node
+whose <cite>target</cite> satisfies the regex;
+otherwise, it will try to match all the nodes satisfies the pattern function.
+The pattern_fn should be in <cite>lambda node: …</cite> format.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Returns all the nodes whose names satisfying the regex, or the nodes satisfying
+the given pattern constraints.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Union[List[Tuple[str, fx.Node]], List[List[Tuple[str, fx.Node]]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="slapo.schedule.Schedule.find_subgraph">
+<span class="sig-name descname"><span class="pre">find_subgraph</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pattern_fn</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/schedule.html#Schedule.find_subgraph"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.schedule.Schedule.find_subgraph" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Find a subgraph in a static dataflow graph</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>pattern_fn</strong> (<em>Union</em><em>[</em><em>FunctionType</em><em>, </em><a class="reference internal" href="pattern.html#slapo.pattern.Pattern" title="slapo.pattern.Pattern"><em>Pattern</em></a><em>]</em>) – This argument specifies the subgraph pattern.
+Using a lambda function is easier to specify a pattern, while the <cite>Pattern</cite>
+class provides the ability to create patterns include submodules.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Returns all the subgraphs containing the nodes satisfying the pattern constraints.
+The outer-most list contains different subgraphs, and the inner list contains
+the nodes inside a specific subgraph. The inner-most tuple includes the name of
+the parent module that the node belongs to, and the matched node object.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>List[List[Tuple[str, fx.Node]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="slapo.schedule.Schedule.find">
+<span class="sig-name descname"><span class="pre">find</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">regex_or_pattern_fn</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/schedule.html#Schedule.find"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.schedule.Schedule.find" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Find a node or a subgraph in a static dataflow graph.
+This API is a dispatcher for <cite>find_node</cite> and <cite>find_subgraph</cite></p>
+<p>If you need to match a general node pattern, please directly use the <cite>find_node</cite> API.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>regex_or_pattern_fn</strong> (<em>Union</em><em>[</em><em>str</em><em>, </em><em>Callable</em><em>]</em>) – A regular expression for specifying the target of <cite>call_module</cite> node, or
+a callable function/Pattern class specifying the subgraph pattern</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>For <cite>find_node</cite>, it returns all the nodes whose names satisfying the regex.
+For <cite>find_subgraph</cite>, it returns all the subgraphs containing the nodes
+satisfying the pattern constraints. The outer-most list contains different
+subgraphs, and the inner list contains the nodes inside a specific subgraph.
+The inner-most tuple includes the name of the parent module that the node
+belongs to, and the matched node object.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Union[List[Tuple[str, fx.Node]], List[List[Tuple[str, fx.Node]]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="slapo.schedule.Schedule.trace_for_pipeline">
+<span class="sig-name descname"><span class="pre">trace_for_pipeline</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">paths</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/schedule.html#Schedule.trace_for_pipeline"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.schedule.Schedule.trace_for_pipeline" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Trace from the top module until the sub-module specified in path,
+so that we can cut pipeline stages at the level.</p>
 </dd></dl>
 
 </dd></dl>

@@ -1,0 +1,576 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>slapo.random &#8212; Slapo Documentation</title>
+    
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=1999514e3f237ded88cf" rel="stylesheet">
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=1999514e3f237ded88cf" rel="stylesheet">
+
+    
+  <link rel="stylesheet"
+    href="../../_static/vendor/fontawesome/5.13.0/css/all.min.css">
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+    href="../../_static/vendor/fontawesome/5.13.0/webfonts/fa-solid-900.woff2">
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+    href="../../_static/vendor/fontawesome/5.13.0/webfonts/fa-brands-400.woff2">
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" href="../../_static/styles/sphinx-book-theme.css?digest=5115cc725059bd94278eecd172e13a965bf8f5a9" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-binder.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-dataframe.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-rendered-html.css" />
+    
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=1999514e3f237ded88cf">
+
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/clipboard.min.js"></script>
+    <script src="../../_static/copybutton.js"></script>
+    <script src="../../_static/scripts/sphinx-book-theme.js?digest=9c920249402e914e316237a7dbc6769907cce411"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="docsearch:language" content="None">
+    
+
+    <!-- Google Analytics -->
+    
+  </head>
+  <body data-spy="scroll" data-target="#bd-toc-nav" data-offset="60">
+<!-- Checkboxes to toggle the left sidebar -->
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle navigation sidebar">
+<label class="overlay overlay-navbar" for="__navigation">
+    <div class="visually-hidden">Toggle navigation sidebar</div>
+</label>
+<!-- Checkboxes to toggle the in-page toc -->
+<input type="checkbox" class="sidebar-toggle" name="__page-toc" id="__page-toc" aria-label="Toggle in-page Table of Contents">
+<label class="overlay overlay-pagetoc" for="__page-toc">
+    <div class="visually-hidden">Toggle in-page Table of Contents</div>
+</label>
+<!-- Headers at the top -->
+<div class="announcement header-item noprint"></div>
+<div class="header header-item noprint"></div>
+
+    
+    <div class="container-fluid" id="banner"></div>
+
+    
+
+    <div class="container-xl">
+      <div class="row">
+          
+<!-- Sidebar -->
+<div class="bd-sidebar noprint" id="site-navigation">
+    <div class="bd-sidebar__content">
+        <div class="bd-sidebar__top"><div class="navbar-brand-box">
+    <a class="navbar-brand text-wrap" href="../../index.html">
+      
+      
+      
+    </a>
+</div><form class="bd-search d-flex align-items-center" action="../../search.html" method="get">
+  <i class="icon fas fa-search"></i>
+  <input type="search" class="form-control" name="q" id="search-input" placeholder="Search the docs ..." aria-label="Search the docs ..." autocomplete="off" >
+</form><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item active">
+        <p aria-level="2" class="caption" role="heading">
+ <span class="caption-text">
+  Getting Started
+ </span>
+</p>
+<ul class="nav bd-sidenav">
+ <li class="toctree-l1">
+  <a class="reference internal" href="../../setup/index.html">
+   Installation
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="../../gallery/quick-start.html">
+   Quick Start
+  </a>
+ </li>
+</ul>
+<p aria-level="2" class="caption" role="heading">
+ <span class="caption-text">
+  Tutorials
+ </span>
+</p>
+<ul class="nav bd-sidenav">
+ <li class="toctree-l1">
+  <a class="reference internal" href="../../gallery/attention-single-gpu.html">
+   Optimize Attention Module on A Single GPU
+  </a>
+ </li>
+</ul>
+<p aria-level="2" class="caption" role="heading">
+ <span class="caption-text">
+  Reference
+ </span>
+</p>
+<ul class="nav bd-sidenav">
+ <li class="toctree-l1 has-children">
+  <a class="reference internal" href="../../python_api/index.html">
+   Python API
+  </a>
+  <input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/>
+  <label for="toctree-checkbox-1">
+   <i class="fas fa-chevron-down">
+   </i>
+  </label>
+  <ul>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../../python_api/root.html">
+     slapo
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../../python_api/schedule.html">
+     slapo.schedule
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../../python_api/initialization.html">
+     slapo.initialization
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../../python_api/pattern.html">
+     slapo.pattern
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../../python_api/pipeline.html">
+     slapo.pipeline
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../../python_api/tracer.html">
+     slapo.tracer
+    </a>
+   </li>
+   <li class="toctree-l2 has-children">
+    <a class="reference internal" href="../../python_api/framework_dialect/index.html">
+     hidet.framework_dialect
+    </a>
+    <input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/>
+    <label for="toctree-checkbox-2">
+     <i class="fas fa-chevron-down">
+     </i>
+    </label>
+    <ul>
+     <li class="toctree-l3">
+      <a class="reference internal" href="../../python_api/framework_dialect/registry.html">
+       slapo.framework_dialect.registry
+      </a>
+     </li>
+     <li class="toctree-l3 has-children">
+      <a class="reference internal" href="../../python_api/framework_dialect/deepspeed/index.html">
+       hidet.framework_dialect.deepspeed
+      </a>
+      <input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/>
+      <label for="toctree-checkbox-3">
+       <i class="fas fa-chevron-down">
+       </i>
+      </label>
+      <ul>
+       <li class="toctree-l4">
+        <a class="reference internal" href="../../python_api/framework_dialect/deepspeed/engine.html">
+         slapo.framework_dialect.deepspeed.engine
+        </a>
+       </li>
+       <li class="toctree-l4">
+        <a class="reference internal" href="../../python_api/framework_dialect/deepspeed/pipeline.html">
+         slapo.framework_dialect.deepspeed.pipeline
+        </a>
+       </li>
+      </ul>
+     </li>
+    </ul>
+   </li>
+   <li class="toctree-l2 has-children">
+    <a class="reference internal" href="../../python_api/op/index.html">
+     hidet.op
+    </a>
+    <input class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" type="checkbox"/>
+    <label for="toctree-checkbox-4">
+     <i class="fas fa-chevron-down">
+     </i>
+    </label>
+    <ul>
+     <li class="toctree-l3">
+      <a class="reference internal" href="../../python_api/op/cross_entropy.html">
+       slapo.op.cross_entropy
+      </a>
+     </li>
+     <li class="toctree-l3">
+      <a class="reference internal" href="../../python_api/op/linear.html">
+       slapo.op.linear
+      </a>
+     </li>
+    </ul>
+   </li>
+  </ul>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="../../genindex.html">
+   Index
+  </a>
+ </li>
+</ul>
+
+    </div>
+</nav></div>
+        <div class="bd-sidebar__bottom">
+             <!-- To handle the deprecated key -->
+            
+        </div>
+    </div>
+    <div id="rtd-footer-container"></div>
+</div>
+
+
+          
+
+
+          
+<!-- A tiny helper pixel to detect if we've scrolled -->
+<div class="sbt-scroll-pixel-helper"></div>
+<!-- Main content -->
+<div class="col py-0 content-container">
+    
+    <div class="header-article row sticky-top noprint">
+        
+
+
+
+<div class="col py-1 d-flex header-article-main">
+    <div class="header-article__left">
+        
+        <label for="__navigation"
+  class="headerbtn"
+  data-toggle="tooltip"
+data-placement="right"
+title="Toggle navigation"
+>
+  
+
+<span class="headerbtn__icon-container">
+  <i class="fas fa-bars"></i>
+  </span>
+
+</label>
+
+        
+    </div>
+    <div class="header-article__right">
+<button onclick="toggleFullScreen()"
+  class="headerbtn"
+  data-toggle="tooltip"
+data-placement="bottom"
+title="Fullscreen mode"
+>
+  
+
+<span class="headerbtn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+<a href="https://github.com/awslabs/slapo"
+   class="headerbtn"
+   data-toggle="tooltip"
+data-placement="bottom"
+title="Source repository"
+>
+  
+
+<span class="headerbtn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+
+</a>
+
+    </div>
+</div>
+
+<!-- Table of contents -->
+<div class="col-md-3 bd-toc show noprint">
+</div>
+    </div>
+    <div class="article row">
+        <div class="col pl-md-3 pl-lg-5 content-container">
+            <!-- Table of contents that is only displayed when printing the page -->
+            <div id="jb-print-docs-body" class="onlyprint">
+                <h1></h1>
+                <!-- Table of contents -->
+                <div id="print-main-content">
+                    <div id="jb-print-toc">
+                        
+                    </div>
+                </div>
+            </div>
+            <main id="main-content" role="main">
+                
+              <div>
+                
+  <h1>Source code for slapo.random</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.</span>
+<span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
+<span class="c1"># Modification: Megatron-LM.</span>
+<span class="c1"># See https://github.com/NVIDIA/Megatron-LM/blob/main/megatron/core/tensor_parallel/random.py</span>
+<span class="sd">&quot;&quot;&quot;Random seed and states management.&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">contextlib</span>
+<span class="kn">import</span> <span class="nn">random</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">from</span> <span class="nn">torch.cuda</span> <span class="kn">import</span> <span class="n">_lazy_call</span>
+
+<span class="c1"># Default name for the model parallel rng tracker.</span>
+<span class="n">_MODEL_PARALLEL_RNG_TRACKER_NAME</span> <span class="o">=</span> <span class="s2">&quot;model-parallel-rng&quot;</span>
+
+
+<span class="k">def</span> <span class="nf">_set_cuda_rng_state</span><span class="p">(</span><span class="n">new_state</span><span class="p">,</span> <span class="n">device</span><span class="o">=-</span><span class="mi">1</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Sets the random number generator state of the current GPU.</span>
+<span class="sd">    This function is adapted from PyTorch repo (torch.cuda.set_rng_state)</span>
+<span class="sd">    with a single change: the input state is not cloned. Cloning caused</span>
+<span class="sd">    major performance issues for +4 GPU cases.</span>
+
+<span class="sd">    Paramters</span>
+<span class="sd">    ---------</span>
+<span class="sd">    new_state : torch.ByteTensor</span>
+<span class="sd">        The desired state.</span>
+
+<span class="sd">    device : int</span>
+<span class="sd">        The GPU device to set the state for. If -1, the current device is used.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">device</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+        <span class="n">device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s2">&quot;cuda&quot;</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">device</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">device</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="n">device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s2">&quot;cuda&quot;</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">cb</span><span class="p">():</span>
+        <span class="n">idx</span> <span class="o">=</span> <span class="n">device</span><span class="o">.</span><span class="n">index</span>
+        <span class="k">if</span> <span class="n">idx</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">idx</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">current_device</span><span class="p">()</span>
+        <span class="n">default_generator</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">default_generators</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+        <span class="n">default_generator</span><span class="o">.</span><span class="n">set_state</span><span class="p">(</span><span class="n">new_state</span><span class="p">)</span>
+
+    <span class="n">_lazy_call</span><span class="p">(</span><span class="n">cb</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="CudaRNGStatesTracker"><a class="viewcode-back" href="../../python_api/random.html#slapo.random.CudaRNGStatesTracker">[docs]</a><span class="k">class</span> <span class="nc">CudaRNGStatesTracker</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Tracker for the cuda RNG states.</span>
+<span class="sd">    Using the `add` method, a cuda rng state is initialized based on</span>
+<span class="sd">    the input `seed` and is assigned to `name`. Later, by forking the</span>
+<span class="sd">    rng state, we can perform operations and return to our starting</span>
+<span class="sd">    cuda state.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># Map from a string name to the cuda rng state.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">states_</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="c1"># Seeds are just for book keeping and ensure no seed is set twice.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">seeds_</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+
+<div class="viewcode-block" id="CudaRNGStatesTracker.reset"><a class="viewcode-back" href="../../python_api/random.html#slapo.random.CudaRNGStatesTracker.reset">[docs]</a>    <span class="k">def</span> <span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set to the initial state (no tracker).&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">states_</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">seeds_</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="CudaRNGStatesTracker.get_states"><a class="viewcode-back" href="../../python_api/random.html#slapo.random.CudaRNGStatesTracker.get_states">[docs]</a>    <span class="k">def</span> <span class="nf">get_states</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get rng states. Copy the dictionary so we have direct</span>
+<span class="sd">        pointers to the states, not just a pointer to the dictionary.&quot;&quot;&quot;</span>
+        <span class="n">states</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">states_</span><span class="p">:</span>
+            <span class="n">states</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">states_</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">states</span></div>
+
+<div class="viewcode-block" id="CudaRNGStatesTracker.set_states"><a class="viewcode-back" href="../../python_api/random.html#slapo.random.CudaRNGStatesTracker.set_states">[docs]</a>    <span class="k">def</span> <span class="nf">set_states</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">states</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set the rng states. For efficiency purposes, we do not check</span>
+<span class="sd">        the size of seed for compatibility.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">states_</span> <span class="o">=</span> <span class="n">states</span></div>
+
+<div class="viewcode-block" id="CudaRNGStatesTracker.add"><a class="viewcode-back" href="../../python_api/random.html#slapo.random.CudaRNGStatesTracker.add">[docs]</a>    <span class="k">def</span> <span class="nf">add</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">seed</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Track the rng state.&quot;&quot;&quot;</span>
+        <span class="c1"># Check seed is not already used.</span>
+        <span class="k">if</span> <span class="n">seed</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">seeds_</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;seed </span><span class="si">{seed}</span><span class="s2"> already exists&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">seeds_</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+        <span class="c1"># Check that state is not already defined.</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">states_</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;cuda rng state </span><span class="si">{name}</span><span class="s2"> already exists&quot;</span><span class="p">)</span>
+        <span class="c1"># Get the current rng state.</span>
+        <span class="n">orig_rng_state</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">get_rng_state</span><span class="p">()</span>
+        <span class="c1"># Set the new state and store it.</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">states_</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">get_rng_state</span><span class="p">()</span>
+        <span class="c1"># Reset rng state to what it was.</span>
+        <span class="n">_set_cuda_rng_state</span><span class="p">(</span><span class="n">orig_rng_state</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="CudaRNGStatesTracker.fork"><a class="viewcode-back" href="../../python_api/random.html#slapo.random.CudaRNGStatesTracker.fork">[docs]</a>    <span class="nd">@contextlib</span><span class="o">.</span><span class="n">contextmanager</span>
+    <span class="k">def</span> <span class="nf">fork</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">_MODEL_PARALLEL_RNG_TRACKER_NAME</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Fork the cuda rng state, perform operations, and exit with</span>
+<span class="sd">        the original state.&quot;&quot;&quot;</span>
+        <span class="c1"># Check if we have added the state</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">states_</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;cuda rng state </span><span class="si">{name}</span><span class="s2"> is not added. &quot;</span>
+                <span class="s2">&quot;Did you call &#39;set_random_seed&#39;?&quot;</span>
+            <span class="p">)</span>
+        <span class="c1"># Store current rng state.</span>
+        <span class="n">orig_cuda_rng_state</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">get_rng_state</span><span class="p">()</span>
+        <span class="c1"># Set rng state to the desired one</span>
+        <span class="n">_set_cuda_rng_state</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">states_</span><span class="p">[</span><span class="n">name</span><span class="p">])</span>
+        <span class="c1"># Do the stuff we wanted to do.</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">yield</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="c1"># Update the current rng state for later use.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">states_</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">get_rng_state</span><span class="p">()</span>
+            <span class="c1"># And set the state to the original state we started with.</span>
+            <span class="n">_set_cuda_rng_state</span><span class="p">(</span><span class="n">orig_cuda_rng_state</span><span class="p">)</span></div></div>
+
+
+<span class="c1"># RNG tracker object.</span>
+<span class="n">_CUDA_RNG_STATE_TRACKER</span> <span class="o">=</span> <span class="n">CudaRNGStatesTracker</span><span class="p">()</span>
+
+
+<div class="viewcode-block" id="get_cuda_rng_tracker"><a class="viewcode-back" href="../../python_api/root.html#slapo.random.get_cuda_rng_tracker">[docs]</a><span class="k">def</span> <span class="nf">get_cuda_rng_tracker</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;Get cuda rng tracker.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_CUDA_RNG_STATE_TRACKER</span></div>
+
+
+<div class="viewcode-block" id="model_parallel_cuda_manual_seed"><a class="viewcode-back" href="../../python_api/random.html#slapo.random.model_parallel_cuda_manual_seed">[docs]</a><span class="k">def</span> <span class="nf">model_parallel_cuda_manual_seed</span><span class="p">(</span><span class="n">seed</span><span class="p">,</span> <span class="n">tp_rank</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Initialize model parallel cuda seed.</span>
+<span class="sd">    This function should be called after the model parallel is</span>
+<span class="sd">    initialized. Also, no torch.cuda.manual_seed should be called</span>
+<span class="sd">    after this function. Basically, this is replacement for that</span>
+<span class="sd">    function.</span>
+<span class="sd">    Two sets of RNG states are tracked:</span>
+<span class="sd">        default state: This is for data parallelism and is the same among a</span>
+<span class="sd">                       set of model parallel GPUs but different across</span>
+<span class="sd">                       different model paralle groups. This is used for</span>
+<span class="sd">                       example for dropout in the non-tensor-model-parallel regions.</span>
+<span class="sd">        tensor-model-parallel state: This state is different among a set of model</span>
+<span class="sd">                              parallel GPUs, but the same across data parallel</span>
+<span class="sd">                              groups. This is used for example for dropout in</span>
+<span class="sd">                              model parallel regions.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    seed : int</span>
+<span class="sd">        Random seed.</span>
+<span class="sd">    tp_rank : int</span>
+<span class="sd">        Tensor model parallel rank.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    int</span>
+<span class="sd">        Tensor model parallel seed of this rank.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># 2718 is just for fun and any POSITIVE value will work.</span>
+    <span class="n">tensor_model_parallel_seed</span> <span class="o">=</span> <span class="n">seed</span> <span class="o">+</span> <span class="mi">2718</span> <span class="o">+</span> <span class="n">tp_rank</span>
+
+    <span class="n">_CUDA_RNG_STATE_TRACKER</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
+    <span class="c1"># Set the default state.</span>
+    <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+    <span class="c1"># and model parallel state.</span>
+    <span class="n">_CUDA_RNG_STATE_TRACKER</span><span class="o">.</span><span class="n">add</span><span class="p">(</span>
+        <span class="n">_MODEL_PARALLEL_RNG_TRACKER_NAME</span><span class="p">,</span> <span class="n">tensor_model_parallel_seed</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">tensor_model_parallel_seed</span></div>
+
+
+<div class="viewcode-block" id="is_random_seed_set"><a class="viewcode-back" href="../../python_api/root.html#slapo.random.is_random_seed_set">[docs]</a><span class="k">def</span> <span class="nf">is_random_seed_set</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;Check if random seed is set.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="n">_CUDA_RNG_STATE_TRACKER</span><span class="o">.</span><span class="n">get_states</span><span class="p">())</span></div>
+
+
+<div class="viewcode-block" id="set_random_seed"><a class="viewcode-back" href="../../python_api/root.html#slapo.random.set_random_seed">[docs]</a><span class="k">def</span> <span class="nf">set_random_seed</span><span class="p">(</span><span class="n">seed</span><span class="o">=</span><span class="mi">2013</span><span class="p">,</span> <span class="n">dp_rank</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pp_rank</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tp_rank</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Set random seed for reproducability.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    seed : int</span>
+<span class="sd">        Random seed. Default is 2013.</span>
+<span class="sd">    dp_rank : Optional[int]</span>
+<span class="sd">        Data parallel rank. Default is None means no data parallelism.</span>
+<span class="sd">    pp_rank : Optional[int]</span>
+<span class="sd">        Pipeline parallel rank. Default is None means no pipeline parallelism.</span>
+<span class="sd">    tp_rank : Optional[int]</span>
+<span class="sd">        Tensor model parallel rank. Default is None means no tensor parallelism.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    int</span>
+<span class="sd">        Random seed of this rank.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Ensure each pipeline stage uses different seed.</span>
+    <span class="k">if</span> <span class="n">pp_rank</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">seed</span> <span class="o">+=</span> <span class="mi">100</span> <span class="o">*</span> <span class="n">pp_rank</span>
+
+    <span class="c1"># Ensure each data parallel group uses different seed.</span>
+    <span class="k">if</span> <span class="n">dp_rank</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">seed</span> <span class="o">+=</span> <span class="mi">10</span> <span class="o">*</span> <span class="n">dp_rank</span>
+
+    <span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+    <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+    <span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+
+    <span class="c1"># In above cases, devices in the same TP group should have the same seed.</span>
+    <span class="c1"># However, we may need them to have different seeds for some cases, so</span>
+    <span class="c1"># here we maintain different seeds for each device in TP group separately.</span>
+    <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">device_count</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">tp_rank</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">model_parallel_cuda_manual_seed</span><span class="p">(</span><span class="n">seed</span><span class="p">,</span> <span class="n">tp_rank</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">seed</span></div>
+</pre></div>
+
+              </div>
+              
+            </main>
+            <footer class="footer-article noprint">
+                
+    <!-- Previous / next buttons -->
+<div class='prev-next-area'>
+</div>
+            </footer>
+        </div>
+    </div>
+    <div class="footer-content row">
+        <footer class="col footer"><p>
+  
+    By Amazon<br/>
+  
+      &copy; Copyright 2023, Amazon.<br/>
+</p>
+        </footer>
+    </div>
+    
+</div>
+
+
+      </div>
+    </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../../_static/scripts/pydata-sphinx-theme.js?digest=1999514e3f237ded88cf"></script>
+
+
+  </body>
+</html>

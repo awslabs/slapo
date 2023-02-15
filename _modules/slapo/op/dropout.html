@@ -5,7 +5,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>slapo.model_dialect.registry &#8212; Slapo Documentation</title>
+    <title>slapo.op.dropout &#8212; Slapo Documentation</title>
     
   <!-- Loaded before other Sphinx assets -->
   <link href="../../../_static/styles/theme.css?digest=1999514e3f237ded88cf" rel="stylesheet">
@@ -103,6 +103,18 @@
 </ul>
 <p aria-level="2" class="caption" role="heading">
  <span class="caption-text">
+  Tutorials
+ </span>
+</p>
+<ul class="nav bd-sidenav">
+ <li class="toctree-l1">
+  <a class="reference internal" href="../../../gallery/attention-single-gpu.html">
+   Optimize Attention Module on A Single GPU
+  </a>
+ </li>
+</ul>
+<p aria-level="2" class="caption" role="heading">
+ <span class="caption-text">
   Reference
  </span>
 </p>
@@ -148,8 +160,8 @@
     </a>
    </li>
    <li class="toctree-l2 has-children">
-    <a class="reference internal" href="../../../python_api/model_dialect/index.html">
-     hidet.model_dialect
+    <a class="reference internal" href="../../../python_api/framework_dialect/index.html">
+     hidet.framework_dialect
     </a>
     <input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/>
     <label for="toctree-checkbox-2">
@@ -158,13 +170,13 @@
     </label>
     <ul>
      <li class="toctree-l3">
-      <a class="reference internal" href="../../../python_api/model_dialect/registry.html">
-       slapo.model_dialect.registry
+      <a class="reference internal" href="../../../python_api/framework_dialect/registry.html">
+       slapo.framework_dialect.registry
       </a>
      </li>
      <li class="toctree-l3 has-children">
-      <a class="reference internal" href="../../../python_api/model_dialect/deepspeed/index.html">
-       hidet.model_dialect.deepspeed
+      <a class="reference internal" href="../../../python_api/framework_dialect/deepspeed/index.html">
+       hidet.framework_dialect.deepspeed
       </a>
       <input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/>
       <label for="toctree-checkbox-3">
@@ -173,13 +185,13 @@
       </label>
       <ul>
        <li class="toctree-l4">
-        <a class="reference internal" href="../../../python_api/model_dialect/deepspeed/engine.html">
-         slapo.model_dialect.deepspeed.engine
+        <a class="reference internal" href="../../../python_api/framework_dialect/deepspeed/engine.html">
+         slapo.framework_dialect.deepspeed.engine
         </a>
        </li>
        <li class="toctree-l4">
-        <a class="reference internal" href="../../../python_api/model_dialect/deepspeed/pipeline.html">
-         slapo.model_dialect.deepspeed.pipeline
+        <a class="reference internal" href="../../../python_api/framework_dialect/deepspeed/pipeline.html">
+         slapo.framework_dialect.deepspeed.pipeline
         </a>
        </li>
       </ul>
@@ -312,59 +324,31 @@ title="Source repository"
                 
               <div>
                 
-  <h1>Source code for slapo.model_dialect.registry</h1><div class="highlight"><pre>
+  <h1>Source code for slapo.op.dropout</h1><div class="highlight"><pre>
 <span></span><span class="c1"># Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.</span>
 <span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
-<span class="sd">&quot;&quot;&quot;Framework model dialect registration.&quot;&quot;&quot;</span>
+<span class="sd">&quot;&quot;&quot;Dropout module.&quot;&quot;&quot;</span>
 
-<span class="n">DIALECTS</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">&quot;pipeline_stage&quot;</span><span class="p">:</span> <span class="p">{},</span>
-    <span class="s2">&quot;pipeline_engine&quot;</span><span class="p">:</span> <span class="p">{},</span>
-    <span class="s2">&quot;runtime_engine&quot;</span><span class="p">:</span> <span class="p">{</span><span class="kc">None</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">model</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="kc">None</span><span class="p">)},</span>
-    <span class="s2">&quot;log_parser&quot;</span><span class="p">:</span> <span class="p">{},</span>
-<span class="p">}</span>
+<span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">nn</span>
+
+<span class="kn">from</span> <span class="nn">..random</span> <span class="kn">import</span> <span class="n">get_cuda_rng_tracker</span>
 
 
-<div class="viewcode-block" id="register_model_dialect"><a class="viewcode-back" href="../../../python_api/model_dialect/registry.html#slapo.model_dialect.registry.register_model_dialect">[docs]</a><span class="k">def</span> <span class="nf">register_model_dialect</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">cls_type</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Register a framework model dialect.&quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="n">cls_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">DIALECTS</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Only support {DIALECTS.keys()}, but got </span><span class="si">{cls_type}</span><span class="s2">&quot;</span><span class="p">)</span>
+<div class="viewcode-block" id="DropoutWithTensorParallel"><a class="viewcode-back" href="../../../python_api/op/dropout.html#slapo.op.dropout.DropoutWithTensorParallel">[docs]</a><span class="k">class</span> <span class="nc">DropoutWithTensorParallel</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Dropout</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;The dropout that supposed to be used in parallel region.</span>
+<span class="sd">    In parallel region means the original input tensor is partitioned</span>
+<span class="sd">    due to tensor parallelism or sequence parallelism. In this case,</span>
+<span class="sd">    we need to make sure the dropout on each device in the same</span>
+<span class="sd">    tensor parallel group has DIFFERENT random seed; otherwise each</span>
+<span class="sd">    partitioned tensor will have the same dropout mask, which may hurt</span>
+<span class="sd">    the convergence.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">decorator</span><span class="p">(</span><span class="n">dialect_cls</span><span class="p">):</span>
-        <span class="k">if</span> <span class="s2">&quot;target&quot;</span> <span class="ow">in</span> <span class="n">DIALECTS</span><span class="p">[</span><span class="n">cls_type</span><span class="p">]:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Target </span><span class="si">{target}</span><span class="s2"> already registered for </span><span class="si">{cls_type}</span><span class="s2"> model dialects&quot;</span>
-            <span class="p">)</span>
-        <span class="n">DIALECTS</span><span class="p">[</span><span class="n">cls_type</span><span class="p">][</span><span class="n">target</span><span class="p">]</span> <span class="o">=</span> <span class="n">dialect_cls</span>
-        <span class="k">return</span> <span class="n">dialect_cls</span>
+    <span class="c1"># pylint: disable=redefined-builtin</span>
 
-    <span class="k">return</span> <span class="n">decorator</span></div>
-
-
-<div class="viewcode-block" id="get_all_dialects"><a class="viewcode-back" href="../../../python_api/model_dialect/registry.html#slapo.model_dialect.registry.get_all_dialects">[docs]</a><span class="k">def</span> <span class="nf">get_all_dialects</span><span class="p">(</span><span class="n">cls_type</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Get all registered framework model dialects.&quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="n">cls_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">DIALECTS</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Only support {DIALECTS.keys()}, but got </span><span class="si">{cls_type}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">DIALECTS</span><span class="p">[</span><span class="n">cls_type</span><span class="p">]</span></div>
-
-
-<div class="viewcode-block" id="get_dialect_cls"><a class="viewcode-back" href="../../../python_api/root.html#slapo.model_dialect.registry.get_dialect_cls">[docs]</a><span class="k">def</span> <span class="nf">get_dialect_cls</span><span class="p">(</span><span class="n">cls_type</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">allow_none</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Get the framework model dialect class.&quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="n">cls_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">DIALECTS</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Only support {DIALECTS.keys()}, but got </span><span class="si">{cls_type}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">target</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">DIALECTS</span><span class="p">[</span><span class="n">cls_type</span><span class="p">]:</span>
-        <span class="k">if</span> <span class="n">allow_none</span><span class="p">:</span>
-            <span class="k">if</span> <span class="kc">None</span> <span class="ow">in</span> <span class="n">DIALECTS</span><span class="p">[</span><span class="n">cls_type</span><span class="p">]:</span>
-                <span class="n">target</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;Target </span><span class="si">{target}</span><span class="s2"> does not register default dialect for </span><span class="si">{cls_type}</span><span class="s2">&quot;</span>
-                <span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Target </span><span class="si">{target}</span><span class="s2"> not registered for </span><span class="si">{cls_type}</span><span class="s2"> model dialects&quot;</span>
-            <span class="p">)</span>
-    <span class="k">return</span> <span class="n">DIALECTS</span><span class="p">[</span><span class="n">cls_type</span><span class="p">][</span><span class="n">target</span><span class="p">]</span></div>
+<div class="viewcode-block" id="DropoutWithTensorParallel.forward"><a class="viewcode-back" href="../../../python_api/op/dropout.html#slapo.op.dropout.DropoutWithTensorParallel.forward">[docs]</a>    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">input</span><span class="p">):</span>
+        <span class="k">with</span> <span class="n">get_cuda_rng_tracker</span><span class="p">()</span><span class="o">.</span><span class="n">fork</span><span class="p">():</span>
+            <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">forward</span><span class="p">(</span><span class="nb">input</span><span class="p">)</span></div></div>
 </pre></div>
 
               </div>

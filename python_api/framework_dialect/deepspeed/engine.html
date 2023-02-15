@@ -5,7 +5,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>slapo.model_dialect.deepspeed.engine &#8212; Slapo Documentation</title>
+    <title>slapo.framework_dialect.deepspeed.engine &#8212; Slapo Documentation</title>
     
   <!-- Loaded before other Sphinx assets -->
   <link href="../../../_static/styles/theme.css?digest=1999514e3f237ded88cf" rel="stylesheet">
@@ -40,8 +40,8 @@
     <script src="../../../_static/scripts/sphinx-book-theme.js?digest=9c920249402e914e316237a7dbc6769907cce411"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="slapo.model_dialect.deepspeed.pipeline" href="pipeline.html" />
-    <link rel="prev" title="hidet.model_dialect.deepspeed" href="index.html" />
+    <link rel="next" title="slapo.framework_dialect.deepspeed.pipeline" href="pipeline.html" />
+    <link rel="prev" title="hidet.framework_dialect.deepspeed" href="index.html" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="docsearch:language" content="None">
     
@@ -105,6 +105,18 @@
 </ul>
 <p aria-level="2" class="caption" role="heading">
  <span class="caption-text">
+  Tutorials
+ </span>
+</p>
+<ul class="nav bd-sidenav">
+ <li class="toctree-l1">
+  <a class="reference internal" href="../../../gallery/attention-single-gpu.html">
+   Optimize Attention Module on A Single GPU
+  </a>
+ </li>
+</ul>
+<p aria-level="2" class="caption" role="heading">
+ <span class="caption-text">
   Reference
  </span>
 </p>
@@ -151,7 +163,7 @@
    </li>
    <li class="toctree-l2 current active has-children">
     <a class="reference internal" href="../index.html">
-     hidet.model_dialect
+     hidet.framework_dialect
     </a>
     <input checked="" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/>
     <label for="toctree-checkbox-2">
@@ -161,12 +173,12 @@
     <ul class="current">
      <li class="toctree-l3">
       <a class="reference internal" href="../registry.html">
-       slapo.model_dialect.registry
+       slapo.framework_dialect.registry
       </a>
      </li>
      <li class="toctree-l3 current active has-children">
       <a class="reference internal" href="index.html">
-       hidet.model_dialect.deepspeed
+       hidet.framework_dialect.deepspeed
       </a>
       <input checked="" class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/>
       <label for="toctree-checkbox-3">
@@ -176,12 +188,12 @@
       <ul class="current">
        <li class="toctree-l4 current active">
         <a class="current reference internal" href="#">
-         slapo.model_dialect.deepspeed.engine
+         slapo.framework_dialect.deepspeed.engine
         </a>
        </li>
        <li class="toctree-l4">
         <a class="reference internal" href="pipeline.html">
-         slapo.model_dialect.deepspeed.pipeline
+         slapo.framework_dialect.deepspeed.pipeline
         </a>
        </li>
       </ul>
@@ -299,7 +311,7 @@ title="Source repository"
   <div class="menu-dropdown__content">
     <ul>
       <li>
-        <a href="../../../_sources/python_api/model_dialect/deepspeed/engine.rst.txt"
+        <a href="../../../_sources/python_api/framework_dialect/deepspeed/engine.rst.txt"
    class="headerbtn"
    data-toggle="tooltip"
 data-placement="left"
@@ -348,7 +360,7 @@ title="Print to PDF"
         <div class="col pl-md-3 pl-lg-5 content-container">
             <!-- Table of contents that is only displayed when printing the page -->
             <div id="jb-print-docs-body" class="onlyprint">
-                <h1>slapo.model_dialect.deepspeed.engine</h1>
+                <h1>slapo.framework_dialect.deepspeed.engine</h1>
                 <!-- Table of contents -->
                 <div id="print-main-content">
                     <div id="jb-print-toc">
@@ -360,23 +372,23 @@ title="Print to PDF"
                 
               <div>
                 
-  <div class="section" id="module-slapo.model_dialect.deepspeed.engine">
-<span id="slapo-model-dialect-deepspeed-engine"></span><h1>slapo.model_dialect.deepspeed.engine<a class="headerlink" href="#module-slapo.model_dialect.deepspeed.engine" title="Permalink to this headline"><span>¶</span></a></h1>
-<p><strong>Functions:</strong></p>
+  <div class="section" id="slapo-framework-dialect-deepspeed-engine">
+<h1>slapo.framework_dialect.deepspeed.engine<a class="headerlink" href="#slapo-framework-dialect-deepspeed-engine" title="Permalink to this headline"><span>¶</span></a></h1>
+<span class="target" id="module-slapo.framework_dialect.deepspeed.engine"></span><p><strong>Functions:</strong></p>
 <table class="autosummary longtable table autosummary">
 <colgroup>
 <col style="width: 10%" />
 <col style="width: 90%" />
 </colgroup>
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.model_dialect.deepspeed.engine.init_ds_engine" title="slapo.model_dialect.deepspeed.engine.init_ds_engine"><code class="xref py py-obj docutils literal notranslate"><span class="pre">init_ds_engine</span></code></a>(model, **kwargs)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.framework_dialect.deepspeed.engine.init_ds_engine" title="slapo.framework_dialect.deepspeed.engine.init_ds_engine"><code class="xref py py-obj docutils literal notranslate"><span class="pre">init_ds_engine</span></code></a>(model, **kwargs)</p></td>
 <td><p>Initialize the DeepSpeed engine.</p></td>
 </tr>
 </tbody>
 </table>
 <dl class="py function">
-<dt class="sig sig-object py" id="slapo.model_dialect.deepspeed.engine.init_ds_engine">
-<span class="sig-prename descclassname"><span class="pre">slapo.model_dialect.deepspeed.engine.</span></span><span class="sig-name descname"><span class="pre">init_ds_engine</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/slapo/model_dialect/deepspeed/engine.html#init_ds_engine"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.model_dialect.deepspeed.engine.init_ds_engine" title="Permalink to this definition"><span>¶</span></a></dt>
+<dt class="sig sig-object py" id="slapo.framework_dialect.deepspeed.engine.init_ds_engine">
+<span class="sig-prename descclassname"><span class="pre">slapo.framework_dialect.deepspeed.engine.</span></span><span class="sig-name descname"><span class="pre">init_ds_engine</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/slapo/framework_dialect/deepspeed/engine.html#init_ds_engine"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.framework_dialect.deepspeed.engine.init_ds_engine" title="Permalink to this definition"><span>¶</span></a></dt>
 <dd><p>Initialize the DeepSpeed engine.</p>
 </dd></dl>
 
@@ -394,13 +406,13 @@ title="Print to PDF"
         <i class="fas fa-angle-left"></i>
         <div class="prev-next-info">
             <p class="prev-next-subtitle">previous</p>
-            <p class="prev-next-title">hidet.model_dialect.deepspeed</p>
+            <p class="prev-next-title">hidet.framework_dialect.deepspeed</p>
         </div>
     </a>
     <a class='right-next' id="next-link" href="pipeline.html" title="next page">
     <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">slapo.model_dialect.deepspeed.pipeline</p>
+        <p class="prev-next-title">slapo.framework_dialect.deepspeed.pipeline</p>
     </div>
     <i class="fas fa-angle-right"></i>
     </a>

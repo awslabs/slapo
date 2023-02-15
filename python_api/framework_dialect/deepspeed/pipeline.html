@@ -5,7 +5,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>slapo.model_dialect.deepspeed.pipeline &#8212; Slapo Documentation</title>
+    <title>slapo.framework_dialect.deepspeed.pipeline &#8212; Slapo Documentation</title>
     
   <!-- Loaded before other Sphinx assets -->
   <link href="../../../_static/styles/theme.css?digest=1999514e3f237ded88cf" rel="stylesheet">
@@ -41,7 +41,7 @@
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
     <link rel="next" title="hidet.op" href="../../op/index.html" />
-    <link rel="prev" title="slapo.model_dialect.deepspeed.engine" href="engine.html" />
+    <link rel="prev" title="slapo.framework_dialect.deepspeed.engine" href="engine.html" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="docsearch:language" content="None">
     
@@ -105,6 +105,18 @@
 </ul>
 <p aria-level="2" class="caption" role="heading">
  <span class="caption-text">
+  Tutorials
+ </span>
+</p>
+<ul class="nav bd-sidenav">
+ <li class="toctree-l1">
+  <a class="reference internal" href="../../../gallery/attention-single-gpu.html">
+   Optimize Attention Module on A Single GPU
+  </a>
+ </li>
+</ul>
+<p aria-level="2" class="caption" role="heading">
+ <span class="caption-text">
   Reference
  </span>
 </p>
@@ -151,7 +163,7 @@
    </li>
    <li class="toctree-l2 current active has-children">
     <a class="reference internal" href="../index.html">
-     hidet.model_dialect
+     hidet.framework_dialect
     </a>
     <input checked="" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/>
     <label for="toctree-checkbox-2">
@@ -161,12 +173,12 @@
     <ul class="current">
      <li class="toctree-l3">
       <a class="reference internal" href="../registry.html">
-       slapo.model_dialect.registry
+       slapo.framework_dialect.registry
       </a>
      </li>
      <li class="toctree-l3 current active has-children">
       <a class="reference internal" href="index.html">
-       hidet.model_dialect.deepspeed
+       hidet.framework_dialect.deepspeed
       </a>
       <input checked="" class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/>
       <label for="toctree-checkbox-3">
@@ -176,12 +188,12 @@
       <ul class="current">
        <li class="toctree-l4">
         <a class="reference internal" href="engine.html">
-         slapo.model_dialect.deepspeed.engine
+         slapo.framework_dialect.deepspeed.engine
         </a>
        </li>
        <li class="toctree-l4 current active">
         <a class="current reference internal" href="#">
-         slapo.model_dialect.deepspeed.pipeline
+         slapo.framework_dialect.deepspeed.pipeline
         </a>
        </li>
       </ul>
@@ -299,7 +311,7 @@ title="Source repository"
   <div class="menu-dropdown__content">
     <ul>
       <li>
-        <a href="../../../_sources/python_api/model_dialect/deepspeed/pipeline.rst.txt"
+        <a href="../../../_sources/python_api/framework_dialect/deepspeed/pipeline.rst.txt"
    class="headerbtn"
    data-toggle="tooltip"
 data-placement="left"
@@ -348,7 +360,7 @@ title="Print to PDF"
         <div class="col pl-md-3 pl-lg-5 content-container">
             <!-- Table of contents that is only displayed when printing the page -->
             <div id="jb-print-docs-body" class="onlyprint">
-                <h1>slapo.model_dialect.deepspeed.pipeline</h1>
+                <h1>slapo.framework_dialect.deepspeed.pipeline</h1>
                 <!-- Table of contents -->
                 <div id="print-main-content">
                     <div id="jb-print-toc">
@@ -360,19 +372,19 @@ title="Print to PDF"
                 
               <div>
                 
-  <div class="section" id="module-slapo.model_dialect.deepspeed.pipeline">
-<span id="slapo-model-dialect-deepspeed-pipeline"></span><h1>slapo.model_dialect.deepspeed.pipeline<a class="headerlink" href="#module-slapo.model_dialect.deepspeed.pipeline" title="Permalink to this headline"><span>¶</span></a></h1>
-<p><strong>Classes:</strong></p>
+  <div class="section" id="slapo-framework-dialect-deepspeed-pipeline">
+<h1>slapo.framework_dialect.deepspeed.pipeline<a class="headerlink" href="#slapo-framework-dialect-deepspeed-pipeline" title="Permalink to this headline"><span>¶</span></a></h1>
+<span class="target" id="module-slapo.framework_dialect.deepspeed.pipeline"></span><p><strong>Classes:</strong></p>
 <table class="autosummary longtable table autosummary">
 <colgroup>
 <col style="width: 10%" />
 <col style="width: 90%" />
 </colgroup>
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.model_dialect.deepspeed.pipeline.WrappedTypeCode" title="slapo.model_dialect.deepspeed.pipeline.WrappedTypeCode"><code class="xref py py-obj docutils literal notranslate"><span class="pre">WrappedTypeCode</span></code></a>(value)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.framework_dialect.deepspeed.pipeline.WrappedTypeCode" title="slapo.framework_dialect.deepspeed.pipeline.WrappedTypeCode"><code class="xref py py-obj docutils literal notranslate"><span class="pre">WrappedTypeCode</span></code></a>(value)</p></td>
 <td><p>Type code for wrapped tensor for inter-GPU communication.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#slapo.model_dialect.deepspeed.pipeline.DeepSpeedPipeStageWrapper" title="slapo.model_dialect.deepspeed.pipeline.DeepSpeedPipeStageWrapper"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DeepSpeedPipeStageWrapper</span></code></a>(mod, stage_id, ...)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.framework_dialect.deepspeed.pipeline.DeepSpeedPipeStageWrapper" title="slapo.framework_dialect.deepspeed.pipeline.DeepSpeedPipeStageWrapper"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DeepSpeedPipeStageWrapper</span></code></a>(mod, stage_id, ...)</p></td>
 <td><p></p></td>
 </tr>
 </tbody>
@@ -384,55 +396,55 @@ title="Print to PDF"
 <col style="width: 90%" />
 </colgroup>
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.model_dialect.deepspeed.pipeline.get_simple_nested_list_str" title="slapo.model_dialect.deepspeed.pipeline.get_simple_nested_list_str"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_simple_nested_list_str</span></code></a>(data)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.framework_dialect.deepspeed.pipeline.get_simple_nested_list_str" title="slapo.framework_dialect.deepspeed.pipeline.get_simple_nested_list_str"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_simple_nested_list_str</span></code></a>(data)</p></td>
 <td><p>A helper function that prints a nested structure without printing tensor values.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#slapo.model_dialect.deepspeed.pipeline.flat_and_name_tensor_list" title="slapo.model_dialect.deepspeed.pipeline.flat_and_name_tensor_list"><code class="xref py py-obj docutils literal notranslate"><span class="pre">flat_and_name_tensor_list</span></code></a>(data, name, suffix)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.framework_dialect.deepspeed.pipeline.flat_and_name_tensor_list" title="slapo.framework_dialect.deepspeed.pipeline.flat_and_name_tensor_list"><code class="xref py py-obj docutils literal notranslate"><span class="pre">flat_and_name_tensor_list</span></code></a>(data, name, suffix)</p></td>
 <td><p>Flat the given list and assign the itemized name to each tensor.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.model_dialect.deepspeed.pipeline.encode_metadata" title="slapo.model_dialect.deepspeed.pipeline.encode_metadata"><code class="xref py py-obj docutils literal notranslate"><span class="pre">encode_metadata</span></code></a>(metadata)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.framework_dialect.deepspeed.pipeline.encode_metadata" title="slapo.framework_dialect.deepspeed.pipeline.encode_metadata"><code class="xref py py-obj docutils literal notranslate"><span class="pre">encode_metadata</span></code></a>(metadata)</p></td>
 <td><p>Encode metadata to a string. The metadata format is:     [&lt;path&gt;,&lt;type&gt;), (&lt;path&gt;,&lt;type&gt;), ...] After encoding: &quot;&lt;path&gt;,&lt;type&gt;|&lt;path&gt;,&lt;type&gt;|...&quot;.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#slapo.model_dialect.deepspeed.pipeline.decode_metadata" title="slapo.model_dialect.deepspeed.pipeline.decode_metadata"><code class="xref py py-obj docutils literal notranslate"><span class="pre">decode_metadata</span></code></a>(metadata_str)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.framework_dialect.deepspeed.pipeline.decode_metadata" title="slapo.framework_dialect.deepspeed.pipeline.decode_metadata"><code class="xref py py-obj docutils literal notranslate"><span class="pre">decode_metadata</span></code></a>(metadata_str)</p></td>
 <td><p>Decode metadata from a string.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.model_dialect.deepspeed.pipeline.flatten" title="slapo.model_dialect.deepspeed.pipeline.flatten"><code class="xref py py-obj docutils literal notranslate"><span class="pre">flatten</span></code></a>(outputs, device[, path, metadata, ret])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.framework_dialect.deepspeed.pipeline.flatten" title="slapo.framework_dialect.deepspeed.pipeline.flatten"><code class="xref py py-obj docutils literal notranslate"><span class="pre">flatten</span></code></a>(outputs, device[, path, metadata, ret])</p></td>
 <td><p>Flatten nested structure of outputs and make sure every output is a torch.Tensor. We maintain a metadata to restore the original structure. The metadata format is:     [&lt;path&gt;,&lt;type&gt;), (&lt;path&gt;,&lt;type&gt;), ...] - &lt;path&gt; is the path to the tensor in the nested structure. For example,  the paths of t1 and t2 in [[t1, t2]] are &quot;0.0&quot; and &quot;0.1&quot;. The path of  t1 and t2 in [[t1], [t2]] is &quot;0.0&quot; and &quot;1.0&quot;. - &lt;type&gt; is WrappedTypeCode of the tensor. Note that len(metadata) == len(ret).</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#slapo.model_dialect.deepspeed.pipeline.unflatten" title="slapo.model_dialect.deepspeed.pipeline.unflatten"><code class="xref py py-obj docutils literal notranslate"><span class="pre">unflatten</span></code></a>(args, metadata)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.framework_dialect.deepspeed.pipeline.unflatten" title="slapo.framework_dialect.deepspeed.pipeline.unflatten"><code class="xref py py-obj docutils literal notranslate"><span class="pre">unflatten</span></code></a>(args, metadata)</p></td>
 <td><p>The reverse function of 'flatten'.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.model_dialect.deepspeed.pipeline.analyze_tie_ranks" title="slapo.model_dialect.deepspeed.pipeline.analyze_tie_ranks"><code class="xref py py-obj docutils literal notranslate"><span class="pre">analyze_tie_ranks</span></code></a>(tie_weight_groups, topology)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.framework_dialect.deepspeed.pipeline.analyze_tie_ranks" title="slapo.framework_dialect.deepspeed.pipeline.analyze_tie_ranks"><code class="xref py py-obj docutils literal notranslate"><span class="pre">analyze_tie_ranks</span></code></a>(tie_weight_groups, topology)</p></td>
 <td><p>Analyze the ranks of the tied weights for DeepSpeed pipeline.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#slapo.model_dialect.deepspeed.pipeline.deepspeed_pipe_engine" title="slapo.model_dialect.deepspeed.pipeline.deepspeed_pipe_engine"><code class="xref py py-obj docutils literal notranslate"><span class="pre">deepspeed_pipe_engine</span></code></a>(sch_metadata, ...)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.framework_dialect.deepspeed.pipeline.deepspeed_pipe_engine" title="slapo.framework_dialect.deepspeed.pipeline.deepspeed_pipe_engine"><code class="xref py py-obj docutils literal notranslate"><span class="pre">deepspeed_pipe_engine</span></code></a>(sch_metadata, ...)</p></td>
 <td><p>DeepSpeed pipeline engine.</p></td>
 </tr>
 </tbody>
 </table>
 <dl class="py class">
-<dt class="sig sig-object py" id="slapo.model_dialect.deepspeed.pipeline.WrappedTypeCode">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">slapo.model_dialect.deepspeed.pipeline.</span></span><span class="sig-name descname"><span class="pre">WrappedTypeCode</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/slapo/model_dialect/deepspeed/pipeline.html#WrappedTypeCode"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.model_dialect.deepspeed.pipeline.WrappedTypeCode" title="Permalink to this definition"><span>¶</span></a></dt>
+<dt class="sig sig-object py" id="slapo.framework_dialect.deepspeed.pipeline.WrappedTypeCode">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">slapo.framework_dialect.deepspeed.pipeline.</span></span><span class="sig-name descname"><span class="pre">WrappedTypeCode</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/slapo/framework_dialect/deepspeed/pipeline.html#WrappedTypeCode"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.framework_dialect.deepspeed.pipeline.WrappedTypeCode" title="Permalink to this definition"><span>¶</span></a></dt>
 <dd><p>Type code for wrapped tensor for inter-GPU communication.</p>
 </dd></dl>
 
 <dl class="py function">
-<dt class="sig sig-object py" id="slapo.model_dialect.deepspeed.pipeline.get_simple_nested_list_str">
-<span class="sig-prename descclassname"><span class="pre">slapo.model_dialect.deepspeed.pipeline.</span></span><span class="sig-name descname"><span class="pre">get_simple_nested_list_str</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/slapo/model_dialect/deepspeed/pipeline.html#get_simple_nested_list_str"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.model_dialect.deepspeed.pipeline.get_simple_nested_list_str" title="Permalink to this definition"><span>¶</span></a></dt>
+<dt class="sig sig-object py" id="slapo.framework_dialect.deepspeed.pipeline.get_simple_nested_list_str">
+<span class="sig-prename descclassname"><span class="pre">slapo.framework_dialect.deepspeed.pipeline.</span></span><span class="sig-name descname"><span class="pre">get_simple_nested_list_str</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/slapo/framework_dialect/deepspeed/pipeline.html#get_simple_nested_list_str"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.framework_dialect.deepspeed.pipeline.get_simple_nested_list_str" title="Permalink to this definition"><span>¶</span></a></dt>
 <dd><p>A helper function that prints a nested structure without printing
 tensor values.</p>
 </dd></dl>
 
 <dl class="py function">
-<dt class="sig sig-object py" id="slapo.model_dialect.deepspeed.pipeline.flat_and_name_tensor_list">
-<span class="sig-prename descclassname"><span class="pre">slapo.model_dialect.deepspeed.pipeline.</span></span><span class="sig-name descname"><span class="pre">flat_and_name_tensor_list</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">suffix</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/slapo/model_dialect/deepspeed/pipeline.html#flat_and_name_tensor_list"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.model_dialect.deepspeed.pipeline.flat_and_name_tensor_list" title="Permalink to this definition"><span>¶</span></a></dt>
+<dt class="sig sig-object py" id="slapo.framework_dialect.deepspeed.pipeline.flat_and_name_tensor_list">
+<span class="sig-prename descclassname"><span class="pre">slapo.framework_dialect.deepspeed.pipeline.</span></span><span class="sig-name descname"><span class="pre">flat_and_name_tensor_list</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">suffix</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/slapo/framework_dialect/deepspeed/pipeline.html#flat_and_name_tensor_list"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.framework_dialect.deepspeed.pipeline.flat_and_name_tensor_list" title="Permalink to this definition"><span>¶</span></a></dt>
 <dd><p>Flat the given list and assign the itemized name to each tensor.
 This is mainly used for liveness.</p>
 </dd></dl>
 
 <dl class="py function">
-<dt class="sig sig-object py" id="slapo.model_dialect.deepspeed.pipeline.encode_metadata">
-<span class="sig-prename descclassname"><span class="pre">slapo.model_dialect.deepspeed.pipeline.</span></span><span class="sig-name descname"><span class="pre">encode_metadata</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">metadata</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/slapo/model_dialect/deepspeed/pipeline.html#encode_metadata"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.model_dialect.deepspeed.pipeline.encode_metadata" title="Permalink to this definition"><span>¶</span></a></dt>
+<dt class="sig sig-object py" id="slapo.framework_dialect.deepspeed.pipeline.encode_metadata">
+<span class="sig-prename descclassname"><span class="pre">slapo.framework_dialect.deepspeed.pipeline.</span></span><span class="sig-name descname"><span class="pre">encode_metadata</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">metadata</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/slapo/framework_dialect/deepspeed/pipeline.html#encode_metadata"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.framework_dialect.deepspeed.pipeline.encode_metadata" title="Permalink to this definition"><span>¶</span></a></dt>
 <dd><p>Encode metadata to a string.
 The metadata format is:</p>
 <blockquote>
@@ -442,14 +454,14 @@ The metadata format is:</p>
 </dd></dl>
 
 <dl class="py function">
-<dt class="sig sig-object py" id="slapo.model_dialect.deepspeed.pipeline.decode_metadata">
-<span class="sig-prename descclassname"><span class="pre">slapo.model_dialect.deepspeed.pipeline.</span></span><span class="sig-name descname"><span class="pre">decode_metadata</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">metadata_str</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/slapo/model_dialect/deepspeed/pipeline.html#decode_metadata"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.model_dialect.deepspeed.pipeline.decode_metadata" title="Permalink to this definition"><span>¶</span></a></dt>
+<dt class="sig sig-object py" id="slapo.framework_dialect.deepspeed.pipeline.decode_metadata">
+<span class="sig-prename descclassname"><span class="pre">slapo.framework_dialect.deepspeed.pipeline.</span></span><span class="sig-name descname"><span class="pre">decode_metadata</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">metadata_str</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/slapo/framework_dialect/deepspeed/pipeline.html#decode_metadata"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.framework_dialect.deepspeed.pipeline.decode_metadata" title="Permalink to this definition"><span>¶</span></a></dt>
 <dd><p>Decode metadata from a string.</p>
 </dd></dl>
 
 <dl class="py function">
-<dt class="sig sig-object py" id="slapo.model_dialect.deepspeed.pipeline.flatten">
-<span class="sig-prename descclassname"><span class="pre">slapo.model_dialect.deepspeed.pipeline.</span></span><span class="sig-name descname"><span class="pre">flatten</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">outputs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ret</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/slapo/model_dialect/deepspeed/pipeline.html#flatten"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.model_dialect.deepspeed.pipeline.flatten" title="Permalink to this definition"><span>¶</span></a></dt>
+<dt class="sig sig-object py" id="slapo.framework_dialect.deepspeed.pipeline.flatten">
+<span class="sig-prename descclassname"><span class="pre">slapo.framework_dialect.deepspeed.pipeline.</span></span><span class="sig-name descname"><span class="pre">flatten</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">outputs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ret</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/slapo/framework_dialect/deepspeed/pipeline.html#flatten"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.framework_dialect.deepspeed.pipeline.flatten" title="Permalink to this definition"><span>¶</span></a></dt>
 <dd><p>Flatten nested structure of outputs and make sure every
 output is a torch.Tensor. We maintain a metadata to restore
 the original structure. The metadata format is:</p>
@@ -470,20 +482,20 @@ t1 and t2 in [[t1], [t2]] is “0.0” and “1.0”.</p>
 </dd></dl>
 
 <dl class="py function">
-<dt class="sig sig-object py" id="slapo.model_dialect.deepspeed.pipeline.unflatten">
-<span class="sig-prename descclassname"><span class="pre">slapo.model_dialect.deepspeed.pipeline.</span></span><span class="sig-name descname"><span class="pre">unflatten</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/slapo/model_dialect/deepspeed/pipeline.html#unflatten"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.model_dialect.deepspeed.pipeline.unflatten" title="Permalink to this definition"><span>¶</span></a></dt>
+<dt class="sig sig-object py" id="slapo.framework_dialect.deepspeed.pipeline.unflatten">
+<span class="sig-prename descclassname"><span class="pre">slapo.framework_dialect.deepspeed.pipeline.</span></span><span class="sig-name descname"><span class="pre">unflatten</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/slapo/framework_dialect/deepspeed/pipeline.html#unflatten"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.framework_dialect.deepspeed.pipeline.unflatten" title="Permalink to this definition"><span>¶</span></a></dt>
 <dd><p>The reverse function of ‘flatten’.</p>
 </dd></dl>
 
 <dl class="py function">
-<dt class="sig sig-object py" id="slapo.model_dialect.deepspeed.pipeline.analyze_tie_ranks">
-<span class="sig-prename descclassname"><span class="pre">slapo.model_dialect.deepspeed.pipeline.</span></span><span class="sig-name descname"><span class="pre">analyze_tie_ranks</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tie_weight_groups</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">topology</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/slapo/model_dialect/deepspeed/pipeline.html#analyze_tie_ranks"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.model_dialect.deepspeed.pipeline.analyze_tie_ranks" title="Permalink to this definition"><span>¶</span></a></dt>
+<dt class="sig sig-object py" id="slapo.framework_dialect.deepspeed.pipeline.analyze_tie_ranks">
+<span class="sig-prename descclassname"><span class="pre">slapo.framework_dialect.deepspeed.pipeline.</span></span><span class="sig-name descname"><span class="pre">analyze_tie_ranks</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tie_weight_groups</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">topology</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/slapo/framework_dialect/deepspeed/pipeline.html#analyze_tie_ranks"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.framework_dialect.deepspeed.pipeline.analyze_tie_ranks" title="Permalink to this definition"><span>¶</span></a></dt>
 <dd><p>Analyze the ranks of the tied weights for DeepSpeed pipeline.</p>
 </dd></dl>
 
 <dl class="py class">
-<dt class="sig sig-object py" id="slapo.model_dialect.deepspeed.pipeline.DeepSpeedPipeStageWrapper">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">slapo.model_dialect.deepspeed.pipeline.</span></span><span class="sig-name descname"><span class="pre">DeepSpeedPipeStageWrapper</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mod</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stage_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">total_stages</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">liveness</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stage_id_2_arg_names</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/slapo/model_dialect/deepspeed/pipeline.html#DeepSpeedPipeStageWrapper"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.model_dialect.deepspeed.pipeline.DeepSpeedPipeStageWrapper" title="Permalink to this definition"><span>¶</span></a></dt>
+<dt class="sig sig-object py" id="slapo.framework_dialect.deepspeed.pipeline.DeepSpeedPipeStageWrapper">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">slapo.framework_dialect.deepspeed.pipeline.</span></span><span class="sig-name descname"><span class="pre">DeepSpeedPipeStageWrapper</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mod</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stage_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">total_stages</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">liveness</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stage_id_2_arg_names</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/slapo/framework_dialect/deepspeed/pipeline.html#DeepSpeedPipeStageWrapper"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.framework_dialect.deepspeed.pipeline.DeepSpeedPipeStageWrapper" title="Permalink to this definition"><span>¶</span></a></dt>
 <dd><p><strong>Methods:</strong></p>
 <table class="autosummary longtable table autosummary">
 <colgroup>
@@ -491,7 +503,7 @@ t1 and t2 in [[t1], [t2]] is “0.0” and “1.0”.</p>
 <col style="width: 90%" />
 </colgroup>
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.model_dialect.deepspeed.pipeline.DeepSpeedPipeStageWrapper.forward" title="slapo.model_dialect.deepspeed.pipeline.DeepSpeedPipeStageWrapper.forward"><code class="xref py py-obj docutils literal notranslate"><span class="pre">forward</span></code></a>(*args, **kwargs)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.framework_dialect.deepspeed.pipeline.DeepSpeedPipeStageWrapper.forward" title="slapo.framework_dialect.deepspeed.pipeline.DeepSpeedPipeStageWrapper.forward"><code class="xref py py-obj docutils literal notranslate"><span class="pre">forward</span></code></a>(*args, **kwargs)</p></td>
 <td><p>Defines the computation performed at every call.</p></td>
 </tr>
 </tbody>
@@ -509,8 +521,8 @@ t1 and t2 in [[t1], [t2]] is “0.0” and “1.0”.</p>
 </dd>
 </dl>
 <dl class="py method">
-<dt class="sig sig-object py" id="slapo.model_dialect.deepspeed.pipeline.DeepSpeedPipeStageWrapper.forward">
-<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/slapo/model_dialect/deepspeed/pipeline.html#DeepSpeedPipeStageWrapper.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.model_dialect.deepspeed.pipeline.DeepSpeedPipeStageWrapper.forward" title="Permalink to this definition"><span>¶</span></a></dt>
+<dt class="sig sig-object py" id="slapo.framework_dialect.deepspeed.pipeline.DeepSpeedPipeStageWrapper.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/slapo/framework_dialect/deepspeed/pipeline.html#DeepSpeedPipeStageWrapper.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.framework_dialect.deepspeed.pipeline.DeepSpeedPipeStageWrapper.forward" title="Permalink to this definition"><span>¶</span></a></dt>
 <dd><p>Defines the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.</p>
 <div class="admonition note">
@@ -525,8 +537,8 @@ registered hooks while the latter silently ignores them.</p>
 </dd></dl>
 
 <dl class="py function">
-<dt class="sig sig-object py" id="slapo.model_dialect.deepspeed.pipeline.deepspeed_pipe_engine">
-<span class="sig-prename descclassname"><span class="pre">slapo.model_dialect.deepspeed.pipeline.</span></span><span class="sig-name descname"><span class="pre">deepspeed_pipe_engine</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sch_metadata</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stage_modules</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/slapo/model_dialect/deepspeed/pipeline.html#deepspeed_pipe_engine"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.model_dialect.deepspeed.pipeline.deepspeed_pipe_engine" title="Permalink to this definition"><span>¶</span></a></dt>
+<dt class="sig sig-object py" id="slapo.framework_dialect.deepspeed.pipeline.deepspeed_pipe_engine">
+<span class="sig-prename descclassname"><span class="pre">slapo.framework_dialect.deepspeed.pipeline.</span></span><span class="sig-name descname"><span class="pre">deepspeed_pipe_engine</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sch_metadata</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stage_modules</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/slapo/framework_dialect/deepspeed/pipeline.html#deepspeed_pipe_engine"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.framework_dialect.deepspeed.pipeline.deepspeed_pipe_engine" title="Permalink to this definition"><span>¶</span></a></dt>
 <dd><p>DeepSpeed pipeline engine.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -560,7 +572,7 @@ such as “config”, “loss_fn”, “topology”, “fp16”.</p></li>
         <i class="fas fa-angle-left"></i>
         <div class="prev-next-info">
             <p class="prev-next-subtitle">previous</p>
-            <p class="prev-next-title">slapo.model_dialect.deepspeed.engine</p>
+            <p class="prev-next-title">slapo.framework_dialect.deepspeed.engine</p>
         </div>
     </a>
     <a class='right-next' id="next-link" href="../../op/index.html" title="next page">

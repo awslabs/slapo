@@ -105,6 +105,18 @@
 </ul>
 <p aria-level="2" class="caption" role="heading">
  <span class="caption-text">
+  Tutorials
+ </span>
+</p>
+<ul class="nav bd-sidenav">
+ <li class="toctree-l1">
+  <a class="reference internal" href="../gallery/attention-single-gpu.html">
+   Optimize Attention Module on A Single GPU
+  </a>
+ </li>
+</ul>
+<p aria-level="2" class="caption" role="heading">
+ <span class="caption-text">
   Reference
  </span>
 </p>
@@ -150,8 +162,8 @@
     </a>
    </li>
    <li class="toctree-l2 has-children">
-    <a class="reference internal" href="model_dialect/index.html">
-     hidet.model_dialect
+    <a class="reference internal" href="framework_dialect/index.html">
+     hidet.framework_dialect
     </a>
     <input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/>
     <label for="toctree-checkbox-2">
@@ -160,13 +172,13 @@
     </label>
     <ul>
      <li class="toctree-l3">
-      <a class="reference internal" href="model_dialect/registry.html">
-       slapo.model_dialect.registry
+      <a class="reference internal" href="framework_dialect/registry.html">
+       slapo.framework_dialect.registry
       </a>
      </li>
      <li class="toctree-l3 has-children">
-      <a class="reference internal" href="model_dialect/deepspeed/index.html">
-       hidet.model_dialect.deepspeed
+      <a class="reference internal" href="framework_dialect/deepspeed/index.html">
+       hidet.framework_dialect.deepspeed
       </a>
       <input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/>
       <label for="toctree-checkbox-3">
@@ -175,13 +187,13 @@
       </label>
       <ul>
        <li class="toctree-l4">
-        <a class="reference internal" href="model_dialect/deepspeed/engine.html">
-         slapo.model_dialect.deepspeed.engine
+        <a class="reference internal" href="framework_dialect/deepspeed/engine.html">
+         slapo.framework_dialect.deepspeed.engine
         </a>
        </li>
        <li class="toctree-l4">
-        <a class="reference internal" href="model_dialect/deepspeed/pipeline.html">
-         slapo.model_dialect.deepspeed.pipeline
+        <a class="reference internal" href="framework_dialect/deepspeed/pipeline.html">
+         slapo.framework_dialect.deepspeed.pipeline
         </a>
        </li>
       </ul>
@@ -417,11 +429,17 @@ title="Print to PDF"
 <tr class="row-even"><td><p><a class="reference internal" href="#slapo.get_logger" title="slapo.get_logger"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_logger</span></code></a>([name, level])</p></td>
 <td><p>Attach to the default logger.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.all_gather_forward_output" title="slapo.all_gather_forward_output"><code class="xref py py-obj docutils literal notranslate"><span class="pre">all_gather_forward_output</span></code></a>(inp, dim, group[, ...])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.set_random_seed" title="slapo.set_random_seed"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_random_seed</span></code></a>([seed, dp_rank, pp_rank, ...])</p></td>
+<td><p>Set random seed for reproducability.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.all_gather_forward_output" title="slapo.all_gather_forward_output"><code class="xref py py-obj docutils literal notranslate"><span class="pre">all_gather_forward_output</span></code></a>(inp, dim, group[, ...])</p></td>
 <td><p>The custom sync op (F: all-gather, B: split or reduce-scatter) used for forward hook.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#slapo.analyze_tie_weights" title="slapo.analyze_tie_weights"><code class="xref py py-obj docutils literal notranslate"><span class="pre">analyze_tie_weights</span></code></a>(top_mod, ...)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.analyze_tie_weights" title="slapo.analyze_tie_weights"><code class="xref py py-obj docutils literal notranslate"><span class="pre">analyze_tie_weights</span></code></a>(top_mod, ...)</p></td>
 <td><p>Analyze if there is any tie weights (two weights in different module share the same memory) partitioned into different pipeline stages.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.checkpoint_module" title="slapo.checkpoint_module"><code class="xref py py-obj docutils literal notranslate"><span class="pre">checkpoint_module</span></code></a>(function, *args[, ...])</p></td>
+<td><p>Checkpoint a model or part of the model.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#slapo.consolidate_model" title="slapo.consolidate_model"><code class="xref py py-obj docutils literal notranslate"><span class="pre">consolidate_model</span></code></a>(sch, target[, param_init_fn])</p></td>
 <td><p>Consolidate the model weights.</p></td>
@@ -432,38 +450,50 @@ title="Print to PDF"
 <tr class="row-odd"><td><p><a class="reference internal" href="#slapo.field" title="slapo.field"><code class="xref py py-obj docutils literal notranslate"><span class="pre">field</span></code></a>(*[, default, default_factory, init, ...])</p></td>
 <td><p>Return an object to identify dataclass fields.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#slapo.get_dialect_cls" title="slapo.get_dialect_cls"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_dialect_cls</span></code></a>(cls_type, target[, allow_none])</p></td>
-<td><p>Get the framework model dialect class.</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.get_cuda_rng_tracker" title="slapo.get_cuda_rng_tracker"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_cuda_rng_tracker</span></code></a>()</p></td>
+<td><p>Get cuda rng tracker.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.get_output_type_after_sharding" title="slapo.get_output_type_after_sharding"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_output_type_after_sharding</span></code></a>(module, ...)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.get_dialect_cls" title="slapo.get_dialect_cls"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_dialect_cls</span></code></a>(cls_type, target[, allow_none])</p></td>
+<td><p>Get the framework dialect class.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.get_output_type_after_sharding" title="slapo.get_output_type_after_sharding"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_output_type_after_sharding</span></code></a>(module, ...)</p></td>
 <td><p>Get the output type (partition or partial) after sharding the module along the given axis.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#slapo.init_target_engine" title="slapo.init_target_engine"><code class="xref py py-obj docutils literal notranslate"><span class="pre">init_target_engine</span></code></a>(sch, target, **kwargs)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.init_target_engine" title="slapo.init_target_engine"><code class="xref py py-obj docutils literal notranslate"><span class="pre">init_target_engine</span></code></a>(sch, target, **kwargs)</p></td>
 <td><p>Initialize the runtime engine for a specific target framework.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.reduce_backward_grad" title="slapo.reduce_backward_grad"><code class="xref py py-obj docutils literal notranslate"><span class="pre">reduce_backward_grad</span></code></a>(inp, group)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.reduce_backward_grad" title="slapo.reduce_backward_grad"><code class="xref py py-obj docutils literal notranslate"><span class="pre">reduce_backward_grad</span></code></a>(inp, group)</p></td>
 <td><p>The custom sync op (F: no-op, B: all-reduce) used for forward hook.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#slapo.reduce_forward_output" title="slapo.reduce_forward_output"><code class="xref py py-obj docutils literal notranslate"><span class="pre">reduce_forward_output</span></code></a>(inp, group)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.reduce_forward_output" title="slapo.reduce_forward_output"><code class="xref py py-obj docutils literal notranslate"><span class="pre">reduce_forward_output</span></code></a>(inp, group)</p></td>
 <td><p>The custom sync op sync op (F: all-reduce, B: no-op) used for forward hook.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.reduce_scatter_forward_output" title="slapo.reduce_scatter_forward_output"><code class="xref py py-obj docutils literal notranslate"><span class="pre">reduce_scatter_forward_output</span></code></a>(inp, dim, group)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.reduce_scatter_forward_output" title="slapo.reduce_scatter_forward_output"><code class="xref py py-obj docutils literal notranslate"><span class="pre">reduce_scatter_forward_output</span></code></a>(inp, dim, group)</p></td>
 <td><p>The custom sync op (F: reduce-scatter, B: all-gather) used for forward hook.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#slapo.register_primitive" title="slapo.register_primitive"><code class="xref py py-obj docutils literal notranslate"><span class="pre">register_primitive</span></code></a>([need_dist, finalize])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.register_primitive" title="slapo.register_primitive"><code class="xref py py-obj docutils literal notranslate"><span class="pre">register_primitive</span></code></a>([need_dist, finalize])</p></td>
 <td><p>Wrap a schedule primitive to annotate attributes:</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.scatter_forward_output" title="slapo.scatter_forward_output"><code class="xref py py-obj docutils literal notranslate"><span class="pre">scatter_forward_output</span></code></a>(inp, dim, group)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.scatter_forward_output" title="slapo.scatter_forward_output"><code class="xref py py-obj docutils literal notranslate"><span class="pre">scatter_forward_output</span></code></a>(inp, dim, group)</p></td>
 <td><p>The custom sync op (sync op (F: scatter, B: all-gather) used for forward hook.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#slapo.trace" title="slapo.trace"><code class="xref py py-obj docutils literal notranslate"><span class="pre">trace</span></code></a>(model, **kwargs)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.trace" title="slapo.trace"><code class="xref py py-obj docutils literal notranslate"><span class="pre">trace</span></code></a>(model, **kwargs)</p></td>
 <td><p>Traces a model to a GraphModule.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.trace_module" title="slapo.trace_module"><code class="xref py py-obj docutils literal notranslate"><span class="pre">trace_module</span></code></a>(model, **kwargs)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.trace_module" title="slapo.trace_module"><code class="xref py py-obj docutils literal notranslate"><span class="pre">trace_module</span></code></a>(model, **kwargs)</p></td>
 <td><p>Traces a model to a GraphModule.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#slapo.transfer_hooks" title="slapo.transfer_hooks"><code class="xref py py-obj docutils literal notranslate"><span class="pre">transfer_hooks</span></code></a>(old_mod, new_mod[, hook_types])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.transfer_hooks" title="slapo.transfer_hooks"><code class="xref py py-obj docutils literal notranslate"><span class="pre">transfer_hooks</span></code></a>(old_mod, new_mod[, hook_types])</p></td>
 <td><p>Transfer the hooks from old_mod to new_mod.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.transfer_hooks_for_fusion" title="slapo.transfer_hooks_for_fusion"><code class="xref py py-obj docutils literal notranslate"><span class="pre">transfer_hooks_for_fusion</span></code></a>(sch, subgraphs, ...)</p></td>
+<td><p>Transfer hooks of modules in the subgraph to be fused.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.is_random_seed_set" title="slapo.is_random_seed_set"><code class="xref py py-obj docutils literal notranslate"><span class="pre">is_random_seed_set</span></code></a>()</p></td>
+<td><p>Check if random seed is set.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.checkpoint" title="slapo.checkpoint"><code class="xref py py-obj docutils literal notranslate"><span class="pre">checkpoint</span></code></a>(function, *args[, use_reentrant])</p></td>
+<td><p>Checkpoint a model or part of the model.</p></td>
 </tr>
 </tbody>
 </table>
@@ -646,6 +676,28 @@ empty model. Useful when just initializing the model would blow the available RA
 <dt class="sig sig-object py" id="slapo.get_logger">
 <span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">get_logger</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Slapo'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">level</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/logger.html#get_logger"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.get_logger" title="Permalink to this definition"><span>¶</span></a></dt>
 <dd><p>Attach to the default logger.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="slapo.set_random_seed">
+<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">set_random_seed</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2013</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dp_rank</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pp_rank</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tp_rank</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/random.html#set_random_seed"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.set_random_seed" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Set random seed for reproducability.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>seed</strong> (<em>int</em>) – Random seed. Default is 2013.</p></li>
+<li><p><strong>dp_rank</strong> (<em>Optional</em><em>[</em><em>int</em><em>]</em>) – Data parallel rank. Default is None means no data parallelism.</p></li>
+<li><p><strong>pp_rank</strong> (<em>Optional</em><em>[</em><em>int</em><em>]</em>) – Pipeline parallel rank. Default is None means no pipeline parallelism.</p></li>
+<li><p><strong>tp_rank</strong> (<em>Optional</em><em>[</em><em>int</em><em>]</em>) – Tensor model parallel rank. Default is None means no tensor parallelism.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Random seed of this rank.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py class">
@@ -965,6 +1017,18 @@ partitioned for pipeline.</p>
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="slapo.checkpoint_module">
+<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">checkpoint_module</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">function</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_reentrant</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#slapo.checkpoint_module" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Checkpoint a model or part of the model. See PyTorch checkpoint
+for details about behaviors and arguments. The only difference is
+when the random seed is set by Slapo, the checkpoint function will
+also track the random states and restore them properly.</p>
+<p>TODO: The implementation in Megatron-LM has a mode to distribute
+the saved activations across model parallel groups to further reduce
+the memory footprint. This is not implemented here yet.</p>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="slapo.consolidate_model">
 <span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">consolidate_model</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sch</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">param_init_fn</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/schedule.html#consolidate_model"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.consolidate_model" title="Permalink to this definition"><span>¶</span></a></dt>
 <dd><p>Consolidate the model weights.
@@ -974,7 +1038,7 @@ in this function to make it general applicable.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>sch</strong> (<em>Schedule</em>) – </p></li>
+<li><p><strong>sch</strong> (<a class="reference internal" href="schedule.html#slapo.schedule.Schedule" title="slapo.schedule.Schedule"><em>Schedule</em></a>) – </p></li>
 <li><p><strong>target</strong> (<em>str</em>) – </p></li>
 <li><p><strong>param_init_fn</strong> (<em>Optional</em><em>[</em><em>Callable</em><em>[</em><em>[</em><em>nn.Module</em><em>]</em><em>, </em><em>None</em><em>]</em><em>]</em>) – </p></li>
 </ul>
@@ -1011,9 +1075,15 @@ mapping which is stored but not otherwise examined by dataclass.</p>
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="slapo.get_cuda_rng_tracker">
+<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">get_cuda_rng_tracker</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/random.html#get_cuda_rng_tracker"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.get_cuda_rng_tracker" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Get cuda rng tracker.</p>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="slapo.get_dialect_cls">
-<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">get_dialect_cls</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cls_type</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allow_none</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/model_dialect/registry.html#get_dialect_cls"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.get_dialect_cls" title="Permalink to this definition"><span>¶</span></a></dt>
-<dd><p>Get the framework model dialect class.</p>
+<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">get_dialect_cls</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cls_type</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allow_none</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/framework_dialect/registry.html#get_dialect_cls"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.get_dialect_cls" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Get the framework dialect class.</p>
 </dd></dl>
 
 <dl class="py function">
@@ -1219,6 +1289,43 @@ doc: TODO</p>
 </ul>
 </dd>
 </dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="slapo.transfer_hooks_for_fusion">
+<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">transfer_hooks_for_fusion</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sch</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subgraphs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">new_mod</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/utils/common.html#transfer_hooks_for_fusion"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.transfer_hooks_for_fusion" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Transfer hooks of modules in the subgraph to be fused.
+For example, the fwd_pre hook of the first module in the subgraph will become
+the fwd_pre hook of the fused module.
+Note that if middle modules have hooks, we will throw errors because we cannot
+keep these hooks in the fused module.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>sch</strong> (<a class="reference internal" href="schedule.html#slapo.schedule.Schedule" title="slapo.schedule.Schedule"><em>Schedule</em></a>) – The parent schedule.</p></li>
+<li><p><strong>subgraphs</strong> (<em>List</em><em>[</em><em>List</em><em>[</em><em>Tuple</em><em>[</em><em>Node</em><em>, </em><em>Node</em><em>]</em><em>]</em><em>]</em>) – The fused subgraphs that need to be transferred hooks.</p></li>
+<li><p><strong>new_mod</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch v1.13)"><em>torch.nn.Module</em></a>) – The new module that will be created after fusion.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="slapo.is_random_seed_set">
+<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">is_random_seed_set</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/random.html#is_random_seed_set"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.is_random_seed_set" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Check if random seed is set.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="slapo.checkpoint">
+<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">checkpoint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">function</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_reentrant</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/checkpoint.html#checkpoint"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.checkpoint" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Checkpoint a model or part of the model. See PyTorch checkpoint
+for details about behaviors and arguments. The only difference is
+when the random seed is set by Slapo, the checkpoint function will
+also track the random states and restore them properly.</p>
+<p>TODO: The implementation in Megatron-LM has a mode to distribute
+the saved activations across model parallel groups to further reduce
+the memory footprint. This is not implemented here yet.</p>
 </dd></dl>
 
 </div>

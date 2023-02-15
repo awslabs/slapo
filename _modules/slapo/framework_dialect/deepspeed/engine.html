@@ -5,7 +5,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>slapo.model_dialect.deepspeed.engine &#8212; Slapo Documentation</title>
+    <title>slapo.framework_dialect.deepspeed.engine &#8212; Slapo Documentation</title>
     
   <!-- Loaded before other Sphinx assets -->
   <link href="../../../../_static/styles/theme.css?digest=1999514e3f237ded88cf" rel="stylesheet">
@@ -103,6 +103,18 @@
 </ul>
 <p aria-level="2" class="caption" role="heading">
  <span class="caption-text">
+  Tutorials
+ </span>
+</p>
+<ul class="nav bd-sidenav">
+ <li class="toctree-l1">
+  <a class="reference internal" href="../../../../gallery/attention-single-gpu.html">
+   Optimize Attention Module on A Single GPU
+  </a>
+ </li>
+</ul>
+<p aria-level="2" class="caption" role="heading">
+ <span class="caption-text">
   Reference
  </span>
 </p>
@@ -148,8 +160,8 @@
     </a>
    </li>
    <li class="toctree-l2 has-children">
-    <a class="reference internal" href="../../../../python_api/model_dialect/index.html">
-     hidet.model_dialect
+    <a class="reference internal" href="../../../../python_api/framework_dialect/index.html">
+     hidet.framework_dialect
     </a>
     <input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/>
     <label for="toctree-checkbox-2">
@@ -158,13 +170,13 @@
     </label>
     <ul>
      <li class="toctree-l3">
-      <a class="reference internal" href="../../../../python_api/model_dialect/registry.html">
-       slapo.model_dialect.registry
+      <a class="reference internal" href="../../../../python_api/framework_dialect/registry.html">
+       slapo.framework_dialect.registry
       </a>
      </li>
      <li class="toctree-l3 has-children">
-      <a class="reference internal" href="../../../../python_api/model_dialect/deepspeed/index.html">
-       hidet.model_dialect.deepspeed
+      <a class="reference internal" href="../../../../python_api/framework_dialect/deepspeed/index.html">
+       hidet.framework_dialect.deepspeed
       </a>
       <input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/>
       <label for="toctree-checkbox-3">
@@ -173,13 +185,13 @@
       </label>
       <ul>
        <li class="toctree-l4">
-        <a class="reference internal" href="../../../../python_api/model_dialect/deepspeed/engine.html">
-         slapo.model_dialect.deepspeed.engine
+        <a class="reference internal" href="../../../../python_api/framework_dialect/deepspeed/engine.html">
+         slapo.framework_dialect.deepspeed.engine
         </a>
        </li>
        <li class="toctree-l4">
-        <a class="reference internal" href="../../../../python_api/model_dialect/deepspeed/pipeline.html">
-         slapo.model_dialect.deepspeed.pipeline
+        <a class="reference internal" href="../../../../python_api/framework_dialect/deepspeed/pipeline.html">
+         slapo.framework_dialect.deepspeed.pipeline
         </a>
        </li>
       </ul>
@@ -312,21 +324,22 @@ title="Source repository"
                 
               <div>
                 
-  <h1>Source code for slapo.model_dialect.deepspeed.engine</h1><div class="highlight"><pre>
+  <h1>Source code for slapo.framework_dialect.deepspeed.engine</h1><div class="highlight"><pre>
 <span></span><span class="c1"># Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.</span>
 <span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
 <span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">from</span> <span class="nn">..registry</span> <span class="kn">import</span> <span class="n">register_model_dialect</span>
+<span class="kn">from</span> <span class="nn">..registry</span> <span class="kn">import</span> <span class="n">register_framework_dialect</span>
 <span class="kn">from</span> <span class="nn">...logger</span> <span class="kn">import</span> <span class="n">get_logger</span><span class="p">,</span> <span class="n">INFO</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">(</span><span class="s2">&quot;DS-Engine&quot;</span><span class="p">,</span> <span class="n">INFO</span><span class="p">)</span>
 
 
-<div class="viewcode-block" id="init_ds_engine"><a class="viewcode-back" href="../../../../python_api/model_dialect/deepspeed/engine.html#slapo.model_dialect.deepspeed.engine.init_ds_engine">[docs]</a><span class="nd">@register_model_dialect</span><span class="p">(</span><span class="s2">&quot;deepspeed&quot;</span><span class="p">,</span> <span class="s2">&quot;runtime_engine&quot;</span><span class="p">)</span>
+<div class="viewcode-block" id="init_ds_engine"><a class="viewcode-back" href="../../../../python_api/framework_dialect/deepspeed/engine.html#slapo.framework_dialect.deepspeed.engine.init_ds_engine">[docs]</a><span class="nd">@register_framework_dialect</span><span class="p">(</span><span class="s2">&quot;deepspeed&quot;</span><span class="p">,</span> <span class="s2">&quot;runtime_engine&quot;</span><span class="p">)</span>
 <span class="k">def</span> <span class="nf">init_ds_engine</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Initialize the DeepSpeed engine.&quot;&quot;&quot;</span>
     <span class="kn">import</span> <span class="nn">deepspeed</span>
+    <span class="kn">from</span> <span class="nn">deepspeed.pipe</span> <span class="kn">import</span> <span class="n">PipelineModule</span>
     <span class="kn">from</span> <span class="nn">deepspeed.runtime.pipe.topology</span> <span class="kn">import</span> <span class="p">(</span>
         <span class="n">PipeModelDataParallelTopology</span><span class="p">,</span>
         <span class="n">PipelineParallelGrid</span><span class="p">,</span>
@@ -334,13 +347,15 @@ title="Source repository"
 
     <span class="k">if</span> <span class="s2">&quot;config&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;DeepSpeed config not provided.&quot;</span><span class="p">)</span>
+
     <span class="n">mpu</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;topology&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">mpu</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">mpu</span><span class="p">,</span> <span class="n">PipeModelDataParallelTopology</span><span class="p">):</span>
-        <span class="k">if</span> <span class="n">mpu</span><span class="o">.</span><span class="n">get_dim</span><span class="p">(</span><span class="s2">&quot;pipe&quot;</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="c1"># in the case that pipeline is disabled</span>
-            <span class="n">mpu</span> <span class="o">=</span> <span class="n">PipelineParallelGrid</span><span class="p">(</span><span class="n">topology</span><span class="o">=</span><span class="n">mpu</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">mpu</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">PipelineModule</span><span class="p">):</span>
+        <span class="c1"># If the model is already a PipelineModule, the device grid (i.e., mesh)</span>
+        <span class="c1"># is already configured, so we pass mpu=None to deepspeed.initialize to</span>
+        <span class="c1"># avoid re-configuration.</span>
+        <span class="n">mpu</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">elif</span> <span class="n">mpu</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">mpu</span><span class="p">,</span> <span class="n">PipeModelDataParallelTopology</span><span class="p">):</span>
+        <span class="n">mpu</span> <span class="o">=</span> <span class="n">PipelineParallelGrid</span><span class="p">(</span><span class="n">topology</span><span class="o">=</span><span class="n">mpu</span><span class="p">)</span>
 
     <span class="c1"># pylint: disable=unbalanced-tuple-unpacking</span>
     <span class="n">model</span><span class="p">,</span> <span class="n">optimizer</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">deepspeed</span><span class="o">.</span><span class="n">initialize</span><span class="p">(</span>

@@ -106,6 +106,18 @@
 </ul>
 <p aria-level="2" class="caption" role="heading">
  <span class="caption-text">
+  Tutorials
+ </span>
+</p>
+<ul class="nav bd-sidenav">
+ <li class="toctree-l1">
+  <a class="reference internal" href="gallery/attention-single-gpu.html">
+   Optimize Attention Module on A Single GPU
+  </a>
+ </li>
+</ul>
+<p aria-level="2" class="caption" role="heading">
+ <span class="caption-text">
   Reference
  </span>
 </p>
@@ -151,8 +163,8 @@
     </a>
    </li>
    <li class="toctree-l2 has-children">
-    <a class="reference internal" href="python_api/model_dialect/index.html">
-     hidet.model_dialect
+    <a class="reference internal" href="python_api/framework_dialect/index.html">
+     hidet.framework_dialect
     </a>
     <input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/>
     <label for="toctree-checkbox-2">
@@ -161,13 +173,13 @@
     </label>
     <ul>
      <li class="toctree-l3">
-      <a class="reference internal" href="python_api/model_dialect/registry.html">
-       slapo.model_dialect.registry
+      <a class="reference internal" href="python_api/framework_dialect/registry.html">
+       slapo.framework_dialect.registry
       </a>
      </li>
      <li class="toctree-l3 has-children">
-      <a class="reference internal" href="python_api/model_dialect/deepspeed/index.html">
-       hidet.model_dialect.deepspeed
+      <a class="reference internal" href="python_api/framework_dialect/deepspeed/index.html">
+       hidet.framework_dialect.deepspeed
       </a>
       <input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/>
       <label for="toctree-checkbox-3">
@@ -176,13 +188,13 @@
       </label>
       <ul>
        <li class="toctree-l4">
-        <a class="reference internal" href="python_api/model_dialect/deepspeed/engine.html">
-         slapo.model_dialect.deepspeed.engine
+        <a class="reference internal" href="python_api/framework_dialect/deepspeed/engine.html">
+         slapo.framework_dialect.deepspeed.engine
         </a>
        </li>
        <li class="toctree-l4">
-        <a class="reference internal" href="python_api/model_dialect/deepspeed/pipeline.html">
-         slapo.model_dialect.deepspeed.pipeline
+        <a class="reference internal" href="python_api/framework_dialect/deepspeed/pipeline.html">
+         slapo.framework_dialect.deepspeed.pipeline
         </a>
        </li>
       </ul>
@@ -335,22 +347,32 @@ title="Source repository"
      <tr class="cg-1">
        <td></td>
        <td>&#160;&#160;&#160;
+       <a href="python_api/framework_dialect/deepspeed/engine.html#module-slapo.framework_dialect.deepspeed.engine"><code class="xref">slapo.framework_dialect.deepspeed.engine</code></a></td><td>
+       <em></em></td></tr>
+     <tr class="cg-1">
+       <td></td>
+       <td>&#160;&#160;&#160;
+       <a href="python_api/framework_dialect/deepspeed/pipeline.html#module-slapo.framework_dialect.deepspeed.pipeline"><code class="xref">slapo.framework_dialect.deepspeed.pipeline</code></a></td><td>
+       <em></em></td></tr>
+     <tr class="cg-1">
+       <td></td>
+       <td>&#160;&#160;&#160;
+       <a href="python_api/framework_dialect/registry.html#module-slapo.framework_dialect.registry"><code class="xref">slapo.framework_dialect.registry</code></a></td><td>
+       <em></em></td></tr>
+     <tr class="cg-1">
+       <td></td>
+       <td>&#160;&#160;&#160;
        <a href="python_api/initialization.html#module-slapo.initialization"><code class="xref">slapo.initialization</code></a></td><td>
        <em></em></td></tr>
      <tr class="cg-1">
        <td></td>
        <td>&#160;&#160;&#160;
-       <a href="python_api/model_dialect/deepspeed/engine.html#module-slapo.model_dialect.deepspeed.engine"><code class="xref">slapo.model_dialect.deepspeed.engine</code></a></td><td>
+       <a href="python_api/op/attention.html#module-slapo.op.attention"><code class="xref">slapo.op.attention</code></a></td><td>
        <em></em></td></tr>
      <tr class="cg-1">
        <td></td>
        <td>&#160;&#160;&#160;
-       <a href="python_api/model_dialect/deepspeed/pipeline.html#module-slapo.model_dialect.deepspeed.pipeline"><code class="xref">slapo.model_dialect.deepspeed.pipeline</code></a></td><td>
-       <em></em></td></tr>
-     <tr class="cg-1">
-       <td></td>
-       <td>&#160;&#160;&#160;
-       <a href="python_api/model_dialect/registry.html#module-slapo.model_dialect.registry"><code class="xref">slapo.model_dialect.registry</code></a></td><td>
+       <a href="python_api/op/bias_gelu.html#module-slapo.op.bias_gelu"><code class="xref">slapo.op.bias_gelu</code></a></td><td>
        <em></em></td></tr>
      <tr class="cg-1">
        <td></td>
@@ -360,7 +382,17 @@ title="Source repository"
      <tr class="cg-1">
        <td></td>
        <td>&#160;&#160;&#160;
+       <a href="python_api/op/dropout.html#module-slapo.op.dropout"><code class="xref">slapo.op.dropout</code></a></td><td>
+       <em></em></td></tr>
+     <tr class="cg-1">
+       <td></td>
+       <td>&#160;&#160;&#160;
        <a href="python_api/op/linear.html#module-slapo.op.linear"><code class="xref">slapo.op.linear</code></a></td><td>
+       <em></em></td></tr>
+     <tr class="cg-1">
+       <td></td>
+       <td>&#160;&#160;&#160;
+       <a href="python_api/op/mlp.html#module-slapo.op.mlp"><code class="xref">slapo.op.mlp</code></a></td><td>
        <em></em></td></tr>
      <tr class="cg-1">
        <td></td>
@@ -371,6 +403,11 @@ title="Source repository"
        <td></td>
        <td>&#160;&#160;&#160;
        <a href="python_api/pipeline.html#module-slapo.pipeline"><code class="xref">slapo.pipeline</code></a></td><td>
+       <em></em></td></tr>
+     <tr class="cg-1">
+       <td></td>
+       <td>&#160;&#160;&#160;
+       <a href="python_api/random.html#module-slapo.random"><code class="xref">slapo.random</code></a></td><td>
        <em></em></td></tr>
      <tr class="cg-1">
        <td></td>

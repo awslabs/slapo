@@ -5,7 +5,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>slapo.model_dialect.deepspeed.pipeline &#8212; Slapo Documentation</title>
+    <title>slapo.framework_dialect.deepspeed.pipeline &#8212; Slapo Documentation</title>
     
   <!-- Loaded before other Sphinx assets -->
   <link href="../../../../_static/styles/theme.css?digest=1999514e3f237ded88cf" rel="stylesheet">
@@ -103,6 +103,18 @@
 </ul>
 <p aria-level="2" class="caption" role="heading">
  <span class="caption-text">
+  Tutorials
+ </span>
+</p>
+<ul class="nav bd-sidenav">
+ <li class="toctree-l1">
+  <a class="reference internal" href="../../../../gallery/attention-single-gpu.html">
+   Optimize Attention Module on A Single GPU
+  </a>
+ </li>
+</ul>
+<p aria-level="2" class="caption" role="heading">
+ <span class="caption-text">
   Reference
  </span>
 </p>
@@ -148,8 +160,8 @@
     </a>
    </li>
    <li class="toctree-l2 has-children">
-    <a class="reference internal" href="../../../../python_api/model_dialect/index.html">
-     hidet.model_dialect
+    <a class="reference internal" href="../../../../python_api/framework_dialect/index.html">
+     hidet.framework_dialect
     </a>
     <input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/>
     <label for="toctree-checkbox-2">
@@ -158,13 +170,13 @@
     </label>
     <ul>
      <li class="toctree-l3">
-      <a class="reference internal" href="../../../../python_api/model_dialect/registry.html">
-       slapo.model_dialect.registry
+      <a class="reference internal" href="../../../../python_api/framework_dialect/registry.html">
+       slapo.framework_dialect.registry
       </a>
      </li>
      <li class="toctree-l3 has-children">
-      <a class="reference internal" href="../../../../python_api/model_dialect/deepspeed/index.html">
-       hidet.model_dialect.deepspeed
+      <a class="reference internal" href="../../../../python_api/framework_dialect/deepspeed/index.html">
+       hidet.framework_dialect.deepspeed
       </a>
       <input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/>
       <label for="toctree-checkbox-3">
@@ -173,13 +185,13 @@
       </label>
       <ul>
        <li class="toctree-l4">
-        <a class="reference internal" href="../../../../python_api/model_dialect/deepspeed/engine.html">
-         slapo.model_dialect.deepspeed.engine
+        <a class="reference internal" href="../../../../python_api/framework_dialect/deepspeed/engine.html">
+         slapo.framework_dialect.deepspeed.engine
         </a>
        </li>
        <li class="toctree-l4">
-        <a class="reference internal" href="../../../../python_api/model_dialect/deepspeed/pipeline.html">
-         slapo.model_dialect.deepspeed.pipeline
+        <a class="reference internal" href="../../../../python_api/framework_dialect/deepspeed/pipeline.html">
+         slapo.framework_dialect.deepspeed.pipeline
         </a>
        </li>
       </ul>
@@ -312,9 +324,10 @@ title="Source repository"
                 
               <div>
                 
-  <h1>Source code for slapo.model_dialect.deepspeed.pipeline</h1><div class="highlight"><pre>
+  <h1>Source code for slapo.framework_dialect.deepspeed.pipeline</h1><div class="highlight"><pre>
 <span></span><span class="c1"># Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.</span>
 <span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
+
 <span class="c1"># pylint: disable=logging-fstring-interpolation</span>
 <span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
 
@@ -323,14 +336,14 @@ title="Source repository"
 <span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">distributed</span> <span class="k">as</span> <span class="n">dist</span>
 <span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">fx</span><span class="p">,</span> <span class="n">nn</span>
 
-<span class="kn">from</span> <span class="nn">..registry</span> <span class="kn">import</span> <span class="n">register_model_dialect</span>
+<span class="kn">from</span> <span class="nn">..registry</span> <span class="kn">import</span> <span class="n">register_framework_dialect</span>
 <span class="kn">from</span> <span class="nn">...logger</span> <span class="kn">import</span> <span class="n">get_logger</span><span class="p">,</span> <span class="n">DEBUG</span><span class="p">,</span> <span class="n">INFO</span>
 
 <span class="c1"># Change INFO to DEBUG for more verbose logging.</span>
 <span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">(</span><span class="s2">&quot;DS-Pipeline&quot;</span><span class="p">,</span> <span class="n">INFO</span><span class="p">)</span>
 
 
-<div class="viewcode-block" id="WrappedTypeCode"><a class="viewcode-back" href="../../../../python_api/model_dialect/deepspeed/pipeline.html#slapo.model_dialect.deepspeed.pipeline.WrappedTypeCode">[docs]</a><span class="k">class</span> <span class="nc">WrappedTypeCode</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+<div class="viewcode-block" id="WrappedTypeCode"><a class="viewcode-back" href="../../../../python_api/framework_dialect/deepspeed/pipeline.html#slapo.framework_dialect.deepspeed.pipeline.WrappedTypeCode">[docs]</a><span class="k">class</span> <span class="nc">WrappedTypeCode</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Type code for wrapped tensor for inter-GPU communication.&quot;&quot;&quot;</span>
 
     <span class="n">TORCH_TENSOR</span> <span class="o">=</span> <span class="mi">0</span>
@@ -340,7 +353,7 @@ title="Source repository"
     <span class="n">TUPLE</span> <span class="o">=</span> <span class="mi">4</span></div>
 
 
-<div class="viewcode-block" id="get_simple_nested_list_str"><a class="viewcode-back" href="../../../../python_api/model_dialect/deepspeed/pipeline.html#slapo.model_dialect.deepspeed.pipeline.get_simple_nested_list_str">[docs]</a><span class="k">def</span> <span class="nf">get_simple_nested_list_str</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
+<div class="viewcode-block" id="get_simple_nested_list_str"><a class="viewcode-back" href="../../../../python_api/framework_dialect/deepspeed/pipeline.html#slapo.framework_dialect.deepspeed.pipeline.get_simple_nested_list_str">[docs]</a><span class="k">def</span> <span class="nf">get_simple_nested_list_str</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;A helper function that prints a nested structure without printing</span>
 <span class="sd">    tensor values.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -393,7 +406,7 @@ title="Source repository"
     <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported type code </span><span class="si">{desired_type}</span><span class="s2">&quot;</span><span class="p">)</span>
 
 
-<div class="viewcode-block" id="flat_and_name_tensor_list"><a class="viewcode-back" href="../../../../python_api/model_dialect/deepspeed/pipeline.html#slapo.model_dialect.deepspeed.pipeline.flat_and_name_tensor_list">[docs]</a><span class="k">def</span> <span class="nf">flat_and_name_tensor_list</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">suffix</span><span class="p">):</span>
+<div class="viewcode-block" id="flat_and_name_tensor_list"><a class="viewcode-back" href="../../../../python_api/framework_dialect/deepspeed/pipeline.html#slapo.framework_dialect.deepspeed.pipeline.flat_and_name_tensor_list">[docs]</a><span class="k">def</span> <span class="nf">flat_and_name_tensor_list</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">suffix</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Flat the given list and assign the itemized name to each tensor.</span>
 <span class="sd">    This is mainly used for liveness.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -411,7 +424,7 @@ title="Source repository"
     <span class="k">return</span> <span class="n">name_n_value</span></div>
 
 
-<div class="viewcode-block" id="encode_metadata"><a class="viewcode-back" href="../../../../python_api/model_dialect/deepspeed/pipeline.html#slapo.model_dialect.deepspeed.pipeline.encode_metadata">[docs]</a><span class="k">def</span> <span class="nf">encode_metadata</span><span class="p">(</span><span class="n">metadata</span><span class="p">):</span>
+<div class="viewcode-block" id="encode_metadata"><a class="viewcode-back" href="../../../../python_api/framework_dialect/deepspeed/pipeline.html#slapo.framework_dialect.deepspeed.pipeline.encode_metadata">[docs]</a><span class="k">def</span> <span class="nf">encode_metadata</span><span class="p">(</span><span class="n">metadata</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Encode metadata to a string.</span>
 <span class="sd">    The metadata format is:</span>
 <span class="sd">        [&lt;path&gt;,&lt;type&gt;), (&lt;path&gt;,&lt;type&gt;), ...]</span>
@@ -420,12 +433,12 @@ title="Source repository"
     <span class="k">return</span> <span class="s2">&quot;|&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{p}</span><span class="s2">,</span><span class="si">{t}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">p</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">metadata</span><span class="p">])</span></div>
 
 
-<div class="viewcode-block" id="decode_metadata"><a class="viewcode-back" href="../../../../python_api/model_dialect/deepspeed/pipeline.html#slapo.model_dialect.deepspeed.pipeline.decode_metadata">[docs]</a><span class="k">def</span> <span class="nf">decode_metadata</span><span class="p">(</span><span class="n">metadata_str</span><span class="p">):</span>
+<div class="viewcode-block" id="decode_metadata"><a class="viewcode-back" href="../../../../python_api/framework_dialect/deepspeed/pipeline.html#slapo.framework_dialect.deepspeed.pipeline.decode_metadata">[docs]</a><span class="k">def</span> <span class="nf">decode_metadata</span><span class="p">(</span><span class="n">metadata_str</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Decode metadata from a string.&quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="p">[</span><span class="n">m</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">metadata_str</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;|&quot;</span><span class="p">)]</span></div>
 
 
-<div class="viewcode-block" id="flatten"><a class="viewcode-back" href="../../../../python_api/model_dialect/deepspeed/pipeline.html#slapo.model_dialect.deepspeed.pipeline.flatten">[docs]</a><span class="k">def</span> <span class="nf">flatten</span><span class="p">(</span><span class="n">outputs</span><span class="p">,</span> <span class="n">device</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ret</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="flatten"><a class="viewcode-back" href="../../../../python_api/framework_dialect/deepspeed/pipeline.html#slapo.framework_dialect.deepspeed.pipeline.flatten">[docs]</a><span class="k">def</span> <span class="nf">flatten</span><span class="p">(</span><span class="n">outputs</span><span class="p">,</span> <span class="n">device</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ret</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Flatten nested structure of outputs and make sure every</span>
 <span class="sd">    output is a torch.Tensor. We maintain a metadata to restore</span>
 <span class="sd">    the original structure. The metadata format is:</span>
@@ -455,7 +468,7 @@ title="Source repository"
     <span class="k">return</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">ret</span></div>
 
 
-<div class="viewcode-block" id="unflatten"><a class="viewcode-back" href="../../../../python_api/model_dialect/deepspeed/pipeline.html#slapo.model_dialect.deepspeed.pipeline.unflatten">[docs]</a><span class="k">def</span> <span class="nf">unflatten</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">metadata</span><span class="p">):</span>
+<div class="viewcode-block" id="unflatten"><a class="viewcode-back" href="../../../../python_api/framework_dialect/deepspeed/pipeline.html#slapo.framework_dialect.deepspeed.pipeline.unflatten">[docs]</a><span class="k">def</span> <span class="nf">unflatten</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">metadata</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;The reverse function of &#39;flatten&#39;.&quot;&quot;&quot;</span>
     <span class="n">unordered_args</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">metadata</span><span class="p">)</span>
@@ -486,7 +499,7 @@ title="Source repository"
     <span class="k">return</span> <span class="n">tupleize</span><span class="p">(</span><span class="n">unordered_args</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="analyze_tie_ranks"><a class="viewcode-back" href="../../../../python_api/model_dialect/deepspeed/pipeline.html#slapo.model_dialect.deepspeed.pipeline.analyze_tie_ranks">[docs]</a><span class="k">def</span> <span class="nf">analyze_tie_ranks</span><span class="p">(</span><span class="n">tie_weight_groups</span><span class="p">,</span> <span class="n">topology</span><span class="p">):</span>
+<div class="viewcode-block" id="analyze_tie_ranks"><a class="viewcode-back" href="../../../../python_api/framework_dialect/deepspeed/pipeline.html#slapo.framework_dialect.deepspeed.pipeline.analyze_tie_ranks">[docs]</a><span class="k">def</span> <span class="nf">analyze_tie_ranks</span><span class="p">(</span><span class="n">tie_weight_groups</span><span class="p">,</span> <span class="n">topology</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Analyze the ranks of the tied weights for DeepSpeed pipeline.&quot;&quot;&quot;</span>
     <span class="n">tie_ranks</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="n">tie_stages</span> <span class="o">=</span> <span class="p">[]</span>
@@ -511,7 +524,7 @@ title="Source repository"
     <span class="k">return</span> <span class="n">tie_ranks</span><span class="p">,</span> <span class="n">tie_stages</span></div>
 
 
-<div class="viewcode-block" id="DeepSpeedPipeStageWrapper"><a class="viewcode-back" href="../../../../python_api/model_dialect/deepspeed/pipeline.html#slapo.model_dialect.deepspeed.pipeline.DeepSpeedPipeStageWrapper">[docs]</a><span class="nd">@register_model_dialect</span><span class="p">(</span><span class="s2">&quot;deepspeed&quot;</span><span class="p">,</span> <span class="s2">&quot;pipeline_stage&quot;</span><span class="p">)</span>
+<div class="viewcode-block" id="DeepSpeedPipeStageWrapper"><a class="viewcode-back" href="../../../../python_api/framework_dialect/deepspeed/pipeline.html#slapo.framework_dialect.deepspeed.pipeline.DeepSpeedPipeStageWrapper">[docs]</a><span class="nd">@register_framework_dialect</span><span class="p">(</span><span class="s2">&quot;deepspeed&quot;</span><span class="p">,</span> <span class="s2">&quot;pipeline_stage&quot;</span><span class="p">)</span>
 <span class="k">class</span> <span class="nc">DeepSpeedPipeStageWrapper</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -532,7 +545,7 @@ title="Source repository"
         <span class="bp">self</span><span class="o">.</span><span class="n">liveness</span> <span class="o">=</span> <span class="n">liveness</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">stage_id_2_arg_names</span> <span class="o">=</span> <span class="n">stage_id_2_arg_names</span>
 
-<div class="viewcode-block" id="DeepSpeedPipeStageWrapper.forward"><a class="viewcode-back" href="../../../../python_api/model_dialect/deepspeed/pipeline.html#slapo.model_dialect.deepspeed.pipeline.DeepSpeedPipeStageWrapper.forward">[docs]</a>    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<div class="viewcode-block" id="DeepSpeedPipeStageWrapper.forward"><a class="viewcode-back" href="../../../../python_api/framework_dialect/deepspeed/pipeline.html#slapo.framework_dialect.deepspeed.pipeline.DeepSpeedPipeStageWrapper.forward">[docs]</a>    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="c1"># TODO: use kwargs to do mapping</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
             <span class="n">args</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
@@ -638,7 +651,7 @@ title="Source repository"
         <span class="k">return</span> <span class="n">ret</span></div></div>
 
 
-<div class="viewcode-block" id="deepspeed_pipe_engine"><a class="viewcode-back" href="../../../../python_api/model_dialect/deepspeed/pipeline.html#slapo.model_dialect.deepspeed.pipeline.deepspeed_pipe_engine">[docs]</a><span class="nd">@register_model_dialect</span><span class="p">(</span><span class="s2">&quot;deepspeed&quot;</span><span class="p">,</span> <span class="s2">&quot;pipeline_engine&quot;</span><span class="p">)</span>
+<div class="viewcode-block" id="deepspeed_pipe_engine"><a class="viewcode-back" href="../../../../python_api/framework_dialect/deepspeed/pipeline.html#slapo.framework_dialect.deepspeed.pipeline.deepspeed_pipe_engine">[docs]</a><span class="nd">@register_framework_dialect</span><span class="p">(</span><span class="s2">&quot;deepspeed&quot;</span><span class="p">,</span> <span class="s2">&quot;pipeline_engine&quot;</span><span class="p">)</span>
 <span class="k">def</span> <span class="nf">deepspeed_pipe_engine</span><span class="p">(</span>
     <span class="n">sch_metadata</span><span class="p">,</span>
     <span class="n">stage_modules</span><span class="p">,</span>

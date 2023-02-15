@@ -5,43 +5,43 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>hidet.model_dialect &#8212; Slapo Documentation</title>
+    <title>hidet.framework_dialect.deepspeed &#8212; Slapo Documentation</title>
     
   <!-- Loaded before other Sphinx assets -->
-  <link href="../../_static/styles/theme.css?digest=1999514e3f237ded88cf" rel="stylesheet">
-<link href="../../_static/styles/pydata-sphinx-theme.css?digest=1999514e3f237ded88cf" rel="stylesheet">
+  <link href="../../../_static/styles/theme.css?digest=1999514e3f237ded88cf" rel="stylesheet">
+<link href="../../../_static/styles/pydata-sphinx-theme.css?digest=1999514e3f237ded88cf" rel="stylesheet">
 
     
   <link rel="stylesheet"
-    href="../../_static/vendor/fontawesome/5.13.0/css/all.min.css">
+    href="../../../_static/vendor/fontawesome/5.13.0/css/all.min.css">
   <link rel="preload" as="font" type="font/woff2" crossorigin
-    href="../../_static/vendor/fontawesome/5.13.0/webfonts/fa-solid-900.woff2">
+    href="../../../_static/vendor/fontawesome/5.13.0/webfonts/fa-solid-900.woff2">
   <link rel="preload" as="font" type="font/woff2" crossorigin
-    href="../../_static/vendor/fontawesome/5.13.0/webfonts/fa-brands-400.woff2">
+    href="../../../_static/vendor/fontawesome/5.13.0/webfonts/fa-brands-400.woff2">
 
-    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
-    <link rel="stylesheet" href="../../_static/styles/sphinx-book-theme.css?digest=5115cc725059bd94278eecd172e13a965bf8f5a9" type="text/css" />
-    <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css" />
-    <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css" />
-    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery.css" />
-    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-binder.css" />
-    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-dataframe.css" />
-    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-rendered-html.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
+    <link rel="stylesheet" href="../../../_static/styles/sphinx-book-theme.css?digest=5115cc725059bd94278eecd172e13a965bf8f5a9" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/copybutton.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery-binder.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery-dataframe.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery-rendered-html.css" />
     
   <!-- Pre-loaded scripts that we'll load fully later -->
-  <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=1999514e3f237ded88cf">
+  <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=1999514e3f237ded88cf">
 
-    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-    <script src="../../_static/jquery.js"></script>
-    <script src="../../_static/underscore.js"></script>
-    <script src="../../_static/doctools.js"></script>
-    <script src="../../_static/clipboard.min.js"></script>
-    <script src="../../_static/copybutton.js"></script>
-    <script src="../../_static/scripts/sphinx-book-theme.js?digest=9c920249402e914e316237a7dbc6769907cce411"></script>
-    <link rel="index" title="Index" href="../../genindex.html" />
-    <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="slapo.model_dialect.registry" href="registry.html" />
-    <link rel="prev" title="slapo.tracer" href="../tracer.html" />
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <script src="../../../_static/clipboard.min.js"></script>
+    <script src="../../../_static/copybutton.js"></script>
+    <script src="../../../_static/scripts/sphinx-book-theme.js?digest=9c920249402e914e316237a7dbc6769907cce411"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="next" title="slapo.framework_dialect.deepspeed.engine" href="engine.html" />
+    <link rel="prev" title="slapo.framework_dialect.registry" href="../registry.html" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="docsearch:language" content="None">
     
@@ -76,12 +76,12 @@
 <div class="bd-sidebar noprint" id="site-navigation">
     <div class="bd-sidebar__content">
         <div class="bd-sidebar__top"><div class="navbar-brand-box">
-    <a class="navbar-brand text-wrap" href="../../index.html">
+    <a class="navbar-brand text-wrap" href="../../../index.html">
       
       
       
     </a>
-</div><form class="bd-search d-flex align-items-center" action="../../search.html" method="get">
+</div><form class="bd-search d-flex align-items-center" action="../../../search.html" method="get">
   <i class="icon fas fa-search"></i>
   <input type="search" class="form-control" name="q" id="search-input" placeholder="Search the docs ..." aria-label="Search the docs ..." autocomplete="off" >
 </form><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
@@ -93,13 +93,25 @@
 </p>
 <ul class="nav bd-sidenav">
  <li class="toctree-l1">
-  <a class="reference internal" href="../../setup/index.html">
+  <a class="reference internal" href="../../../setup/index.html">
    Installation
   </a>
  </li>
  <li class="toctree-l1">
-  <a class="reference internal" href="../../gallery/quick-start.html">
+  <a class="reference internal" href="../../../gallery/quick-start.html">
    Quick Start
+  </a>
+ </li>
+</ul>
+<p aria-level="2" class="caption" role="heading">
+ <span class="caption-text">
+  Tutorials
+ </span>
+</p>
+<ul class="nav bd-sidenav">
+ <li class="toctree-l1">
+  <a class="reference internal" href="../../../gallery/attention-single-gpu.html">
+   Optimize Attention Module on A Single GPU
   </a>
  </li>
 </ul>
@@ -110,7 +122,7 @@
 </p>
 <ul class="current nav bd-sidenav">
  <li class="toctree-l1 current active has-children">
-  <a class="reference internal" href="../index.html">
+  <a class="reference internal" href="../../index.html">
    Python API
   </a>
   <input checked="" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/>
@@ -120,68 +132,68 @@
   </label>
   <ul class="current">
    <li class="toctree-l2">
-    <a class="reference internal" href="../root.html">
+    <a class="reference internal" href="../../root.html">
      slapo
     </a>
    </li>
    <li class="toctree-l2">
-    <a class="reference internal" href="../schedule.html">
+    <a class="reference internal" href="../../schedule.html">
      slapo.schedule
     </a>
    </li>
    <li class="toctree-l2">
-    <a class="reference internal" href="../initialization.html">
+    <a class="reference internal" href="../../initialization.html">
      slapo.initialization
     </a>
    </li>
    <li class="toctree-l2">
-    <a class="reference internal" href="../pattern.html">
+    <a class="reference internal" href="../../pattern.html">
      slapo.pattern
     </a>
    </li>
    <li class="toctree-l2">
-    <a class="reference internal" href="../pipeline.html">
+    <a class="reference internal" href="../../pipeline.html">
      slapo.pipeline
     </a>
    </li>
    <li class="toctree-l2">
-    <a class="reference internal" href="../tracer.html">
+    <a class="reference internal" href="../../tracer.html">
      slapo.tracer
     </a>
    </li>
    <li class="toctree-l2 current active has-children">
-    <a class="current reference internal" href="#">
-     hidet.model_dialect
+    <a class="reference internal" href="../index.html">
+     hidet.framework_dialect
     </a>
     <input checked="" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/>
     <label for="toctree-checkbox-2">
      <i class="fas fa-chevron-down">
      </i>
     </label>
-    <ul>
+    <ul class="current">
      <li class="toctree-l3">
-      <a class="reference internal" href="registry.html">
-       slapo.model_dialect.registry
+      <a class="reference internal" href="../registry.html">
+       slapo.framework_dialect.registry
       </a>
      </li>
-     <li class="toctree-l3 has-children">
-      <a class="reference internal" href="deepspeed/index.html">
-       hidet.model_dialect.deepspeed
+     <li class="toctree-l3 current active has-children">
+      <a class="current reference internal" href="#">
+       hidet.framework_dialect.deepspeed
       </a>
-      <input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/>
+      <input checked="" class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/>
       <label for="toctree-checkbox-3">
        <i class="fas fa-chevron-down">
        </i>
       </label>
       <ul>
        <li class="toctree-l4">
-        <a class="reference internal" href="deepspeed/engine.html">
-         slapo.model_dialect.deepspeed.engine
+        <a class="reference internal" href="engine.html">
+         slapo.framework_dialect.deepspeed.engine
         </a>
        </li>
        <li class="toctree-l4">
-        <a class="reference internal" href="deepspeed/pipeline.html">
-         slapo.model_dialect.deepspeed.pipeline
+        <a class="reference internal" href="pipeline.html">
+         slapo.framework_dialect.deepspeed.pipeline
         </a>
        </li>
       </ul>
@@ -189,7 +201,7 @@
     </ul>
    </li>
    <li class="toctree-l2 has-children">
-    <a class="reference internal" href="../op/index.html">
+    <a class="reference internal" href="../../op/index.html">
      hidet.op
     </a>
     <input class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" type="checkbox"/>
@@ -199,12 +211,12 @@
     </label>
     <ul>
      <li class="toctree-l3">
-      <a class="reference internal" href="../op/cross_entropy.html">
+      <a class="reference internal" href="../../op/cross_entropy.html">
        slapo.op.cross_entropy
       </a>
      </li>
      <li class="toctree-l3">
-      <a class="reference internal" href="../op/linear.html">
+      <a class="reference internal" href="../../op/linear.html">
        slapo.op.linear
       </a>
      </li>
@@ -213,7 +225,7 @@
   </ul>
  </li>
  <li class="toctree-l1">
-  <a class="reference internal" href="../../genindex.html">
+  <a class="reference internal" href="../../../genindex.html">
    Index
   </a>
  </li>
@@ -299,7 +311,7 @@ title="Source repository"
   <div class="menu-dropdown__content">
     <ul>
       <li>
-        <a href="../../_sources/python_api/model_dialect/index.rst.txt"
+        <a href="../../../_sources/python_api/framework_dialect/deepspeed/index.rst.txt"
    class="headerbtn"
    data-toggle="tooltip"
 data-placement="left"
@@ -348,7 +360,7 @@ title="Print to PDF"
         <div class="col pl-md-3 pl-lg-5 content-container">
             <!-- Table of contents that is only displayed when printing the page -->
             <div id="jb-print-docs-body" class="onlyprint">
-                <h1>hidet.model_dialect</h1>
+                <h1>hidet.framework_dialect.deepspeed</h1>
                 <!-- Table of contents -->
                 <div id="print-main-content">
                     <div id="jb-print-toc">
@@ -360,17 +372,13 @@ title="Print to PDF"
                 
               <div>
                 
-  <div class="section" id="hidet-model-dialect">
-<h1>hidet.model_dialect<a class="headerlink" href="#hidet-model-dialect" title="Permalink to this headline"><span>¶</span></a></h1>
+  <div class="section" id="hidet-framework-dialect-deepspeed">
+<h1>hidet.framework_dialect.deepspeed<a class="headerlink" href="#hidet-framework-dialect-deepspeed" title="Permalink to this headline"><span>¶</span></a></h1>
 <div class="toctree-wrapper compound">
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Submodules</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="registry.html">slapo.model_dialect.registry</a></li>
-<li class="toctree-l1"><a class="reference internal" href="deepspeed/index.html">hidet.model_dialect.deepspeed</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="deepspeed/engine.html">slapo.model_dialect.deepspeed.engine</a></li>
-<li class="toctree-l2"><a class="reference internal" href="deepspeed/pipeline.html">slapo.model_dialect.deepspeed.pipeline</a></li>
-</ul>
-</li>
+<li class="toctree-l1"><a class="reference internal" href="engine.html">slapo.framework_dialect.deepspeed.engine</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pipeline.html">slapo.framework_dialect.deepspeed.pipeline</a></li>
 </ul>
 </div>
 </div>
@@ -383,17 +391,17 @@ title="Print to PDF"
                 
     <!-- Previous / next buttons -->
 <div class='prev-next-area'>
-    <a class='left-prev' id="prev-link" href="../tracer.html" title="previous page">
+    <a class='left-prev' id="prev-link" href="../registry.html" title="previous page">
         <i class="fas fa-angle-left"></i>
         <div class="prev-next-info">
             <p class="prev-next-subtitle">previous</p>
-            <p class="prev-next-title">slapo.tracer</p>
+            <p class="prev-next-title">slapo.framework_dialect.registry</p>
         </div>
     </a>
-    <a class='right-next' id="next-link" href="registry.html" title="next page">
+    <a class='right-next' id="next-link" href="engine.html" title="next page">
     <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">slapo.model_dialect.registry</p>
+        <p class="prev-next-title">slapo.framework_dialect.deepspeed.engine</p>
     </div>
     <i class="fas fa-angle-right"></i>
     </a>
@@ -418,7 +426,7 @@ title="Print to PDF"
     </div>
   
   <!-- Scripts loaded after <body> so the DOM is not blocked -->
-  <script src="../../_static/scripts/pydata-sphinx-theme.js?digest=1999514e3f237ded88cf"></script>
+  <script src="../../../_static/scripts/pydata-sphinx-theme.js?digest=1999514e3f237ded88cf"></script>
 
 
   </body>

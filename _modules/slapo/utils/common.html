@@ -103,6 +103,18 @@
 </ul>
 <p aria-level="2" class="caption" role="heading">
  <span class="caption-text">
+  Tutorials
+ </span>
+</p>
+<ul class="nav bd-sidenav">
+ <li class="toctree-l1">
+  <a class="reference internal" href="../../../gallery/attention-single-gpu.html">
+   Optimize Attention Module on A Single GPU
+  </a>
+ </li>
+</ul>
+<p aria-level="2" class="caption" role="heading">
+ <span class="caption-text">
   Reference
  </span>
 </p>
@@ -148,8 +160,8 @@
     </a>
    </li>
    <li class="toctree-l2 has-children">
-    <a class="reference internal" href="../../../python_api/model_dialect/index.html">
-     hidet.model_dialect
+    <a class="reference internal" href="../../../python_api/framework_dialect/index.html">
+     hidet.framework_dialect
     </a>
     <input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/>
     <label for="toctree-checkbox-2">
@@ -158,13 +170,13 @@
     </label>
     <ul>
      <li class="toctree-l3">
-      <a class="reference internal" href="../../../python_api/model_dialect/registry.html">
-       slapo.model_dialect.registry
+      <a class="reference internal" href="../../../python_api/framework_dialect/registry.html">
+       slapo.framework_dialect.registry
       </a>
      </li>
      <li class="toctree-l3 has-children">
-      <a class="reference internal" href="../../../python_api/model_dialect/deepspeed/index.html">
-       hidet.model_dialect.deepspeed
+      <a class="reference internal" href="../../../python_api/framework_dialect/deepspeed/index.html">
+       hidet.framework_dialect.deepspeed
       </a>
       <input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/>
       <label for="toctree-checkbox-3">
@@ -173,13 +185,13 @@
       </label>
       <ul>
        <li class="toctree-l4">
-        <a class="reference internal" href="../../../python_api/model_dialect/deepspeed/engine.html">
-         slapo.model_dialect.deepspeed.engine
+        <a class="reference internal" href="../../../python_api/framework_dialect/deepspeed/engine.html">
+         slapo.framework_dialect.deepspeed.engine
         </a>
        </li>
        <li class="toctree-l4">
-        <a class="reference internal" href="../../../python_api/model_dialect/deepspeed/pipeline.html">
-         slapo.model_dialect.deepspeed.pipeline
+        <a class="reference internal" href="../../../python_api/framework_dialect/deepspeed/pipeline.html">
+         slapo.framework_dialect.deepspeed.pipeline
         </a>
        </li>
       </ul>
@@ -316,7 +328,16 @@ title="Source repository"
 <span></span><span class="c1"># Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.</span>
 <span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
 <span class="sd">&quot;&quot;&quot;Common utilities used in schedule.&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">importlib</span>
+<span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">lru_cache</span>
 <span class="kn">from</span> <span class="nn">types</span> <span class="kn">import</span> <span class="n">FunctionType</span>
+
+
+<span class="n">HOOK_TYPE_TO_ATTR</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;fwd_pre&quot;</span><span class="p">:</span> <span class="s2">&quot;_forward_pre_hooks&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;fwd_post&quot;</span><span class="p">:</span> <span class="s2">&quot;_forward_hooks&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;bwd_post&quot;</span><span class="p">:</span> <span class="s2">&quot;_backward_hooks&quot;</span><span class="p">,</span>
+<span class="p">}</span>
 
 
 <span class="k">def</span> <span class="nf">get_hooks</span><span class="p">(</span><span class="n">mod</span><span class="p">):</span>
@@ -345,6 +366,10 @@ title="Source repository"
     <span class="k">return</span> <span class="n">hooks</span>
 
 
+<span class="k">def</span> <span class="nf">has_hook</span><span class="p">(</span><span class="n">mod</span><span class="p">,</span> <span class="n">hook_type</span><span class="p">):</span>
+    <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">mod</span><span class="p">,</span> <span class="n">HOOK_TYPE_TO_ATTR</span><span class="p">[</span><span class="n">hook_type</span><span class="p">]))</span> <span class="o">&gt;</span> <span class="mi">0</span>
+
+
 <div class="viewcode-block" id="transfer_hooks"><a class="viewcode-back" href="../../../python_api/root.html#slapo.transfer_hooks">[docs]</a><span class="k">def</span> <span class="nf">transfer_hooks</span><span class="p">(</span><span class="n">old_mod</span><span class="p">,</span> <span class="n">new_mod</span><span class="p">,</span> <span class="n">hook_types</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Transfer the hooks from old_mod to new_mod.</span>
 
@@ -357,11 +382,6 @@ title="Source repository"
 <span class="sd">    hook_types : Optional[List[str]]</span>
 <span class="sd">        The types of hooks to transfer. If None, transfer all hooks.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">HOOK_TYPE_TO_ATTR</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="s2">&quot;fwd_pre&quot;</span><span class="p">:</span> <span class="s2">&quot;_forward_pre_hooks&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;fwd_post&quot;</span><span class="p">:</span> <span class="s2">&quot;_forward_hooks&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;bwd_post&quot;</span><span class="p">:</span> <span class="s2">&quot;_backward_hooks&quot;</span><span class="p">,</span>
-    <span class="p">}</span>
     <span class="k">if</span> <span class="n">hook_types</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">hook_types</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fwd_pre&quot;</span><span class="p">,</span> <span class="s2">&quot;fwd_post&quot;</span><span class="p">,</span> <span class="s2">&quot;bwd_post&quot;</span><span class="p">]</span>
 
@@ -369,8 +389,70 @@ title="Source repository"
         <span class="nb">setattr</span><span class="p">(</span><span class="n">new_mod</span><span class="p">,</span> <span class="n">hook_attr</span><span class="p">,</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">old_mod</span><span class="p">,</span> <span class="n">hook_attr</span><span class="p">))</span></div>
 
 
+<div class="viewcode-block" id="transfer_hooks_for_fusion"><a class="viewcode-back" href="../../../python_api/root.html#slapo.transfer_hooks_for_fusion">[docs]</a><span class="k">def</span> <span class="nf">transfer_hooks_for_fusion</span><span class="p">(</span><span class="n">sch</span><span class="p">,</span> <span class="n">subgraphs</span><span class="p">,</span> <span class="n">new_mod</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Transfer hooks of modules in the subgraph to be fused.</span>
+<span class="sd">    For example, the fwd_pre hook of the first module in the subgraph will become</span>
+<span class="sd">    the fwd_pre hook of the fused module.</span>
+<span class="sd">    Note that if middle modules have hooks, we will throw errors because we cannot</span>
+<span class="sd">    keep these hooks in the fused module.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    sch : Schedule</span>
+<span class="sd">        The parent schedule.</span>
+<span class="sd">    subgraphs : List[List[Tuple[Node, Node]]]</span>
+<span class="sd">        The fused subgraphs that need to be transferred hooks.</span>
+<span class="sd">    new_mod : torch.nn.Module</span>
+<span class="sd">        The new module that will be created after fusion.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">hook_types</span> <span class="o">=</span> <span class="n">HOOK_TYPE_TO_ATTR</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">subgraphs</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="c1"># Since horizontal fusion needs to combine the hooks together,</span>
+        <span class="c1"># we cannot support it for now.</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">sublst</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">subgraphs</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">sublst</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">op</span> <span class="o">!=</span> <span class="s2">&quot;call_module&quot;</span><span class="p">:</span>
+                    <span class="k">break</span>
+                <span class="n">old_mod</span> <span class="o">=</span> <span class="n">sch</span><span class="o">.</span><span class="n">get_module</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">target</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">hook</span> <span class="ow">in</span> <span class="n">hook_types</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">has_hook</span><span class="p">(</span><span class="n">old_mod</span><span class="p">,</span> <span class="n">hook</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">&quot;Cannot use horizontal fusion since module </span><span class="si">{node.target}</span><span class="s2"> has a </span><span class="si">{hook}</span><span class="s2"> hook&quot;</span>
+                        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">ops</span> <span class="o">=</span> <span class="n">subgraphs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">_</span><span class="p">,</span> <span class="n">node</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">ops</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">op</span> <span class="o">==</span> <span class="s2">&quot;call_module&quot;</span><span class="p">:</span>
+                <span class="n">old_mod</span> <span class="o">=</span> <span class="n">sch</span><span class="o">.</span><span class="n">get_module</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">target</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>  <span class="c1"># the first node</span>
+                    <span class="k">if</span> <span class="n">has_hook</span><span class="p">(</span><span class="n">old_mod</span><span class="p">,</span> <span class="s2">&quot;fwd_post&quot;</span><span class="p">):</span>
+                        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">&quot;Cannot transfer hooks from </span><span class="si">{node.target}</span><span class="s2"> to the new module since </span><span class="si">{node.target}</span><span class="s2"> has a fwd_post hook&quot;</span>
+                        <span class="p">)</span>
+                    <span class="n">transfer_hooks</span><span class="p">(</span><span class="n">old_mod</span><span class="p">,</span> <span class="n">new_mod</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;fwd_pre&quot;</span><span class="p">,</span> <span class="s2">&quot;bwd_post&quot;</span><span class="p">])</span>
+                <span class="k">elif</span> <span class="n">i</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">ops</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>  <span class="c1"># the last node</span>
+                    <span class="k">if</span> <span class="n">has_hook</span><span class="p">(</span><span class="n">old_mod</span><span class="p">,</span> <span class="s2">&quot;fwd_pre&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">has_hook</span><span class="p">(</span><span class="n">old_mod</span><span class="p">,</span> <span class="s2">&quot;bwd_post&quot;</span><span class="p">):</span>
+                        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">&quot;Cannot transfer hooks from </span><span class="si">{node.target}</span><span class="s2"> to the new module since </span><span class="si">{node.target}</span><span class="s2"> has a fwd_pre/bwd_post hook&quot;</span>
+                        <span class="p">)</span>
+                    <span class="n">transfer_hooks</span><span class="p">(</span><span class="n">old_mod</span><span class="p">,</span> <span class="n">new_mod</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;fwd_post&quot;</span><span class="p">])</span>
+                <span class="k">elif</span> <span class="nb">any</span><span class="p">(</span><span class="n">has_hook</span><span class="p">(</span><span class="n">old_mod</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">hook_types</span><span class="p">):</span>
+                    <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Cannot transfer hooks from </span><span class="si">{node.target}</span><span class="s2"> to the new module since </span><span class="si">{node.target}</span><span class="s2"> is in the middle of the subgraph&quot;</span>
+                    <span class="p">)</span></div>
+
+
 <span class="k">def</span> <span class="nf">is_lambda_function</span><span class="p">(</span><span class="n">obj</span><span class="p">):</span>
     <span class="k">return</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">FunctionType</span><span class="p">)</span> <span class="ow">and</span> <span class="n">obj</span><span class="o">.</span><span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;&lt;lambda&gt;&quot;</span>
+
+
+<span class="nd">@lru_cache</span><span class="p">()</span>
+<span class="k">def</span> <span class="nf">importlib_or_none</span><span class="p">(</span><span class="n">name</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Import the module if available, otherwise return None.&quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">importlib</span><span class="o">.</span><span class="n">import_module</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+    <span class="k">except</span> <span class="n">ModuleNotFoundError</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
 </pre></div>
 
               </div>

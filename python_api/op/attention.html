@@ -1,0 +1,710 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>slapo.op.attention &#8212; Slapo Documentation</title>
+    
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=1999514e3f237ded88cf" rel="stylesheet">
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=1999514e3f237ded88cf" rel="stylesheet">
+
+    
+  <link rel="stylesheet"
+    href="../../_static/vendor/fontawesome/5.13.0/css/all.min.css">
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+    href="../../_static/vendor/fontawesome/5.13.0/webfonts/fa-solid-900.woff2">
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+    href="../../_static/vendor/fontawesome/5.13.0/webfonts/fa-brands-400.woff2">
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" href="../../_static/styles/sphinx-book-theme.css?digest=5115cc725059bd94278eecd172e13a965bf8f5a9" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-binder.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-dataframe.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-rendered-html.css" />
+    
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=1999514e3f237ded88cf">
+
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/clipboard.min.js"></script>
+    <script src="../../_static/copybutton.js"></script>
+    <script src="../../_static/scripts/sphinx-book-theme.js?digest=9c920249402e914e316237a7dbc6769907cce411"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="docsearch:language" content="None">
+    
+
+    <!-- Google Analytics -->
+    
+  </head>
+  <body data-spy="scroll" data-target="#bd-toc-nav" data-offset="60">
+<!-- Checkboxes to toggle the left sidebar -->
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle navigation sidebar">
+<label class="overlay overlay-navbar" for="__navigation">
+    <div class="visually-hidden">Toggle navigation sidebar</div>
+</label>
+<!-- Checkboxes to toggle the in-page toc -->
+<input type="checkbox" class="sidebar-toggle" name="__page-toc" id="__page-toc" aria-label="Toggle in-page Table of Contents">
+<label class="overlay overlay-pagetoc" for="__page-toc">
+    <div class="visually-hidden">Toggle in-page Table of Contents</div>
+</label>
+<!-- Headers at the top -->
+<div class="announcement header-item noprint"></div>
+<div class="header header-item noprint"></div>
+
+    
+    <div class="container-fluid" id="banner"></div>
+
+    
+
+    <div class="container-xl">
+      <div class="row">
+          
+<!-- Sidebar -->
+<div class="bd-sidebar noprint" id="site-navigation">
+    <div class="bd-sidebar__content">
+        <div class="bd-sidebar__top"><div class="navbar-brand-box">
+    <a class="navbar-brand text-wrap" href="../../index.html">
+      
+      
+      
+    </a>
+</div><form class="bd-search d-flex align-items-center" action="../../search.html" method="get">
+  <i class="icon fas fa-search"></i>
+  <input type="search" class="form-control" name="q" id="search-input" placeholder="Search the docs ..." aria-label="Search the docs ..." autocomplete="off" >
+</form><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item active">
+        <p aria-level="2" class="caption" role="heading">
+ <span class="caption-text">
+  Getting Started
+ </span>
+</p>
+<ul class="nav bd-sidenav">
+ <li class="toctree-l1">
+  <a class="reference internal" href="../../setup/index.html">
+   Installation
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="../../gallery/quick-start.html">
+   Quick Start
+  </a>
+ </li>
+</ul>
+<p aria-level="2" class="caption" role="heading">
+ <span class="caption-text">
+  Tutorials
+ </span>
+</p>
+<ul class="nav bd-sidenav">
+ <li class="toctree-l1">
+  <a class="reference internal" href="../../gallery/attention-single-gpu.html">
+   Optimize Attention Module on A Single GPU
+  </a>
+ </li>
+</ul>
+<p aria-level="2" class="caption" role="heading">
+ <span class="caption-text">
+  Reference
+ </span>
+</p>
+<ul class="nav bd-sidenav">
+ <li class="toctree-l1 has-children">
+  <a class="reference internal" href="../index.html">
+   Python API
+  </a>
+  <input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/>
+  <label for="toctree-checkbox-1">
+   <i class="fas fa-chevron-down">
+   </i>
+  </label>
+  <ul>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../root.html">
+     slapo
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../schedule.html">
+     slapo.schedule
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../initialization.html">
+     slapo.initialization
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../pattern.html">
+     slapo.pattern
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../pipeline.html">
+     slapo.pipeline
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../tracer.html">
+     slapo.tracer
+    </a>
+   </li>
+   <li class="toctree-l2 has-children">
+    <a class="reference internal" href="../framework_dialect/index.html">
+     hidet.framework_dialect
+    </a>
+    <input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/>
+    <label for="toctree-checkbox-2">
+     <i class="fas fa-chevron-down">
+     </i>
+    </label>
+    <ul>
+     <li class="toctree-l3">
+      <a class="reference internal" href="../framework_dialect/registry.html">
+       slapo.framework_dialect.registry
+      </a>
+     </li>
+     <li class="toctree-l3 has-children">
+      <a class="reference internal" href="../framework_dialect/deepspeed/index.html">
+       hidet.framework_dialect.deepspeed
+      </a>
+      <input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/>
+      <label for="toctree-checkbox-3">
+       <i class="fas fa-chevron-down">
+       </i>
+      </label>
+      <ul>
+       <li class="toctree-l4">
+        <a class="reference internal" href="../framework_dialect/deepspeed/engine.html">
+         slapo.framework_dialect.deepspeed.engine
+        </a>
+       </li>
+       <li class="toctree-l4">
+        <a class="reference internal" href="../framework_dialect/deepspeed/pipeline.html">
+         slapo.framework_dialect.deepspeed.pipeline
+        </a>
+       </li>
+      </ul>
+     </li>
+    </ul>
+   </li>
+   <li class="toctree-l2 has-children">
+    <a class="reference internal" href="index.html">
+     hidet.op
+    </a>
+    <input class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" type="checkbox"/>
+    <label for="toctree-checkbox-4">
+     <i class="fas fa-chevron-down">
+     </i>
+    </label>
+    <ul>
+     <li class="toctree-l3">
+      <a class="reference internal" href="cross_entropy.html">
+       slapo.op.cross_entropy
+      </a>
+     </li>
+     <li class="toctree-l3">
+      <a class="reference internal" href="linear.html">
+       slapo.op.linear
+      </a>
+     </li>
+    </ul>
+   </li>
+  </ul>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="../../genindex.html">
+   Index
+  </a>
+ </li>
+</ul>
+
+    </div>
+</nav></div>
+        <div class="bd-sidebar__bottom">
+             <!-- To handle the deprecated key -->
+            
+        </div>
+    </div>
+    <div id="rtd-footer-container"></div>
+</div>
+
+
+          
+
+
+          
+<!-- A tiny helper pixel to detect if we've scrolled -->
+<div class="sbt-scroll-pixel-helper"></div>
+<!-- Main content -->
+<div class="col py-0 content-container">
+    
+    <div class="header-article row sticky-top noprint">
+        
+
+
+
+<div class="col py-1 d-flex header-article-main">
+    <div class="header-article__left">
+        
+        <label for="__navigation"
+  class="headerbtn"
+  data-toggle="tooltip"
+data-placement="right"
+title="Toggle navigation"
+>
+  
+
+<span class="headerbtn__icon-container">
+  <i class="fas fa-bars"></i>
+  </span>
+
+</label>
+
+        
+    </div>
+    <div class="header-article__right">
+<button onclick="toggleFullScreen()"
+  class="headerbtn"
+  data-toggle="tooltip"
+data-placement="bottom"
+title="Fullscreen mode"
+>
+  
+
+<span class="headerbtn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+<a href="https://github.com/awslabs/slapo"
+   class="headerbtn"
+   data-toggle="tooltip"
+data-placement="bottom"
+title="Source repository"
+>
+  
+
+<span class="headerbtn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+
+</a>
+
+<div class="menu-dropdown menu-dropdown-download-buttons">
+  <button class="headerbtn menu-dropdown__trigger"
+      aria-label="Download this page">
+      <i class="fas fa-download"></i>
+  </button>
+  <div class="menu-dropdown__content">
+    <ul>
+      <li>
+        <a href="../../_sources/python_api/op/attention.rst.txt"
+   class="headerbtn"
+   data-toggle="tooltip"
+data-placement="left"
+title="Download source file"
+>
+  
+
+<span class="headerbtn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="headerbtn__text-container">.rst</span>
+</a>
+
+      </li>
+      
+      <li>
+        
+<button onclick="printPdf(this)"
+  class="headerbtn"
+  data-toggle="tooltip"
+data-placement="left"
+title="Print to PDF"
+>
+  
+
+<span class="headerbtn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="headerbtn__text-container">.pdf</span>
+</button>
+
+      </li>
+      
+    </ul>
+  </div>
+</div>
+
+    </div>
+</div>
+
+<!-- Table of contents -->
+<div class="col-md-3 bd-toc show noprint">
+</div>
+    </div>
+    <div class="article row">
+        <div class="col pl-md-3 pl-lg-5 content-container">
+            <!-- Table of contents that is only displayed when printing the page -->
+            <div id="jb-print-docs-body" class="onlyprint">
+                <h1>slapo.op.attention</h1>
+                <!-- Table of contents -->
+                <div id="print-main-content">
+                    <div id="jb-print-toc">
+                        
+                    </div>
+                </div>
+            </div>
+            <main id="main-content" role="main">
+                
+              <div>
+                
+  <div class="section" id="module-slapo.op.attention">
+<span id="slapo-op-attention"></span><h1>slapo.op.attention<a class="headerlink" href="#module-slapo.op.attention" title="Permalink to this headline"><span>¶</span></a></h1>
+<p>Attention module using high efficient CUDA kernels.</p>
+<p>The flash-attention kernel is tested with:
+<a class="reference external" href="https://github.com/jfc4050/flash-attention/commit/3676bd2">https://github.com/jfc4050/flash-attention/commit/3676bd2</a></p>
+<p>The xFormers kernel is tested with:
+<a class="reference external" href="https://github.com/facebookresearch/xformers/commit/48a77cc">https://github.com/facebookresearch/xformers/commit/48a77cc</a></p>
+<p>If you encounter an error when using above kernels, please check if the
+commit hash is the same as the one we tested with.</p>
+<p><strong>Functions:</strong></p>
+<table class="autosummary longtable table autosummary">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.op.attention.warning_once" title="slapo.op.attention.warning_once"><code class="xref py py-obj docutils literal notranslate"><span class="pre">warning_once</span></code></a>(msg)</p></td>
+<td><p>Log the warning message only once.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.op.attention.flash_attn_ref" title="slapo.op.attention.flash_attn_ref"><code class="xref py py-obj docutils literal notranslate"><span class="pre">flash_attn_ref</span></code></a>(q, k, v[, bias, causal, ...])</p></td>
+<td><p>The functional equivalent of FlashAttentionTriton for correctness checking.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.op.attention.xformers_ref" title="slapo.op.attention.xformers_ref"><code class="xref py py-obj docutils literal notranslate"><span class="pre">xformers_ref</span></code></a>(q, k, v, attn_bias[, p, scale])</p></td>
+<td><p>The native PyTorch implementation of attention with the same signature as the attention implemented in xformers.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.op.attention.validate_sm_version" title="slapo.op.attention.validate_sm_version"><code class="xref py py-obj docutils literal notranslate"><span class="pre">validate_sm_version</span></code></a>(name, min_sm[, max_sm])</p></td>
+<td><p>Validate the sm version.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.op.attention.get_xfoemers_attn_op_by_name" title="slapo.op.attention.get_xfoemers_attn_op_by_name"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_xfoemers_attn_op_by_name</span></code></a>(attn_name)</p></td>
+<td><p>Get the xformers attention operator by name.</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Classes:</strong></p>
+<table class="autosummary longtable table autosummary">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.op.attention.FlashAttentionOp" title="slapo.op.attention.FlashAttentionOp"><code class="xref py py-obj docutils literal notranslate"><span class="pre">FlashAttentionOp</span></code></a>(attn_op_name, apply_causal_mask)</p></td>
+<td><p>A wrapper module that processes HF attention mask to flash attention mask.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.op.attention.FlashAttention" title="slapo.op.attention.FlashAttention"><code class="xref py py-obj docutils literal notranslate"><span class="pre">FlashAttention</span></code></a>(hidden_size, num_attention_heads)</p></td>
+<td><p>A HuggingFace self attention module with flash attention kernels.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.op.attention.AttentionOpWithRNG" title="slapo.op.attention.AttentionOpWithRNG"><code class="xref py py-obj docutils literal notranslate"><span class="pre">AttentionOpWithRNG</span></code></a>(attn_op_name, ...[, scale])</p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+<dl class="py function">
+<dt class="sig sig-object py" id="slapo.op.attention.warning_once">
+<span class="sig-prename descclassname"><span class="pre">slapo.op.attention.</span></span><span class="sig-name descname"><span class="pre">warning_once</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">msg</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/slapo/op/attention.html#warning_once"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.op.attention.warning_once" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Log the warning message only once.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="slapo.op.attention.flash_attn_ref">
+<span class="sig-prename descclassname"><span class="pre">slapo.op.attention.</span></span><span class="sig-name descname"><span class="pre">flash_attn_ref</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">q</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">v</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bias</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">causal</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dropout_p</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">softmax_scale</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">query_padding_mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">key_padding_mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dropout_mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">upcast</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reorder_ops</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/slapo/op/attention.html#flash_attn_ref"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.op.attention.flash_attn_ref" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>The functional equivalent of FlashAttentionTriton for correctness checking.
+Source: <a class="reference external" href="https://github.com/jfc4050/flash-attention/commit/f52868287ca9bd3ac1598dad6ce818358c1beafc">https://github.com/jfc4050/flash-attention/commit/f52868287ca9bd3ac1598dad6ce818358c1beafc</a></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>q</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.13)"><em>torch.Tensor</em></a>) – Shape: (batch_size, seqlen_q, nheads, head_dim)</p></li>
+<li><p><strong>k</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.13)"><em>torch.Tensor</em></a>) – Shape: (batch_size, seqlen_k, nheads, head_dim)</p></li>
+<li><p><strong>v</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.13)"><em>torch.Tensor</em></a>) – Shape: (batch_size, seqlen_k, nheads, head_dim)</p></li>
+<li><p><strong>bias</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.13)"><em>torch.Tensor</em></a><em>]</em>) – Shape: (batch_size, nheads, seqlen_q, seqlen_k)</p></li>
+<li><p><strong>causal</strong> (<em>bool</em>) – Whether to apply lower triangular causal mask.</p></li>
+<li><p><strong>dropout_p</strong> (<em>float</em>) – The dropout probability.</p></li>
+<li><p><strong>softmax_scale</strong> (<em>Optional</em><em>[</em><em>float</em><em>]</em>) – The softmax scale. If None, use 1 / sqrt(d).</p></li>
+<li><p><strong>query_padding_mask</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.13)"><em>torch.Tensor</em></a><em>]</em>) – Shape: (batch_size, seqlen_q)</p></li>
+<li><p><strong>key_padding_mask</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.13)"><em>torch.Tensor</em></a><em>]</em>) – (batch_size, seqlen_k)</p></li>
+<li><p><strong>dropout_mask</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.13)"><em>torch.Tensor</em></a><em>]</em>) – The dropout mask. Shape: (batch_size, nheads, seqlen_q, seqlen_k)</p></li>
+<li><p><strong>upcast</strong> (<em>bool</em>) – Whether to cast all inputs to fp32, do all computation in fp32, then cast
+output back to fp16/bf16.</p></li>
+<li><p><strong>reorder_ops</strong> (<em>bool</em>) – whether to change the order of operations (scaling k instead of scaling k, etc.)
+without changing the math. This is to estimate the numerical error from
+operation reordering.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Shape: (batch_size, seqlen_q, nheads, head_dim)</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.13)">torch.Tensor</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="slapo.op.attention.xformers_ref">
+<span class="sig-prename descclassname"><span class="pre">slapo.op.attention.</span></span><span class="sig-name descname"><span class="pre">xformers_ref</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">q</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">v</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">attn_bias</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scale</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/slapo/op/attention.html#xformers_ref"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.op.attention.xformers_ref" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>The native PyTorch implementation of attention with the same signature as the
+attention implemented in xformers. This is used mainly to check the correctness
+of the xformers implementation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>q</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.13)"><em>torch.Tensor</em></a>) – Shape: (batch_size, seqlen_q, nheads, head_dim)</p></li>
+<li><p><strong>k</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.13)"><em>torch.Tensor</em></a>) – Shape: (batch_size, seqlen_k, nheads, head_dim)</p></li>
+<li><p><strong>v</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.13)"><em>torch.Tensor</em></a>) – Shape: (batch_size, seqlen_k, nheads, head_dim)</p></li>
+<li><p><strong>attn_bias</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.13)"><em>torch.Tensor</em></a><em>]</em>) – Shape: (batch_size, nheads, seqlen_q, seqlen_k)</p></li>
+<li><p><strong>p</strong> (<em>float</em>) – The dropout probability.</p></li>
+<li><p><strong>scale</strong> (<em>Optional</em><em>[</em><em>float</em><em>]</em>) – The softmax scale. If None, use 1 / sqrt(d).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Shape: (batch_size, seqlen_q, nheads, head_dim)</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.13)">torch.Tensor</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="slapo.op.attention.validate_sm_version">
+<span class="sig-prename descclassname"><span class="pre">slapo.op.attention.</span></span><span class="sig-name descname"><span class="pre">validate_sm_version</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_sm</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_sm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/slapo/op/attention.html#validate_sm_version"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.op.attention.validate_sm_version" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Validate the sm version.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>name</strong> (<em>str</em>) – The name of the kernel.</p></li>
+<li><p><strong>min_sm</strong> (<em>tuple</em><em>[</em><em>int</em><em>, </em><em>int</em><em>]</em>) – The minimum sm version.</p></li>
+<li><p><strong>max_sm</strong> (<em>Optional</em><em>[</em><em>tuple</em><em>[</em><em>int</em><em>, </em><em>int</em><em>]</em><em>]</em>) – The maximum sm version. If None, the maximum sm version is not checked.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="slapo.op.attention.get_xfoemers_attn_op_by_name">
+<span class="sig-prename descclassname"><span class="pre">slapo.op.attention.</span></span><span class="sig-name descname"><span class="pre">get_xfoemers_attn_op_by_name</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">attn_name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/slapo/op/attention.html#get_xfoemers_attn_op_by_name"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.op.attention.get_xfoemers_attn_op_by_name" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Get the xformers attention operator by name.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="slapo.op.attention.FlashAttentionOp">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">slapo.op.attention.</span></span><span class="sig-name descname"><span class="pre">FlashAttentionOp</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">attn_op_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">apply_causal_mask</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scale</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/slapo/op/attention.html#FlashAttentionOp"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.op.attention.FlashAttentionOp" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>A wrapper module that processes HF attention mask to flash attention mask.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>attn_op_name</strong> (<em>str</em>) – The name of the attention operator. Can be “native_xformers”,
+“native_flash_attn”, “triton”, “cuda”, “cutlass”, or “auto”. “triton”
+and “cuda” uses the kernel from flash-attention; while
+“cutlass” and “auto” use the kernel from xFormers.</p></li>
+<li><p><strong>apply_causal_mask</strong> (<em>bool</em>) – Whether to apply causal mask.</p></li>
+<li><p><strong>scale</strong> (<em>Optional</em><em>[</em><em>float</em><em>]</em>) – The softmax scale. If None, use 1 / sqrt(d).</p></li>
+</ul>
+</dd>
+</dl>
+<p><strong>Methods:</strong></p>
+<table class="autosummary longtable table autosummary">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.op.attention.FlashAttentionOp.forward" title="slapo.op.attention.FlashAttentionOp.forward"><code class="xref py py-obj docutils literal notranslate"><span class="pre">forward</span></code></a>(query_layer, key_layer, value_layer, ...)</p></td>
+<td><p>Defines the computation performed at every call.</p></td>
+</tr>
+</tbody>
+</table>
+<dl class="py method">
+<dt class="sig sig-object py" id="slapo.op.attention.FlashAttentionOp.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">query_layer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">key_layer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value_layer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">attention_mask</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/slapo/op/attention.html#FlashAttentionOp.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.op.attention.FlashAttentionOp.forward" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="slapo.op.attention.FlashAttention">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">slapo.op.attention.</span></span><span class="sig-name descname"><span class="pre">FlashAttention</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">hidden_size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_attention_heads</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">attn_pdrop</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resid_pdrop</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">attn_op_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'auto'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bias</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_proj</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fused_qkv</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/slapo/op/attention.html#FlashAttention"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.op.attention.FlashAttention" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>A HuggingFace self attention module with flash attention kernels.
+Note that this module has limited supports to specialized processing,
+documetned as follows:
+- Only support absolute positional embeddings.
+- Do not support cross attention.
+- Do not support head mask, encoder_attention_mask, and output attention.</p>
+<p>We organize the Attention module as follows:
+Attention</p>
+<blockquote>
+<div><ul class="simple">
+<li><dl class="simple">
+<dt>SelfAttention</dt><dd><ul>
+<li><p>Q, K, V</p></li>
+<li><p>CoreAttention</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Projection</dt><dd><ul>
+<li><p>OutDense</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</div></blockquote>
+<p><strong>Methods:</strong></p>
+<table class="autosummary longtable table autosummary">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.op.attention.FlashAttention.reshape_for_scores" title="slapo.op.attention.FlashAttention.reshape_for_scores"><code class="xref py py-obj docutils literal notranslate"><span class="pre">reshape_for_scores</span></code></a>(x)</p></td>
+<td><p>Copy from transpose_for_scores but without the transpose</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.op.attention.FlashAttention.forward" title="slapo.op.attention.FlashAttention.forward"><code class="xref py py-obj docutils literal notranslate"><span class="pre">forward</span></code></a>(hidden_states[, attention_mask, ...])</p></td>
+<td><p>Defines the computation performed at every call.</p></td>
+</tr>
+</tbody>
+</table>
+<dl class="py method">
+<dt class="sig sig-object py" id="slapo.op.attention.FlashAttention.reshape_for_scores">
+<span class="sig-name descname"><span class="pre">reshape_for_scores</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/slapo/op/attention.html#FlashAttention.reshape_for_scores"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.op.attention.FlashAttention.reshape_for_scores" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Copy from transpose_for_scores but without the transpose</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>x</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.13)"><em>torch.Tensor</em></a>) – </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="slapo.op.attention.FlashAttention.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">hidden_states</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">attention_mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">layer_past</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">head_mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">encoder_hidden_states</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">encoder_attention_mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_cache</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_attentions</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/slapo/op/attention.html#FlashAttention.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.op.attention.FlashAttention.forward" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>hidden_states</strong> (<em>Optional</em><em>[</em><em>tuple</em><em>[</em><em>torch.FloatTensor</em><em>]</em><em>]</em>) – </p></li>
+<li><p><strong>attention_mask</strong> (<em>Optional</em><em>[</em><em>torch.FloatTensor</em><em>]</em>) – </p></li>
+<li><p><strong>layer_past</strong> (<em>Optional</em><em>[</em><em>tuple</em><em>[</em><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.13)"><em>torch.Tensor</em></a><em>]</em><em>]</em>) – </p></li>
+<li><p><strong>head_mask</strong> (<em>Optional</em><em>[</em><em>torch.FloatTensor</em><em>]</em>) – </p></li>
+<li><p><strong>encoder_hidden_states</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.13)"><em>torch.Tensor</em></a><em>]</em>) – </p></li>
+<li><p><strong>encoder_attention_mask</strong> (<em>Optional</em><em>[</em><em>torch.FloatTensor</em><em>]</em>) – </p></li>
+<li><p><strong>use_cache</strong> (<em>Optional</em><em>[</em><em>bool</em><em>]</em>) – </p></li>
+<li><p><strong>output_attentions</strong> (<em>Optional</em><em>[</em><em>bool</em><em>]</em>) – </p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>tuple[<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.13)">torch.Tensor</a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="slapo.op.attention.AttentionOpWithRNG">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">slapo.op.attention.</span></span><span class="sig-name descname"><span class="pre">AttentionOpWithRNG</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">attn_op_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">apply_causal_mask</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scale</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/slapo/op/attention.html#AttentionOpWithRNG"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.op.attention.AttentionOpWithRNG" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p><strong>Methods:</strong></p>
+<table class="autosummary longtable table autosummary">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.op.attention.AttentionOpWithRNG.forward" title="slapo.op.attention.AttentionOpWithRNG.forward"><code class="xref py py-obj docutils literal notranslate"><span class="pre">forward</span></code></a>(query_layer, key_layer, value_layer, ...)</p></td>
+<td><p>Defines the computation performed at every call.</p></td>
+</tr>
+</tbody>
+</table>
+<dl class="py method">
+<dt class="sig sig-object py" id="slapo.op.attention.AttentionOpWithRNG.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">query_layer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">key_layer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value_layer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">attention_mask</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/slapo/op/attention.html#AttentionOpWithRNG.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.op.attention.AttentionOpWithRNG.forward" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+              </div>
+              
+            </main>
+            <footer class="footer-article noprint">
+                
+    <!-- Previous / next buttons -->
+<div class='prev-next-area'>
+</div>
+            </footer>
+        </div>
+    </div>
+    <div class="footer-content row">
+        <footer class="col footer"><p>
+  
+    By Amazon<br/>
+  
+      &copy; Copyright 2023, Amazon.<br/>
+</p>
+        </footer>
+    </div>
+    
+</div>
+
+
+      </div>
+    </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../../_static/scripts/pydata-sphinx-theme.js?digest=1999514e3f237ded88cf"></script>
+
+
+  </body>
+</html>

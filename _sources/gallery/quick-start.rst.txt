@@ -69,7 +69,7 @@ This is the model definition part.
 
  .. code-block:: none
 
-    Downloading (…)lve/main/config.json:   0%|          | 0.00/571 [00:00<?, ?B/s]    Downloading (…)lve/main/config.json: 100%|##########| 571/571 [00:00<00:00, 112kB/s]
+    Downloading (…)lve/main/config.json:   0%|          | 0.00/571 [00:00<?, ?B/s]    Downloading (…)lve/main/config.json: 100%|##########| 571/571 [00:00<00:00, 153kB/s]
     If you want to use `BertLMHeadModel` as a standalone, add `is_decoder=True.`
 
 
@@ -935,7 +935,7 @@ fused together and form a new module named `FusedBiasGeLU_0`.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** ( 0 minutes  6.733 seconds)
+   **Total running time of the script:** ( 0 minutes  7.195 seconds)
 
 
 .. _sphx_glr_download_gallery_quick-start.py:

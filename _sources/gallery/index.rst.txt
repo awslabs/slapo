@@ -28,6 +28,23 @@ Gallery
 
 .. raw:: html
 
+    <div class="sphx-glr-thumbcontainer" tooltip="This guide uses the `Attention &lt;https://arxiv.org/abs/1706.03762&gt;`_ module, the core and most t...">
+
+.. only:: html
+
+  .. image:: /gallery/images/thumb/sphx_glr_attention-single-gpu_thumb.png
+    :alt: Optimize Attention Module on A Single GPU
+
+  :ref:`sphx_glr_gallery_attention-single-gpu.py`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Optimize Attention Module on A Single GPU</div>
+    </div>
+
+
+.. raw:: html
+
     </div>
 
 
@@ -35,6 +52,7 @@ Gallery
    :hidden:
 
    /gallery/quick-start
+   /gallery/attention-single-gpu
 
 
 

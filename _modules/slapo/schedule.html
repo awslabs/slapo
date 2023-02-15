@@ -103,6 +103,18 @@
 </ul>
 <p aria-level="2" class="caption" role="heading">
  <span class="caption-text">
+  Tutorials
+ </span>
+</p>
+<ul class="nav bd-sidenav">
+ <li class="toctree-l1">
+  <a class="reference internal" href="../../gallery/attention-single-gpu.html">
+   Optimize Attention Module on A Single GPU
+  </a>
+ </li>
+</ul>
+<p aria-level="2" class="caption" role="heading">
+ <span class="caption-text">
   Reference
  </span>
 </p>
@@ -148,8 +160,8 @@
     </a>
    </li>
    <li class="toctree-l2 has-children">
-    <a class="reference internal" href="../../python_api/model_dialect/index.html">
-     hidet.model_dialect
+    <a class="reference internal" href="../../python_api/framework_dialect/index.html">
+     hidet.framework_dialect
     </a>
     <input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/>
     <label for="toctree-checkbox-2">
@@ -158,13 +170,13 @@
     </label>
     <ul>
      <li class="toctree-l3">
-      <a class="reference internal" href="../../python_api/model_dialect/registry.html">
-       slapo.model_dialect.registry
+      <a class="reference internal" href="../../python_api/framework_dialect/registry.html">
+       slapo.framework_dialect.registry
       </a>
      </li>
      <li class="toctree-l3 has-children">
-      <a class="reference internal" href="../../python_api/model_dialect/deepspeed/index.html">
-       hidet.model_dialect.deepspeed
+      <a class="reference internal" href="../../python_api/framework_dialect/deepspeed/index.html">
+       hidet.framework_dialect.deepspeed
       </a>
       <input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/>
       <label for="toctree-checkbox-3">
@@ -173,13 +185,13 @@
       </label>
       <ul>
        <li class="toctree-l4">
-        <a class="reference internal" href="../../python_api/model_dialect/deepspeed/engine.html">
-         slapo.model_dialect.deepspeed.engine
+        <a class="reference internal" href="../../python_api/framework_dialect/deepspeed/engine.html">
+         slapo.framework_dialect.deepspeed.engine
         </a>
        </li>
        <li class="toctree-l4">
-        <a class="reference internal" href="../../python_api/model_dialect/deepspeed/pipeline.html">
-         slapo.model_dialect.deepspeed.pipeline
+        <a class="reference internal" href="../../python_api/framework_dialect/deepspeed/pipeline.html">
+         slapo.framework_dialect.deepspeed.pipeline
         </a>
        </li>
       </ul>
@@ -331,13 +343,13 @@ title="Source repository"
 <span class="kn">import</span> <span class="nn">torch</span>
 <span class="kn">import</span> <span class="nn">torch.distributed</span> <span class="k">as</span> <span class="nn">dist</span>
 <span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">fx</span><span class="p">,</span> <span class="n">nn</span>
-<span class="kn">from</span> <span class="nn">torch.utils</span> <span class="kn">import</span> <span class="n">checkpoint</span>
 
 <span class="c1"># pylint: disable=unused-import</span>
 <span class="kn">import</span> <span class="nn">torch.nn.functional</span> <span class="k">as</span> <span class="nn">F</span>
 
+<span class="kn">from</span> <span class="nn">.checkpoint</span> <span class="kn">import</span> <span class="n">checkpoint</span> <span class="k">as</span> <span class="n">checkpoint_module</span>
 <span class="kn">from</span> <span class="nn">.logger</span> <span class="kn">import</span> <span class="n">get_logger</span>
-<span class="kn">from</span> <span class="nn">.model_dialect</span> <span class="kn">import</span> <span class="n">get_dialect_cls</span>
+<span class="kn">from</span> <span class="nn">.framework_dialect</span> <span class="kn">import</span> <span class="n">get_dialect_cls</span>
 <span class="kn">from</span> <span class="nn">.pipeline</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">analyze_tie_weights</span><span class="p">,</span>
     <span class="n">build_pipeline_model</span><span class="p">,</span>
@@ -354,7 +366,11 @@ title="Source repository"
 <span class="kn">from</span> <span class="nn">.tracer</span> <span class="kn">import</span> <span class="n">trace</span> <span class="k">as</span> <span class="n">trace_module</span>
 <span class="kn">from</span> <span class="nn">.initialization</span> <span class="kn">import</span> <span class="n">init_empty_weights</span>
 <span class="kn">from</span> <span class="nn">.op.linear</span> <span class="kn">import</span> <span class="n">LinearWithSeparateBias</span>
-<span class="kn">from</span> <span class="nn">.utils.common</span> <span class="kn">import</span> <span class="n">transfer_hooks</span><span class="p">,</span> <span class="n">is_lambda_function</span>
+<span class="kn">from</span> <span class="nn">.utils.common</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">transfer_hooks</span><span class="p">,</span>
+    <span class="n">transfer_hooks_for_fusion</span><span class="p">,</span>
+    <span class="n">is_lambda_function</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span> <span class="nn">.utils.mapping</span> <span class="kn">import</span> <span class="n">MAPPING_FROM_FUNCTIONAL_TO_MODULE</span>
 <span class="kn">from</span> <span class="nn">.pattern</span> <span class="kn">import</span> <span class="n">Pattern</span><span class="p">,</span> <span class="n">ModulePattern</span><span class="p">,</span> <span class="n">call_module</span>
 
@@ -446,7 +462,7 @@ title="Source repository"
     <span class="k">return</span> <span class="n">dectorator</span></div>
 
 
-<span class="k">class</span> <span class="nc">Schedule</span><span class="p">:</span>
+<div class="viewcode-block" id="Schedule"><a class="viewcode-back" href="../../python_api/schedule.html#slapo.Schedule">[docs]</a><span class="k">class</span> <span class="nc">Schedule</span><span class="p">:</span>
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">mod</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span>
@@ -834,7 +850,49 @@ title="Source repository"
     <span class="k">def</span> <span class="nf">get_module</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
         <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">named_modules</span><span class="p">())[</span><span class="n">name</span><span class="p">]</span>
 
-    <span class="k">def</span> <span class="nf">find_node</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">regex_or_pattern_fn</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_construct_fx_graph</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subgraph</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Construct a new fx.Graph based on the subgraph extracted from the</span>
+<span class="sd">        original graph. This function should NOT be called directly.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        subgraph : List[Tuple[str, Node]]</span>
+<span class="sd">            The extracted subgraph from .find() containing the path of the node</span>
+<span class="sd">            and the corresponding fx.Node.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        fx.Graph</span>
+<span class="sd">            The new fx.Graph constructed from the subgraph.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1">#</span>
+        <span class="n">new_graph</span> <span class="o">=</span> <span class="n">fx</span><span class="o">.</span><span class="n">Graph</span><span class="p">()</span>
+        <span class="c1"># Create input arguments for the new graph</span>
+        <span class="n">node_names</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">value_remap</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">subgraph</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">args</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">arg</span><span class="p">,</span> <span class="n">fx</span><span class="o">.</span><span class="n">Node</span><span class="p">)</span> <span class="ow">and</span> <span class="n">arg</span><span class="o">.</span><span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">node_names</span><span class="p">:</span>
+                    <span class="n">value_remap</span><span class="p">[</span><span class="n">arg</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_graph</span><span class="o">.</span><span class="n">placeholder</span><span class="p">(</span><span class="n">arg</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+                    <span class="n">node_names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">arg</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+            <span class="n">node_names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+        <span class="c1"># Copy nodes from extracted subgraph to new graph</span>
+        <span class="n">mod_mapping</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">subgraph</span><span class="p">:</span>
+            <span class="n">value_remap</span><span class="p">[</span><span class="n">node</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_graph</span><span class="o">.</span><span class="n">node_copy</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">n</span><span class="p">:</span> <span class="n">value_remap</span><span class="p">[</span><span class="n">n</span><span class="p">])</span>
+            <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">op</span> <span class="o">==</span> <span class="s2">&quot;call_module&quot;</span><span class="p">:</span>
+                <span class="n">mod</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_module</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">target</span><span class="p">)</span>
+                <span class="n">mod_mapping</span><span class="p">[</span><span class="n">node</span><span class="o">.</span><span class="n">target</span><span class="p">]</span> <span class="o">=</span> <span class="n">mod</span>
+        <span class="c1"># Return output from new graph</span>
+        <span class="n">new_graph</span><span class="o">.</span><span class="n">output</span><span class="p">(</span><span class="n">value_remap</span><span class="p">[</span><span class="n">subgraph</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]])</span>
+        <span class="n">new_gm</span> <span class="o">=</span> <span class="n">fx</span><span class="o">.</span><span class="n">GraphModule</span><span class="p">(</span><span class="n">mod_mapping</span><span class="p">,</span> <span class="n">new_graph</span><span class="p">)</span>
+        <span class="n">new_gm</span><span class="o">.</span><span class="n">delete_all_unused_submodules</span><span class="p">()</span>
+        <span class="n">new_gm</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">eliminate_dead_code</span><span class="p">()</span>
+        <span class="n">new_gm</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">lint</span><span class="p">()</span>
+        <span class="n">new_gm</span><span class="o">.</span><span class="n">recompile</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">new_gm</span>
+
+<div class="viewcode-block" id="Schedule.find_node"><a class="viewcode-back" href="../../python_api/schedule.html#slapo.Schedule.find_node">[docs]</a>    <span class="k">def</span> <span class="nf">find_node</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">regex_or_pattern_fn</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Find a node in a static dataflow graph</span>
 
 <span class="sd">        Parameters</span>
@@ -846,7 +904,7 @@ title="Source repository"
 <span class="sd">            The pattern_fn should be in `lambda node: ...` format.</span>
 
 <span class="sd">        Returns</span>
-<span class="sd">        ----------</span>
+<span class="sd">        -------</span>
 <span class="sd">        Union[List[Tuple[str, fx.Node]], List[List[Tuple[str, fx.Node]]]</span>
 <span class="sd">            Returns all the nodes whose names satisfying the regex, or the nodes satisfying</span>
 <span class="sd">            the given pattern constraints.</span>
@@ -870,9 +928,9 @@ title="Source repository"
                         <span class="n">res</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">name</span><span class="p">,</span> <span class="n">node</span><span class="p">))</span>
                 <span class="k">elif</span> <span class="n">regex_or_pattern_fn</span><span class="p">(</span><span class="n">node</span><span class="p">):</span>
                     <span class="n">res</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">name</span><span class="p">,</span> <span class="n">node</span><span class="p">))</span>
-        <span class="k">return</span> <span class="n">res</span>
+        <span class="k">return</span> <span class="n">res</span></div>
 
-    <span class="k">def</span> <span class="nf">find_subgraph</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pattern_fn</span><span class="p">):</span>
+<div class="viewcode-block" id="Schedule.find_subgraph"><a class="viewcode-back" href="../../python_api/schedule.html#slapo.Schedule.find_subgraph">[docs]</a>    <span class="k">def</span> <span class="nf">find_subgraph</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pattern_fn</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Find a subgraph in a static dataflow graph</span>
 
 <span class="sd">        Parameters</span>
@@ -883,7 +941,7 @@ title="Source repository"
 <span class="sd">            class provides the ability to create patterns include submodules.</span>
 
 <span class="sd">        Returns</span>
-<span class="sd">        ----------</span>
+<span class="sd">        -------</span>
 <span class="sd">        List[List[Tuple[str, fx.Node]]</span>
 <span class="sd">            Returns all the subgraphs containing the nodes satisfying the pattern constraints.</span>
 <span class="sd">            The outer-most list contains different subgraphs, and the inner list contains</span>
@@ -1021,9 +1079,9 @@ title="Source repository"
                 <span class="n">curr_node</span> <span class="o">=</span> <span class="n">node</span>
                 <span class="k">if</span> <span class="n">find_match_subgraphs</span><span class="p">(</span><span class="n">curr_node</span><span class="p">,</span> <span class="n">target_node</span><span class="p">,</span> <span class="n">subgraph</span><span class="p">):</span>
                     <span class="n">res</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">subgraph</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span>
-        <span class="k">return</span> <span class="n">res</span>
+        <span class="k">return</span> <span class="n">res</span></div>
 
-    <span class="k">def</span> <span class="nf">find</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">regex_or_pattern_fn</span><span class="p">):</span>
+<div class="viewcode-block" id="Schedule.find"><a class="viewcode-back" href="../../python_api/schedule.html#slapo.Schedule.find">[docs]</a>    <span class="k">def</span> <span class="nf">find</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">regex_or_pattern_fn</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Find a node or a subgraph in a static dataflow graph.</span>
 <span class="sd">        This API is a dispatcher for `find_node` and `find_subgraph`</span>
 
@@ -1036,7 +1094,7 @@ title="Source repository"
 <span class="sd">            a callable function/Pattern class specifying the subgraph pattern</span>
 
 <span class="sd">        Returns</span>
-<span class="sd">        ----------</span>
+<span class="sd">        -------</span>
 <span class="sd">        Union[List[Tuple[str, fx.Node]], List[List[Tuple[str, fx.Node]]]</span>
 <span class="sd">            For `find_node`, it returns all the nodes whose names satisfying the regex.</span>
 <span class="sd">            For `find_subgraph`, it returns all the subgraphs containing the nodes</span>
@@ -1049,9 +1107,9 @@ title="Source repository"
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">find_subgraph</span><span class="p">(</span><span class="n">regex_or_pattern_fn</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">regex_or_pattern_fn</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">find_node</span><span class="p">(</span><span class="n">regex_or_pattern_fn</span><span class="p">)</span>
-        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unrecognized pattern type {type(regex_or_pattern_fn)}&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unrecognized pattern type {type(regex_or_pattern_fn)}&quot;</span><span class="p">)</span></div>
 
-    <span class="k">def</span> <span class="nf">replace_function</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">func</span><span class="p">,</span> <span class="n">target_op</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_replace_function</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">func</span><span class="p">,</span> <span class="n">target_op</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Replace a function, in terms of a call_function node in fx graph.</span>
 <span class="sd">        Do NOT directly call this function, use `.replace()` instead</span>
 
@@ -1059,18 +1117,23 @@ title="Source repository"
 <span class="sd">        ----------</span>
 <span class="sd">        func : Callable</span>
 <span class="sd">            The new function to replace the current function.</span>
-<span class="sd">        target_op : torch.fx.Node</span>
+<span class="sd">        target_op : List[Tuple[str, torch.fx.Node]]</span>
 <span class="sd">            The call_function node to be replaced.</span>
+<span class="sd">            The string in the tuple is the name of the parent module that</span>
+<span class="sd">            the node belongs to.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">node</span> <span class="o">=</span> <span class="n">target_op</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">node</span> <span class="o">=</span> <span class="n">target_op</span>
         <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">inserting_after</span><span class="p">(</span><span class="n">node</span><span class="p">):</span>
             <span class="n">new_node</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">call_function</span><span class="p">(</span><span class="n">func</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">args</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">kwargs</span><span class="p">)</span>
             <span class="n">node</span><span class="o">.</span><span class="n">replace_all_uses_with</span><span class="p">(</span><span class="n">new_node</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">erase_node</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">replace_module</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_mod</span><span class="p">,</span> <span class="n">subgraphs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_replace_module</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_mod</span><span class="p">,</span> <span class="n">subgraphs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Replace an entire module with a new one.</span>
 <span class="sd">        Do NOT directly call this function, use `.replace()` instead.</span>
+
+<span class="sd">        If subgraphs is None, replace the whole self module;</span>
+<span class="sd">        Otherwise, replace target forward subgraphs with the new module.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -1084,14 +1147,26 @@ title="Source repository"
 <span class="sd">            will be automatically generated.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">subgraphs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="c1"># If subgraphs is None, replace the whole self module and the schedule.</span>
-            <span class="n">new_sch</span> <span class="o">=</span> <span class="n">create_schedule</span><span class="p">(</span>
-                <span class="n">new_mod</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">path</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">group</span>
-            <span class="p">)</span>
-
+            <span class="k">if</span> <span class="n">name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">name</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                    <span class="s2">&quot;Cannot change the name of </span><span class="si">%s</span><span class="s2"> when replacing the whole module. &quot;</span>
+                    <span class="s2">&quot;The given name </span><span class="si">%s</span><span class="s2"> will be ignored&quot;</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                    <span class="n">name</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">name</span> <span class="o">=</span> <span class="n">new_mod</span><span class="o">.</span><span class="n">_get_name</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="n">_get_unique_module_name</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+        <span class="c1"># Create a new schedule for the replaced module</span>
+        <span class="n">new_sch</span> <span class="o">=</span> <span class="n">create_schedule</span><span class="p">(</span><span class="n">new_mod</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">path</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">group</span><span class="p">)</span>
+        <span class="c1"># Replace the corresponding part in the current module</span>
+        <span class="k">if</span> <span class="n">subgraphs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># If subgraphs is None, replace the whole self module.</span>
             <span class="c1"># Transfer hooks from the old module to the new module.</span>
             <span class="n">transfer_hooks</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="p">,</span> <span class="n">new_sch</span><span class="o">.</span><span class="n">mod</span><span class="p">)</span>
-
+            <span class="c1"># Update schedules</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">mod</span> <span class="o">=</span> <span class="n">new_sch</span><span class="o">.</span><span class="n">mod</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">child</span> <span class="o">=</span> <span class="n">new_sch</span><span class="o">.</span><span class="n">child</span>
             <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">sch</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">child</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
@@ -1099,13 +1174,9 @@ title="Source repository"
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">update_submodule</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">mod</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">new_mod</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="c1"># Otherwise, replace target forward subgraphs with the new module.</span>
-            <span class="c1"># Note that this requires the current module in torch.fx so it</span>
-            <span class="c1"># has to be traced.</span>
+            <span class="c1"># Replacing target forward subgraphs with the new module</span>
+            <span class="c1"># requires the current module in torch.fx so it has to be traced.</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">trace</span><span class="p">()</span>
-            <span class="k">if</span> <span class="n">name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">name</span> <span class="o">=</span> <span class="n">new_mod</span><span class="o">.</span><span class="n">_get_name</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
-            <span class="n">name</span> <span class="o">=</span> <span class="n">_get_unique_module_name</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
             <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">subgraphs</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;Should have at least one operator to replace&quot;</span>
             <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">subgraphs</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
                 <span class="c1"># horizontal fusion, e.g.,</span>
@@ -1140,12 +1211,14 @@ title="Source repository"
                             <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">users</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">sublst</span><span class="p">:</span>
                                 <span class="n">node</span><span class="o">.</span><span class="n">replace_all_uses_with</span><span class="p">(</span><span class="n">getitem</span><span class="p">)</span>
                             <span class="n">target_mod</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">erase_node</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+                <span class="n">transfer_hooks_for_fusion</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subgraphs</span><span class="p">,</span> <span class="n">new_mod</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="c1"># vertical fusion, e.g.,</span>
                 <span class="c1"># s0-&gt;v0</span>
                 <span class="c1"># [[s0, v0]]</span>
                 <span class="n">ops</span> <span class="o">=</span> <span class="n">subgraphs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
                 <span class="n">path</span><span class="p">,</span> <span class="n">first_node</span> <span class="o">=</span> <span class="n">ops</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">ops</span> <span class="o">=</span> <span class="p">[</span><span class="n">op</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">op</span> <span class="ow">in</span> <span class="n">ops</span><span class="p">]</span>
                 <span class="n">target_mod</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mod</span>
                 <span class="k">if</span> <span class="n">path</span><span class="p">:</span>
                     <span class="k">assert</span> <span class="nb">hasattr</span><span class="p">(</span>
@@ -1156,9 +1229,6 @@ title="Source repository"
                 <span class="n">target_mod</span><span class="o">.</span><span class="n">add_module</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">new_mod</span><span class="p">)</span>
                 <span class="k">with</span> <span class="n">target_mod</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">inserting_before</span><span class="p">(</span><span class="n">first_node</span><span class="p">):</span>
                     <span class="n">sig</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">signature</span><span class="p">(</span><span class="n">new_mod</span><span class="o">.</span><span class="n">forward</span><span class="p">)</span>
-                    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">sig</span><span class="o">.</span><span class="n">parameters</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="nb">len</span><span class="p">(</span>
-                        <span class="n">first_node</span><span class="o">.</span><span class="n">args</span>
-                    <span class="p">),</span> <span class="sa">f</span><span class="s2">&quot;The number of arguments of the replaced module should be less or equal to the number of the original subgraph inputs. Got </span><span class="si">{sig.parameters}</span><span class="s2">, but expect </span><span class="si">{first_node.args}</span><span class="s2">.&quot;</span>
                     <span class="n">default_args</span> <span class="o">=</span> <span class="p">{</span>
                         <span class="n">k</span><span class="p">:</span> <span class="n">v</span><span class="o">.</span><span class="n">default</span>
                         <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">sig</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
@@ -1168,14 +1238,21 @@ title="Source repository"
                     <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">default_args</span><span class="p">:</span>
                         <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">first_node</span><span class="o">.</span><span class="n">kwargs</span><span class="p">:</span>
                             <span class="n">new_kwargs</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
-                    <span class="n">n_args</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">sig</span><span class="o">.</span><span class="n">parameters</span><span class="p">)</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">default_args</span><span class="p">)</span>
+                    <span class="n">new_args</span> <span class="o">=</span> <span class="p">[]</span>
+                    <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">ops</span><span class="p">:</span>
+                        <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">args</span><span class="p">:</span>
+                            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">arg</span><span class="p">,</span> <span class="n">fx</span><span class="o">.</span><span class="n">Node</span><span class="p">)</span> <span class="ow">and</span> <span class="n">arg</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">ops</span><span class="p">:</span>
+                                <span class="n">new_args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span>
                     <span class="n">new_node</span> <span class="o">=</span> <span class="n">target_mod</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">call_module</span><span class="p">(</span>
-                        <span class="n">name</span><span class="p">,</span> <span class="n">first_node</span><span class="o">.</span><span class="n">args</span><span class="p">[:</span><span class="n">n_args</span><span class="p">],</span> <span class="n">new_kwargs</span>
+                        <span class="n">name</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">new_args</span><span class="p">),</span> <span class="n">new_kwargs</span>
                     <span class="p">)</span>
-                <span class="n">_</span><span class="p">,</span> <span class="n">last_node</span> <span class="o">=</span> <span class="n">ops</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+                <span class="n">last_node</span> <span class="o">=</span> <span class="n">ops</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
                 <span class="n">last_node</span><span class="o">.</span><span class="n">replace_all_uses_with</span><span class="p">(</span><span class="n">new_node</span><span class="p">)</span>
-                <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">node</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="n">ops</span><span class="p">):</span>
+                <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="n">ops</span><span class="p">):</span>
                     <span class="n">target_mod</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">erase_node</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+                <span class="n">transfer_hooks_for_fusion</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subgraphs</span><span class="p">,</span> <span class="n">new_mod</span><span class="p">)</span>
+            <span class="c1"># Update schedules</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">child</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_sch</span>
 
     <span class="nd">@register_primitive</span><span class="p">()</span>
     <span class="k">def</span> <span class="nf">replace</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_mod_or_func</span><span class="p">,</span> <span class="n">target_ops</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
@@ -1184,13 +1261,13 @@ title="Source repository"
 <span class="sd">        2. Replace a part of the forward function (target_ops) with a new module or function.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">new_mod_or_func</span><span class="p">,</span> <span class="n">FunctionType</span><span class="p">):</span>
-            <span class="k">if</span> <span class="n">target_ops</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">target_ops</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">target_ops</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="s2">&quot;Cannot replace multiple subgraphs in forward with one function&quot;</span>
+                    <span class="s2">&quot;Cannot replace multiple nodes in forward with one function&quot;</span>
                 <span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">replace_function</span><span class="p">(</span><span class="n">new_mod_or_func</span><span class="p">,</span> <span class="n">target_ops</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_replace_function</span><span class="p">(</span><span class="n">new_mod_or_func</span><span class="p">,</span> <span class="n">target_ops</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">replace_module</span><span class="p">(</span><span class="n">new_mod_or_func</span><span class="p">,</span> <span class="n">target_ops</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_replace_module</span><span class="p">(</span><span class="n">new_mod_or_func</span><span class="p">,</span> <span class="n">target_ops</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
 
         <span class="c1"># Clean up and update the schedule child list.</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="p">,</span> <span class="n">fx</span><span class="o">.</span><span class="n">GraphModule</span><span class="p">):</span>
@@ -1228,34 +1305,7 @@ title="Source repository"
         <span class="k">assert</span> <span class="p">(</span>
             <span class="nb">len</span><span class="p">(</span><span class="n">subgraph</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">subgraph</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">1</span>
         <span class="p">),</span> <span class="s2">&quot;Only vertical fusion is supported&quot;</span>
-        <span class="c1"># Construct a new fx.Graph</span>
-        <span class="n">new_graph</span> <span class="o">=</span> <span class="n">fx</span><span class="o">.</span><span class="n">Graph</span><span class="p">()</span>
-        <span class="c1"># Since the extracted subgraph from .find() is a list of list,</span>
-        <span class="c1"># only the first element contains the nodes</span>
-        <span class="n">path_and_nodes</span> <span class="o">=</span> <span class="n">subgraph</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="c1"># Create input arguments for the new graph</span>
-        <span class="n">node_names</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">value_remap</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">path_and_nodes</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">args</span><span class="p">:</span>
-                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">arg</span><span class="p">,</span> <span class="n">fx</span><span class="o">.</span><span class="n">Node</span><span class="p">)</span> <span class="ow">and</span> <span class="n">arg</span><span class="o">.</span><span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">node_names</span><span class="p">:</span>
-                    <span class="n">value_remap</span><span class="p">[</span><span class="n">arg</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_graph</span><span class="o">.</span><span class="n">placeholder</span><span class="p">(</span><span class="n">arg</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
-                    <span class="n">node_names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">arg</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
-            <span class="n">node_names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
-        <span class="c1"># Copy nodes from extracted subgraph to new graph</span>
-        <span class="n">mod_mapping</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">path_and_nodes</span><span class="p">:</span>
-            <span class="n">value_remap</span><span class="p">[</span><span class="n">node</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_graph</span><span class="o">.</span><span class="n">node_copy</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">n</span><span class="p">:</span> <span class="n">value_remap</span><span class="p">[</span><span class="n">n</span><span class="p">])</span>
-            <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">op</span> <span class="o">==</span> <span class="s2">&quot;call_module&quot;</span><span class="p">:</span>
-                <span class="n">mod</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_module</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">target</span><span class="p">)</span>
-                <span class="n">mod_mapping</span><span class="p">[</span><span class="n">node</span><span class="o">.</span><span class="n">target</span><span class="p">]</span> <span class="o">=</span> <span class="n">mod</span>
-        <span class="c1"># Return output from new graph</span>
-        <span class="n">new_graph</span><span class="o">.</span><span class="n">output</span><span class="p">(</span><span class="n">value_remap</span><span class="p">[</span><span class="n">path_and_nodes</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]])</span>
-        <span class="n">new_gm</span> <span class="o">=</span> <span class="n">fx</span><span class="o">.</span><span class="n">GraphModule</span><span class="p">(</span><span class="n">mod_mapping</span><span class="p">,</span> <span class="n">new_graph</span><span class="p">)</span>
-        <span class="n">new_gm</span><span class="o">.</span><span class="n">delete_all_unused_submodules</span><span class="p">()</span>
-        <span class="n">new_gm</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">eliminate_dead_code</span><span class="p">()</span>
-        <span class="n">new_gm</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">lint</span><span class="p">()</span>
-        <span class="n">new_gm</span><span class="o">.</span><span class="n">recompile</span><span class="p">()</span>
+        <span class="n">new_gm</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_construct_fx_graph</span><span class="p">(</span><span class="n">subgraph</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
         <span class="n">new_mod</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script</span><span class="p">(</span><span class="n">new_gm</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">new_mod</span><span class="p">,</span> <span class="n">subgraph</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
 
@@ -1286,7 +1336,7 @@ title="Source repository"
             <span class="bp">self</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">new_mod</span><span class="p">)</span>
 
     <span class="nd">@register_primitive</span><span class="p">()</span>
-    <span class="k">def</span> <span class="nf">checkpoint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order_args_fn</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">checkpoint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subgraph</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">order_args_fn</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="k">class</span> <span class="nc">CheckPointWrapper</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
             <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mod</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
@@ -1302,9 +1352,15 @@ title="Source repository"
                     <span class="n">ordered_args</span> <span class="o">=</span> <span class="n">order_args_fn</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 
                 <span class="c1"># Note: checkpoint cannot accept kwargs</span>
-                <span class="k">return</span> <span class="n">checkpoint</span><span class="o">.</span><span class="n">checkpoint</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="p">,</span> <span class="o">*</span><span class="n">ordered_args</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">checkpoint_module</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="p">,</span> <span class="o">*</span><span class="n">ordered_args</span><span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">CheckPointWrapper</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">subgraph</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># Checkpoint the entire module.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">CheckPointWrapper</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Checkpoint the subgraph</span>
+            <span class="n">new_gm</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_construct_fx_graph</span><span class="p">(</span><span class="n">subgraph</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">CheckPointWrapper</span><span class="p">(</span><span class="n">new_gm</span><span class="p">),</span> <span class="n">subgraph</span><span class="p">)</span>
 
     <span class="nd">@register_primitive</span><span class="p">()</span>
     <span class="k">def</span> <span class="nf">cut_pipeline_stage</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -1332,7 +1388,7 @@ title="Source repository"
             <span class="n">root_sch</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">pipeline_cutting_paths</span><span class="p">[</span><span class="n">parent_sch</span><span class="o">.</span><span class="n">path</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
             <span class="n">root_sch</span> <span class="o">=</span> <span class="n">root_sch</span><span class="o">.</span><span class="n">parent</span>
 
-    <span class="k">def</span> <span class="nf">trace_for_pipeline</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">paths</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<div class="viewcode-block" id="Schedule.trace_for_pipeline"><a class="viewcode-back" href="../../python_api/schedule.html#slapo.Schedule.trace_for_pipeline">[docs]</a>    <span class="k">def</span> <span class="nf">trace_for_pipeline</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">paths</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Trace from the top module until the sub-module specified in path,</span>
 <span class="sd">        so that we can cut pipeline stages at the level.&quot;&quot;&quot;</span>
         <span class="c1"># Sanity check.</span>
@@ -1353,7 +1409,7 @@ title="Source repository"
             <span class="n">leaf_modules</span><span class="o">=</span><span class="n">leaf_modules</span><span class="p">,</span>
             <span class="n">tracer</span><span class="o">=</span><span class="n">tracer</span><span class="p">,</span>
             <span class="n">concrete_args</span><span class="o">=</span><span class="n">concrete_args</span><span class="p">,</span>
-        <span class="p">)</span>
+        <span class="p">)</span></div>
 
     <span class="k">def</span> <span class="nf">trace</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">recursive</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">flatten</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="p">,</span> <span class="n">fx</span><span class="o">.</span><span class="n">GraphModule</span><span class="p">):</span>
@@ -1380,7 +1436,7 @@ title="Source repository"
             <span class="bp">self</span><span class="o">.</span><span class="n">path</span><span class="p">,</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">path</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="kc">False</span></div>
 
 
 <span class="k">def</span> <span class="nf">create_schedule</span><span class="p">(</span>
@@ -1565,7 +1621,7 @@ title="Source repository"
             <span class="c1"># so no need to consolidate</span>
             <span class="k">return</span>
 
-        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">sch</span><span class="p">,</span> <span class="s2">&quot;partition_idx&quot;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">sch</span><span class="p">,</span> <span class="s2">&quot;partition_idx&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">topology</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">curr_part_idx</span> <span class="o">=</span> <span class="n">sch</span><span class="o">.</span><span class="n">partition_idx</span>
             <span class="c1"># topology stores the global ranks</span>
             <span class="n">curr_stage_devices</span> <span class="o">=</span> <span class="n">topology</span><span class="o">.</span><span class="n">filter_match</span><span class="p">(</span><span class="n">pipe</span><span class="o">=</span><span class="n">curr_part_idx</span><span class="p">)</span>
@@ -1660,7 +1716,7 @@ title="Source repository"
         <span class="n">init_weight_fn</span> <span class="o">=</span> <span class="n">init_weights</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">init_weights</span><span class="p">,</span> <span class="n">Callable</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span>
         <span class="n">sch</span> <span class="o">=</span> <span class="n">consolidate_model</span><span class="p">(</span><span class="n">sch</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">init_weight_fn</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 
-    <span class="k">if</span> <span class="n">sch</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">pipeline_cutting_paths</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">sch</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">pipeline_cutting_paths</span> <span class="ow">and</span> <span class="n">target</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="c1"># Generate pipeline modules for a particular target.</span>
         <span class="n">model</span> <span class="o">=</span> <span class="n">build_pipeline_model</span><span class="p">(</span>
             <span class="n">sch</span><span class="p">,</span>

@@ -103,6 +103,18 @@
 </ul>
 <p aria-level="2" class="caption" role="heading">
  <span class="caption-text">
+  Tutorials
+ </span>
+</p>
+<ul class="nav bd-sidenav">
+ <li class="toctree-l1">
+  <a class="reference internal" href="../../gallery/attention-single-gpu.html">
+   Optimize Attention Module on A Single GPU
+  </a>
+ </li>
+</ul>
+<p aria-level="2" class="caption" role="heading">
+ <span class="caption-text">
   Reference
  </span>
 </p>
@@ -148,8 +160,8 @@
     </a>
    </li>
    <li class="toctree-l2 has-children">
-    <a class="reference internal" href="../../python_api/model_dialect/index.html">
-     hidet.model_dialect
+    <a class="reference internal" href="../../python_api/framework_dialect/index.html">
+     hidet.framework_dialect
     </a>
     <input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/>
     <label for="toctree-checkbox-2">
@@ -158,13 +170,13 @@
     </label>
     <ul>
      <li class="toctree-l3">
-      <a class="reference internal" href="../../python_api/model_dialect/registry.html">
-       slapo.model_dialect.registry
+      <a class="reference internal" href="../../python_api/framework_dialect/registry.html">
+       slapo.framework_dialect.registry
       </a>
      </li>
      <li class="toctree-l3 has-children">
-      <a class="reference internal" href="../../python_api/model_dialect/deepspeed/index.html">
-       hidet.model_dialect.deepspeed
+      <a class="reference internal" href="../../python_api/framework_dialect/deepspeed/index.html">
+       hidet.framework_dialect.deepspeed
       </a>
       <input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/>
       <label for="toctree-checkbox-3">
@@ -173,13 +185,13 @@
       </label>
       <ul>
        <li class="toctree-l4">
-        <a class="reference internal" href="../../python_api/model_dialect/deepspeed/engine.html">
-         slapo.model_dialect.deepspeed.engine
+        <a class="reference internal" href="../../python_api/framework_dialect/deepspeed/engine.html">
+         slapo.framework_dialect.deepspeed.engine
         </a>
        </li>
        <li class="toctree-l4">
-        <a class="reference internal" href="../../python_api/model_dialect/deepspeed/pipeline.html">
-         slapo.model_dialect.deepspeed.pipeline
+        <a class="reference internal" href="../../python_api/framework_dialect/deepspeed/pipeline.html">
+         slapo.framework_dialect.deepspeed.pipeline
         </a>
        </li>
       </ul>
@@ -343,7 +355,6 @@ title="Source repository"
     <span class="k">for</span> <span class="n">target</span> <span class="ow">in</span> <span class="nb">dir</span><span class="p">(</span><span class="n">root</span><span class="p">):</span>
         <span class="k">if</span> <span class="s2">&quot;_tensor_constant&quot;</span> <span class="ow">in</span> <span class="n">target</span> <span class="ow">or</span> <span class="n">target</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;position_ids&quot;</span><span class="p">,</span> <span class="s2">&quot;token_type_ids&quot;</span><span class="p">}:</span>
             <span class="n">submods</span><span class="p">[</span><span class="n">target</span><span class="p">]</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
-    <span class="n">nodes_to_fix</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">root_graph</span><span class="o">.</span><span class="n">nodes</span><span class="p">:</span>
         <span class="c1"># Add submodule&#39;s attributes to parent module if it is used</span>
         <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">op</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;call_module&quot;</span><span class="p">,</span> <span class="s2">&quot;get_attr&quot;</span><span class="p">}</span> <span class="ow">and</span> <span class="n">node</span><span class="o">.</span><span class="n">target</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">submods</span><span class="p">:</span>
@@ -354,16 +365,9 @@ title="Source repository"
             <span class="n">submods</span><span class="p">[</span><span class="n">node</span><span class="o">.</span><span class="n">target</span><span class="p">]</span> <span class="o">=</span> <span class="n">attr_itr</span>
         <span class="c1"># Fix SelfAttention naming</span>
         <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">op</span> <span class="o">==</span> <span class="s2">&quot;call_module&quot;</span> <span class="ow">and</span> <span class="s2">&quot;self&quot;</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">target</span><span class="p">:</span>
-            <span class="n">nodes_to_fix</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
-    <span class="c1"># Fix conflicting Python keyword</span>
-    <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">nodes_to_fix</span><span class="p">:</span>
-        <span class="n">old_target</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">target</span>
-        <span class="n">new_target</span> <span class="o">=</span> <span class="n">old_target</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;self&quot;</span><span class="p">,</span> <span class="s2">&quot;self_m&quot;</span><span class="p">)</span>
-        <span class="k">with</span> <span class="n">root_graph</span><span class="o">.</span><span class="n">inserting_after</span><span class="p">(</span><span class="n">node</span><span class="p">):</span>
-            <span class="n">new_node</span> <span class="o">=</span> <span class="n">root_graph</span><span class="o">.</span><span class="n">call_module</span><span class="p">(</span><span class="n">new_target</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">args</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">kwargs</span><span class="p">)</span>
-            <span class="n">node</span><span class="o">.</span><span class="n">replace_all_uses_with</span><span class="p">(</span><span class="n">new_node</span><span class="p">)</span>
-        <span class="n">root_graph</span><span class="o">.</span><span class="n">erase_node</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
-        <span class="n">submods</span><span class="p">[</span><span class="n">new_target</span><span class="p">]</span> <span class="o">=</span> <span class="n">submods</span><span class="p">[</span><span class="n">old_target</span><span class="p">]</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="s2">&quot;`self` in </span><span class="si">{root.__class__.__name__}</span><span class="s2"> is a Python keyword, please rename it to avoid possible conflicts.&quot;</span>
+            <span class="p">)</span>
     <span class="c1"># Fix arguments</span>
     <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">root_graph</span><span class="o">.</span><span class="n">nodes</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">op</span> <span class="o">==</span> <span class="s2">&quot;call_module&quot;</span><span class="p">:</span>

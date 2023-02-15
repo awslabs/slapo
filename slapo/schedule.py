@@ -816,6 +816,8 @@ class SubgraphWrapper(nn.Module):
         name : Optional[str]
             The name of the replaced module. If it is None, a default name
             will be automatically generated.
+        concrete_args : Optional[Dict[str, Any]]
+            The concrete arguments of the forward function of the new module.
         """
         if subgraphs is None:
             if name is not None and name != self.name:

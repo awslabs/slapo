@@ -18,4 +18,4 @@ echo "Running pylint on slapo"
 python3 -m pylint slapo --rcfile=./scripts/lint/pylintrc
 
 echo "Running pylint on tests"
-python3 -m pylint -d duplicate-code tests --rcfile=./scripts/lint/pylintrc
+python3 -m pylint tests --rcfile=./scripts/lint/pylintrc

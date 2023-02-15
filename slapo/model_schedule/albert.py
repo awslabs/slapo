@@ -1,34 +1,144 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
+"""HuggingFace Albert with model schedule."""
+# pylint: disable=unused-argument
 
 import inspect
+from typing import Optional
 
 import torch
 import torch.distributed as dist
-import torch.nn as nn
+from torch import nn
 
-from slapo import init_empty_weights
-from typing import Optional
-from slapo.pattern import call_module
-from slapo.op import FlashAttention
+from ..schedule import create_schedule
+from ..initialization import init_empty_weights
+from ..pattern import call_module
+from ..op import FlashAttention
+from ..logger import get_logger
+from .registry import register_schedule
 
 
-def trace_attention(
-    sch, config, attn_path="encoder.albert_layer_groups.N.albert_layers.N.attention"
+@register_schedule()
+def _apply_schedule(
+    model,
+    **sch_config,
 ):
-    cnt = 0
-    for idx in range(config.num_hidden_layers):
-        sub_sch = sch[attn_path.replace("N", str(idx))]
-        input_names = ["hidden_states", "attention_mask"]
-        sig = inspect.signature(sub_sch.mod.forward)
+    model_config = sch_config.get("model_config", None)
+    if model_config is None:
+        raise ValueError(
+            "Model config is not specified in sch_config. Please provide `model_config` in the kwarg."
+        )
+    try:
+        model_name = model_config._name_or_path
+    except Exception:
+        model_name = model_config.get("_name_or_path", None)
+    logger = get_logger(f"{model_name}")
+
+    # Change data type.
+    fp16 = sch_config.get("fp16", False)
+    bf16 = sch_config.get("bf16", False)
+    if fp16 and bf16:
+        raise ValueError("Cannot use both fp16 and bf16")
+    if fp16:
+        logger.info("Change model dtype to fp16", ranks=0)
+        model.half()
+    elif bf16:
+        logger.info("Change model dtype to bf16", ranks=0)
+        model.bfloat16()
+    else:
+        logger.info("Use fp32 as default model dtype", ranks=0)
+
+    group = sch_config.get("group", None)
+    sch = create_schedule(model, group=group)
+    logger.info(
+        "Scheduling %s with TP=%d, config: %s",
+        model_name,
+        sch.world_size,
+        sch_config,
+        ranks=0,
+    )
+
+    # Tensor parallelism.
+    logger.info("Shard model parameters", ranks=0)
+    prefix = sch_config.get("prefix", "")
+    delay_init = sch_config.get("delay_init", True)
+    # Replace self attention with flash attention, and shard QKV/output
+    # if MP group > 1.
+    attn_op_name = sch_config.get("attn_op_name", "cuda")
+    if attn_op_name == "native_xformers":
+        logger.info("Disabled Flash Attention", ranks=0)
+    cnt, applied_attn_op_name = replace_and_shard_attention(
+        sch[prefix],
+        model_config,
+        delay_init=delay_init,
+        attn_op_name=attn_op_name,
+    )
+    logger.info(
+        "Replace %d attention layers with %s op", cnt, applied_attn_op_name, ranks=0
+    )
+
+    # Operator fusion
+    if not sch_config.get("disable_fuse_bias_gelu", True):
+        fuse_bias_gelu(sch[prefix], model_config)
+        logger.info("Fused Bias+GeLU", ranks=0)
+
+    # Shard other parameters if MP group > 1.
+    if sch.world_size > 1:
+        shard_mlp(sch[prefix], model_config)
+        shard_word_embedding(sch[prefix], model_config.vocab_size)
+
+    if sch.world_size > 1 and sch_config.get("bcast_input", False):
+        # Broadcast input to all devices within the MP group.
+        # This is not required when running on Megatron.
+        logger.info("Broadcast input to all devices", ranks=0)
+        broadcast_input(sch)
+
+    # Insert activation checkpoints.
+    ckpt_ratio = sch_config.get("ckpt_ratio", 0.0)
+    if ckpt_ratio > 0.0:
+        prefix = sch_config.get("prefix", "")
+        checkpoint_method = sch_config.get("checkpoint_method", "uniform")
+        logger.info("Checkpoint ratio: %.2f", ckpt_ratio, ranks=0)
+        n_ckpt = checkpoint(
+            sch[prefix],
+            model_config,
+            ckpt_ratio=ckpt_ratio,
+            checkpoint_method=checkpoint_method,
+        )
+        logger.info("Checkpointed %d layers", n_ckpt, ranks=0)
+
+    # Pipeline parallelism.
+    if sch_config.get("pipeline_cuts", None):
+        logger.info("Generate pipeline schedule", ranks=0)
+        generate_pipeline_schedule(sch, sch_config)
+
+    return sch
+
+
+def generate_pipeline_schedule(sch, sch_config):
+    pipeline_cuts = sch_config.get("pipeline_cuts", None)
+    prefix = sch_config.get("prefix", "")
+    # Cut pipeline stages.
+    if pipeline_cuts:
+        input_names = [
+            "input_ids",
+            "attention_mask",
+            "token_type_ids",
+        ]
+        sig = inspect.signature(sch.mod.forward)
         concrete_args = {
             p.name: p.default
             for p in sig.parameters.values()
             if p.name not in input_names
         }
-        if sub_sch.trace(tracer="pytorch", concrete_args=concrete_args):
-            cnt += 1
-    return cnt
+        _prefix = f"{prefix}." if prefix else ""
+        sch.trace_for_pipeline(
+            f"{_prefix}encoder", tracer="huggingface", concrete_args=concrete_args
+        )
+        for cut in pipeline_cuts:
+            sch[f"{_prefix}encoder.layer.{cut}"].cut_pipeline_stage()
+
+    return sch
 
 
 def fix_attention_mask_shape(sch):
@@ -45,22 +155,22 @@ def fix_attention_mask_shape(sch):
         return out.contiguous()
 
     for op in ops:
-        sch.replace(new_expand, op[1])
+        sch.replace(new_expand, op)
 
 
 def replace_and_shard_attention(
     sch,
-    config,
+    model_config,
     attn_path="encoder.albert_layer_groups.N.albert_layers.N",
     delay_init=True,
     attn_op_name="cuda",
 ):
     init_config = dict(
-        hidden_size=config.hidden_size,
-        num_attention_heads=config.num_attention_heads,
+        hidden_size=model_config.hidden_size,
+        num_attention_heads=model_config.num_attention_heads,
         output_proj=True,
-        attn_pdrop=config.attention_probs_dropout_prob,
-        resid_pdrop=config.hidden_dropout_prob,
+        attn_pdrop=model_config.attention_probs_dropout_prob,
+        resid_pdrop=model_config.hidden_dropout_prob,
         attn_op_name=attn_op_name,
         fused_qkv=True,
         bias=True,
@@ -167,7 +277,9 @@ def shard_word_embedding(sch, vocab_size, word_embed_name="embeddings.word_embed
     sch[word_embed_name].sync(mode="fwd_post", sync_op_or_fn=fwd_post_hook)
 
 
-def fuse_bias_gelu(sch, config, path="encoder.albert_layer_groups.N.albert_layers.N"):
+def fuse_bias_gelu(
+    sch, model_config, path="encoder.albert_layer_groups.N.albert_layers.N"
+):
     def bias_gelu_pattern(x, bias):
         x = bias + x
         x = call_module("activation", x)
@@ -192,9 +304,10 @@ def fuse_bias_gelu(sch, config, path="encoder.albert_layer_groups.N.albert_layer
         subsch.fuse(subgraphs, compiler="TorchScript", name="FusedBiasGeLU")
 
 
+# pylint: disable=dangerous-default-value
 def shard_mlp(
     sch,
-    config,
+    model_config,
     path="encoder.albert_layer_groups.N.albert_layers.N",
     fc_names=["ffn", "ffn_output"],
 ):
@@ -211,12 +324,20 @@ def shard_mlp(
 
 
 def checkpoint(
-    sch, config, path="encoder.albert_layer_groups.N.albert_layers.N", ckpt_ratio=1.0
+    sch,
+    model_config,
+    path="encoder.albert_layer_groups.N.albert_layers.N",
+    ckpt_ratio=1.0,
+    checkpoint_method="uniform",
 ):
+    if checkpoint_method != "uniform":
+        raise NotImplementedError(
+            f"Checkpoint method {checkpoint_method} is not supported yet."
+        )
     if ckpt_ratio == 0.0:
-        return
+        return 0
 
-    n_ckpt = int(config.num_hidden_layers * ckpt_ratio)
+    n_ckpt = int(model_config.num_hidden_layers * ckpt_ratio)
     # TODO: Only checkpoint part of the layers
     for idx in range(1):  # use layer group
         sch[path.replace("N", str(idx))].checkpoint()
@@ -224,9 +345,9 @@ def checkpoint(
 
 
 def broadcast_input(sch):
-    def broadcast_input(inputs):
+    def broadcast(inputs):
         for inp in inputs:
             dist.broadcast(inp, src=0, group=sch.group)
         return inputs
 
-    sch.sync(mode="fwd_pre", sync_op_or_fn=broadcast_input)
+    sch.sync(mode="fwd_pre", sync_op_or_fn=broadcast)

@@ -1,31 +1,136 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
+"""HuggingFace OPT with model schedule."""
+# pylint: disable=unused-argument
 
 import inspect
 
-import torch
-import torch.nn as nn
+from torch import nn
 import torch.distributed as dist
 
-from slapo import init_empty_weights
-from slapo.op import FlashAttention, FusedMLP
-from slapo.pattern import call_module
+from ..schedule import create_schedule
+from ..initialization import init_empty_weights
+from ..op import FlashAttention, FusedMLP
+from ..pattern import call_module
+from ..logger import get_logger
+from .registry import register_schedule
+
+from .gpt2 import broadcast_input
 
 
-def trace_attention(sch, config, attn_path="h.N.attn.attention"):
-    cnt = 0
-    for idx in range(config.num_hidden_layers):
-        sub_sch = sch[attn_path.replace("N", str(idx))]
-        input_names = ["hidden_states", "attention_mask"]
-        sig = inspect.signature(sub_sch.mod.forward)
+@register_schedule()
+def _apply_schedule(
+    model,
+    **sch_config,
+):
+    model_config = sch_config.get("model_config", None)
+    if model_config is None:
+        raise ValueError(
+            "Model config is not specified in sch_config. Please provide `model_config` in the kwarg."
+        )
+    try:
+        model_name = model_config._name_or_path
+    except Exception:
+        model_name = model_config.get("_name_or_path", None)
+    logger = get_logger(f"{model_name}")
+
+    # Change data type.
+    fp16 = sch_config.get("fp16", False)
+    bf16 = sch_config.get("bf16", False)
+    if fp16 and bf16:
+        raise ValueError("Cannot use both fp16 and bf16")
+    if fp16:
+        logger.info("Change model dtype to fp16", ranks=0)
+        model.half()
+    elif bf16:
+        logger.info("Change model dtype to bf16", ranks=0)
+        model.bfloat16()
+    else:
+        logger.info("Use fp32 as default model dtype", ranks=0)
+
+    group = sch_config.get("group", None)
+    sch = create_schedule(model, group=group)
+    logger.info(
+        "Scheduling %s with TP=%d, config: %s",
+        model_name,
+        sch.world_size,
+        sch_config,
+        ranks=0,
+    )
+
+    # Tensor parallelism.
+    logger.info("Shard model parameters", ranks=0)
+    prefix = sch_config.get("prefix", "")
+    delay_init = sch_config.get("delay_init", True)
+    # Replace self attention with flash attention, and shard QKV/output
+    # if MP group > 1.
+    attn_op_name = sch_config.get("attn_op_name", "cuda")
+    if attn_op_name == "native_xformers":
+        logger.info("Disabled Flash Attention", ranks=0)
+    cnt, applied_attn_op_name = replace_and_shard_attention(
+        sch[prefix],
+        model_config,
+        delay_init=delay_init,
+        attn_op_name=attn_op_name,
+    )
+    logger.info(
+        "Replace %d attention layers with %s op", cnt, applied_attn_op_name, ranks=0
+    )
+
+    # Shard other parameters if MP group > 1.
+    if sch.world_size > 1:
+        replace_and_shard_mlp(sch[prefix], model_config, delay_init=delay_init)
+        head_sch = sch["lm_head"] if "lm_head" in sch else None
+        shard_word_embedding(sch[prefix], head_sch, model_config.vocab_size)
+
+    if sch.world_size > 1 and sch_config.get("bcast_input", False):
+        # Broadcast input to all devices within the MP group.
+        # This is not required when running on Megatron.
+        logger.info("Broadcast input to all devices", ranks=0)
+        broadcast_input(sch)
+
+    # Insert activation checkpoints.
+    ckpt_ratio = sch_config.get("ckpt_ratio", 0.0)
+    if ckpt_ratio > 0.0:
+        prefix = sch_config.get("prefix", "")
+        checkpoint_method = sch_config.get("checkpoint_method", "uniform")
+        logger.info("Checkpoint ratio: %.2f", ckpt_ratio, ranks=0)
+        n_ckpt = checkpoint(
+            sch[prefix],
+            model_config,
+            ckpt_ratio=ckpt_ratio,
+            checkpoint_method=checkpoint_method,
+        )
+        logger.info("Checkpointed %d layers", n_ckpt, ranks=0)
+
+    # Pipeline parallelism.
+    if sch_config.get("pipeline_cuts", None):
+        logger.info("Generate pipeline schedule", ranks=0)
+        generate_pipeline_schedule(sch, sch_config)
+
+    return sch
+
+
+def generate_pipeline_schedule(sch, sch_config):
+    pipeline_cuts = sch_config.get("pipeline_cuts", None)
+    prefix = sch_config.get("prefix", "")
+    # Cut pipeline stages.
+    if pipeline_cuts:
+        input_names = ["input_ids", "attention_mask", "position_ids"]
+        sig = inspect.signature(sch.mod.forward)
         concrete_args = {
             p.name: p.default
             for p in sig.parameters.values()
             if p.name not in input_names
         }
-        if sub_sch.trace(tracer="pytorch", concrete_args=concrete_args):
-            cnt += 1
-    return cnt
+        sch.trace_for_pipeline(
+            f"{prefix}", tracer="huggingface", concrete_args=concrete_args
+        )
+        _prefix = f"{prefix}." if prefix else ""
+        for cut in pipeline_cuts:
+            sch[f"{_prefix}h.{cut}"].cut_pipeline_stage()
+
+    return sch
 
 
 def fix_attention_mask_shape(sch):
@@ -47,17 +152,17 @@ def fix_attention_mask_shape(sch):
 
 def replace_and_shard_attention(
     sch,
-    config,
+    model_config,
     attn_path="decoder.layers.N.self_attn",
     delay_init=True,
     attn_op_name="cuda",
 ):
     init_config = dict(
-        hidden_size=config.hidden_size,
-        num_attention_heads=config.num_attention_heads,
+        hidden_size=model_config.hidden_size,
+        num_attention_heads=model_config.num_attention_heads,
         output_proj=True,
-        attn_pdrop=config.attention_dropout,
-        resid_pdrop=config.dropout,
+        attn_pdrop=model_config.attention_dropout,
+        resid_pdrop=model_config.dropout,
         attn_op_name=attn_op_name,
         fused_qkv=True,
         bias=True,
@@ -99,7 +204,7 @@ def replace_and_shard_attention(
 
     cnt = 0
     attn_op = []
-    for idx in range(config.num_hidden_layers):
+    for idx in range(model_config.num_hidden_layers):
         sub_sch = sch[attn_path.replace("N", str(idx))]
         with init_empty_weights(enable=delay_init):
             new_mod = Attention(**init_config)
@@ -135,26 +240,6 @@ def replace_and_shard_attention(
         )
 
     return cnt, attn_op[0]
-
-
-def remove_cast(sch, config, attn_path="h.N.attn.attention"):
-    """[Untested] Remove .to(torch.float32) in GPT-Neo attention to align
-    HF and Megatron GPT-2 behavior.
-    """
-    cnt = 0
-    for idx in range(config.num_hidden_layers):
-        sub_sch = sch[attn_path.replace("N", str(idx))]
-        ops = sub_sch.find_node(
-            lambda node: node.op == "call_method"
-            and node.target == "to"
-            and len(node.args) == 2
-            and node.args[1] == torch.float32
-        )
-
-        for op in ops:
-            sub_sch.replace(lambda x, *args: x, op)
-            cnt += 1
-    return cnt
 
 
 def shard_word_embedding(
@@ -193,18 +278,19 @@ def shard_word_embedding(
         head_sch.shard("weight", axis=0)
 
 
+# pylint: disable=dangerous-default-value
 def replace_and_shard_mlp(
     sch,
-    config,
+    model_config,
     path="decoder.layers.N",
     fc_names=["fc1", "fc2"],
     delay_init=True,
     disable_fuse_bias_gelu=True,
 ):
-    for idx in range(config.num_hidden_layers):
+    for idx in range(model_config.num_hidden_layers):
         prefix = path.replace("N", str(idx))
         replaced_new_mlp = False
-        if config.activation_function in ["gelu", "gelu_new"]:
+        if model_config.activation_function in {"gelu", "gelu_new"}:
             if disable_fuse_bias_gelu:
                 sub_sch = sch[prefix]
                 inter_size, hidden_size = sub_sch.mod.c_fc.weight.shape
@@ -212,8 +298,8 @@ def replace_and_shard_mlp(
                     new_mod = FusedMLP(
                         hidden_size,
                         inter_size,
-                        config.activation_function,
-                        config.resid_dropout,
+                        model_config.activation_function,
+                        model_config.resid_dropout,
                     )
                 sub_sch.replace(new_mod)
                 sub_sch.trace(leaf_modules=["FusedBiasGELU", "FusedBiasNewGELU"])
@@ -251,20 +337,21 @@ def replace_and_shard_mlp(
                 )
 
 
-def checkpoint(sch, config, path="decoder.layers.N", ckpt_ratio=1.0):
+def checkpoint(
+    sch,
+    model_config,
+    path="decoder.layers.N",
+    ckpt_ratio=1.0,
+    checkpoint_method="uniform",
+):
+    if checkpoint_method != "uniform":
+        raise NotImplementedError(
+            f"Checkpoint method {checkpoint_method} is not supported yet."
+        )
     if ckpt_ratio == 0.0:
-        return
+        return 0
 
-    n_ckpt = int(config.num_hidden_layers * ckpt_ratio)
+    n_ckpt = int(model_config.num_hidden_layers * ckpt_ratio)
     for idx in range(n_ckpt):
         sch[path.replace("N", str(idx))].checkpoint()
     return n_ckpt
-
-
-def broadcast_input(sch):
-    def broadcast_input(inputs):
-        for inp in inputs:
-            dist.broadcast(inp, src=0, group=sch.group)
-        return inputs
-
-    sch.sync(mode="fwd_pre", sync_op_or_fn=broadcast_input)

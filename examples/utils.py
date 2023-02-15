@@ -19,7 +19,7 @@ def get_ds_config(
     logger.info(f"fp16={fp16}, bf16={bf16}")
     config_dict = {
         "help": desc,
-        "steps_per_print": 10,
+        "steps_per_print": 2,
         "optimizer": {"type": "AdamW", "params": {"lr": 0.0001}},
         "fp16": {"enabled": fp16, "initial_scale_power": 12},
         "bf16": {"enabled": bf16},

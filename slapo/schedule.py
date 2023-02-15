@@ -57,6 +57,9 @@ logger = get_logger()
 fx.wrap(call_module)
 
 
+TENSOR_MODEL_PARALLEL = 'tensor_model_parallel'
+
+
 def _get_unique_module_name(gm_or_modules, name):
     if isinstance(gm_or_modules, fx.GraphModule):
         named_module = dict(gm_or_modules.named_modules())
@@ -68,6 +71,14 @@ def _get_unique_module_name(gm_or_modules, name):
         new_name = name + "_" + str(num)
         num += 1
     return new_name
+
+
+def _set_model_parallel_attribute(param, key, value):
+    setattr(param, key, value)
+
+
+def _is_model_parallel_parameter(param):
+    return hasattr(param, TENSOR_MODEL_PARALLEL) and getattr(param, TENSOR_MODEL_PARALLEL)
 
 
 class DictWithValidation(dict):
@@ -269,6 +280,7 @@ class Schedule:
                     self.metadata.tie_weights[param] = new_param
             else:
                 new_param = nn.Parameter(new_tensor)
+            _set_model_parallel_attribute(new_param, TENSOR_MODEL_PARALLEL, True)
             self.mod.register_parameter(tensor_name, new_param)
         except AttributeError:
             buffer = self.mod.get_buffer(tensor_name)
@@ -1347,6 +1359,8 @@ def consolidate_model(
                     is_found = True
             if is_found:
                 new_param = param.detach().split(sharded_size, dim=axis)[tp_rank]
+                if _is_model_parallel_parameter(param):
+                    _set_model_parallel_attribute(new_param, TENSOR_MODEL_PARALLEL, True)
                 sch.mod.register_parameter(param_name, nn.Parameter(new_param))
 
         for subsch in sch.child.values():

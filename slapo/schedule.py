@@ -57,6 +57,9 @@ logger = get_logger()
 fx.wrap(call_module)
 
 
+TENSOR_MODEL_PARALLEL = 'tensor_model_parallel'
+
+
 def _get_unique_module_name(gm_or_modules, name):
     if isinstance(gm_or_modules, fx.GraphModule):
         named_module = dict(gm_or_modules.named_modules())
@@ -68,6 +71,14 @@ def _get_unique_module_name(gm_or_modules, name):
         new_name = name + "_" + str(num)
         num += 1
     return new_name
+
+
+def _set_model_parallel_attribute(param, key, value):
+    setattr(param, key, value)
+
+
+def _is_model_parallel_parameter(param):
+    return hasattr(param, TENSOR_MODEL_PARALLEL) and getattr(param, TENSOR_MODEL_PARALLEL)
 
 
 class DictWithValidation(dict):

@@ -57,7 +57,7 @@ logger = get_logger()
 fx.wrap(call_module)
 
 
-TENSOR_MODEL_PARALLEL = 'tensor_model_parallel'
+TENSOR_MODEL_PARALLEL = "tensor_model_parallel"
 
 
 def _get_unique_module_name(gm_or_modules, name):

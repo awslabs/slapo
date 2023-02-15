@@ -4,6 +4,17 @@
 import os
 from slapo.framework_dialect import get_dialect_cls
 
+MODEL_KEY = [
+    "bert",
+    "gpt",
+    "gpt2",
+    "albert",
+    "t5",
+    "opt",
+    "roberta",
+    "wideresnet",
+]
+
 
 def add_deepspeed_parser(common_parser, subprasers):
     subprasers.add_parser(
@@ -18,9 +29,10 @@ def parse_deepspeed_kwargs(args, kwargs, memo):
 
 
 def identify_model_key(exp):
-    for model_key in ["bert", "gpt", "albert", "t5", "opt", "roberta", "wideresnet"]:
+    for model_key in MODEL_KEY:
         short_name = exp.model.split("/")[-1].split("-")[0]
         if model_key == short_name:
+            model_key = "gpt_neo" if model_key == "gpt" else model_key
             return model_key
     raise ValueError(f"Unknown model key for {exp.model}")
 

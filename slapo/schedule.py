@@ -109,10 +109,6 @@ class ScheduleMetadata:
         default_factory=lambda: OrderedDict()
     )
 
-    # A mapping from parameter name to original shape
-    # Used for delay initialization
-    base_params: dict[str, tuple] = field(default_factory=lambda: DictWithValidation())
-
 
 def register_primitive(need_dist=False, finalize=False):
     """
@@ -171,10 +167,6 @@ class Schedule:
         self.parent = parent
         self.child = {}
         self.metadata = ScheduleMetadata()
-
-        # Record original shapes.
-        for param_name, param in mod.named_parameters():
-            self.metadata.base_params[param_name] = param.shape
 
         if parent is None:
             # Tie weight analysis only at the top level module.
@@ -280,7 +272,14 @@ class Schedule:
                     self.metadata.tie_weights[param] = new_param
             else:
                 new_param = nn.Parameter(new_tensor)
+<<<<<<< HEAD
             _set_model_parallel_attribute(new_param, TENSOR_MODEL_PARALLEL, True)
+=======
+
+            # Save the original size of the parameter for consolidation.
+            new_param.orig_shape = param.shape
+
+>>>>>>> b1daf687c8ea55d5ce437a03b57c4df9831eeaa3
             self.mod.register_parameter(tensor_name, new_param)
         except AttributeError:
             buffer = self.mod.get_buffer(tensor_name)
@@ -681,11 +680,9 @@ class Schedule:
                 # New matched.
                 subgraphs.append((parent_name, curr))
             matched = True
-            for curr_usr, target_usr in zip(curr.users, target.users):
-                # DFS traverse. If any subgraph is not matched, the whole graph
-                # is not matched.
+            if curr.next != curr and target.next != target:
                 matched = matched and find_match_subgraphs(
-                    curr_usr, target_usr, subgraphs
+                    curr.next, target.next, subgraphs
                 )
             return matched
 
@@ -813,7 +810,7 @@ class SubgraphWrapper(nn.Module):
             node.replace_all_uses_with(new_node)
         self.mod.graph.erase_node(node)
 
-    def _replace_module(self, new_mod, subgraphs=None, name=None):
+    def _replace_module(self, new_mod, subgraphs=None, name=None, concrete_args=None):
         """Replace an entire module with a new one.
         Do NOT directly call this function, use `.replace()` instead.
 
@@ -830,6 +827,8 @@ class SubgraphWrapper(nn.Module):
         name : Optional[str]
             The name of the replaced module. If it is None, a default name
             will be automatically generated.
+        concrete_args : Optional[Dict[str, Any]]
+            The concrete arguments of the forward function of the new module.
         """
         if subgraphs is None:
             if name is not None and name != self.name:
@@ -914,6 +913,12 @@ class SubgraphWrapper(nn.Module):
                 target_mod.add_module(name, new_mod)
                 with target_mod.graph.inserting_before(first_node):
                     sig = inspect.signature(new_mod.forward)
+                    mod_args_need_inputs = [
+                        k
+                        for k, v in sig.parameters.items()
+                        if v.default is inspect.Parameter.empty
+                        and v.kind is not inspect.Parameter.VAR_POSITIONAL
+                    ]
                     default_args = {
                         k: v.default
                         for k, v in sig.parameters.items()
@@ -923,13 +928,27 @@ class SubgraphWrapper(nn.Module):
                     for key, value in default_args:
                         if key in first_node.kwargs:
                             new_kwargs[key] = value
-                    new_args = []
+                    if concrete_args is not None:
+                        new_kwargs.update(concrete_args)
+                    else:
+                        concrete_args = {}
+                    subgraph_args = []
                     for node in ops:
                         for arg in node.args:
-                            if isinstance(arg, fx.Node) and arg not in ops:
-                                new_args.append(arg)
+                            if (
+                                isinstance(arg, fx.Node)
+                                and arg not in ops
+                                and arg not in subgraph_args
+                            ):
+                                subgraph_args.append(arg)
+                    if len(subgraph_args) + len(concrete_args) != len(
+                        mod_args_need_inputs
+                    ):
+                        raise ValueError(
+                            f"The number of arguments (w/o default values) of the new module ({len(mod_args_need_inputs)}) does not match the number of arguments of the original subgraph ({len(subgraph_args)}). Please use `concrete_args` to specify the arguments."
+                        )
                     new_node = target_mod.graph.call_module(
-                        name, tuple(new_args), new_kwargs
+                        name, tuple(subgraph_args), new_kwargs
                     )
                 last_node = ops[-1]
                 last_node.replace_all_uses_with(new_node)
@@ -940,7 +959,7 @@ class SubgraphWrapper(nn.Module):
             self.child[name] = new_sch
 
     @register_primitive()
-    def replace(self, new_mod_or_func, target_ops=None, name=None):
+    def replace(self, new_mod_or_func, target_ops=None, name=None, concrete_args=None):
         """Replace one of the following scenarios:
         1. Replace an entire module (new_mod_or_func is the new module object, target_ops=None).
         2. Replace a part of the forward function (target_ops) with a new module or function.
@@ -952,7 +971,7 @@ class SubgraphWrapper(nn.Module):
                 )
             self._replace_function(new_mod_or_func, target_ops)
         else:
-            self._replace_module(new_mod_or_func, target_ops, name)
+            self._replace_module(new_mod_or_func, target_ops, name, concrete_args)
 
         # Clean up and update the schedule child list.
         if isinstance(self.mod, fx.GraphModule):
@@ -1304,7 +1323,7 @@ def consolidate_model(
         if isinstance(sch.mod, torch.jit.ScriptModule):
             # Scripted module requires the parameters to be initialized in advance,
             # so no need to consolidate
-            return
+            return 0, 0
 
         if hasattr(sch, "partition_idx") and topology is not None:
             curr_part_idx = sch.partition_idx
@@ -1316,39 +1335,39 @@ def consolidate_model(
 
         if global_rank not in curr_stage_devices:
             # do nothing if the target module is NOT on this device group
-            return
+            return 0, 0
 
-        # copy out new params after sharding
+        # Register parameters with the original shape (if sharded) for initialization.
         num_params = 0
         new_param_shapes = {}
         for param_name, param in sch.mod.named_parameters(recurse=False):
             num_params += 1
             new_param_shapes[param_name] = param.shape
-            assert param_name in sch.metadata.base_params
+            orig_shape = (
+                param.orig_shape if hasattr(param, "orig_shape") else param.shape
+            )
             sch.mod.register_parameter(
                 param_name,
                 nn.Parameter(
-                    torch.empty(
-                        sch.metadata.base_params[param_name],
-                        dtype=param.dtype,
-                        device=local_rank,
-                    )
+                    torch.empty(orig_shape, dtype=param.dtype, device=local_rank)
                 ),
             )
 
-        # use original shape to initialize parameters
+        # Use original shape to initialize parameters.
         if global_rank == curr_stage_devices[0] and num_params > 0:
             # only the first device in the PP group needs to initialize the weights
             _init_module(sch)
 
-        # need to broadcast params from rank 0 to make sure all the TP+DP ranks take the same params
+        # Broadcast complete params from rank 0 to make sure all the TP+DP ranks
+        # take the same params.
         if dist.is_initialized():
             curr_stage_group = stage_groups[curr_part_idx]
             for _, param in sch.mod.named_parameters(recurse=False):
                 dist.broadcast(param, src=curr_stage_devices[0], group=curr_stage_group)
 
-        # discard redundant values
+        # Only keep the partition for this device for sharded params.
         tp_rank = sch.rank
+        cnt_shard = 0
         for param_name, param in sch.mod.named_parameters(recurse=False):
             is_found = False
             for idx, new_size in enumerate(new_param_shapes[param_name]):
@@ -1358,16 +1377,27 @@ def consolidate_model(
                     axis = idx
                     is_found = True
             if is_found:
+                cnt_shard += 1
                 new_param = param.detach().split(sharded_size, dim=axis)[tp_rank]
                 if _is_model_parallel_parameter(param):
                     _set_model_parallel_attribute(new_param, TENSOR_MODEL_PARALLEL, True)
                 sch.mod.register_parameter(param_name, nn.Parameter(new_param))
 
         for subsch in sch.child.values():
-            _consolidate_and_broadcast(subsch)
+            ret = _consolidate_and_broadcast(subsch)
+            num_params += ret[0]
+            cnt_shard += ret[1]
+
+        return num_params, cnt_shard
 
     if cnt_meta != 0 or cnt_materialized != 0:
-        _consolidate_and_broadcast(sch)
+        num_params, cnt_shard = _consolidate_and_broadcast(sch)
+
+    logger.info(
+        "Finished consolidating %d parameter tensors with %d being sharded",
+        num_params,
+        cnt_shard,
+    )
 
     gc.collect()
     torch.cuda.empty_cache()

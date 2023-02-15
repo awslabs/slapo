@@ -38,18 +38,22 @@ def get_model(
     if padded_vocab_size is not None:
         config.vocab_size = padded_vocab_size
     config.type_vocab_size = 2 if binary_head else 0
+    print_rank_0(config)
 
     if "slapo" in impl:
         import slapo
         from slapo.utils.report import report_memory
-        from model import schedule_model
+        from slapo.model_schedule import apply_schedule
 
         report_memory()
         with slapo.init_empty_weights(enable=delay_init):
             model = RobertaModel(config, add_pooling_layer=add_pooling_layer)
-        sch = schedule_model(
+        report_memory()
+        print_rank_0(model)
+        sch = apply_schedule(
             model,
-            config,
+            "roberta",
+            model_config=config,
             attn_op_name="native_xformers" if disable_flash_attn else "cuda",
             fp16=fp16,
             ckpt_ratio=ckpt_ratio,
@@ -57,7 +61,6 @@ def get_model(
             delay_init=delay_init,
         )
         model, _ = slapo.build(sch, init_weights=model._init_weights)
-        report_memory()
 
     elif impl == "torchscript":
         if ckpt_ratio > 0:

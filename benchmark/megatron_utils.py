@@ -108,7 +108,7 @@ def megatron_gpt_cmd(exp):
         import slapo
 
         path = slapo.__path__[0]
-        script_file = f"{path}/../examples/gpt/megatron_hf.py"
+        script_file = f"{path}/../examples/gpt_neo/megatron_hf.py"
 
     return (
         script_file,

@@ -14,8 +14,9 @@ import slapo
 from slapo.logger import get_logger
 from slapo.op.cross_entropy import ParallelCrossEntropy
 from slapo.utils.report import report_memory
+from slapo.model_schedule import apply_schedule
 
-from model import schedule_model, get_model_config, get_model
+from model import get_model_config, get_model
 from utils import count_parameters, get_data_loader
 from examples.utils import (
     train_with_deepspeed_engine,
@@ -67,7 +68,7 @@ def train(args):
 
     report_memory(msg="Before creating model")
     with slapo.init_empty_weights(enable=enable_pipeline):
-        model = get_model(*model_config)
+        model = get_model(*model_config["block_size"])
     report_memory(msg="After creating model")
     logger.info(f"Param size {count_parameters(model)/1e9}B", ranks=0)
 
@@ -83,9 +84,10 @@ def train(args):
         if args.fp16:
             sch.mod = sch.mod.half()
     else:
-        sch = schedule_model(
+        sch = apply_schedule(
             model,
-            model_config,
+            "wideresnet",
+            model_config=model_config,
             prefix="model",
             ckpt_ratio=args.checkpoint,
             bcast_input=True,

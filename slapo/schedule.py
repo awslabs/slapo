@@ -669,11 +669,9 @@ class Schedule:
                 # New matched.
                 subgraphs.append((parent_name, curr))
             matched = True
-            for curr_usr, target_usr in zip(curr.users, target.users):
-                # DFS traverse. If any subgraph is not matched, the whole graph
-                # is not matched.
+            if curr.next != curr and target.next != target:
                 matched = matched and find_match_subgraphs(
-                    curr_usr, target_usr, subgraphs
+                    curr.next, target.next, subgraphs
                 )
             return matched
 
@@ -801,7 +799,7 @@ class SubgraphWrapper(nn.Module):
             node.replace_all_uses_with(new_node)
         self.mod.graph.erase_node(node)
 
-    def _replace_module(self, new_mod, subgraphs=None, name=None):
+    def _replace_module(self, new_mod, subgraphs=None, name=None, concrete_args=None):
         """Replace an entire module with a new one.
         Do NOT directly call this function, use `.replace()` instead.
 
@@ -902,6 +900,11 @@ class SubgraphWrapper(nn.Module):
                 target_mod.add_module(name, new_mod)
                 with target_mod.graph.inserting_before(first_node):
                     sig = inspect.signature(new_mod.forward)
+                    mod_args_need_inputs = [
+                        k
+                        for k, v in sig.parameters.items()
+                        if v.default is inspect.Parameter.empty
+                    ]
                     default_args = {
                         k: v.default
                         for k, v in sig.parameters.items()
@@ -911,13 +914,25 @@ class SubgraphWrapper(nn.Module):
                     for key, value in default_args:
                         if key in first_node.kwargs:
                             new_kwargs[key] = value
-                    new_args = []
+                    if concrete_args is not None:
+                        new_kwargs.update(concrete_args)
+                    subgraph_args = []
                     for node in ops:
                         for arg in node.args:
-                            if isinstance(arg, fx.Node) and arg not in ops:
-                                new_args.append(arg)
+                            if (
+                                isinstance(arg, fx.Node)
+                                and arg not in ops
+                                and arg not in subgraph_args
+                            ):
+                                subgraph_args.append(arg)
+                    if len(subgraph_args) + len(concrete_args) != len(
+                        mod_args_need_inputs
+                    ):
+                        raise ValueError(
+                            f"The number of arguments (w/o default values) of the new module ({len(mod_args_need_inputs)}) does not match the number of arguments of the original subgraph ({len(subgraph_args)}). Please use `concrete_args` to specify the arguments."
+                        )
                     new_node = target_mod.graph.call_module(
-                        name, tuple(new_args), new_kwargs
+                        name, tuple(subgraph_args), new_kwargs
                     )
                 last_node = ops[-1]
                 last_node.replace_all_uses_with(new_node)
@@ -928,7 +943,7 @@ class SubgraphWrapper(nn.Module):
             self.child[name] = new_sch
 
     @register_primitive()
-    def replace(self, new_mod_or_func, target_ops=None, name=None):
+    def replace(self, new_mod_or_func, target_ops=None, name=None, concrete_args=None):
         """Replace one of the following scenarios:
         1. Replace an entire module (new_mod_or_func is the new module object, target_ops=None).
         2. Replace a part of the forward function (target_ops) with a new module or function.
@@ -940,7 +955,7 @@ class SubgraphWrapper(nn.Module):
                 )
             self._replace_function(new_mod_or_func, target_ops)
         else:
-            self._replace_module(new_mod_or_func, target_ops, name)
+            self._replace_module(new_mod_or_func, target_ops, name, concrete_args)
 
         # Clean up and update the schedule child list.
         if isinstance(self.mod, fx.GraphModule):

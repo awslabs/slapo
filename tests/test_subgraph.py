@@ -194,6 +194,29 @@ def test_two_paths():
     assert subgraph[1][1].target == "relu"
 
 
+def test_tree_pattern():
+    class Model(nn.Module):
+        def __init__(self):
+            super().__init__()
+
+        def forward(self, x, y, z):
+            a = x + y
+            b = y - z
+            c = a * b
+            return c
+
+    sch = slapo.create_schedule(Model())
+
+    def pattern(x, y, z):
+        return (x + y) * (y - z)
+
+    subgraph = sch.find(pattern)[0]
+    assert len(subgraph) == 3
+    assert subgraph[0][1].name == "add"
+    assert subgraph[1][1].name == "sub"
+    assert subgraph[2][1].name == "mul"
+
+
 def test_horizontal_pattern():
     class CoreAttention(nn.Module):
         def __init__(self):

@@ -77,10 +77,6 @@ def _set_model_parallel_attribute(param, key, value):
     setattr(param, key, value)
 
 
-def _is_model_parallel_parameter(param):
-    return hasattr(param, TENSOR_MODEL_PARALLEL) and getattr(param, TENSOR_MODEL_PARALLEL)
-
-
 class DictWithValidation(dict):
     def __setitem__(self, key, value):
         if key in self and self[key] != value:

@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 """HuggingFace GPT-2 with model schedule."""
 # pylint: disable=unused-argument
-
 import inspect
+import json
 
 from torch import nn
 from torch.distributed import distributed_c10d as dist
@@ -21,11 +21,27 @@ def _apply_schedule(
     model,
     **sch_config,
 ):
+    # Extract configs.
     model_config = sch_config.get("model_config", None)
+    fp16 = sch_config.get("fp16", False)
+    bf16 = sch_config.get("bf16", False)
+    group = sch_config.get("group", None)
+    prefix = sch_config.get("prefix", "")
+    bcast_input = sch_config.get("bcast_input", False)
+    ckpt_ratio = sch_config.get("ckpt_ratio", 0.0)
+    checkpoint_method = sch_config.get("checkpoint_method", "uniform")
+    pipeline_cuts = sch_config.get("pipeline_cuts", None)
+
+    # Validate config.
     if model_config is None:
         raise ValueError(
-            "Model config is not specified in sch_config. Please provide `model_config` in the kwarg."
+            "Model config is not specified in sch_config. Please provide "
+            "`model_config` in the kwarg."
         )
+    if fp16 and bf16:
+        raise ValueError("Cannot use both fp16 and bf16")
+
+    # Get model name and setup logger.
     try:
         model_name = model_config._name_or_path
     except Exception:
@@ -33,10 +49,6 @@ def _apply_schedule(
     logger = get_logger(f"{model_name}")
 
     # Change data type.
-    fp16 = sch_config.get("fp16", False)
-    bf16 = sch_config.get("bf16", False)
-    if fp16 and bf16:
-        raise ValueError("Cannot use both fp16 and bf16")
     if fp16:
         logger.info("Change model dtype to fp16", ranks=0)
         model.half()
@@ -46,35 +58,43 @@ def _apply_schedule(
     else:
         logger.info("Use fp32 as default model dtype", ranks=0)
 
-    group = sch_config.get("group", None)
     sch = create_schedule(model, group=group)
     logger.info(
         "Scheduling %s with TP=%d, config: %s",
         model_name,
         sch.world_size,
-        sch_config,
+        get_sch_config_str(sch_config),
         ranks=0,
     )
 
     # Replace modules.
-    prefix = sch_config.get("prefix", "")
     logger.info("Replace Attention and MLP modules", ranks=0)
-    replace_attention_and_mlp(sch[prefix], model_config, sch_config)
+    for name, cnt in replace_modules(sch[prefix], model_config, sch_config).items():
+        logger.info("Replace %d %s", cnt, name, ranks=0)
 
     # Tensor parallelism.
-    logger.info("Shard model parameters", ranks=0)
-    shard_parameters(sch[prefix], model_config, sch_config)
+    if sch.world_size > 1:
+        logger.info("Shard model parameters", ranks=0)
+        head_sch = sch["lm_head"] if "lm_head" in sch else None
+        shard_target = ["embed", "attention", "mlp"]
+        log_list = shard_parameters(
+            sch[prefix],
+            head_sch,
+            model_config,
+            shard_target,
+            sequence_parallel=sch_config.get("sequence_parallel", False),
+        )
+        for msg in log_list:
+            logger.info(msg, ranks=0)
 
-    if sch.world_size > 1 and sch_config.get("bcast_input", False):
-        # Broadcast input to all devices within the MP group.
-        # This is not required when running on Megatron.
-        logger.info("Broadcast input to all devices", ranks=0)
-        broadcast_input(sch)
+        if bcast_input:
+            # Broadcast input to all devices within the MP group.
+            # This is not required when running on Megatron.
+            logger.info("Broadcast input to all devices", ranks=0)
+            broadcast_input(sch)
 
     # Insert activation checkpoints.
-    ckpt_ratio = sch_config.get("ckpt_ratio", 0.0)
     if ckpt_ratio > 0.0:
-        checkpoint_method = sch_config.get("checkpoint_method", "uniform")
         logger.info("Checkpoint ratio: %.2f", ckpt_ratio, ranks=0)
         n_ckpt = checkpoint(
             sch[prefix],
@@ -85,47 +105,73 @@ def _apply_schedule(
         logger.info("Checkpointed %d layers", n_ckpt, ranks=0)
 
     # Pipeline parallelism.
-    if sch_config.get("pipeline_cuts", None):
+    if pipeline_cuts:
         logger.info("Generate pipeline schedule", ranks=0)
         generate_pipeline_schedule(sch, sch_config)
 
     return sch
 
 
-def replace_attention_and_mlp(sch, model_config, sch_config):
+def get_sch_config_str(sch_config):
+    """A utility to generate a pretty string of the schedule config.
+
+    Parameters
+    ----------
+    sch_config : dict
+        The model schedule configuration.
+
+    Returns
+    -------
+    str
+        A pretty string of the schedule config.
+    """
+
+    def json_default(obj):
+        if hasattr(obj, "to_dict"):
+            # The type of model config is PretrainedConfig,
+            # so we first convert it to dict to let json.dumps
+            # interpret its formats correctly.
+            return obj.to_dict()
+        return repr(obj)
+
+    # model_config_dict = sch_config["model_config"].to_dict()
+    return json.dumps(sch_config, indent=2, sort_keys=True, default=json_default)
+
+
+def replace_modules(sch, model_config, sch_config):
+    """Replace modules in the model with efficient implementations.
+
+    Parameters
+    ----------
+    sch : slapo.Schedule
+        The schedule of the entire model.
+    model_config : GPT2Config
+        The model configuration.
+    sch_config : dict
+        The model schedule configuration.
+
+    Returns
+    -------
+    log_dict : dict
+        A dict of log messages in the format of {replaced module info: count}.
+    """
     delay_init = sch_config.get("delay_init", True)
-    model_name = model_config._name_or_path
-    logger = get_logger(model_name)
+    log_dict = {}
+
     # Replace self attention with flash attention.
     attn_op_name = sch_config.get("attn_op_name", "cuda")
-    if attn_op_name == "native_xformers":
-        logger.info("Disabled Flash Attention", ranks=0)
     cnt, applied_attn_op_name = replace_attention(
         sch,
         model_config,
         delay_init=delay_init,
         attn_op_name=attn_op_name,
     )
-    logger.info(
-        "Replace %d attention layers with %s op", cnt, applied_attn_op_name, ranks=0
-    )
+    log_dict[f"attention layers with {applied_attn_op_name} op"] = cnt
 
     # Replace MLP with fused kernels.
     cnt = replace_mlp(sch, model_config, delay_init=delay_init)
-    logger.info("Replaced %d MLP layers", cnt, ranks=0)
-
-
-def shard_parameters(sch, model_config, sch_config):
-    if sch.world_size > 1:
-        head_sch = sch["lm_head"] if "lm_head" in sch else None
-        shard_target = ["embed", "attention", "mlp"]
-        shard(
-            sch,
-            head_sch,
-            model_config,
-            shard_target,
-            sequence_parallel=sch_config.get("sequence_parallel", False),
-        )
+    log_dict["MLP layers"] = cnt
+    return log_dict
 
 
 def replace_attention(
@@ -333,7 +379,7 @@ def fix_attention_mask_shape(sch):
         sch.replace(new_expand, op)
 
 
-def shard(
+def shard_parameters(
     sch,
     head_sch,
     model_config,
@@ -357,9 +403,10 @@ def shard(
     sequence_parallel : bool
         Whether to use sequence parallelism. Default False.
     """
+    log_list = []
 
     if sch.world_size == 1:
-        return
+        return log_list
 
     # Shard input embedding.
     if "embed" in shard_target:
@@ -369,6 +416,7 @@ def shard(
         fwd_pre_hook, fwd_post_hook = gen_embedding_hooks(sch, model_config.vocab_size)
         sch[word_embed_name].sync(mode="fwd_pre", sync_op_or_fn=fwd_pre_hook)
         sch[word_embed_name].sync(mode="fwd_post", sync_op_or_fn=fwd_post_hook)
+        log_list.append("Shard input embedding")
 
         if sequence_parallel:
             sch[word_embed_name].sync(mode="fwd_post", sync_op_or_fn="scatter", axis=1)
@@ -384,6 +432,13 @@ def shard(
         if head_sch is not None:
             head_sch.shard("weight", axis=0)
             head_sch.sync(mode="bwd_post", sync_op_or_fn="all_reduce")
+            log_list.append("Shard output embedding")
+        else:
+            log_list.append(
+                "Skip sharding output embedding because lm_head is not given"
+            )
+    else:
+        log_list.append("Skip sharding embedding layers")
 
     # Shard attention.
     if "attention" in shard_target:
@@ -435,6 +490,10 @@ def shard(
                 )
                 sub_sch["module"]["attn_op"].replace(new_op)
 
+        log_list.append(f"Shard {model_config.num_hidden_layers} attention layers")
+    else:
+        log_list.append("Skip sharding attention layers")
+
     # Shard MLP.
     if "mlp" in shard_target:
         path = "h.N.mlp"
@@ -467,6 +526,12 @@ def shard(
             else:
                 sub_sch[fc_names[0]].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
                 sub_sch[fc_names[2]].sync(mode="fwd_post", sync_op_or_fn="all_reduce")
+
+        log_list.append(f"Shard {model_config.num_hidden_layers} MLP layers")
+    else:
+        log_list.append("Skip sharding MLP layers")
+
+    return log_list
 
 
 def checkpoint(
@@ -569,6 +634,7 @@ def generate_pipeline_schedule(sch, sch_config):
     """
     pipeline_cuts = sch_config.get("pipeline_cuts", None)
     prefix = sch_config.get("prefix", "")
+
     # Cut pipeline stages.
     if pipeline_cuts:
         input_names = ["input_ids", "attention_mask", "position_ids"]
@@ -584,5 +650,3 @@ def generate_pipeline_schedule(sch, sch_config):
         _prefix = f"{prefix}." if prefix else ""
         for cut in pipeline_cuts:
             sch[f"{_prefix}h.{cut}"].cut_pipeline_stage()
-
-    return sch

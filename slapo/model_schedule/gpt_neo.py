@@ -65,7 +65,15 @@ def _apply_schedule(
 
     # Tensor parallelism.
     logger.info("Shard model parameters", ranks=0)
-    shard_parameters(sch[prefix], model_config, sch_config)
+    head_sch = sch["lm_head"] if "lm_head" in sch else None
+    shard_target = ["embed", "attention", "mlp"]
+    shard_parameters(
+        sch[prefix],
+        head_sch,
+        model_config,
+        shard_target,
+        sequence_parallel=sch_config.get("sequence_parallel", False),
+    )
 
     if sch.world_size > 1 and sch_config.get("bcast_input", False):
         # Broadcast input to all devices within the MP group.
@@ -115,19 +123,6 @@ def replace_attention_and_mlp(sch, model_config, sch_config):
     # Replace MLP with fused kernels.
     cnt = replace_mlp(sch, model_config, delay_init=delay_init)
     logger.info("Replaced %d MLP layers", cnt, ranks=0)
-
-
-def shard_parameters(sch, model_config, sch_config):
-    if sch.world_size > 1:
-        head_sch = sch["lm_head"] if "lm_head" in sch else None
-        shard_target = ["embed", "attention", "mlp"]
-        shard(
-            sch,
-            head_sch,
-            model_config,
-            shard_target,
-            sequence_parallel=sch_config.get("sequence_parallel", False),
-        )
 
 
 def replace_attention(
@@ -274,7 +269,7 @@ def replace_mlp(
     return model_config.num_layers
 
 
-def shard(
+def shard_parameters(
     sch,
     head_sch,
     model_config,

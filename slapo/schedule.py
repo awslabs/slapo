@@ -77,10 +77,6 @@ def _set_model_parallel_attribute(param, key, value):
     setattr(param, key, value)
 
 
-def _is_model_parallel_parameter(param):
-    return hasattr(param, TENSOR_MODEL_PARALLEL) and getattr(param, TENSOR_MODEL_PARALLEL)
-
-
 class DictWithValidation(dict):
     def __setitem__(self, key, value):
         if key in self and self[key] != value:
@@ -272,14 +268,10 @@ class Schedule:
                     self.metadata.tie_weights[param] = new_param
             else:
                 new_param = nn.Parameter(new_tensor)
-<<<<<<< HEAD
+            # Tag param with model parallel attribute, used for grad clipping
             _set_model_parallel_attribute(new_param, TENSOR_MODEL_PARALLEL, True)
-=======
-
             # Save the original size of the parameter for consolidation.
             new_param.orig_shape = param.shape
-
->>>>>>> b1daf687c8ea55d5ce437a03b57c4df9831eeaa3
             self.mod.register_parameter(tensor_name, new_param)
         except AttributeError:
             buffer = self.mod.get_buffer(tensor_name)
@@ -1378,10 +1370,10 @@ def consolidate_model(
                     is_found = True
             if is_found:
                 cnt_shard += 1
-                new_param = param.detach().split(sharded_size, dim=axis)[tp_rank]
-                if _is_model_parallel_parameter(param):
-                    _set_model_parallel_attribute(new_param, TENSOR_MODEL_PARALLEL, True)
-                sch.mod.register_parameter(param_name, nn.Parameter(new_param))
+                sharded_param = param.detach().split(sharded_size, dim=axis)[tp_rank]
+                new_param = nn.Parameter(sharded_param)
+                _set_model_parallel_attribute(new_param, TENSOR_MODEL_PARALLEL, True)
+                sch.mod.register_parameter(param_name, new_param)
 
         for subsch in sch.child.values():
             ret = _consolidate_and_broadcast(subsch)

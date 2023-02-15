@@ -916,6 +916,8 @@ class SubgraphWrapper(nn.Module):
                             new_kwargs[key] = value
                     if concrete_args is not None:
                         new_kwargs.update(concrete_args)
+                    else:
+                        concrete_args = {}
                     subgraph_args = []
                     for node in ops:
                         for arg in node.args:

@@ -159,6 +159,40 @@ def test_horizontal_replacement():
         sch.replace(mod, subgraph)
 
 
+def test_mismatched_arguments():
+    class Model(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.linear = nn.Linear(1024, 1024)
+            self.bn = nn.BatchNorm1d(1024)
+            self.activation = nn.ReLU()
+
+        def forward(self, x):
+            y = self.linear(x)
+            z = self.activation(y) + x
+            return z
+
+    model = Model()
+    sch = slapo.create_schedule(model)
+
+    def pattern(x):
+        return F.relu(x) + x
+
+    subgraphs = sch.find(pattern)
+    assert len(subgraphs) == 1
+    assert len(subgraphs[0]) == 2
+
+    class NewMod(nn.Module):
+        def forward(self, x, y, z):
+            return x + y + z
+
+    mod = NewMod()
+    with pytest.raises(Exception):
+        sch.replace(mod, subgraphs)
+    sch.replace(mod, subgraphs, concrete_args={"z": 0})
+    assert isinstance(sch["NewMod_1"].mod, nn.Module)
+
+
 def test_replace_function():
     class Model(nn.Module):
         def __init__(self):

@@ -57,9 +57,6 @@ logger = get_logger()
 fx.wrap(call_module)
 
 
-TENSOR_MODEL_PARALLEL = "tensor_model_parallel"
-
-
 def _get_unique_module_name(gm_or_modules, name):
     if isinstance(gm_or_modules, fx.GraphModule):
         named_module = dict(gm_or_modules.named_modules())
@@ -71,10 +68,6 @@ def _get_unique_module_name(gm_or_modules, name):
         new_name = name + "_" + str(num)
         num += 1
     return new_name
-
-
-def _set_model_parallel_attribute(param, key, value):
-    setattr(param, key, value)
 
 
 class DictWithValidation(dict):
@@ -269,7 +262,7 @@ class Schedule:
             else:
                 new_param = nn.Parameter(new_tensor)
             # Tag param with model parallel attribute, used for grad clipping
-            _set_model_parallel_attribute(new_param, TENSOR_MODEL_PARALLEL, True)
+            new_param.tensor_model_parallel = True
             # Save the original size of the parameter for consolidation.
             new_param.orig_shape = param.shape
             self.mod.register_parameter(tensor_name, new_param)
@@ -1372,7 +1365,7 @@ def consolidate_model(
                 cnt_shard += 1
                 sharded_param = param.detach().split(sharded_size, dim=axis)[tp_rank]
                 new_param = nn.Parameter(sharded_param)
-                _set_model_parallel_attribute(new_param, TENSOR_MODEL_PARALLEL, True)
+                new_param.tensor_model_parallel = True
                 sch.mod.register_parameter(param_name, new_param)
 
         for subsch in sch.child.values():

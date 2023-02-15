@@ -7,7 +7,8 @@ Optimize Attention Module on A Single Device
 This guide uses the `Attention <https://arxiv.org/abs/1706.03762>`_ module,
 the core and most time-consuming module in Transformer-based models, as an
 example to show how we can leverage Slapo to optimize its performance on
-a single device.
+a single device. We will cover pattern matching, operator fusion, and partial
+module replacement in this guide.
 """
 
 # %%
@@ -85,7 +86,7 @@ class Projection(nn.Module):
     def forward(self, hidden_states, input_tensor):
         hidden_states = self.dense(hidden_states)
         hidden_states = self.dropout(hidden_states)
-        hidden_states = self.layer_norm(hidden_states, input_tensor)
+        hidden_states = self.layer_norm(hidden_states + input_tensor)
         return hidden_states
 
 
@@ -118,7 +119,8 @@ print(sch.mod)
 # As we can see, Slapo works seamlessly with the PyTorch models and preserves
 # the hierarchical structure of the original model. As we have not added any
 # optimizations, the module is exactly the same as the original one.
-# We can easily obtain the submodules by passing the module name to the schedule.
+# We can easily obtain the submodules by passing the module name to the schedule,
+# which will return a new schedule for the submodule.
 
 attn_sch = sch["self_attn"]
 print(attn_sch.mod)
@@ -179,6 +181,7 @@ print(qkv_subgraphs)
 
 # %%
 # Then, we define a fused QKV module as follows and instantiate it.
+
 
 class FusedQKV(nn.Module):
     def __init__(self, hidden_size, n_heads) -> None:
@@ -246,3 +249,71 @@ print(attn_sch.mod)
 # %%
 # Again, the ``FlashAttentionOp`` is attached to the GraphModule, and the forward
 # function becomes much simpler to call those two submodules.
+
+# %%
+# We then optimize the ``Projection`` module. A common practice is to fuse the
+# dropout and the layer norm layer with those element-wise addition operations.
+# We first create a subschedule for the ``Projection`` module.
+
+proj_sch = sch["proj"]
+print(proj_sch.mod)
+
+# %%
+# As we want to fuse the linear bias with the consequential layers, we need to
+# decompose the linear layer into two separate matrix multiplication and bias add operations.
+# In Slapo, this is easy to achieve by simply calling ``.decompose()`` on the linear module.
+#
+# .. note::
+#   :class: margin
+#
+#   The default `nn.Linear <https://pytorch.org/docs/stable/generated/torch.nn.Linear.html>`_ module
+#   in PyTorch will directly pass both weight and bias to the backend
+#   `F.linear <https://pytorch.org/docs/stable/generated/torch.nn.functional.linear.html>`_ function,
+#   and dispatch it to the corresponding C/CUDA library, so there is no way to fuse the bias if we
+#   do not take it apart. Another reason for decomposing is that we can still optimize the
+#   ``weight`` parameter later (e.g., sharding) even though the ``bias`` may be fused.
+
+proj_sch["dense"].decompose()
+print(proj_sch.mod)
+
+# %%
+# We can see the ``Linear`` module changed into ``LinearWithSeparateBias``, and other submodules
+# remain the same. Next, we need to `explicitly` call the ``.trace()`` primitive to trace the module
+# into a static subgraph. It gives us more control over the traced module. For example, we can
+# pass in the ``flatten`` flag to let the tracer gets into each submodule so that the bias add
+# can be depicted as a node in the subgraph.
+
+proj_sch.trace(flatten=True)
+print(proj_sch.mod)
+
+# %%
+# We can again define the fusion pattern as follows. Here the pattern includes three input arguments,
+# Slapo can still handle it correctly and grab all the required nodes in the subgraph.
+
+
+def ln_pattern(x, bias, residual):
+    return F.layer_norm(F.dropout(x + bias) + residual, 1024)
+
+
+ln_subgraph = proj_sch.find(ln_pattern)
+print(ln_subgraph)
+
+# %%
+# For this case of vertical fusion, Slapo provides a ``.fuse()`` primitive to easily fuse the subgraph.
+# Users can specify the backend fusion compiler and the name of the fused module. By default, Slapo
+# will use TorchScript (nvFuser) to fuse the subgraph.
+
+proj_sch.fuse(ln_subgraph, compiler="TorchScript", name="FusedLayerNorm")
+print(proj_sch.mod)
+
+# %%
+# As shown in the above output, the ``FusedLayerNorm`` module is attached to the GraphModule, and
+# only ``torch._C._nn.Linear`` and ``FusedLayerNorm`` are called in the forward function.
+
+# %%
+# Finally, we finish all the optimizations for Attention module on a single device.
+# We can print out the top-level module to see the changes. The optimizations are clearly
+# reflected in the new module, and we still keep the module hierarchy, which greatly enhances
+# the readability and debuggability of the code.
+
+print(sch.mod)

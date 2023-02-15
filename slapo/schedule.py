@@ -906,6 +906,7 @@ class SubgraphWrapper(nn.Module):
                         k
                         for k, v in sig.parameters.items()
                         if v.default is inspect.Parameter.empty
+                        and v.kind is not inspect.Parameter.VAR_POSITIONAL
                     ]
                     default_args = {
                         k: v.default

@@ -27,7 +27,7 @@ import slapo
 # will be performed the following scaled dot-product attention:
 #
 # .. math::
-#    \\mathrm{CoreAttention}(Q, K, V) = \\mathrm{softmax}\\left(\\frac{QK^{\\mathrm{T}}}{\\sqrt(d_k)}\\right) * V
+#    \mathrm{CoreAttention}(Q, K, V) = \mathrm{softmax}\left(\frac{QK^{\mathrm{T}}}{\sqrt(d_k)}\right) * V
 #
 # where :math:`d_k` is the hidden dimension. Finally, the output of the attention
 # module will be passed through a linear projection layer, added with the residual
@@ -173,7 +173,7 @@ qkv_subgraphs = attn_sch.find(pattern)
 print(attn_sch.mod)
 
 # %%
-# Second, the ``.find()` primitive will return a list of subgraphs that
+# Second, the ``.find()`` primitive will return a list of subgraphs that
 # match the pattern. In our case, there will be three subgraphs, one for each
 # linear layer and the consequential ``view`` and ``permute`` operations.
 
@@ -218,7 +218,7 @@ print(attn_sch.mod)
 
 # %%
 # From the above output, we can see there is a new module called ``FusedQKV_0``
-# with 3x ``out_features`` compared to the original linear layer.
+# with :math:`3\times` ``out_features`` compared to the original linear layer.
 # The corresponding forward function is also changed to leverage the fused
 # module.
 

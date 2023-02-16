@@ -120,10 +120,7 @@ bash run_all_single_node.sh config/single_node_v100.cfg
 
 
 ## Publication
-If you use Slapo in your project, please feel free to cite our ArXiv [paper](https://arxiv.org/):
-
-- **A Schedule Language for Progressive Optimization of Large Model Training**
-  Hongzheng Chen, Cody Hao Yu, Shuai Zheng, Zhen Zhang, Zhiru Zhang, and Yida Wang.
+If you use Slapo in your project, please consult authors for citation.
 
 
 ## License

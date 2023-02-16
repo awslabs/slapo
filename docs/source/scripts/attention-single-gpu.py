@@ -7,8 +7,8 @@ Optimize Attention Module on A Single Device
 This guide uses the `Attention <https://arxiv.org/abs/1706.03762>`_ module,
 the core and most time-consuming module in Transformer-based models, as an
 example to show how we can leverage Slapo to optimize its performance on
-a single device. We will cover pattern matching, operator fusion, and partial
-module replacement in this guide.
+a single device. We will cover module tracing, pattern matching, operator
+fusion, and partial module replacement in this tutorial.
 """
 
 # %%

@@ -41,7 +41,7 @@ def all_gather_along_dim(inp, dim, world_size, group):
     else:
         # Fallback to all_gather. This may lead to suboptimal performance.
         parts = [
-            torch.empty(inp.shape, dtype=inp.dtype).to(inp.device)
+            torch.empty(inp.shape, dtype=inp.dtype, device=inp.device)
             for _ in range(world_size)
         ]
         dist.all_gather(parts, inp, group=group)

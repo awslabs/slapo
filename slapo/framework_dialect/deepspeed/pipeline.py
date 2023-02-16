@@ -316,9 +316,11 @@ class DeepSpeedPipeStageWrapper(nn.Module):
         if logger.isEnabledFor(DEBUG):
             logger.debug(f"[{self.name}] Flatten: {len(ret)}; metadata: {metadata}")
         ret.append(
-            torch.ByteTensor(
-                torch.ByteStorage.from_buffer(bytes(encode_metadata(metadata), "utf8"))
-            ).to(device)
+            torch.tensor(
+                torch.ByteStorage.from_buffer(bytes(encode_metadata(metadata), "utf8")),
+                dtype=torch.uint8,
+                device=device,
+            )
         )
         ret = tuple(ret)
         return ret

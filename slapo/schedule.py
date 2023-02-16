@@ -261,10 +261,10 @@ class Schedule:
                     self.metadata.tie_weights[param] = new_param
             else:
                 new_param = nn.Parameter(new_tensor)
-
+            # Tag param with model parallel attribute, used for grad clipping
+            new_param.tensor_model_parallel = True
             # Save the original size of the parameter for consolidation.
             new_param.orig_shape = param.shape
-
             self.mod.register_parameter(tensor_name, new_param)
         except AttributeError:
             buffer = self.mod.get_buffer(tensor_name)
@@ -1363,8 +1363,10 @@ def consolidate_model(
                     is_found = True
             if is_found:
                 cnt_shard += 1
-                new_param = param.detach().split(sharded_size, dim=axis)[tp_rank]
-                sch.mod.register_parameter(param_name, nn.Parameter(new_param))
+                sharded_param = param.detach().split(sharded_size, dim=axis)[tp_rank]
+                new_param = nn.Parameter(sharded_param)
+                new_param.tensor_model_parallel = True
+                sch.mod.register_parameter(param_name, new_param)
 
         for subsch in sch.child.values():
             ret = _consolidate_and_broadcast(subsch)

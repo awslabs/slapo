@@ -26,8 +26,8 @@ Optimize Attention Module on A Single Device
 This guide uses the `Attention <https://arxiv.org/abs/1706.03762>`_ module,
 the core and most time-consuming module in Transformer-based models, as an
 example to show how we can leverage Slapo to optimize its performance on
-a single device. We will cover pattern matching, operator fusion, and partial
-module replacement in this guide.
+a single device. We will cover module tracing, pattern matching, operator
+fusion, and partial module replacement in this tutorial.
 
 .. GENERATED FROM PYTHON SOURCE LINES 15-17
 
@@ -59,7 +59,7 @@ linear layers to generate the query, key and value tensors. Then, those tensors
 will be performed the following scaled dot-product attention:
 
 .. math::
-   \\mathrm{CoreAttention}(Q, K, V) = \\mathrm{softmax}\\left(\\frac{QK^{\\mathrm{T}}}{\\sqrt(d_k)}\\right) * V
+   \mathrm{CoreAttention}(Q, K, V) = \mathrm{softmax}\left(\frac{QK^{\mathrm{T}}}{\sqrt{d_k}}\right) \cdot V
 
 where :math:`d_k` is the hidden dimension. Finally, the output of the attention
 module will be passed through a linear projection layer, added with the residual
@@ -354,7 +354,7 @@ corresponding subgraph in the model.
 
 .. GENERATED FROM PYTHON SOURCE LINES 176-179
 
-Second, the ``.find()` primitive will return a list of subgraphs that
+Second, the ``.find()`` primitive will return a list of subgraphs that
 match the pattern. In our case, there will be three subgraphs, one for each
 linear layer and the consequential ``view`` and ``permute`` operations.
 
@@ -474,7 +474,7 @@ changes.
 .. GENERATED FROM PYTHON SOURCE LINES 220-224
 
 From the above output, we can see there is a new module called ``FusedQKV_0``
-with 3x ``out_features`` compared to the original linear layer.
+with :math:`3\times` ``out_features`` compared to the original linear layer.
 The corresponding forward function is also changed to leverage the fused
 module.
 
@@ -511,7 +511,7 @@ the core attention, which has been included in Slapo, so we can directly
 import and replace the subgraph with ``FlashAttentionOp``.
 Notice, since the ``scaled_dot_product`` function we defined above only accepts
 the ``query``, ``key``, and ``value`` tensors, while ``FlashAttentionOp`` requires
-five arguments, so we need to explicitly pass ``None`` to the `attention_mask``
+five arguments, so we need to explicitly pass ``None`` to the ``attention_mask``
 argument, and set the dropout probability ``p`` to 0.1 by setting the ``concrete_args``.
 
 .. GENERATED FROM PYTHON SOURCE LINES 240-249
@@ -808,7 +808,7 @@ the readability and debuggability of the code.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** ( 0 minutes  0.154 seconds)
+   **Total running time of the script:** ( 0 minutes  0.148 seconds)
 
 
 .. _sphx_glr_download_gallery_attention-single-gpu.py:

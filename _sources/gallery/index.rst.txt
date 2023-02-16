@@ -1,29 +1,12 @@
 :orphan:
 
 Gallery
-=====
+=======
 
 
 .. raw:: html
 
     <div class="sphx-glr-thumbnails">
-
-
-.. raw:: html
-
-    <div class="sphx-glr-thumbcontainer" tooltip="This guide walks through the key functionality of Slapo. We will use the BERT model in `Hugging...">
-
-.. only:: html
-
-  .. image:: /gallery/images/thumb/sphx_glr_quick-start_thumb.png
-    :alt: Quick Start
-
-  :ref:`sphx_glr_gallery_quick-start.py`
-
-.. raw:: html
-
-      <div class="sphx-glr-thumbnail-title">Quick Start</div>
-    </div>
 
 
 .. raw:: html
@@ -51,7 +34,6 @@ Gallery
 .. toctree::
    :hidden:
 
-   /gallery/quick-start
    /gallery/attention-single-gpu
 
 

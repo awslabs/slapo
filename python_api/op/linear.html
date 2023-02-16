@@ -40,8 +40,8 @@
     <script src="../../_static/scripts/sphinx-book-theme.js?digest=9c920249402e914e316237a7dbc6769907cce411"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="Index" href="../../genindex.html" />
-    <link rel="prev" title="slapo.op.cross_entropy" href="cross_entropy.html" />
+    <link rel="next" title="slapo.op.mlp" href="mlp.html" />
+    <link rel="prev" title="slapo.op.dropout" href="dropout.html" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="docsearch:language" content="None">
     
@@ -95,11 +95,6 @@
  <li class="toctree-l1">
   <a class="reference internal" href="../../setup/index.html">
    Installation
-  </a>
- </li>
- <li class="toctree-l1">
-  <a class="reference internal" href="../../gallery/quick-start.html">
-   Quick Start
   </a>
  </li>
 </ul>
@@ -161,9 +156,14 @@
      slapo.tracer
     </a>
    </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../random.html">
+     slapo.random
+    </a>
+   </li>
    <li class="toctree-l2 has-children">
     <a class="reference internal" href="../framework_dialect/index.html">
-     hidet.framework_dialect
+     slapo.framework_dialect
     </a>
     <input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/>
     <label for="toctree-checkbox-2">
@@ -178,7 +178,7 @@
      </li>
      <li class="toctree-l3 has-children">
       <a class="reference internal" href="../framework_dialect/deepspeed/index.html">
-       hidet.framework_dialect.deepspeed
+       slapo.framework_dialect.deepspeed
       </a>
       <input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/>
       <label for="toctree-checkbox-3">
@@ -202,7 +202,7 @@
    </li>
    <li class="toctree-l2 current active has-children">
     <a class="reference internal" href="index.html">
-     hidet.op
+     slapo.op
     </a>
     <input checked="" class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" type="checkbox"/>
     <label for="toctree-checkbox-4">
@@ -211,13 +211,33 @@
     </label>
     <ul class="current">
      <li class="toctree-l3">
+      <a class="reference internal" href="attention.html">
+       slapo.op.attention
+      </a>
+     </li>
+     <li class="toctree-l3">
+      <a class="reference internal" href="bias_gelu.html">
+       slapo.op.bias_gelu
+      </a>
+     </li>
+     <li class="toctree-l3">
       <a class="reference internal" href="cross_entropy.html">
        slapo.op.cross_entropy
+      </a>
+     </li>
+     <li class="toctree-l3">
+      <a class="reference internal" href="dropout.html">
+       slapo.op.dropout
       </a>
      </li>
      <li class="toctree-l3 current active">
       <a class="current reference internal" href="#">
        slapo.op.linear
+      </a>
+     </li>
+     <li class="toctree-l3">
+      <a class="reference internal" href="mlp.html">
+       slapo.op.mlp
       </a>
      </li>
     </ul>
@@ -488,17 +508,17 @@ registered hooks while the latter silently ignores them.</p>
                 
     <!-- Previous / next buttons -->
 <div class='prev-next-area'>
-    <a class='left-prev' id="prev-link" href="cross_entropy.html" title="previous page">
+    <a class='left-prev' id="prev-link" href="dropout.html" title="previous page">
         <i class="fas fa-angle-left"></i>
         <div class="prev-next-info">
             <p class="prev-next-subtitle">previous</p>
-            <p class="prev-next-title">slapo.op.cross_entropy</p>
+            <p class="prev-next-title">slapo.op.dropout</p>
         </div>
     </a>
-    <a class='right-next' id="next-link" href="../../genindex.html" title="next page">
+    <a class='right-next' id="next-link" href="mlp.html" title="next page">
     <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Index</p>
+        <p class="prev-next-title">slapo.op.mlp</p>
     </div>
     <i class="fas fa-angle-right"></i>
     </a>

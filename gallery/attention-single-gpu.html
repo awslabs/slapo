@@ -42,7 +42,7 @@
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="Python API" href="../python_api/index.html" />
-    <link rel="prev" title="Quick Start" href="quick-start.html" />
+    <link rel="prev" title="Installation" href="../setup/index.html" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="docsearch:language" content="None">
     
@@ -96,11 +96,6 @@
  <li class="toctree-l1">
   <a class="reference internal" href="../setup/index.html">
    Installation
-  </a>
- </li>
- <li class="toctree-l1">
-  <a class="reference internal" href="quick-start.html">
-   Quick Start
   </a>
  </li>
 </ul>
@@ -162,9 +157,14 @@
      slapo.tracer
     </a>
    </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../python_api/random.html">
+     slapo.random
+    </a>
+   </li>
    <li class="toctree-l2 has-children">
     <a class="reference internal" href="../python_api/framework_dialect/index.html">
-     hidet.framework_dialect
+     slapo.framework_dialect
     </a>
     <input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/>
     <label for="toctree-checkbox-2">
@@ -179,7 +179,7 @@
      </li>
      <li class="toctree-l3 has-children">
       <a class="reference internal" href="../python_api/framework_dialect/deepspeed/index.html">
-       hidet.framework_dialect.deepspeed
+       slapo.framework_dialect.deepspeed
       </a>
       <input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/>
       <label for="toctree-checkbox-3">
@@ -203,7 +203,7 @@
    </li>
    <li class="toctree-l2 has-children">
     <a class="reference internal" href="../python_api/op/index.html">
-     hidet.op
+     slapo.op
     </a>
     <input class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" type="checkbox"/>
     <label for="toctree-checkbox-4">
@@ -212,13 +212,33 @@
     </label>
     <ul>
      <li class="toctree-l3">
+      <a class="reference internal" href="../python_api/op/attention.html">
+       slapo.op.attention
+      </a>
+     </li>
+     <li class="toctree-l3">
+      <a class="reference internal" href="../python_api/op/bias_gelu.html">
+       slapo.op.bias_gelu
+      </a>
+     </li>
+     <li class="toctree-l3">
       <a class="reference internal" href="../python_api/op/cross_entropy.html">
        slapo.op.cross_entropy
       </a>
      </li>
      <li class="toctree-l3">
+      <a class="reference internal" href="../python_api/op/dropout.html">
+       slapo.op.dropout
+      </a>
+     </li>
+     <li class="toctree-l3">
       <a class="reference internal" href="../python_api/op/linear.html">
        slapo.op.linear
+      </a>
+     </li>
+     <li class="toctree-l3">
+      <a class="reference internal" href="../python_api/op/mlp.html">
+       slapo.op.mlp
       </a>
      </li>
     </ul>
@@ -383,8 +403,8 @@ to download the full example code</p>
 <p>This guide uses the <a class="reference external" href="https://arxiv.org/abs/1706.03762">Attention</a> module,
 the core and most time-consuming module in Transformer-based models, as an
 example to show how we can leverage Slapo to optimize its performance on
-a single device. We will cover pattern matching, operator fusion, and partial
-module replacement in this guide.</p>
+a single device. We will cover module tracing, pattern matching, operator
+fusion, and partial module replacement in this tutorial.</p>
 <p>We first import the necessary packages. Make sure you have already installed
 the PyTorch framework.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">torch</span>
@@ -398,7 +418,7 @@ SelfAttention takes in the hidden states and passes it through three different
 linear layers to generate the query, key and value tensors. Then, those tensors
 will be performed the following scaled dot-product attention:</p>
 <div class="math notranslate nohighlight">
-\[\begin{split}\\mathrm{CoreAttention}(Q, K, V) = \\mathrm{softmax}\\left(\\frac{QK^{\\mathrm{T}}}{\\sqrt(d_k)}\\right) * V\end{split}\]</div>
+\[\mathrm{CoreAttention}(Q, K, V) = \mathrm{softmax}\left(\frac{QK^{\mathrm{T}}}{\sqrt{d_k}}\right) \cdot V\]</div>
 <p>where <span class="math notranslate nohighlight">\(d_k\)</span> is the hidden dimension. Finally, the output of the attention
 module will be passed through a linear projection layer, added with the residual
 connection, and conducted a layer norm to generate the final output.
@@ -594,9 +614,9 @@ def forward(self, hidden_states):
 # To see more debug info, please use `graph_module.print_readable()`
 </pre></div>
 </div>
-<p>Second, the <code class="docutils literal notranslate"><span class="pre">.find()`</span> <span class="pre">primitive</span> <span class="pre">will</span> <span class="pre">return</span> <span class="pre">a</span> <span class="pre">list</span> <span class="pre">of</span> <span class="pre">subgraphs</span> <span class="pre">that</span>
-<span class="pre">match</span> <span class="pre">the</span> <span class="pre">pattern.</span> <span class="pre">In</span> <span class="pre">our</span> <span class="pre">case,</span> <span class="pre">there</span> <span class="pre">will</span> <span class="pre">be</span> <span class="pre">three</span> <span class="pre">subgraphs,</span> <span class="pre">one</span> <span class="pre">for</span> <span class="pre">each</span>
-<span class="pre">linear</span> <span class="pre">layer</span> <span class="pre">and</span> <span class="pre">the</span> <span class="pre">consequential</span> <span class="pre">``view</span></code> and <code class="docutils literal notranslate"><span class="pre">permute</span></code> operations.</p>
+<p>Second, the <code class="docutils literal notranslate"><span class="pre">.find()</span></code> primitive will return a list of subgraphs that
+match the pattern. In our case, there will be three subgraphs, one for each
+linear layer and the consequential <code class="docutils literal notranslate"><span class="pre">view</span></code> and <code class="docutils literal notranslate"><span class="pre">permute</span></code> operations.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="n">qkv_subgraphs</span><span class="p">)</span>
 </pre></div>
 </div>
@@ -665,7 +685,7 @@ def forward(self, hidden_states):
 </pre></div>
 </div>
 <p>From the above output, we can see there is a new module called <code class="docutils literal notranslate"><span class="pre">FusedQKV_0</span></code>
-with 3x <code class="docutils literal notranslate"><span class="pre">out_features</span></code> compared to the original linear layer.
+with <span class="math notranslate nohighlight">\(3\times\)</span> <code class="docutils literal notranslate"><span class="pre">out_features</span></code> compared to the original linear layer.
 The corresponding forward function is also changed to leverage the fused
 module.</p>
 <p>Similarly, we can directly find the core attention function and replace it
@@ -682,7 +702,7 @@ the core attention, which has been included in Slapo, so we can directly
 import and replace the subgraph with <code class="docutils literal notranslate"><span class="pre">FlashAttentionOp</span></code>.
 Notice, since the <code class="docutils literal notranslate"><span class="pre">scaled_dot_product</span></code> function we defined above only accepts
 the <code class="docutils literal notranslate"><span class="pre">query</span></code>, <code class="docutils literal notranslate"><span class="pre">key</span></code>, and <code class="docutils literal notranslate"><span class="pre">value</span></code> tensors, while <code class="docutils literal notranslate"><span class="pre">FlashAttentionOp</span></code> requires
-five arguments, so we need to explicitly pass <code class="docutils literal notranslate"><span class="pre">None</span></code> to the <cite>attention_mask`</cite>
+five arguments, so we need to explicitly pass <code class="docutils literal notranslate"><span class="pre">None</span></code> to the <code class="docutils literal notranslate"><span class="pre">attention_mask</span></code>
 argument, and set the dropout probability <code class="docutils literal notranslate"><span class="pre">p</span></code> to 0.1 by setting the <code class="docutils literal notranslate"><span class="pre">concrete_args</span></code>.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">slapo.op.attention</span> <span class="kn">import</span> <a href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="torch.nn.Module" class="sphx-glr-backref-module-torch-nn sphx-glr-backref-type-py-class"><span class="n">FlashAttentionOp</span></a>
 
@@ -852,7 +872,7 @@ the readability and debuggability of the code.</p>
 )
 </pre></div>
 </div>
-<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> ( 0 minutes  0.154 seconds)</p>
+<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> ( 0 minutes  0.148 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-gallery-attention-single-gpu-py">
 <div class="sphx-glr-download sphx-glr-download-python docutils container">
 <p><a class="reference download internal" download="" href="../_downloads/4011ed9eb8a93a419ccf3359a7195911/attention-single-gpu.py"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Python</span> <span class="pre">source</span> <span class="pre">code:</span> <span class="pre">attention-single-gpu.py</span></code></a></p>
@@ -872,11 +892,11 @@ the readability and debuggability of the code.</p>
                 
     <!-- Previous / next buttons -->
 <div class='prev-next-area'>
-    <a class='left-prev' id="prev-link" href="quick-start.html" title="previous page">
+    <a class='left-prev' id="prev-link" href="../setup/index.html" title="previous page">
         <i class="fas fa-angle-left"></i>
         <div class="prev-next-info">
             <p class="prev-next-subtitle">previous</p>
-            <p class="prev-next-title">Quick Start</p>
+            <p class="prev-next-title">Installation</p>
         </div>
     </a>
     <a class='right-next' id="next-link" href="../python_api/index.html" title="next page">

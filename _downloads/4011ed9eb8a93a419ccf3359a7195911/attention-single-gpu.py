@@ -7,8 +7,8 @@ Optimize Attention Module on A Single Device
 This guide uses the `Attention <https://arxiv.org/abs/1706.03762>`_ module,
 the core and most time-consuming module in Transformer-based models, as an
 example to show how we can leverage Slapo to optimize its performance on
-a single device. We will cover pattern matching, operator fusion, and partial
-module replacement in this guide.
+a single device. We will cover module tracing, pattern matching, operator
+fusion, and partial module replacement in this tutorial.
 """
 
 # %%
@@ -27,7 +27,7 @@ import slapo
 # will be performed the following scaled dot-product attention:
 #
 # .. math::
-#    \\mathrm{CoreAttention}(Q, K, V) = \\mathrm{softmax}\\left(\\frac{QK^{\\mathrm{T}}}{\\sqrt(d_k)}\\right) * V
+#    \mathrm{CoreAttention}(Q, K, V) = \mathrm{softmax}\left(\frac{QK^{\mathrm{T}}}{\sqrt{d_k}}\right) \cdot V
 #
 # where :math:`d_k` is the hidden dimension. Finally, the output of the attention
 # module will be passed through a linear projection layer, added with the residual
@@ -173,7 +173,7 @@ qkv_subgraphs = attn_sch.find(pattern)
 print(attn_sch.mod)
 
 # %%
-# Second, the ``.find()` primitive will return a list of subgraphs that
+# Second, the ``.find()`` primitive will return a list of subgraphs that
 # match the pattern. In our case, there will be three subgraphs, one for each
 # linear layer and the consequential ``view`` and ``permute`` operations.
 
@@ -218,7 +218,7 @@ print(attn_sch.mod)
 
 # %%
 # From the above output, we can see there is a new module called ``FusedQKV_0``
-# with 3x ``out_features`` compared to the original linear layer.
+# with :math:`3\times` ``out_features`` compared to the original linear layer.
 # The corresponding forward function is also changed to leverage the fused
 # module.
 
@@ -235,7 +235,7 @@ print(core_attn_subgraph)
 # import and replace the subgraph with ``FlashAttentionOp``.
 # Notice, since the ``scaled_dot_product`` function we defined above only accepts
 # the ``query``, ``key``, and ``value`` tensors, while ``FlashAttentionOp`` requires
-# five arguments, so we need to explicitly pass ``None`` to the `attention_mask``
+# five arguments, so we need to explicitly pass ``None`` to the ``attention_mask``
 # argument, and set the dropout probability ``p`` to 0.1 by setting the ``concrete_args``.
 
 from slapo.op.attention import FlashAttentionOp

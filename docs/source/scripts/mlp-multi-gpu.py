@@ -15,7 +15,6 @@ in this tutorial.
 # We first import the necessary packages. Make sure you have already installed
 # the PyTorch framework.
 
-import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.distributed as dist

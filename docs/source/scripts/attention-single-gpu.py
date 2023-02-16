@@ -27,7 +27,7 @@ import slapo
 # will be performed the following scaled dot-product attention:
 #
 # .. math::
-#    \mathrm{CoreAttention}(Q, K, V) = \mathrm{softmax}\left(\frac{QK^{\mathrm{T}}}{\sqrt(d_k)}\right) * V
+#    \mathrm{CoreAttention}(Q, K, V) = \mathrm{softmax}\left(\frac{QK^{\mathrm{T}}}{\sqrt{d_k}}\right) \cdot V
 #
 # where :math:`d_k` is the hidden dimension. Finally, the output of the attention
 # module will be passed through a linear projection layer, added with the residual
@@ -235,7 +235,7 @@ print(core_attn_subgraph)
 # import and replace the subgraph with ``FlashAttentionOp``.
 # Notice, since the ``scaled_dot_product`` function we defined above only accepts
 # the ``query``, ``key``, and ``value`` tensors, while ``FlashAttentionOp`` requires
-# five arguments, so we need to explicitly pass ``None`` to the `attention_mask``
+# five arguments, so we need to explicitly pass ``None`` to the ``attention_mask``
 # argument, and set the dropout probability ``p`` to 0.1 by setting the ``concrete_args``.
 
 from slapo.op.attention import FlashAttentionOp

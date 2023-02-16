@@ -22,9 +22,7 @@ import torch
 from transformers import BertLMHeadModel, AutoConfig
 
 config = AutoConfig.from_pretrained("bert-large-uncased")
-with slapo.init_empty_weights(enable=True):
-    model = BertLMHeadModel(config)
-# model = BertLMHeadModel(config)
+model = BertLMHeadModel(config)
 print(model)
 
 # %%
@@ -51,3 +49,14 @@ token_type_ids = torch.ones(bs, seq_length, dtype=torch.long, device=device)
 labels = input_ids.clone()
 opt_model.to(device)
 
+
+# %%
+optimizer = torch.optim.AdamW(opt_model.parameters(), lr=0.001)
+for step in range(10):
+    inputs = (input_ids, attention_mask, token_type_ids)
+    loss = opt_model(*inputs, labels=labels).loss
+    loss.backward()
+    optimizer.step()
+
+    if step % 1 == 0:
+        print(f"step {step} loss: {loss.item()}")

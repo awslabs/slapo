@@ -1,5 +1,5 @@
 slapo.framework_dialect
-===================
+=======================
 
 .. toctree::
   :caption: Submodules

@@ -11,5 +11,6 @@ Python API
    pattern
    pipeline
    tracer
+   random
    framework_dialect/index
    op/index

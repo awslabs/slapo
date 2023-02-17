@@ -303,7 +303,7 @@ class Schedule:
                     ) from None
 
         out_type, out_part_axis = get_output_type_after_sharding(
-            self.mod, sharded_size, axis
+            self.mod, tensor_name, sharded_size, axis
         )
         if out_type is not None:
             set_output_type(out_type, gather_axis=out_part_axis)
@@ -1364,6 +1364,7 @@ def consolidate_model(
             if is_found:
                 cnt_shard += 1
                 sharded_param = param.detach().split(sharded_size, dim=axis)[tp_rank]
+                sharded_param = sharded_param.contiguous()
                 new_param = nn.Parameter(sharded_param)
                 new_param.tensor_model_parallel = True
                 sch.mod.register_parameter(param_name, new_param)

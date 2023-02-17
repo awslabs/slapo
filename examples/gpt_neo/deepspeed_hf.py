@@ -160,6 +160,7 @@ def train(args):
             zero_opt_stage,
             "Pipeline",
             args.bf16,
+            args.sequence_parallel,
         )
 
         model, _ = slapo.build(

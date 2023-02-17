@@ -13,7 +13,13 @@ _groups = []
 
 
 def get_ds_config(
-    batch_size, micro_batch_size_per_gpu, fp16=True, zero_stage=0, desc="", bf16=False
+    batch_size,
+    micro_batch_size_per_gpu,
+    fp16=True,
+    zero_stage=0,
+    desc="",
+    bf16=False,
+    sequence_parallel=False,
 ):
     # https://github.com/microsoft/DeepSpeed/blob/ff42743/tests/unit/model_parallelism/test_configurable_parallel_pp.py#L20
     logger.info(f"fp16={fp16}, bf16={bf16}")
@@ -26,6 +32,9 @@ def get_ds_config(
         "gradient_clipping": 1.0,
         "train_batch_size": batch_size,
         "train_micro_batch_size_per_gpu": micro_batch_size_per_gpu,
+        "pipeline": {
+            "sequence_parallel": sequence_parallel,
+        },
     }
 
     if zero_stage > 0:

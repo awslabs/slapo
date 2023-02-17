@@ -93,6 +93,10 @@ def _apply_schedule(
             logger.info("Broadcast input to all devices", ranks=0)
             broadcast_input(sch)
 
+        sequence_parallel = sch_config.get("sequence_parallel", False)
+        if sequence_parallel:
+            tag_layernorm(sch)
+
     # Insert activation checkpoints.
     if ckpt_ratio > 0.0:
         logger.info("Checkpoint ratio: %.2f", ckpt_ratio, ranks=0)
@@ -532,6 +536,20 @@ def shard_parameters(
         log_list.append("Skip sharding MLP layers")
 
     return log_list
+
+
+def tag_layernorm(sch):
+    """Tag parameters that require additional allreduce on tensor parallel group
+    when sequence parallelism is turned on.
+    Parameters
+    ----------
+    sch : slapo.Schedule
+        The schedule of the model.
+    """
+    for m in sch.mod.modules():
+        if isinstance(m, nn.LayerNorm):
+            for p in m.parameters(recurse=False):
+                p.replicated_param = True
 
 
 def checkpoint(

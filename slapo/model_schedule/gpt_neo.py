@@ -75,6 +75,10 @@ def _apply_schedule(
         sequence_parallel=sch_config.get("sequence_parallel", False),
     )
 
+    sequence_parallel = sch_config.get("sequence_parallel", False)
+    if sequence_parallel:
+        tag_layernorm(sch)
+
     if sch.world_size > 1 and sch_config.get("bcast_input", False):
         # Broadcast input to all devices within the MP group.
         # This is not required when running on Megatron.
@@ -393,6 +397,20 @@ def shard_parameters(
             else:
                 sub_sch[fc_names[0]].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
                 sub_sch[fc_names[2]].sync(mode="fwd_post", sync_op_or_fn="all_reduce")
+
+
+def tag_layernorm(sch):
+    """Tag parameters that require additional allreduce on tensor parallel group
+    when sequence parallelism is turned on.
+    Parameters
+    ----------
+    sch : slapo.Schedule
+        The schedule of the model.
+    """
+    for m in sch.mod.modules():
+        if isinstance(m, nn.LayerNorm):
+            for p in m.parameters(recurse=False):
+                p.replicated_param = True
 
 
 def checkpoint(

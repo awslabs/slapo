@@ -11,6 +11,40 @@ Gallery
 
 .. raw:: html
 
+    <div class="sphx-glr-thumbcontainer" tooltip="This guide walks through the key functionality of Slapo. We will use the BERT model in `Hugging...">
+
+.. only:: html
+
+  .. image:: /gallery/images/thumb/sphx_glr_quick-start_thumb.png
+    :alt: Quick Start
+
+  :ref:`sphx_glr_gallery_quick-start.py`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Quick Start</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="This guide uses the multi-layer perceptron (MLP) module, one of the  basin components in Transf...">
+
+.. only:: html
+
+  .. image:: /gallery/images/thumb/sphx_glr_mlp-multi-gpu_thumb.png
+    :alt: Optimize MLP Module on Multi-Device
+
+  :ref:`sphx_glr_gallery_mlp-multi-gpu.py`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Optimize MLP Module on Multi-Device</div>
+    </div>
+
+
+.. raw:: html
+
     <div class="sphx-glr-thumbcontainer" tooltip="This guide uses the `Attention &lt;https://arxiv.org/abs/1706.03762&gt;`_ module, the core and most t...">
 
 .. only:: html
@@ -34,6 +68,8 @@ Gallery
 .. toctree::
    :hidden:
 
+   /gallery/quick-start
+   /gallery/mlp-multi-gpu
    /gallery/attention-single-gpu
 
 

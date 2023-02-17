@@ -1,0 +1,664 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Optimize MLP Module on Multi-Device &#8212; Slapo Documentation</title>
+    
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=1999514e3f237ded88cf" rel="stylesheet">
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=1999514e3f237ded88cf" rel="stylesheet">
+
+    
+  <link rel="stylesheet"
+    href="../_static/vendor/fontawesome/5.13.0/css/all.min.css">
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+    href="../_static/vendor/fontawesome/5.13.0/webfonts/fa-solid-900.woff2">
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+    href="../_static/vendor/fontawesome/5.13.0/webfonts/fa-brands-400.woff2">
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" href="../_static/styles/sphinx-book-theme.css?digest=5115cc725059bd94278eecd172e13a965bf8f5a9" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="../_static/graphviz.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-binder.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-dataframe.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-rendered-html.css" />
+    
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=1999514e3f237ded88cf">
+
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/clipboard.min.js"></script>
+    <script src="../_static/copybutton.js"></script>
+    <script src="../_static/scripts/sphinx-book-theme.js?digest=9c920249402e914e316237a7dbc6769907cce411"></script>
+    <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Python API" href="../python_api/index.html" />
+    <link rel="prev" title="Optimize Attention Module on A Single Device" href="attention-single-gpu.html" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="docsearch:language" content="None">
+    
+
+    <!-- Google Analytics -->
+    
+  </head>
+  <body data-spy="scroll" data-target="#bd-toc-nav" data-offset="60">
+<!-- Checkboxes to toggle the left sidebar -->
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle navigation sidebar">
+<label class="overlay overlay-navbar" for="__navigation">
+    <div class="visually-hidden">Toggle navigation sidebar</div>
+</label>
+<!-- Checkboxes to toggle the in-page toc -->
+<input type="checkbox" class="sidebar-toggle" name="__page-toc" id="__page-toc" aria-label="Toggle in-page Table of Contents">
+<label class="overlay overlay-pagetoc" for="__page-toc">
+    <div class="visually-hidden">Toggle in-page Table of Contents</div>
+</label>
+<!-- Headers at the top -->
+<div class="announcement header-item noprint"></div>
+<div class="header header-item noprint"></div>
+
+    
+    <div class="container-fluid" id="banner"></div>
+
+    
+
+    <div class="container-xl">
+      <div class="row">
+          
+<!-- Sidebar -->
+<div class="bd-sidebar noprint" id="site-navigation">
+    <div class="bd-sidebar__content">
+        <div class="bd-sidebar__top"><div class="navbar-brand-box">
+    <a class="navbar-brand text-wrap" href="../index.html">
+      
+      
+      
+    </a>
+</div><form class="bd-search d-flex align-items-center" action="../search.html" method="get">
+  <i class="icon fas fa-search"></i>
+  <input type="search" class="form-control" name="q" id="search-input" placeholder="Search the docs ..." aria-label="Search the docs ..." autocomplete="off" >
+</form><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item active">
+        <p aria-level="2" class="caption" role="heading">
+ <span class="caption-text">
+  Getting Started
+ </span>
+</p>
+<ul class="nav bd-sidenav">
+ <li class="toctree-l1">
+  <a class="reference internal" href="../setup/index.html">
+   Installation
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="quick-start.html">
+   Quick Start
+  </a>
+ </li>
+</ul>
+<p aria-level="2" class="caption" role="heading">
+ <span class="caption-text">
+  Tutorials
+ </span>
+</p>
+<ul class="current nav bd-sidenav">
+ <li class="toctree-l1">
+  <a class="reference internal" href="attention-single-gpu.html">
+   Optimize Attention Module on A Single Device
+  </a>
+ </li>
+ <li class="toctree-l1 current active">
+  <a class="current reference internal" href="#">
+   Optimize MLP Module on Multi-Device
+  </a>
+ </li>
+</ul>
+<p aria-level="2" class="caption" role="heading">
+ <span class="caption-text">
+  Reference
+ </span>
+</p>
+<ul class="nav bd-sidenav">
+ <li class="toctree-l1 has-children">
+  <a class="reference internal" href="../python_api/index.html">
+   Python API
+  </a>
+  <input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/>
+  <label for="toctree-checkbox-1">
+   <i class="fas fa-chevron-down">
+   </i>
+  </label>
+  <ul>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../python_api/root.html">
+     slapo
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../python_api/schedule.html">
+     slapo.schedule
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../python_api/initialization.html">
+     slapo.initialization
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../python_api/pattern.html">
+     slapo.pattern
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../python_api/pipeline.html">
+     slapo.pipeline
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../python_api/tracer.html">
+     slapo.tracer
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="../python_api/random.html">
+     slapo.random
+    </a>
+   </li>
+   <li class="toctree-l2 has-children">
+    <a class="reference internal" href="../python_api/framework_dialect/index.html">
+     slapo.framework_dialect
+    </a>
+    <input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/>
+    <label for="toctree-checkbox-2">
+     <i class="fas fa-chevron-down">
+     </i>
+    </label>
+    <ul>
+     <li class="toctree-l3">
+      <a class="reference internal" href="../python_api/framework_dialect/registry.html">
+       slapo.framework_dialect.registry
+      </a>
+     </li>
+     <li class="toctree-l3 has-children">
+      <a class="reference internal" href="../python_api/framework_dialect/deepspeed/index.html">
+       slapo.framework_dialect.deepspeed
+      </a>
+      <input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/>
+      <label for="toctree-checkbox-3">
+       <i class="fas fa-chevron-down">
+       </i>
+      </label>
+      <ul>
+       <li class="toctree-l4">
+        <a class="reference internal" href="../python_api/framework_dialect/deepspeed/engine.html">
+         slapo.framework_dialect.deepspeed.engine
+        </a>
+       </li>
+       <li class="toctree-l4">
+        <a class="reference internal" href="../python_api/framework_dialect/deepspeed/pipeline.html">
+         slapo.framework_dialect.deepspeed.pipeline
+        </a>
+       </li>
+      </ul>
+     </li>
+    </ul>
+   </li>
+   <li class="toctree-l2 has-children">
+    <a class="reference internal" href="../python_api/op/index.html">
+     slapo.op
+    </a>
+    <input class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" type="checkbox"/>
+    <label for="toctree-checkbox-4">
+     <i class="fas fa-chevron-down">
+     </i>
+    </label>
+    <ul>
+     <li class="toctree-l3">
+      <a class="reference internal" href="../python_api/op/attention.html">
+       slapo.op.attention
+      </a>
+     </li>
+     <li class="toctree-l3">
+      <a class="reference internal" href="../python_api/op/bias_gelu.html">
+       slapo.op.bias_gelu
+      </a>
+     </li>
+     <li class="toctree-l3">
+      <a class="reference internal" href="../python_api/op/cross_entropy.html">
+       slapo.op.cross_entropy
+      </a>
+     </li>
+     <li class="toctree-l3">
+      <a class="reference internal" href="../python_api/op/dropout.html">
+       slapo.op.dropout
+      </a>
+     </li>
+     <li class="toctree-l3">
+      <a class="reference internal" href="../python_api/op/linear.html">
+       slapo.op.linear
+      </a>
+     </li>
+     <li class="toctree-l3">
+      <a class="reference internal" href="../python_api/op/mlp.html">
+       slapo.op.mlp
+      </a>
+     </li>
+    </ul>
+   </li>
+  </ul>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="../genindex.html">
+   Index
+  </a>
+ </li>
+</ul>
+
+    </div>
+</nav></div>
+        <div class="bd-sidebar__bottom">
+             <!-- To handle the deprecated key -->
+            
+        </div>
+    </div>
+    <div id="rtd-footer-container"></div>
+</div>
+
+
+          
+
+
+          
+<!-- A tiny helper pixel to detect if we've scrolled -->
+<div class="sbt-scroll-pixel-helper"></div>
+<!-- Main content -->
+<div class="col py-0 content-container">
+    
+    <div class="header-article row sticky-top noprint">
+        
+
+
+
+<div class="col py-1 d-flex header-article-main">
+    <div class="header-article__left">
+        
+        <label for="__navigation"
+  class="headerbtn"
+  data-toggle="tooltip"
+data-placement="right"
+title="Toggle navigation"
+>
+  
+
+<span class="headerbtn__icon-container">
+  <i class="fas fa-bars"></i>
+  </span>
+
+</label>
+
+        
+    </div>
+    <div class="header-article__right">
+<button onclick="toggleFullScreen()"
+  class="headerbtn"
+  data-toggle="tooltip"
+data-placement="bottom"
+title="Fullscreen mode"
+>
+  
+
+<span class="headerbtn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+<a href="https://github.com/awslabs/slapo"
+   class="headerbtn"
+   data-toggle="tooltip"
+data-placement="bottom"
+title="Source repository"
+>
+  
+
+<span class="headerbtn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+
+</a>
+
+<div class="menu-dropdown menu-dropdown-download-buttons">
+  <button class="headerbtn menu-dropdown__trigger"
+      aria-label="Download this page">
+      <i class="fas fa-download"></i>
+  </button>
+  <div class="menu-dropdown__content">
+    <ul>
+      <li>
+        <a href="../_sources/gallery/mlp-multi-gpu.rst.txt"
+   class="headerbtn"
+   data-toggle="tooltip"
+data-placement="left"
+title="Download source file"
+>
+  
+
+<span class="headerbtn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="headerbtn__text-container">.rst</span>
+</a>
+
+      </li>
+      
+      <li>
+        
+<button onclick="printPdf(this)"
+  class="headerbtn"
+  data-toggle="tooltip"
+data-placement="left"
+title="Print to PDF"
+>
+  
+
+<span class="headerbtn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="headerbtn__text-container">.pdf</span>
+</button>
+
+      </li>
+      
+    </ul>
+  </div>
+</div>
+
+    </div>
+</div>
+
+<!-- Table of contents -->
+<div class="col-md-3 bd-toc show noprint">
+</div>
+    </div>
+    <div class="article row">
+        <div class="col pl-md-3 pl-lg-5 content-container">
+            <!-- Table of contents that is only displayed when printing the page -->
+            <div id="jb-print-docs-body" class="onlyprint">
+                <h1>Optimize MLP Module on Multi-Device</h1>
+                <!-- Table of contents -->
+                <div id="print-main-content">
+                    <div id="jb-print-toc">
+                        
+                    </div>
+                </div>
+            </div>
+            <main id="main-content" role="main">
+                
+              <div>
+                
+  <div class="sphx-glr-download-link-note admonition note">
+<p class="admonition-title">Note</p>
+<p>Click <a class="reference internal" href="#sphx-glr-download-gallery-mlp-multi-gpu-py"><span class="std std-ref">here</span></a>
+to download the full example code</p>
+</div>
+<div class="sphx-glr-example-title section" id="optimize-mlp-module-on-multi-device">
+<span id="sphx-glr-gallery-mlp-multi-gpu-py"></span><h1>Optimize MLP Module on Multi-Device<a class="headerlink" href="#optimize-mlp-module-on-multi-device" title="Permalink to this headline"><span>¶</span></a></h1>
+<p>This guide uses the multi-layer perceptron (MLP) module, one of the
+basin components in Transformer-based models, as an example to show
+how we can leverage Slapo to optimize its performance on multiple devices.
+We will cover tensor parallelism, synchronization, and operator fusion
+in this tutorial.</p>
+<p>We first import the necessary packages. Make sure you have already installed
+the PyTorch framework.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">torch.nn</span> <span class="k">as</span> <span class="nn">nn</span>
+<span class="kn">import</span> <span class="nn">torch.nn.functional</span> <span class="k">as</span> <span class="nn">F</span>
+<span class="kn">import</span> <span class="nn">torch.distributed</span> <span class="k">as</span> <span class="nn">dist</span>
+<span class="kn">import</span> <span class="nn">slapo</span>
+</pre></div>
+</div>
+<p>Since we will use multiple GPUs to run the model, we need to initialize the distributed
+backend. Slapo provides a logger for users to only output certain messages on the
+given rank. In this tutorial, we only output the log on rank 0.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">slapo</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;gloo&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;rank: {dist.get_rank()}, world_size: {dist.get_world_size()}&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>rank: 0, world_size: 1
+</pre></div>
+</div>
+<p>We first define a MLP module that consists of two linear layers and a GELU activation,
+which is a basic component in Transformer-based models like GPT. Users can instantiate
+the module as usual.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">MLP</span><span class="p">(</span><a href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="torch.nn.Module" class="sphx-glr-backref-module-torch-nn sphx-glr-backref-type-py-class"><span class="n">nn</span><span class="o">.</span><span class="n">Module</span></a><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">hidden_size</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear1</span> <span class="o">=</span> <a href="https://pytorch.org/docs/stable/generated/torch.nn.Linear.html#torch.nn.Linear" title="torch.nn.Linear" class="sphx-glr-backref-module-torch-nn sphx-glr-backref-type-py-class"><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span></a><span class="p">(</span><span class="n">hidden_size</span><span class="p">,</span> <span class="n">hidden_size</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">activation</span> <span class="o">=</span> <a href="https://pytorch.org/docs/stable/generated/torch.nn.GELU.html#torch.nn.GELU" title="torch.nn.GELU" class="sphx-glr-backref-module-torch-nn sphx-glr-backref-type-py-class"><span class="n">nn</span><span class="o">.</span><span class="n">GELU</span></a><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear2</span> <span class="o">=</span> <a href="https://pytorch.org/docs/stable/generated/torch.nn.Linear.html#torch.nn.Linear" title="torch.nn.Linear" class="sphx-glr-backref-module-torch-nn sphx-glr-backref-type-py-class"><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span></a><span class="p">(</span><span class="n">hidden_size</span><span class="p">,</span> <span class="n">hidden_size</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear1</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">activation</span><span class="p">(</span><span class="n">out</span><span class="p">)</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear2</span><span class="p">(</span><span class="n">out</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">out</span>
+
+
+<span class="n">model</span> <span class="o">=</span> <a href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="torch.nn.Module" class="sphx-glr-backref-module-torch-nn sphx-glr-backref-type-py-class"><span class="n">MLP</span></a><span class="p">(</span><span class="mi">1024</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>We then create a default schedule <code class="docutils literal notranslate"><span class="pre">sch</span></code> for the model. Users can always check the
+corresponding PyTorch model by calling <code class="docutils literal notranslate"><span class="pre">sch.mod</span></code>.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sch</span> <span class="o">=</span> <span class="n">slapo</span><span class="o">.</span><span class="n">create_schedule</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>MLP(
+  (linear1): Linear(in_features=1024, out_features=1024, bias=True)
+  (activation): GELU(approximate=&#39;none&#39;)
+  (linear2): Linear(in_features=1024, out_features=1024, bias=True)
+)
+</pre></div>
+</div>
+<p>Here comes the most important part of transforming the single-device model to
+a parallelized one. Slapo provides a <code class="docutils literal notranslate"><span class="pre">.shard()</span></code> primitive to realize tensor
+parallelism. Users can specify the name of the tensor and the axis to shard the
+tensor along. We follow the convention of <a class="reference external" href="https://arxiv.org/abs/1909.08053">Megatron-LM</a>
+to shard the weight <span class="math notranslate nohighlight">\(A\)</span> in the first linear layer by column, and the
+weight <span class="math notranslate nohighlight">\(B\)</span> in the second linear layer by row. Basically, the computation
+becomes as follows:</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}f(XA)B = f\left(X\begin{bmatrix}A_1 &amp; A_2\end{bmatrix}\right) \begin{bmatrix}B_1 \\ B_2\end{bmatrix} =f(XA_1)B_1 + f(XA_2)B_2\end{split}\]</div>
+<p>where <span class="math notranslate nohighlight">\(X\)</span> is the input tensor. Since PyTorch’s <code class="docutils literal notranslate"><span class="pre">nn.Linear</span></code> module by default
+transposes the weight matrix, <code class="docutils literal notranslate"><span class="pre">axis=0</span></code> means sharding the output dimension.
+As each device only holds a part of the result, we need to synchronize the results
+at the end of both forward and backward pass. We can also use <code class="docutils literal notranslate"><span class="pre">.sync()</span></code> to specify the
+synchronization point and strategy. Here we use <code class="docutils literal notranslate"><span class="pre">all_reduce</span></code> to synchronize the results
+after the second linear layer during forward pass, and insert another <code class="docutils literal notranslate"><span class="pre">all_reduce</span></code>
+before the first linear layer during backward pass. Users only need to write the following
+several lines of code to realize complex tensor parallelism but have no need to care about
+the low-level implementation details.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sch</span><span class="p">[</span><span class="s2">&quot;linear1&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shard</span><span class="p">(</span><span class="s2">&quot;weight&quot;</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">sch</span><span class="p">[</span><span class="s2">&quot;linear1&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shard</span><span class="p">(</span><span class="s2">&quot;bias&quot;</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">sch</span><span class="p">[</span><span class="s2">&quot;linear2&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shard</span><span class="p">(</span><span class="s2">&quot;weight&quot;</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">sch</span><span class="p">[</span><span class="s2">&quot;linear2&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">sync</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s2">&quot;fwd_post&quot;</span><span class="p">,</span> <span class="n">sync_op_or_fn</span><span class="o">=</span><span class="s2">&quot;all_reduce&quot;</span><span class="p">)</span>
+<span class="n">sch</span><span class="p">[</span><span class="s2">&quot;linear1&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">sync</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s2">&quot;bwd_post&quot;</span><span class="p">,</span> <span class="n">sync_op_or_fn</span><span class="o">=</span><span class="s2">&quot;all_reduce&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>MLP(
+  (linear1): Linear(in_features=1024, out_features=1024, bias=True)
+  (activation): GELU(approximate=&#39;none&#39;)
+  (linear2): Linear(in_features=1024, out_features=1024, bias=True)
+)
+</pre></div>
+</div>
+<p>From the above output, we can see that the weight and bias of the linear layers
+are correctly sharded, where the output dimension of the first linear layer
+becomes half of the original one, and each device only holds half of the
+weight.</p>
+<p>Another optimization we can do is to fuse the GELU activation with the first
+linear layer. We can use <code class="docutils literal notranslate"><span class="pre">.decompose()</span></code> to decompose the linear layer into
+a matrix multiplication and a bias addition. As shown in the output below,
+the <code class="docutils literal notranslate"><span class="pre">nn.Linear</span></code> layer is replaced with the predefined <code class="docutils literal notranslate"><span class="pre">LinearWithSeparateBias</span></code>
+module.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sch</span><span class="p">[</span><span class="s2">&quot;linear1&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">decompose</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>MLP(
+  (linear1): LinearWithSeparateBias(in_features=1024, out_features=1024, bias=True)
+  (activation): GELU(approximate=&#39;none&#39;)
+  (linear2): Linear(in_features=1024, out_features=1024, bias=True)
+)
+</pre></div>
+</div>
+<p>To enable operator fusion, we need a static dataflow graph. Here, we explicitly
+call <code class="docutils literal notranslate"><span class="pre">.trace()</span></code> to trace the module and break the linear layer into two separate
+multiply and add operators. Users can easily determine whether they want their
+dataflow graph to be flattened or not by just passing in a flag.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sch</span><span class="o">.</span><span class="n">trace</span><span class="p">(</span><span class="n">flatten</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>GraphModule(
+  (linear1): Module()
+  (activation): GELU(approximate=&#39;none&#39;)
+  (linear2): Linear(in_features=1024, out_features=1024, bias=True)
+)
+
+
+
+def forward(self, data):
+    linear1_weight = self.linear1.weight
+    linear = torch._C._nn.linear(data, linear1_weight, None);  data = linear1_weight = None
+    linear1_bias = self.linear1.bias
+    add = linear + linear1_bias;  linear = linear1_bias = None
+    activation = self.activation(add);  add = None
+    linear2 = self.linear2(activation);  activation = None
+    return linear2
+
+# To see more debug info, please use `graph_module.print_readable()`
+</pre></div>
+</div>
+<p>Later, we define a pattern for matching the bias addition and GELU activation.
+Notice Slapo supports different types of patterns, including subgraphs with multiple
+inputs and fuzzy matching, which provides users enough flexibility to express
+their subgraphs.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">pattern</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">bias</span><span class="p">):</span>
+    <span class="n">x</span> <span class="o">=</span> <a href="https://pytorch.org/docs/stable/generated/torch.nn.functional.gelu.html#torch.nn.functional.gelu" title="torch.nn.functional.gelu" class="sphx-glr-backref-module-torch-nn-functional sphx-glr-backref-type-py-function"><span class="n">F</span><span class="o">.</span><span class="n">gelu</span></a><span class="p">(</span><span class="n">bias</span> <span class="o">+</span> <span class="n">x</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">x</span>
+
+
+<span class="n">subgraph</span> <span class="o">=</span> <span class="n">sch</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">pattern</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">subgraph</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>[[(&#39;&#39;, add), (&#39;&#39;, activation)]]
+</pre></div>
+</div>
+<p>As expected, the subgraph consists of two nodes, one for the bias addition and
+the other for the GELU activation. We can then fuse the subgraph into a single
+node by calling <code class="docutils literal notranslate"><span class="pre">.fuse()</span></code>. By default, Slapo will use TorchScript (nvFuser)
+as the backend compiler.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sch</span><span class="o">.</span><span class="n">fuse</span><span class="p">(</span><span class="n">subgraph</span><span class="p">,</span> <span class="n">compiler</span><span class="o">=</span><span class="s2">&quot;TorchScript&quot;</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;BiasGeLU&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>/usr/local/lib/python3.8/site-packages/torch/jit/_check.py:181: UserWarning: The TorchScript type system doesn&#39;t support instance-level annotations on empty non-base types in `__init__`. Instead, either 1) use a type annotation in the class body, or 2) wrap the type in `torch.jit.Attribute`.
+  warnings.warn(&quot;The TorchScript type system doesn&#39;t support &quot;
+GraphModule(
+  (linear1): Module()
+  (linear2): Linear(in_features=1024, out_features=1024, bias=True)
+  (BiasGeLU_0): RecursiveScriptModule(
+    original_name=GraphModule
+    (activation): RecursiveScriptModule(original_name=GELU)
+  )
+)
+
+
+
+def forward(self, data):
+    linear1_weight = self.linear1.weight
+    linear = torch._C._nn.linear(data, linear1_weight, None);  data = linear1_weight = None
+    linear1_bias = self.linear1.bias
+    bias_ge_lu_0 = self.BiasGeLU_0(linear, linear1_bias);  linear = linear1_bias = None
+    linear2 = self.linear2(bias_ge_lu_0);  bias_ge_lu_0 = None
+    return linear2
+
+# To see more debug info, please use `graph_module.print_readable()`
+</pre></div>
+</div>
+<p>We can see the previous sharding optimization is still preserved, and the fused
+kernel is correctly inserted into the hierarchical module definition and the
+corresponding dataflow graph.</p>
+<p>Finally, we can build the optimized model by calling <code class="docutils literal notranslate"><span class="pre">.build()</span></code>.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">opt_model</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">slapo</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="n">sch</span><span class="p">,</span> <span class="n">init_weights</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</pre></div>
+</div>
+<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> ( 0 minutes  0.080 seconds)</p>
+<div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-gallery-mlp-multi-gpu-py">
+<div class="sphx-glr-download sphx-glr-download-python docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/3f543fc069f615fa6b9b1314f0b64121/mlp-multi-gpu.py"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Python</span> <span class="pre">source</span> <span class="pre">code:</span> <span class="pre">mlp-multi-gpu.py</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/25a0ff26264d3ea175c18f0db0e80b9c/mlp-multi-gpu.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">mlp-multi-gpu.ipynb</span></code></a></p>
+</div>
+</div>
+<p class="sphx-glr-signature"><a class="reference external" href="https://sphinx-gallery.github.io">Gallery generated by Sphinx-Gallery</a></p>
+</div>
+
+
+              </div>
+              
+            </main>
+            <footer class="footer-article noprint">
+                
+    <!-- Previous / next buttons -->
+<div class='prev-next-area'>
+    <a class='left-prev' id="prev-link" href="attention-single-gpu.html" title="previous page">
+        <i class="fas fa-angle-left"></i>
+        <div class="prev-next-info">
+            <p class="prev-next-subtitle">previous</p>
+            <p class="prev-next-title">Optimize Attention Module on A Single Device</p>
+        </div>
+    </a>
+    <a class='right-next' id="next-link" href="../python_api/index.html" title="next page">
+    <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Python API</p>
+    </div>
+    <i class="fas fa-angle-right"></i>
+    </a>
+</div>
+            </footer>
+        </div>
+    </div>
+    <div class="footer-content row">
+        <footer class="col footer"><p>
+  
+    By Amazon<br/>
+  
+      &copy; Copyright 2023, Amazon.<br/>
+</p>
+        </footer>
+    </div>
+    
+</div>
+
+
+      </div>
+    </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../_static/scripts/pydata-sphinx-theme.js?digest=1999514e3f237ded88cf"></script>
+
+
+  </body>
+</html>

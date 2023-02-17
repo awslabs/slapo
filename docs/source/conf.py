@@ -1,5 +1,6 @@
-# Modification:
-# https://github.com/hidet-org/hidet/blob/main/docs/source/conf.py
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+# Modification: https://github.com/hidet-org/hidet/blob/main/docs/source/conf.py
 
 # Configuration file for the Sphinx documentation builder.
 #

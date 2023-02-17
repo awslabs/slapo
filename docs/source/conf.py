@@ -130,8 +130,6 @@ class ResetArgv:
 
     def __call__(self, sphinx_gallery_conf, script_vars):
         src_file = script_vars["src_file"].split("/")[-1]
-        if src_file == ["quick-start.py", "mlp-multi-gpu.py"]:
-            return ["-m", "torch.distributed.run", "--nproc_per_node", "2"]
         return []
 
 
@@ -139,7 +137,7 @@ sphinx_gallery_conf = {
     "examples_dirs": "scripts",  # path to gallery scripts
     "gallery_dirs": "gallery",  # path to where to save gallery generated output
     "filename_pattern": r"/*\.py",
-    "ignore_pattern": r"quick-start\.py|mlp-multi-gpu\.py",
+    # "ignore_pattern": r"",
     "download_all_examples": False,
     "reset_argv": ResetArgv(),
 }

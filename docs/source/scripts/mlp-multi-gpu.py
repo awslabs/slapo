@@ -28,7 +28,7 @@ logger = get_logger()
 # backend. Slapo provides a logger for users to only output certain messages on the
 # given rank. In this tutorial, we only output the log on rank 0.
 
-dist.init_process_group("nccl")
+slapo.env.setup(0, 1)
 logger.info(f"rank: {dist.get_rank()}, world_size: {dist.get_world_size()}", ranks=0)
 
 # %%
@@ -56,6 +56,7 @@ model = MLP(1024)
 # %%
 # We then create a default schedule ``sch`` for the model. Users can always check the
 # corresponding PyTorch model by calling ``sch.mod``.
+
 sch = slapo.create_schedule(model)
 logger.info(sch.mod, ranks=0)
 
@@ -69,9 +70,7 @@ logger.info(sch.mod, ranks=0)
 # becomes as follows:
 #
 # .. math::
-#   f(XA)B = f\left(X\begin{bmatrix}A_1 & A_2\end{bmatrix}\right)
-#            \begin{bmatrix}B_1 \\ B_2\end{bmatrix}
-#          =f(XA_1)B_1 + f(XA_2)B_2
+#   f(XA)B = f\left(X\begin{bmatrix}A_1 & A_2\end{bmatrix}\right) \begin{bmatrix}B_1 \\ B_2\end{bmatrix} =f(XA_1)B_1 + f(XA_2)B_2
 #
 # where :math:`X` is the input tensor. Since PyTorch's ``nn.Linear`` module by default
 # transposes the weight matrix, ``axis=0`` means sharding the output dimension.

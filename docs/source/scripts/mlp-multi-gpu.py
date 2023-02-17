@@ -22,10 +22,11 @@ import slapo
 
 # %%
 # Since we will use multiple GPUs to run the model, we need to initialize the distributed
-# backend. Slapo provides a logger for users to only output certain messages on the
-# given rank. In this tutorial, we only output the log on rank 0.
+# backend. We only initialize the CPU backend for illustration purpose. Users can
+# initialize the NCCL backend on GPU by passing in ``backend="nccl"``, and change
+# the actual number of devices accordingly.
 
-slapo.env.setup(0, 1, "gloo")
+slapo.env.setup(rank=0, world_size=1, backend="gloo")
 print(f"rank: {dist.get_rank()}, world_size: {dist.get_world_size()}")
 
 # %%

@@ -165,6 +165,7 @@ def pattern(x):
 
 qkv_subgraphs = attn_sch.find(pattern)
 
+# %%
 # The primitive basically does two things. First, it will `implicitly` trace the submodule
 # into a static subgraph. Currently, we use `torch.fx <https://pytorch.org/docs/stable/fx.html>`_
 # as the IR, so the traced module will become a ``torch.fx.GraphModule``, and we can also

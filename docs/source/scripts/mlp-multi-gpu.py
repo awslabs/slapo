@@ -30,6 +30,9 @@ slapo.env.setup(rank=0, world_size=1, backend="gloo")
 print(f"rank: {dist.get_rank()}, world_size: {dist.get_world_size()}")
 
 # %%
+# Model Definition
+# ----------------
+#
 # We first define a MLP module that consists of two linear layers and a GELU activation,
 # which is a basic component in Transformer-based models like GPT. Users can instantiate
 # the module as usual.
@@ -52,6 +55,9 @@ class MLP(nn.Module):
 model = MLP(1024)
 
 # %%
+# Create Model Schedule
+# ---------------------
+#
 # We then create a default schedule ``sch`` for the model. Users can always check the
 # corresponding PyTorch model by calling ``sch.mod``.
 
@@ -59,6 +65,9 @@ sch = slapo.create_schedule(model)
 print(sch.mod)
 
 # %%
+# Tensor Parallelism
+# ------------------
+#
 # Here comes the most important part of transforming the single-device model to
 # a parallelized one. Slapo provides a ``.shard()`` primitive to realize tensor
 # parallelism. Users can specify the name of the tensor and the axis to shard the
@@ -92,6 +101,10 @@ print(sch.mod)
 # are correctly sharded, where the output dimension of the first linear layer
 # becomes half of the original one, and each device only holds half of the
 # weight.
+
+# %%
+# Operator Fusion
+# ---------------
 #
 # Another optimization we can do is to fuse the GELU activation with the first
 # linear layer. We can use ``.decompose()`` to decompose the linear layer into
@@ -136,9 +149,13 @@ sch.fuse(subgraph, compiler="TorchScript", name="BiasGeLU")
 print(sch.mod)
 
 # %%
+# Build the Optimized Model
+# -------------------------
+#
 # We can see the previous sharding optimization is still preserved, and the fused
 # kernel is correctly inserted into the hierarchical module definition and the
 # corresponding dataflow graph.
 #
 # Finally, we can build the optimized model by calling ``.build()``.
+
 opt_model, _ = slapo.build(sch, init_weights=False)

@@ -21,6 +21,9 @@ import torch.nn.functional as F
 import slapo
 
 # %%
+# Model Definition
+# ----------------
+#
 # The Attention module consists of SelfAttention and Projection modules, where
 # SelfAttention takes in the hidden states and passes it through three different
 # linear layers to generate the query, key and value tensors. Then, those tensors
@@ -108,6 +111,9 @@ class Attention(nn.Module):
 model = Attention(hidden_size=1024, n_heads=16)
 
 # %%
+# Create Model Schedule
+# ---------------------
+#
 # Later, we pass the model to Slapo and create a default schedule for it.
 # The schedule always includes the original or the transformed module.
 # Users can check the module by calling the ``mod`` attribute.
@@ -133,6 +139,14 @@ print(attn_sch.mod)
 # learning compilers.
 #
 # In the following, we will show how to gradually apply optimizations to the model.
+
+# %%
+# Optimize SelfAttention Module
+# -----------------------------
+#
+# Replace QKV Linear Layers
+# ~~~~~~~~~~~~~~~~~~~~~~~~~
+#
 # Since the three linear layers in the SelfAttention module are independent, we
 # can merge them into a single linear layer to reduce the number of GEMM
 # operations, and thus reduce the kernel launch overheads.
@@ -224,6 +238,9 @@ print(attn_sch.mod)
 # module.
 
 # %%
+# Replace Scaled Dot-Product Attention
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#
 # Similarly, we can directly find the core attention function and replace it
 # with a more efficient implementation.
 
@@ -252,6 +269,9 @@ print(attn_sch.mod)
 # function becomes much simpler to call those two submodules.
 
 # %%
+# Optimize the Projection Module
+# ------------------------------
+#
 # We then optimize the ``Projection`` module. A common practice is to fuse the
 # dropout and the layer norm layer with those element-wise addition operations.
 # We first create a subschedule for the ``Projection`` module.
@@ -312,9 +332,14 @@ print(proj_sch.mod)
 # only ``torch._C._nn.Linear`` and ``FusedLayerNorm`` are called in the forward function.
 
 # %%
+# Build the Optimized Model
+# -------------------------
+#
 # Finally, we finish all the optimizations for Attention module on a single device.
-# We can print out the top-level module to see the changes. The optimizations are clearly
-# reflected in the new module, and we still keep the module hierarchy, which greatly enhances
-# the readability and debuggability of the code.
+# We can pass the schedule into ``sch.build`` to build the optimized model for execution.
+# It returns the optimized model and a default optimizer. We can print out the top-level module
+# to see the changes. The optimizations are clearly reflected in the new module, and we still
+# keep the module hierarchy, which greatly enhances the readability and debuggability of the code.
 
-print(sch.mod)
+opt_model, _ = slapo.build(sch, init_weights=False)
+print(opt_model)

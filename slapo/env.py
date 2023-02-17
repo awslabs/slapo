@@ -7,13 +7,14 @@ import torch.distributed as dist
 import torch.multiprocessing as mp
 
 
-def setup(rank, world_size):
+def setup(rank, world_size, backend="nccl"):
     os.environ["MASTER_ADDR"] = "localhost"
     os.environ["MASTER_PORT"] = "12355"
 
     # initialize the process group
-    dist.init_process_group("nccl", rank=rank, world_size=world_size)
-    torch.cuda.set_device(rank)
+    dist.init_process_group(backend, rank=rank, world_size=world_size)
+    if backend == "nccl":
+        torch.cuda.set_device(rank)
 
 
 def cleanup():

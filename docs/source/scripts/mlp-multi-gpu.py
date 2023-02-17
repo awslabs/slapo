@@ -19,17 +19,14 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.distributed as dist
 import slapo
-from slapo.logger import get_logger
-
-logger = get_logger()
 
 # %%
 # Since we will use multiple GPUs to run the model, we need to initialize the distributed
 # backend. Slapo provides a logger for users to only output certain messages on the
 # given rank. In this tutorial, we only output the log on rank 0.
 
-slapo.env.setup(0, 1)
-logger.info(f"rank: {dist.get_rank()}, world_size: {dist.get_world_size()}", ranks=0)
+slapo.env.setup(0, 1, "gloo")
+print(f"rank: {dist.get_rank()}, world_size: {dist.get_world_size()}")
 
 # %%
 # We first define a MLP module that consists of two linear layers and a GELU activation,
@@ -58,7 +55,7 @@ model = MLP(1024)
 # corresponding PyTorch model by calling ``sch.mod``.
 
 sch = slapo.create_schedule(model)
-logger.info(sch.mod, ranks=0)
+print(sch.mod)
 
 # %%
 # Here comes the most important part of transforming the single-device model to
@@ -87,7 +84,7 @@ sch["linear1"].shard("bias", axis=0)
 sch["linear2"].shard("weight", axis=1)
 sch["linear2"].sync(mode="fwd_post", sync_op_or_fn="all_reduce")
 sch["linear1"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
-logger.info(sch.mod, ranks=0)
+print(sch.mod)
 
 # %%
 # From the above output, we can see that the weight and bias of the linear layers
@@ -102,7 +99,7 @@ logger.info(sch.mod, ranks=0)
 # module.
 
 sch["linear1"].decompose()
-logger.info(sch.mod, ranks=0)
+print(sch.mod)
 
 # %%
 # To enable operator fusion, we need a static dataflow graph. Here, we explicitly
@@ -111,7 +108,7 @@ logger.info(sch.mod, ranks=0)
 # dataflow graph to be flattened or not by just passing in a flag.
 
 sch.trace(flatten=True)
-logger.info(sch.mod, ranks=0)
+print(sch.mod)
 
 # %%
 # Later, we define a pattern for matching the bias addition and GELU activation.
@@ -126,7 +123,7 @@ def pattern(x, bias):
 
 
 subgraph = sch.find(pattern)
-logger.info(subgraph, ranks=0)
+print(subgraph)
 
 # %%
 # As expected, the subgraph consists of two nodes, one for the bias addition and
@@ -135,7 +132,7 @@ logger.info(subgraph, ranks=0)
 # as the backend compiler.
 
 sch.fuse(subgraph, compiler="TorchScript", name="BiasGeLU")
-logger.info(sch.mod, ranks=0)
+print(sch.mod)
 
 # %%
 # We can see the previous sharding optimization is still preserved, and the fused

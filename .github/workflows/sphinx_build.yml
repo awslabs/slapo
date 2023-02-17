@@ -1,6 +1,12 @@
 name: "Build documentation"
 # This workflow is triggered on pushes to the repository.
-on: [push]
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
   build:

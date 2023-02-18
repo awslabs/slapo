@@ -90,6 +90,7 @@ class Space:
 
     def create_symbol(self, name, vals):
         """Create a symbol in the space. If the symbol already exists:
+
         1) If the symbol is fixed, do nothing;
         2) Otherwise re-create the symbol, because its candidate values may change
            due to other fixed symbols.

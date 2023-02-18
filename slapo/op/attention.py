@@ -372,12 +372,14 @@ class FlashAttention(nn.Module):
     """A HuggingFace self attention module with flash attention kernels.
     Note that this module has limited supports to specialized processing,
     documetned as follows:
+
     - Only support absolute positional embeddings.
     - Do not support cross attention.
     - Do not support head mask, encoder_attention_mask, and output attention.
 
     We organize the Attention module as follows:
-    Attention
+
+    - Attention
         - SelfAttention
             - Q, K, V
             - CoreAttention

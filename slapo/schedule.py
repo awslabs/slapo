@@ -1331,12 +1331,15 @@ def consolidate_model(
             orig_shape = (
                 param.orig_shape if hasattr(param, "orig_shape") else param.shape
             )
+            new_param = nn.Parameter(
+                torch.empty(orig_shape, dtype=param.dtype, device=local_rank)
+            )
             sch.mod.register_parameter(
                 param_name,
-                nn.Parameter(
-                    torch.empty(orig_shape, dtype=param.dtype, device=local_rank)
-                ),
+                new_param,
             )
+            if hasattr(param, "replicated_param") and param.replicated_param:
+                new_param.replicated_param = True
 
         # Use original shape to initialize parameters.
         if global_rank == curr_stage_devices[0] and num_params > 0:

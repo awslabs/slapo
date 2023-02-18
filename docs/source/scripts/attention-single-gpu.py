@@ -270,8 +270,9 @@ print(core_attn_subgraph)
 #   :class: margin
 #
 #   We use ``native_xformers`` in this tutorial to demonstrate the functionality.
-#   However, users can choose ``cutlass``, ``triton``, or ``cuda`` kernels to achieve
-#   better performance. Please refer to `slapo.op.attention.FlashAttentionOp`.
+#   In reality, users can choose ``cutlass``, ``triton``, or ``cuda`` kernels to achieve
+#   better performance, while the latter two only support NVIDIA V100 GPU.
+#   Please refer to `slapo.op.attention.FlashAttentionOp` for more details.
 
 from slapo.op.attention import FlashAttentionOp
 

@@ -255,7 +255,7 @@ core_attn_subgraph = attn_sch.find(scaled_dot_product)
 print(core_attn_subgraph)
 
 # %%
-# We can use the ``FlashAttentionOp`` provided by Slapo that makes use 
+# We can use the ``FlashAttentionOp`` provided by Slapo that makes use
 # of `flash attention <https://arxiv.org/abs/2205.14135>`_ kernels from
 # `xFormers <https://github.com/facebookresearch/xformers>`_ and
 # `flash-attention <https://github.com/HazyResearch/flash-attention>`_ libraries
@@ -265,7 +265,7 @@ print(core_attn_subgraph)
 # the ``query``, ``key``, and ``value`` tensors, while ``FlashAttentionOp`` requires
 # five arguments, so we need to explicitly pass ``None`` to the ``attention_mask``
 # argument, and set the dropout probability ``p`` to 0.1 by setting the ``concrete_args``.
-# 
+#
 # .. note::
 #   :class: margin
 #

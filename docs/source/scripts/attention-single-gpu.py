@@ -244,20 +244,34 @@ print(attn_sch.mod)
 # Replace Scaled Dot-Product Attention
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #
-# Similarly, we can directly find the core attention function and replace it
-# with a more efficient implementation.
+# Next, we still use the ``.find()`` primitive to find the core attention function
+# and replace it with a more efficient implementation. Different from the QKV example
+# that requires us to explicitly write the fuzzy pattern, we can directly write
+# a function with the identical computation subgraph as the pattern. Since the
+# ``scaled_dot_product`` function has been defined previously, we can reuse it
+# and pass it into ``.find()``.
 
 core_attn_subgraph = attn_sch.find(scaled_dot_product)
 print(core_attn_subgraph)
 
 # %%
-# We can use the ``FlashAttentionOp`` from the ``xformers`` library to replace
-# the core attention, which has been included in Slapo, so we can directly
-# import and replace the subgraph with ``FlashAttentionOp``.
+# We can use the ``FlashAttentionOp`` provided by Slapo that makes use 
+# of `flash attention <https://arxiv.org/abs/2205.14135>`_ kernels from
+# `xFormers <https://github.com/facebookresearch/xformers>`_ and
+# `flash-attention <https://github.com/HazyResearch/flash-attention>`_ libraries
+# to replace the core attention. We directly import and replace the subgraph
+# with ``FlashAttentionOp``.
 # Notice, since the ``scaled_dot_product`` function we defined above only accepts
 # the ``query``, ``key``, and ``value`` tensors, while ``FlashAttentionOp`` requires
 # five arguments, so we need to explicitly pass ``None`` to the ``attention_mask``
 # argument, and set the dropout probability ``p`` to 0.1 by setting the ``concrete_args``.
+# 
+# .. note::
+#   :class: margin
+#
+#   We use ``native_xformers`` in this tutorial to demonstrate the functionality.
+#   However, users can choose ``cutlass``, ``triton``, or ``cuda`` kernels to achieve
+#   better performance. Please refer to `slapo.op.attention.FlashAttentionOp`.
 
 from slapo.op.attention import FlashAttentionOp
 
@@ -325,7 +339,7 @@ print(ln_subgraph)
 # %%
 # For this case of vertical fusion, Slapo provides a ``.fuse()`` primitive to easily fuse the subgraph.
 # Users can specify the backend fusion compiler and the name of the fused module. By default, Slapo
-# will use TorchScript (nvFuser) to fuse the subgraph.
+# will use TorchScript with nvFuser to fuse the subgraph.
 
 proj_sch.fuse(ln_subgraph, compiler="TorchScript", name="FusedLayerNorm")
 print(proj_sch.mod)

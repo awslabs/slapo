@@ -25,7 +25,7 @@ import slapo
 
 # %%
 # Since we will use multiple GPUs to run the model, we need to initialize the distributed
-# backend. We only initialize the CPU backend for illustration purpose. Users can
+# backend. We only initialize the CPU backend in this tutorial, but you can
 # initialize the NCCL backend on GPU by passing in ``backend="nccl"``, and change
 # the actual number of devices accordingly.
 
@@ -76,8 +76,8 @@ print(sch.mod)
 # parallelism. Users can specify the name of the tensor and the axis to shard the
 # tensor along. We follow the convention of `Megatron-LM <https://arxiv.org/abs/1909.08053>`_
 # to shard the weight :math:`A` in the first linear layer by column, and the
-# weight :math:`B` in the second linear layer by row. Basically, the computation
-# becomes as follows:
+# weight :math:`B` in the second linear layer by row. Consider a machine with two
+# devices, the computation becomes as follows:
 #
 # .. math::
 #   f(XA)B = f\left(X\begin{bmatrix}A_1 & A_2\end{bmatrix}\right) \begin{bmatrix}B_1 \\ B_2\end{bmatrix} =f(XA_1)B_1 + f(XA_2)B_2
@@ -100,10 +100,10 @@ sch["linear1"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
 print(sch.mod)
 
 # %%
-# From the above output, we can see that the weight and bias of the linear layers
-# are correctly sharded, where the output dimension of the first linear layer
-# becomes half of the original one, and each device only holds half of the
-# weight.
+# If lanuch this script with two devices, you can see that the weight and bias
+# of the linear layers are correctly sharded, where the output dimension of
+# the first linear layer becomes half of the original one, and each device
+# only holds half of the weight.
 
 # %%
 # Operator Fusion
@@ -145,7 +145,7 @@ print(subgraph)
 # %%
 # As expected, the subgraph consists of two nodes, one for the bias addition and
 # the other for the GELU activation. We can then fuse the subgraph into a single
-# node by calling ``.fuse()``. By default, Slapo will use TorchScript (nvFuser)
+# node by calling ``.fuse()``. By default, Slapo will use TorchScript with nvFuser
 # as the backend compiler.
 
 sch.fuse(subgraph, compiler="TorchScript", name="BiasGeLU")

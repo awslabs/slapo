@@ -1,9 +1,10 @@
 ..  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
     SPDX-License-Identifier: Apache-2.0
 
-slapo.initialization
---------------------
+slapo.model_schedule
+====================
 
-.. automodule:: slapo.initialization
-  :members:
-  :autosummary:
+.. toctree::
+  :caption: Submodules
+
+  api

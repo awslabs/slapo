@@ -1,3 +1,6 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 """
 .. currentmodule:: slapo
 
@@ -21,6 +24,9 @@ import torch.nn.functional as F
 import slapo
 
 # %%
+# Model Definition
+# ----------------
+#
 # The Attention module consists of SelfAttention and Projection modules, where
 # SelfAttention takes in the hidden states and passes it through three different
 # linear layers to generate the query, key and value tensors. Then, those tensors
@@ -108,6 +114,9 @@ class Attention(nn.Module):
 model = Attention(hidden_size=1024, n_heads=16)
 
 # %%
+# Create Model Schedule
+# ---------------------
+#
 # Later, we pass the model to Slapo and create a default schedule for it.
 # The schedule always includes the original or the transformed module.
 # Users can check the module by calling the ``mod`` attribute.
@@ -133,6 +142,14 @@ print(attn_sch.mod)
 # learning compilers.
 #
 # In the following, we will show how to gradually apply optimizations to the model.
+
+# %%
+# Optimize SelfAttention Module
+# -----------------------------
+#
+# Replace QKV Linear Layers
+# ~~~~~~~~~~~~~~~~~~~~~~~~~
+#
 # Since the three linear layers in the SelfAttention module are independent, we
 # can merge them into a single linear layer to reduce the number of GEMM
 # operations, and thus reduce the kernel launch overheads.
@@ -165,6 +182,7 @@ def pattern(x):
 
 qkv_subgraphs = attn_sch.find(pattern)
 
+# %%
 # The primitive basically does two things. First, it will `implicitly` trace the submodule
 # into a static subgraph. Currently, we use `torch.fx <https://pytorch.org/docs/stable/fx.html>`_
 # as the IR, so the traced module will become a ``torch.fx.GraphModule``, and we can also
@@ -223,20 +241,38 @@ print(attn_sch.mod)
 # module.
 
 # %%
-# Similarly, we can directly find the core attention function and replace it
-# with a more efficient implementation.
+# Replace Scaled Dot-Product Attention
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#
+# Next, we still use the ``.find()`` primitive to find the core attention function
+# and replace it with a more efficient implementation. Different from the QKV example
+# that requires us to explicitly write the fuzzy pattern, we can directly write
+# a function with the identical computation subgraph as the pattern. Since the
+# ``scaled_dot_product`` function has been defined previously, we can reuse it
+# and pass it into ``.find()``.
 
 core_attn_subgraph = attn_sch.find(scaled_dot_product)
 print(core_attn_subgraph)
 
 # %%
-# We can use the ``FlashAttentionOp`` from the ``xformers`` library to replace
-# the core attention, which has been included in Slapo, so we can directly
-# import and replace the subgraph with ``FlashAttentionOp``.
+# We can use the ``FlashAttentionOp`` provided by Slapo that makes use
+# of `flash attention <https://arxiv.org/abs/2205.14135>`_ kernels from
+# `xFormers <https://github.com/facebookresearch/xformers>`_ and
+# `flash-attention <https://github.com/HazyResearch/flash-attention>`_ libraries
+# to replace the core attention. We directly import and replace the subgraph
+# with ``FlashAttentionOp``.
 # Notice, since the ``scaled_dot_product`` function we defined above only accepts
 # the ``query``, ``key``, and ``value`` tensors, while ``FlashAttentionOp`` requires
 # five arguments, so we need to explicitly pass ``None`` to the ``attention_mask``
 # argument, and set the dropout probability ``p`` to 0.1 by setting the ``concrete_args``.
+#
+# .. note::
+#   :class: margin
+#
+#   We use ``native_xformers`` in this tutorial to demonstrate the functionality.
+#   In reality, users can choose ``cutlass``, ``triton``, or ``cuda`` kernels to achieve
+#   better performance, while the latter two only support NVIDIA V100 GPU.
+#   Please refer to `slapo.op.attention.FlashAttentionOp` for more details.
 
 from slapo.op.attention import FlashAttentionOp
 
@@ -251,6 +287,9 @@ print(attn_sch.mod)
 # function becomes much simpler to call those two submodules.
 
 # %%
+# Optimize the Projection Module
+# ------------------------------
+#
 # We then optimize the ``Projection`` module. A common practice is to fuse the
 # dropout and the layer norm layer with those element-wise addition operations.
 # We first create a subschedule for the ``Projection`` module.
@@ -301,7 +340,7 @@ print(ln_subgraph)
 # %%
 # For this case of vertical fusion, Slapo provides a ``.fuse()`` primitive to easily fuse the subgraph.
 # Users can specify the backend fusion compiler and the name of the fused module. By default, Slapo
-# will use TorchScript (nvFuser) to fuse the subgraph.
+# will use TorchScript with nvFuser to fuse the subgraph.
 
 proj_sch.fuse(ln_subgraph, compiler="TorchScript", name="FusedLayerNorm")
 print(proj_sch.mod)
@@ -311,9 +350,14 @@ print(proj_sch.mod)
 # only ``torch._C._nn.Linear`` and ``FusedLayerNorm`` are called in the forward function.
 
 # %%
+# Build the Optimized Model
+# -------------------------
+#
 # Finally, we finish all the optimizations for Attention module on a single device.
-# We can print out the top-level module to see the changes. The optimizations are clearly
-# reflected in the new module, and we still keep the module hierarchy, which greatly enhances
-# the readability and debuggability of the code.
+# We can pass the schedule into ``sch.build`` to build the optimized model for execution.
+# It returns the optimized model and a default optimizer. We can print out the top-level module
+# to see the changes. The optimizations are clearly reflected in the new module, and we still
+# keep the module hierarchy, which greatly enhances the readability and debuggability of the code.
 
-print(sch.mod)
+opt_model, _ = slapo.build(sch, init_weights=False)
+print(opt_model)

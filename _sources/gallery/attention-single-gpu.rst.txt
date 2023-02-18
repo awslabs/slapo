@@ -29,12 +29,12 @@ example to show how we can leverage Slapo to optimize its performance on
 a single device. We will cover module tracing, pattern matching, operator
 fusion, and partial module replacement in this tutorial.
 
-.. GENERATED FROM PYTHON SOURCE LINES 15-17
+.. GENERATED FROM PYTHON SOURCE LINES 18-20
 
 We first import the necessary packages. Make sure you have already installed
 the PyTorch framework.
 
-.. GENERATED FROM PYTHON SOURCE LINES 17-23
+.. GENERATED FROM PYTHON SOURCE LINES 20-26
 
 .. code-block:: default
 
@@ -51,7 +51,10 @@ the PyTorch framework.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 24-36
+.. GENERATED FROM PYTHON SOURCE LINES 27-42
+
+Model Definition
+----------------
 
 The Attention module consists of SelfAttention and Projection modules, where
 SelfAttention takes in the hidden states and passes it through three different
@@ -66,7 +69,7 @@ module will be passed through a linear projection layer, added with the residual
 connection, and conducted a layer norm to generate the final output.
 The following code shows the implementation of the Attention module.
 
-.. GENERATED FROM PYTHON SOURCE LINES 36-105
+.. GENERATED FROM PYTHON SOURCE LINES 42-111
 
 .. code-block:: default
 
@@ -146,11 +149,11 @@ The following code shows the implementation of the Attention module.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 106-107
+.. GENERATED FROM PYTHON SOURCE LINES 112-113
 
 Users can instantiate the model based on the above definition as usual.
 
-.. GENERATED FROM PYTHON SOURCE LINES 107-110
+.. GENERATED FROM PYTHON SOURCE LINES 113-116
 
 .. code-block:: default
 
@@ -164,13 +167,16 @@ Users can instantiate the model based on the above definition as usual.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 111-114
+.. GENERATED FROM PYTHON SOURCE LINES 117-123
+
+Create Model Schedule
+---------------------
 
 Later, we pass the model to Slapo and create a default schedule for it.
 The schedule always includes the original or the transformed module.
 Users can check the module by calling the ``mod`` attribute.
 
-.. GENERATED FROM PYTHON SOURCE LINES 114-118
+.. GENERATED FROM PYTHON SOURCE LINES 123-127
 
 .. code-block:: default
 
@@ -202,7 +208,7 @@ Users can check the module by calling the ``mod`` attribute.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 119-124
+.. GENERATED FROM PYTHON SOURCE LINES 128-133
 
 As we can see, Slapo works seamlessly with the PyTorch models and preserves
 the hierarchical structure of the original model. As we have not added any
@@ -210,7 +216,7 @@ optimizations, the module is exactly the same as the original one.
 We can easily obtain the submodules by passing the module name to the schedule,
 which will return a new schedule for the submodule.
 
-.. GENERATED FROM PYTHON SOURCE LINES 124-128
+.. GENERATED FROM PYTHON SOURCE LINES 133-137
 
 .. code-block:: default
 
@@ -235,7 +241,7 @@ which will return a new schedule for the submodule.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 129-151
+.. GENERATED FROM PYTHON SOURCE LINES 138-145
 
 This is also the idea of progressive optimization -- we only apply optimizations
 to a small part of the model at a time and do not affect other parts.
@@ -244,6 +250,15 @@ is different from the traditional static graph optimization employed by deep
 learning compilers.
 
 In the following, we will show how to gradually apply optimizations to the model.
+
+.. GENERATED FROM PYTHON SOURCE LINES 147-168
+
+Optimize SelfAttention Module
+-----------------------------
+
+Replace QKV Linear Layers
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
 Since the three linear layers in the SelfAttention module are independent, we
 can merge them into a single linear layer to reduce the number of GEMM
 operations, and thus reduce the kernel launch overheads.
@@ -260,7 +275,7 @@ Using this function, we can use just one line of code to match the three linear
 layers. Also, we need to incorporate the ``view`` and ``permute`` operations,
 which should also be fused together instead of doing three times separately.
 
-.. GENERATED FROM PYTHON SOURCE LINES 151-162
+.. GENERATED FROM PYTHON SOURCE LINES 168-179
 
 .. code-block:: default
 
@@ -282,22 +297,36 @@ which should also be fused together instead of doing three times separately.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 163-165
+.. GENERATED FROM PYTHON SOURCE LINES 180-182
 
 After defining the pattern, we can use the ``.find()`` primitive to find the
 corresponding subgraph in the model.
 
-.. GENERATED FROM PYTHON SOURCE LINES 165-175
+.. GENERATED FROM PYTHON SOURCE LINES 182-185
 
 .. code-block:: default
 
 
     qkv_subgraphs = attn_sch.find(pattern)
 
-    # The primitive basically does two things. First, it will `implicitly` trace the submodule
-    # into a static subgraph. Currently, we use `torch.fx <https://pytorch.org/docs/stable/fx.html>`_
-    # as the IR, so the traced module will become a ``torch.fx.GraphModule``, and we can also
-    # see the forward function of it.
+
+
+
+
+
+
+
+.. GENERATED FROM PYTHON SOURCE LINES 186-190
+
+The primitive basically does two things. First, it will `implicitly` trace the submodule
+into a static subgraph. Currently, we use `torch.fx <https://pytorch.org/docs/stable/fx.html>`_
+as the IR, so the traced module will become a ``torch.fx.GraphModule``, and we can also
+see the forward function of it.
+
+.. GENERATED FROM PYTHON SOURCE LINES 190-193
+
+.. code-block:: default
+
 
     print(attn_sch.mod)
 
@@ -352,13 +381,13 @@ corresponding subgraph in the model.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 176-179
+.. GENERATED FROM PYTHON SOURCE LINES 194-197
 
 Second, the ``.find()`` primitive will return a list of subgraphs that
 match the pattern. In our case, there will be three subgraphs, one for each
 linear layer and the consequential ``view`` and ``permute`` operations.
 
-.. GENERATED FROM PYTHON SOURCE LINES 179-182
+.. GENERATED FROM PYTHON SOURCE LINES 197-200
 
 .. code-block:: default
 
@@ -378,11 +407,11 @@ linear layer and the consequential ``view`` and ``permute`` operations.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 183-184
+.. GENERATED FROM PYTHON SOURCE LINES 201-202
 
 Then, we define a fused QKV module as follows and instantiate it.
 
-.. GENERATED FROM PYTHON SOURCE LINES 184-209
+.. GENERATED FROM PYTHON SOURCE LINES 202-227
 
 .. code-block:: default
 
@@ -418,7 +447,7 @@ Then, we define a fused QKV module as follows and instantiate it.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 210-215
+.. GENERATED FROM PYTHON SOURCE LINES 228-233
 
 We can replace the subgraphs with the fused QKV module by calling the
 ``.replace()`` primitive. The first argument is the new module,
@@ -426,7 +455,7 @@ and the second argument is the subgraph to be replaced.
 After replacing the subgraph, we can check the model again to see the
 changes.
 
-.. GENERATED FROM PYTHON SOURCE LINES 215-219
+.. GENERATED FROM PYTHON SOURCE LINES 233-237
 
 .. code-block:: default
 
@@ -471,19 +500,26 @@ changes.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 220-224
+.. GENERATED FROM PYTHON SOURCE LINES 238-242
 
 From the above output, we can see there is a new module called ``FusedQKV_0``
 with :math:`3\times` ``out_features`` compared to the original linear layer.
 The corresponding forward function is also changed to leverage the fused
 module.
 
-.. GENERATED FROM PYTHON SOURCE LINES 226-228
+.. GENERATED FROM PYTHON SOURCE LINES 244-253
 
-Similarly, we can directly find the core attention function and replace it
-with a more efficient implementation.
+Replace Scaled Dot-Product Attention
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. GENERATED FROM PYTHON SOURCE LINES 228-232
+Next, we still use the ``.find()`` primitive to find the core attention function
+and replace it with a more efficient implementation. Different from the QKV example
+that requires us to explicitly write the fuzzy pattern, we can directly write
+a function with the identical computation subgraph as the pattern. Since the
+``scaled_dot_product`` function has been defined previously, we can reuse it
+and pass it into ``.find()``.
+
+.. GENERATED FROM PYTHON SOURCE LINES 253-257
 
 .. code-block:: default
 
@@ -504,17 +540,28 @@ with a more efficient implementation.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 233-240
+.. GENERATED FROM PYTHON SOURCE LINES 258-276
 
-We can use the ``FlashAttentionOp`` from the ``xformers`` library to replace
-the core attention, which has been included in Slapo, so we can directly
-import and replace the subgraph with ``FlashAttentionOp``.
+We can use the ``FlashAttentionOp`` provided by Slapo that makes use
+of `flash attention <https://arxiv.org/abs/2205.14135>`_ kernels from
+`xFormers <https://github.com/facebookresearch/xformers>`_ and
+`flash-attention <https://github.com/HazyResearch/flash-attention>`_ libraries
+to replace the core attention. We directly import and replace the subgraph
+with ``FlashAttentionOp``.
 Notice, since the ``scaled_dot_product`` function we defined above only accepts
 the ``query``, ``key``, and ``value`` tensors, while ``FlashAttentionOp`` requires
 five arguments, so we need to explicitly pass ``None`` to the ``attention_mask``
 argument, and set the dropout probability ``p`` to 0.1 by setting the ``concrete_args``.
 
-.. GENERATED FROM PYTHON SOURCE LINES 240-249
+.. note::
+  :class: margin
+
+  We use ``native_xformers`` in this tutorial to demonstrate the functionality.
+  In reality, users can choose ``cutlass``, ``triton``, or ``cuda`` kernels to achieve
+  better performance, while the latter two only support NVIDIA V100 GPU.
+  Please refer to `slapo.op.attention.FlashAttentionOp` for more details.
+
+.. GENERATED FROM PYTHON SOURCE LINES 276-285
 
 .. code-block:: default
 
@@ -557,18 +604,21 @@ argument, and set the dropout probability ``p`` to 0.1 by setting the ``concrete
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 250-252
+.. GENERATED FROM PYTHON SOURCE LINES 286-288
 
 Again, the ``FlashAttentionOp`` is attached to the GraphModule, and the forward
 function becomes much simpler to call those two submodules.
 
-.. GENERATED FROM PYTHON SOURCE LINES 254-257
+.. GENERATED FROM PYTHON SOURCE LINES 290-296
+
+Optimize the Projection Module
+------------------------------
 
 We then optimize the ``Projection`` module. A common practice is to fuse the
 dropout and the layer norm layer with those element-wise addition operations.
 We first create a subschedule for the ``Projection`` module.
 
-.. GENERATED FROM PYTHON SOURCE LINES 257-261
+.. GENERATED FROM PYTHON SOURCE LINES 296-300
 
 .. code-block:: default
 
@@ -593,7 +643,7 @@ We first create a subschedule for the ``Projection`` module.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 262-275
+.. GENERATED FROM PYTHON SOURCE LINES 301-314
 
 As we want to fuse the linear bias with the consequential layers, we need to
 decompose the linear layer into two separate matrix multiplication and bias add operations.
@@ -609,7 +659,7 @@ In Slapo, this is easy to achieve by simply calling ``.decompose()`` on the line
   do not take it apart. Another reason for decomposing is that we can still optimize the
   ``weight`` parameter later (e.g., sharding) even though the ``bias`` may be fused.
 
-.. GENERATED FROM PYTHON SOURCE LINES 275-279
+.. GENERATED FROM PYTHON SOURCE LINES 314-318
 
 .. code-block:: default
 
@@ -634,7 +684,7 @@ In Slapo, this is easy to achieve by simply calling ``.decompose()`` on the line
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 280-285
+.. GENERATED FROM PYTHON SOURCE LINES 319-324
 
 We can see the ``Linear`` module changed into ``LinearWithSeparateBias``, and other submodules
 remain the same. Next, we need to `explicitly` call the ``.trace()`` primitive to trace the module
@@ -642,7 +692,7 @@ into a static subgraph. It gives us more control over the traced module. For exa
 pass in the ``flatten`` flag to let the tracer gets into each submodule so that the bias add
 can be depicted as a node in the subgraph.
 
-.. GENERATED FROM PYTHON SOURCE LINES 285-289
+.. GENERATED FROM PYTHON SOURCE LINES 324-328
 
 .. code-block:: default
 
@@ -681,12 +731,12 @@ can be depicted as a node in the subgraph.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 290-292
+.. GENERATED FROM PYTHON SOURCE LINES 329-331
 
 We can again define the fusion pattern as follows. Here the pattern includes three input arguments,
 Slapo can still handle it correctly and grab all the required nodes in the subgraph.
 
-.. GENERATED FROM PYTHON SOURCE LINES 292-301
+.. GENERATED FROM PYTHON SOURCE LINES 331-340
 
 .. code-block:: default
 
@@ -712,13 +762,13 @@ Slapo can still handle it correctly and grab all the required nodes in the subgr
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 302-305
+.. GENERATED FROM PYTHON SOURCE LINES 341-344
 
 For this case of vertical fusion, Slapo provides a ``.fuse()`` primitive to easily fuse the subgraph.
 Users can specify the backend fusion compiler and the name of the fused module. By default, Slapo
-will use TorchScript (nvFuser) to fuse the subgraph.
+will use TorchScript with nvFuser to fuse the subgraph.
 
-.. GENERATED FROM PYTHON SOURCE LINES 305-309
+.. GENERATED FROM PYTHON SOURCE LINES 344-348
 
 .. code-block:: default
 
@@ -759,24 +809,29 @@ will use TorchScript (nvFuser) to fuse the subgraph.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 310-312
+.. GENERATED FROM PYTHON SOURCE LINES 349-351
 
 As shown in the above output, the ``FusedLayerNorm`` module is attached to the GraphModule, and
 only ``torch._C._nn.Linear`` and ``FusedLayerNorm`` are called in the forward function.
 
-.. GENERATED FROM PYTHON SOURCE LINES 314-318
+.. GENERATED FROM PYTHON SOURCE LINES 353-361
+
+Build the Optimized Model
+-------------------------
 
 Finally, we finish all the optimizations for Attention module on a single device.
-We can print out the top-level module to see the changes. The optimizations are clearly
-reflected in the new module, and we still keep the module hierarchy, which greatly enhances
-the readability and debuggability of the code.
+We can pass the schedule into ``sch.build`` to build the optimized model for execution.
+It returns the optimized model and a default optimizer. We can print out the top-level module
+to see the changes. The optimizations are clearly reflected in the new module, and we still
+keep the module hierarchy, which greatly enhances the readability and debuggability of the code.
 
-.. GENERATED FROM PYTHON SOURCE LINES 318-320
+.. GENERATED FROM PYTHON SOURCE LINES 361-364
 
 .. code-block:: default
 
 
-    print(sch.mod)
+    opt_model, _ = slapo.build(sch, init_weights=False)
+    print(opt_model)
 
 
 
@@ -808,7 +863,7 @@ the readability and debuggability of the code.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** ( 0 minutes  0.139 seconds)
+   **Total running time of the script:** ( 0 minutes  0.125 seconds)
 
 
 .. _sphx_glr_download_gallery_attention-single-gpu.py:

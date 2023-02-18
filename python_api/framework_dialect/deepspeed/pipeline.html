@@ -433,13 +433,13 @@ title="Print to PDF"
 <td><p>Flat the given list and assign the itemized name to each tensor.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#slapo.framework_dialect.deepspeed.pipeline.encode_metadata" title="slapo.framework_dialect.deepspeed.pipeline.encode_metadata"><code class="xref py py-obj docutils literal notranslate"><span class="pre">encode_metadata</span></code></a>(metadata)</p></td>
-<td><p>Encode metadata to a string. The metadata format is:     [&lt;path&gt;,&lt;type&gt;), (&lt;path&gt;,&lt;type&gt;), ...] After encoding: &quot;&lt;path&gt;,&lt;type&gt;|&lt;path&gt;,&lt;type&gt;|...&quot;.</p></td>
+<td><p>Encode metadata to a string.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#slapo.framework_dialect.deepspeed.pipeline.decode_metadata" title="slapo.framework_dialect.deepspeed.pipeline.decode_metadata"><code class="xref py py-obj docutils literal notranslate"><span class="pre">decode_metadata</span></code></a>(metadata_str)</p></td>
 <td><p>Decode metadata from a string.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#slapo.framework_dialect.deepspeed.pipeline.flatten" title="slapo.framework_dialect.deepspeed.pipeline.flatten"><code class="xref py py-obj docutils literal notranslate"><span class="pre">flatten</span></code></a>(outputs, device[, path, metadata, ret])</p></td>
-<td><p>Flatten nested structure of outputs and make sure every output is a torch.Tensor. We maintain a metadata to restore the original structure. The metadata format is:     [&lt;path&gt;,&lt;type&gt;), (&lt;path&gt;,&lt;type&gt;), ...] - &lt;path&gt; is the path to the tensor in the nested structure. For example,  the paths of t1 and t2 in [[t1, t2]] are &quot;0.0&quot; and &quot;0.1&quot;. The path of  t1 and t2 in [[t1], [t2]] is &quot;0.0&quot; and &quot;1.0&quot;. - &lt;type&gt; is WrappedTypeCode of the tensor. Note that len(metadata) == len(ret).</p></td>
+<td><p>Flatten nested structure of outputs and make sure every output is a torch.Tensor.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#slapo.framework_dialect.deepspeed.pipeline.unflatten" title="slapo.framework_dialect.deepspeed.pipeline.unflatten"><code class="xref py py-obj docutils literal notranslate"><span class="pre">unflatten</span></code></a>(args, metadata)</p></td>
 <td><p>The reverse function of 'flatten'.</p></td>

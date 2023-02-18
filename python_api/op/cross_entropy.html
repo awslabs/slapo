@@ -412,7 +412,7 @@ title="Print to PDF"
 </colgroup>
 <tbody>
 <tr class="row-odd"><td><p><a class="reference internal" href="#slapo.op.cross_entropy.vocab_parallel_cross_entropy" title="slapo.op.cross_entropy.vocab_parallel_cross_entropy"><code class="xref py py-obj docutils literal notranslate"><span class="pre">vocab_parallel_cross_entropy</span></code></a>(...[, ...])</p></td>
-<td><p>Performs cross entropy loss when logits are split across tensor parallel ranks :param vocab_parallel_logits: logits split across tensor parallel ranks                               dimension is [sequence_length, batch_size, hidden_size] :param target: correct vocab ids of dimseion [sequence_length, micro_batch_size] :param label_smoothing: smoothing factor, must be in range [0.0, 1.0)                         default is no smoothing (=0.0) :param group: torch.distributed group</p></td>
+<td><p>Performs cross entropy loss when logits are split across tensor parallel ranks</p></td>
 </tr>
 </tbody>
 </table>
@@ -431,15 +431,13 @@ title="Print to PDF"
 <dl class="py function">
 <dt class="sig sig-object py" id="slapo.op.cross_entropy.vocab_parallel_cross_entropy">
 <span class="sig-prename descclassname"><span class="pre">slapo.op.cross_entropy.</span></span><span class="sig-name descname"><span class="pre">vocab_parallel_cross_entropy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vocab_parallel_logits</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">label_smoothing</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/slapo/op/cross_entropy.html#vocab_parallel_cross_entropy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.op.cross_entropy.vocab_parallel_cross_entropy" title="Permalink to this definition"><span>¶</span></a></dt>
-<dd><p>Performs cross entropy loss when logits are split across tensor parallel ranks
-:param vocab_parallel_logits: logits split across tensor parallel ranks</p>
-<blockquote>
-<div><p>dimension is [sequence_length, batch_size, hidden_size]</p>
-</div></blockquote>
+<dd><p>Performs cross entropy loss when logits are split across tensor parallel ranks</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>target</strong> – correct vocab ids of dimseion [sequence_length, micro_batch_size]</p></li>
+<li><p><strong>vocab_parallel_logits</strong> – logits split across tensor parallel ranks
+dimension is [sequence_length, batch_size, hidden_size]</p></li>
+<li><p><strong>target</strong> – correct vocab ids of dimension [sequence_length, micro_batch_size]</p></li>
 <li><p><strong>label_smoothing</strong> – smoothing factor, must be in range [0.0, 1.0)
 default is no smoothing (=0.0)</p></li>
 <li><p><strong>group</strong> – torch.distributed group</p></li>

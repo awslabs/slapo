@@ -26,13 +26,13 @@ Quick Start
 This guide walks through the key functionality of Slapo.
 We will use the BERT model in `HuggingFace Hub <https://github.com/huggingface/transformers>`_ as an example and leverage Slapo to optimize its performance.
 
-.. GENERATED FROM PYTHON SOURCE LINES 11-14
+.. GENERATED FROM PYTHON SOURCE LINES 14-17
 
 Optimize PyTorch model with Slapo
 ---------------------------------
 We first import the Slapo package. Make sure you have already installed the PyTorch package.
 
-.. GENERATED FROM PYTHON SOURCE LINES 14-18
+.. GENERATED FROM PYTHON SOURCE LINES 17-21
 
 .. code-block:: default
 
@@ -47,11 +47,11 @@ We first import the Slapo package. Make sure you have already installed the PyTo
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 19-20
+.. GENERATED FROM PYTHON SOURCE LINES 22-23
 
-We load a BERT model implemented in PyTorch from HuggingFace Hub. 
+We load a BERT model implemented in PyTorch from HuggingFace Hub.
 
-.. GENERATED FROM PYTHON SOURCE LINES 20-27
+.. GENERATED FROM PYTHON SOURCE LINES 23-30
 
 .. code-block:: default
 
@@ -70,7 +70,7 @@ We load a BERT model implemented in PyTorch from HuggingFace Hub.
 
  .. code-block:: none
 
-    Downloading (…)lve/main/config.json:   0%|          | 0.00/571 [00:00<?, ?B/s]    Downloading (…)lve/main/config.json: 100%|##########| 571/571 [00:00<00:00, 113kB/s]
+    Downloading (…)lve/main/config.json:   0%|          | 0.00/571 [00:00<?, ?B/s]    Downloading (…)lve/main/config.json: 100%|##########| 571/571 [00:00<00:00, 124kB/s]
     If you want to use `BertLMHeadModel` as a standalone, add `is_decoder=True.`
     BertLMHeadModel(
       (bert): BertModel(
@@ -677,7 +677,7 @@ We load a BERT model implemented in PyTorch from HuggingFace Hub.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 28-39
+.. GENERATED FROM PYTHON SOURCE LINES 31-42
 
 After we have the model defintion, we can create a schedule and optimize it.
 Slapo provides an ``apply_schedule`` API for users to directly apply a predefined
@@ -691,9 +691,10 @@ After applying the schedule, we can build the optimized model by calling ``slapo
 Here we explicitly pass in the ``_init_weights`` function of HuggingFace models to
 initialize the parameters of the optimized model.
 
-.. GENERATED FROM PYTHON SOURCE LINES 39-50
+.. GENERATED FROM PYTHON SOURCE LINES 42-54
 
 .. code-block:: default
+
 
 
     def apply_and_build_schedule(model, config):
@@ -713,14 +714,15 @@ initialize the parameters of the optimized model.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 51-53
+.. GENERATED FROM PYTHON SOURCE LINES 55-57
 
 The optimized model is still a PyTorch ``nn.Module``, so we can pass it to the
 PyTorch training loop as usual.
 
-.. GENERATED FROM PYTHON SOURCE LINES 53-69
+.. GENERATED FROM PYTHON SOURCE LINES 57-74
 
 .. code-block:: default
+
 
 
     def train(model, device="cuda", bs=8, seq_length=512):
@@ -748,7 +750,7 @@ PyTorch training loop as usual.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** ( 0 minutes  9.198 seconds)
+   **Total running time of the script:** ( 0 minutes  7.464 seconds)
 
 
 .. _sphx_glr_download_gallery_quick-start.py:

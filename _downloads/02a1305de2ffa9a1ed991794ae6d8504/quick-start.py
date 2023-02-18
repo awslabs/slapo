@@ -1,3 +1,6 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 """
 .. currentmodule:: slapo
 
@@ -16,7 +19,7 @@ import slapo
 import torch
 
 # %%
-# We load a BERT model implemented in PyTorch from HuggingFace Hub. 
+# We load a BERT model implemented in PyTorch from HuggingFace Hub.
 
 from transformers import BertLMHeadModel, AutoConfig
 
@@ -32,10 +35,11 @@ print(model)
 # parallelism, and fuse the operators. Users can also customize the schedule by
 # passing in the schedule configurations like data type (fp16/bf16) or checkpoint ratio.
 # Detailed schedule configurations can be found in ``slapo.model_schedule``.
-# 
+#
 # After applying the schedule, we can build the optimized model by calling ``slapo.build``.
 # Here we explicitly pass in the ``_init_weights`` function of HuggingFace models to
 # initialize the parameters of the optimized model.
+
 
 def apply_and_build_schedule(model, config):
     from slapo.model_schedule import apply_schedule
@@ -50,6 +54,7 @@ def apply_and_build_schedule(model, config):
 # %%
 # The optimized model is still a PyTorch ``nn.Module``, so we can pass it to the
 # PyTorch training loop as usual.
+
 
 def train(model, device="cuda", bs=8, seq_length=512):
     input_ids = torch.ones(bs, seq_length, dtype=torch.long, device=device)

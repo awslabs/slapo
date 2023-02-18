@@ -1,3 +1,6 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 """
 .. currentmodule:: slapo
 
@@ -22,13 +25,17 @@ import slapo
 
 # %%
 # Since we will use multiple GPUs to run the model, we need to initialize the distributed
-# backend. Slapo provides a logger for users to only output certain messages on the
-# given rank. In this tutorial, we only output the log on rank 0.
+# backend. We only initialize the CPU backend in this tutorial, but you can
+# initialize the NCCL backend on GPU by passing in ``backend="nccl"``, and change
+# the actual number of devices accordingly.
 
-slapo.env.setup(0, 1, "gloo")
+slapo.env.setup(rank=0, world_size=1, backend="gloo")
 print(f"rank: {dist.get_rank()}, world_size: {dist.get_world_size()}")
 
 # %%
+# Model Definition
+# ----------------
+#
 # We first define a MLP module that consists of two linear layers and a GELU activation,
 # which is a basic component in Transformer-based models like GPT. Users can instantiate
 # the module as usual.
@@ -51,6 +58,9 @@ class MLP(nn.Module):
 model = MLP(1024)
 
 # %%
+# Create Model Schedule
+# ---------------------
+#
 # We then create a default schedule ``sch`` for the model. Users can always check the
 # corresponding PyTorch model by calling ``sch.mod``.
 
@@ -58,13 +68,16 @@ sch = slapo.create_schedule(model)
 print(sch.mod)
 
 # %%
+# Tensor Parallelism
+# ------------------
+#
 # Here comes the most important part of transforming the single-device model to
 # a parallelized one. Slapo provides a ``.shard()`` primitive to realize tensor
 # parallelism. Users can specify the name of the tensor and the axis to shard the
 # tensor along. We follow the convention of `Megatron-LM <https://arxiv.org/abs/1909.08053>`_
 # to shard the weight :math:`A` in the first linear layer by column, and the
-# weight :math:`B` in the second linear layer by row. Basically, the computation
-# becomes as follows:
+# weight :math:`B` in the second linear layer by row. Consider a machine with two
+# devices, the computation becomes as follows:
 #
 # .. math::
 #   f(XA)B = f\left(X\begin{bmatrix}A_1 & A_2\end{bmatrix}\right) \begin{bmatrix}B_1 \\ B_2\end{bmatrix} =f(XA_1)B_1 + f(XA_2)B_2
@@ -87,10 +100,14 @@ sch["linear1"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
 print(sch.mod)
 
 # %%
-# From the above output, we can see that the weight and bias of the linear layers
-# are correctly sharded, where the output dimension of the first linear layer
-# becomes half of the original one, and each device only holds half of the
-# weight.
+# If lanuch this script with two devices, you can see that the weight and bias
+# of the linear layers are correctly sharded, where the output dimension of
+# the first linear layer becomes half of the original one, and each device
+# only holds half of the weight.
+
+# %%
+# Operator Fusion
+# ---------------
 #
 # Another optimization we can do is to fuse the GELU activation with the first
 # linear layer. We can use ``.decompose()`` to decompose the linear layer into
@@ -128,16 +145,20 @@ print(subgraph)
 # %%
 # As expected, the subgraph consists of two nodes, one for the bias addition and
 # the other for the GELU activation. We can then fuse the subgraph into a single
-# node by calling ``.fuse()``. By default, Slapo will use TorchScript (nvFuser)
+# node by calling ``.fuse()``. By default, Slapo will use TorchScript with nvFuser
 # as the backend compiler.
 
 sch.fuse(subgraph, compiler="TorchScript", name="BiasGeLU")
 print(sch.mod)
 
 # %%
+# Build the Optimized Model
+# -------------------------
+#
 # We can see the previous sharding optimization is still preserved, and the fused
 # kernel is correctly inserted into the hierarchical module definition and the
 # corresponding dataflow graph.
 #
 # Finally, we can build the optimized model by calling ``.build()``.
+
 opt_model, _ = slapo.build(sch, init_weights=False)

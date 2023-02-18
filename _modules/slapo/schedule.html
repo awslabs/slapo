@@ -453,11 +453,7 @@ title="Source repository"
     <span class="c1"># Note that we use ordered set to keep the order of the modules.</span>
     <span class="n">pipeline_cutting_paths</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span>
         <span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="n">OrderedDict</span><span class="p">()</span>
-    <span class="p">)</span>
-
-    <span class="c1"># A mapping from parameter name to original shape</span>
-    <span class="c1"># Used for delay initialization</span>
-    <span class="n">base_params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="n">DictWithValidation</span><span class="p">())</span></div>
+    <span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="register_primitive"><a class="viewcode-back" href="../../python_api/schedule.html#slapo.register_primitive">[docs]</a><span class="k">def</span> <span class="nf">register_primitive</span><span class="p">(</span><span class="n">need_dist</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">finalize</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
@@ -517,10 +513,6 @@ title="Source repository"
         <span class="bp">self</span><span class="o">.</span><span class="n">parent</span> <span class="o">=</span> <span class="n">parent</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">child</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span> <span class="o">=</span> <span class="n">ScheduleMetadata</span><span class="p">()</span>
-
-        <span class="c1"># Record original shapes.</span>
-        <span class="k">for</span> <span class="n">param_name</span><span class="p">,</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">mod</span><span class="o">.</span><span class="n">named_parameters</span><span class="p">():</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">base_params</span><span class="p">[</span><span class="n">param_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">param</span><span class="o">.</span><span class="n">shape</span>
 
         <span class="k">if</span> <span class="n">parent</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="c1"># Tie weight analysis only at the top level module.</span>
@@ -626,6 +618,10 @@ title="Source repository"
                     <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">tie_weights</span><span class="p">[</span><span class="n">param</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_param</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">new_param</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">new_tensor</span><span class="p">)</span>
+            <span class="c1"># Tag param with model parallel attribute, used for grad clipping</span>
+            <span class="n">new_param</span><span class="o">.</span><span class="n">tensor_model_parallel</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="c1"># Save the original size of the parameter for consolidation.</span>
+            <span class="n">new_param</span><span class="o">.</span><span class="n">orig_shape</span> <span class="o">=</span> <span class="n">param</span><span class="o">.</span><span class="n">shape</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">register_parameter</span><span class="p">(</span><span class="n">tensor_name</span><span class="p">,</span> <span class="n">new_param</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
             <span class="n">buffer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">get_buffer</span><span class="p">(</span><span class="n">tensor_name</span><span class="p">)</span>
@@ -1669,7 +1665,7 @@ title="Source repository"
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">):</span>
             <span class="c1"># Scripted module requires the parameters to be initialized in advance,</span>
             <span class="c1"># so no need to consolidate</span>
-            <span class="k">return</span>
+            <span class="k">return</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span>
 
         <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">sch</span><span class="p">,</span> <span class="s2">&quot;partition_idx&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">topology</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">curr_part_idx</span> <span class="o">=</span> <span class="n">sch</span><span class="o">.</span><span class="n">partition_idx</span>
@@ -1681,39 +1677,39 @@ title="Source repository"
 
         <span class="k">if</span> <span class="n">global_rank</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">curr_stage_devices</span><span class="p">:</span>
             <span class="c1"># do nothing if the target module is NOT on this device group</span>
-            <span class="k">return</span>
+            <span class="k">return</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span>
 
-        <span class="c1"># copy out new params after sharding</span>
+        <span class="c1"># Register parameters with the original shape (if sharded) for initialization.</span>
         <span class="n">num_params</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="n">new_param_shapes</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">for</span> <span class="n">param_name</span><span class="p">,</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">named_parameters</span><span class="p">(</span><span class="n">recurse</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
             <span class="n">num_params</span> <span class="o">+=</span> <span class="mi">1</span>
             <span class="n">new_param_shapes</span><span class="p">[</span><span class="n">param_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">param</span><span class="o">.</span><span class="n">shape</span>
-            <span class="k">assert</span> <span class="n">param_name</span> <span class="ow">in</span> <span class="n">sch</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">base_params</span>
+            <span class="n">orig_shape</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">param</span><span class="o">.</span><span class="n">orig_shape</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;orig_shape&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="n">param</span><span class="o">.</span><span class="n">shape</span>
+            <span class="p">)</span>
             <span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">register_parameter</span><span class="p">(</span>
                 <span class="n">param_name</span><span class="p">,</span>
                 <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span>
-                    <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span>
-                        <span class="n">sch</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">base_params</span><span class="p">[</span><span class="n">param_name</span><span class="p">],</span>
-                        <span class="n">dtype</span><span class="o">=</span><span class="n">param</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span>
-                        <span class="n">device</span><span class="o">=</span><span class="n">local_rank</span><span class="p">,</span>
-                    <span class="p">)</span>
+                    <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">orig_shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">param</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">local_rank</span><span class="p">)</span>
                 <span class="p">),</span>
             <span class="p">)</span>
 
-        <span class="c1"># use original shape to initialize parameters</span>
+        <span class="c1"># Use original shape to initialize parameters.</span>
         <span class="k">if</span> <span class="n">global_rank</span> <span class="o">==</span> <span class="n">curr_stage_devices</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">and</span> <span class="n">num_params</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
             <span class="c1"># only the first device in the PP group needs to initialize the weights</span>
             <span class="n">_init_module</span><span class="p">(</span><span class="n">sch</span><span class="p">)</span>
 
-        <span class="c1"># need to broadcast params from rank 0 to make sure all the TP+DP ranks take the same params</span>
+        <span class="c1"># Broadcast complete params from rank 0 to make sure all the TP+DP ranks</span>
+        <span class="c1"># take the same params.</span>
         <span class="k">if</span> <span class="n">dist</span><span class="o">.</span><span class="n">is_initialized</span><span class="p">():</span>
             <span class="n">curr_stage_group</span> <span class="o">=</span> <span class="n">stage_groups</span><span class="p">[</span><span class="n">curr_part_idx</span><span class="p">]</span>
             <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">named_parameters</span><span class="p">(</span><span class="n">recurse</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
                 <span class="n">dist</span><span class="o">.</span><span class="n">broadcast</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="n">src</span><span class="o">=</span><span class="n">curr_stage_devices</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">group</span><span class="o">=</span><span class="n">curr_stage_group</span><span class="p">)</span>
 
-        <span class="c1"># discard redundant values</span>
+        <span class="c1"># Only keep the partition for this device for sharded params.</span>
         <span class="n">tp_rank</span> <span class="o">=</span> <span class="n">sch</span><span class="o">.</span><span class="n">rank</span>
+        <span class="n">cnt_shard</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="k">for</span> <span class="n">param_name</span><span class="p">,</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">named_parameters</span><span class="p">(</span><span class="n">recurse</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
             <span class="n">is_found</span> <span class="o">=</span> <span class="kc">False</span>
             <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">new_size</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">new_param_shapes</span><span class="p">[</span><span class="n">param_name</span><span class="p">]):</span>
@@ -1723,14 +1719,27 @@ title="Source repository"
                     <span class="n">axis</span> <span class="o">=</span> <span class="n">idx</span>
                     <span class="n">is_found</span> <span class="o">=</span> <span class="kc">True</span>
             <span class="k">if</span> <span class="n">is_found</span><span class="p">:</span>
-                <span class="n">new_param</span> <span class="o">=</span> <span class="n">param</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">sharded_size</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="n">axis</span><span class="p">)[</span><span class="n">tp_rank</span><span class="p">]</span>
-                <span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">register_parameter</span><span class="p">(</span><span class="n">param_name</span><span class="p">,</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">new_param</span><span class="p">))</span>
+                <span class="n">cnt_shard</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="n">sharded_param</span> <span class="o">=</span> <span class="n">param</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">sharded_size</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="n">axis</span><span class="p">)[</span><span class="n">tp_rank</span><span class="p">]</span>
+                <span class="n">new_param</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">sharded_param</span><span class="p">)</span>
+                <span class="n">new_param</span><span class="o">.</span><span class="n">tensor_model_parallel</span> <span class="o">=</span> <span class="kc">True</span>
+                <span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">register_parameter</span><span class="p">(</span><span class="n">param_name</span><span class="p">,</span> <span class="n">new_param</span><span class="p">)</span>
 
         <span class="k">for</span> <span class="n">subsch</span> <span class="ow">in</span> <span class="n">sch</span><span class="o">.</span><span class="n">child</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
-            <span class="n">_consolidate_and_broadcast</span><span class="p">(</span><span class="n">subsch</span><span class="p">)</span>
+            <span class="n">ret</span> <span class="o">=</span> <span class="n">_consolidate_and_broadcast</span><span class="p">(</span><span class="n">subsch</span><span class="p">)</span>
+            <span class="n">num_params</span> <span class="o">+=</span> <span class="n">ret</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">cnt_shard</span> <span class="o">+=</span> <span class="n">ret</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">num_params</span><span class="p">,</span> <span class="n">cnt_shard</span>
 
     <span class="k">if</span> <span class="n">cnt_meta</span> <span class="o">!=</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">cnt_materialized</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="n">_consolidate_and_broadcast</span><span class="p">(</span><span class="n">sch</span><span class="p">)</span>
+        <span class="n">num_params</span><span class="p">,</span> <span class="n">cnt_shard</span> <span class="o">=</span> <span class="n">_consolidate_and_broadcast</span><span class="p">(</span><span class="n">sch</span><span class="p">)</span>
+
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+        <span class="s2">&quot;Finished consolidating </span><span class="si">%d</span><span class="s2"> parameter tensors with </span><span class="si">%d</span><span class="s2"> being sharded&quot;</span><span class="p">,</span>
+        <span class="n">num_params</span><span class="p">,</span>
+        <span class="n">cnt_shard</span><span class="p">,</span>
+    <span class="p">)</span>
 
     <span class="n">gc</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
     <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">empty_cache</span><span class="p">()</span>

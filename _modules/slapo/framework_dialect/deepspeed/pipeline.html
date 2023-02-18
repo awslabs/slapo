@@ -457,7 +457,9 @@ title="Source repository"
 <div class="viewcode-block" id="encode_metadata"><a class="viewcode-back" href="../../../../python_api/framework_dialect/deepspeed/pipeline.html#slapo.framework_dialect.deepspeed.pipeline.encode_metadata">[docs]</a><span class="k">def</span> <span class="nf">encode_metadata</span><span class="p">(</span><span class="n">metadata</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Encode metadata to a string.</span>
 <span class="sd">    The metadata format is:</span>
+
 <span class="sd">        [&lt;path&gt;,&lt;type&gt;), (&lt;path&gt;,&lt;type&gt;), ...]</span>
+
 <span class="sd">    After encoding: &quot;&lt;path&gt;,&lt;type&gt;|&lt;path&gt;,&lt;type&gt;|...&quot;</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="s2">&quot;|&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{p}</span><span class="s2">,</span><span class="si">{t}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">p</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">metadata</span><span class="p">])</span></div>
@@ -472,11 +474,14 @@ title="Source repository"
     <span class="sd">&quot;&quot;&quot;Flatten nested structure of outputs and make sure every</span>
 <span class="sd">    output is a torch.Tensor. We maintain a metadata to restore</span>
 <span class="sd">    the original structure. The metadata format is:</span>
+
 <span class="sd">        [&lt;path&gt;,&lt;type&gt;), (&lt;path&gt;,&lt;type&gt;), ...]</span>
+
 <span class="sd">    - &lt;path&gt; is the path to the tensor in the nested structure. For example,</span>
 <span class="sd">     the paths of t1 and t2 in [[t1, t2]] are &quot;0.0&quot; and &quot;0.1&quot;. The path of</span>
 <span class="sd">     t1 and t2 in [[t1], [t2]] is &quot;0.0&quot; and &quot;1.0&quot;.</span>
 <span class="sd">    - &lt;type&gt; is WrappedTypeCode of the tensor.</span>
+
 <span class="sd">    Note that len(metadata) == len(ret)</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">metadata</span> <span class="o">=</span> <span class="n">metadata</span> <span class="k">if</span> <span class="n">metadata</span> <span class="k">else</span> <span class="p">[]</span>
@@ -673,9 +678,11 @@ title="Source repository"
         <span class="k">if</span> <span class="n">logger</span><span class="o">.</span><span class="n">isEnabledFor</span><span class="p">(</span><span class="n">DEBUG</span><span class="p">):</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{self.name}</span><span class="s2">] Flatten: {len(ret)}; metadata: </span><span class="si">{metadata}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="n">ret</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-            <span class="n">torch</span><span class="o">.</span><span class="n">ByteTensor</span><span class="p">(</span>
-                <span class="n">torch</span><span class="o">.</span><span class="n">ByteStorage</span><span class="o">.</span><span class="n">from_buffer</span><span class="p">(</span><span class="nb">bytes</span><span class="p">(</span><span class="n">encode_metadata</span><span class="p">(</span><span class="n">metadata</span><span class="p">),</span> <span class="s2">&quot;utf8&quot;</span><span class="p">))</span>
-            <span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span>
+                <span class="n">torch</span><span class="o">.</span><span class="n">ByteStorage</span><span class="o">.</span><span class="n">from_buffer</span><span class="p">(</span><span class="nb">bytes</span><span class="p">(</span><span class="n">encode_metadata</span><span class="p">(</span><span class="n">metadata</span><span class="p">),</span> <span class="s2">&quot;utf8&quot;</span><span class="p">)),</span>
+                <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">uint8</span><span class="p">,</span>
+                <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+            <span class="p">)</span>
         <span class="p">)</span>
         <span class="n">ret</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">ret</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">ret</span></div></div>

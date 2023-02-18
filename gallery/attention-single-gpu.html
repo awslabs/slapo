@@ -379,12 +379,68 @@ title="Print to PDF"
     </ul>
   </div>
 </div>
+<label for="__page-toc"
+  class="headerbtn headerbtn-page-toc"
+  
+>
+  
+
+<span class="headerbtn__icon-container">
+  <i class="fas fa-list"></i>
+  </span>
+
+</label>
 
     </div>
 </div>
 
 <!-- Table of contents -->
 <div class="col-md-3 bd-toc show noprint">
+    <div class="tocsection onthispage pt-5 pb-3">
+        <i class="fas fa-list"></i> Contents
+    </div>
+    <nav id="bd-toc-nav" aria-label="Page">
+        <ul class="visible nav section-nav flex-column">
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#model-definition">
+   Model Definition
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#create-model-schedule">
+   Create Model Schedule
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#optimize-selfattention-module">
+   Optimize SelfAttention Module
+  </a>
+  <ul class="nav section-nav flex-column">
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#replace-qkv-linear-layers">
+     Replace QKV Linear Layers
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#replace-scaled-dot-product-attention">
+     Replace Scaled Dot-Product Attention
+    </a>
+   </li>
+  </ul>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#optimize-the-projection-module">
+   Optimize the Projection Module
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#build-the-optimized-model">
+   Build the Optimized Model
+  </a>
+ </li>
+</ul>
+
+    </nav>
 </div>
     </div>
     <div class="article row">
@@ -396,6 +452,51 @@ title="Print to PDF"
                 <div id="print-main-content">
                     <div id="jb-print-toc">
                         
+                        <div>
+                            <h2> Contents </h2>
+                        </div>
+                        <nav aria-label="Page">
+                            <ul class="visible nav section-nav flex-column">
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#model-definition">
+   Model Definition
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#create-model-schedule">
+   Create Model Schedule
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#optimize-selfattention-module">
+   Optimize SelfAttention Module
+  </a>
+  <ul class="nav section-nav flex-column">
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#replace-qkv-linear-layers">
+     Replace QKV Linear Layers
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#replace-scaled-dot-product-attention">
+     Replace Scaled Dot-Product Attention
+    </a>
+   </li>
+  </ul>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#optimize-the-projection-module">
+   Optimize the Projection Module
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#build-the-optimized-model">
+   Build the Optimized Model
+  </a>
+ </li>
+</ul>
+
+                        </nav>
                     </div>
                 </div>
             </div>
@@ -423,6 +524,8 @@ the PyTorch framework.</p>
 <span class="kn">import</span> <span class="nn">slapo</span>
 </pre></div>
 </div>
+<div class="section" id="model-definition">
+<h2>Model Definition<a class="headerlink" href="#model-definition" title="Permalink to this headline"><span>¶</span></a></h2>
 <p>The Attention module consists of SelfAttention and Projection modules, where
 SelfAttention takes in the hidden states and passes it through three different
 linear layers to generate the query, key and value tensors. Then, those tensors
@@ -504,6 +607,9 @@ The following code shows the implementation of the Attention module.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">model</span> <span class="o">=</span> <a href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="torch.nn.Module" class="sphx-glr-backref-module-torch-nn sphx-glr-backref-type-py-class"><span class="n">Attention</span></a><span class="p">(</span><span class="n">hidden_size</span><span class="o">=</span><span class="mi">1024</span><span class="p">,</span> <span class="n">n_heads</span><span class="o">=</span><span class="mi">16</span><span class="p">)</span>
 </pre></div>
 </div>
+</div>
+<div class="section" id="create-model-schedule">
+<h2>Create Model Schedule<a class="headerlink" href="#create-model-schedule" title="Permalink to this headline"><span>¶</span></a></h2>
 <p>Later, we pass the model to Slapo and create a default schedule for it.
 The schedule always includes the original or the transformed module.
 Users can check the module by calling the <code class="docutils literal notranslate"><span class="pre">mod</span></code> attribute.</p>
@@ -546,8 +652,13 @@ to a small part of the model at a time and do not affect other parts.
 If no optimizations are applied, then no changes will be made to the model, which
 is different from the traditional static graph optimization employed by deep
 learning compilers.</p>
-<p>In the following, we will show how to gradually apply optimizations to the model.
-Since the three linear layers in the SelfAttention module are independent, we
+<p>In the following, we will show how to gradually apply optimizations to the model.</p>
+</div>
+<div class="section" id="optimize-selfattention-module">
+<h2>Optimize SelfAttention Module<a class="headerlink" href="#optimize-selfattention-module" title="Permalink to this headline"><span>¶</span></a></h2>
+<div class="section" id="replace-qkv-linear-layers">
+<h3>Replace QKV Linear Layers<a class="headerlink" href="#replace-qkv-linear-layers" title="Permalink to this headline"><span>¶</span></a></h3>
+<p>Since the three linear layers in the SelfAttention module are independent, we
 can merge them into a single linear layer to reduce the number of GEMM
 operations, and thus reduce the kernel launch overheads.</p>
 <p>The first thing to do is to find those three linear layers and the consequential
@@ -574,13 +685,13 @@ which should also be fused together instead of doing three times separately.</p>
 <p>After defining the pattern, we can use the <code class="docutils literal notranslate"><span class="pre">.find()</span></code> primitive to find the
 corresponding subgraph in the model.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">qkv_subgraphs</span> <span class="o">=</span> <span class="n">attn_sch</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">pattern</span><span class="p">)</span>
-
-<span class="c1"># The primitive basically does two things. First, it will `implicitly` trace the submodule</span>
-<span class="c1"># into a static subgraph. Currently, we use `torch.fx &lt;https://pytorch.org/docs/stable/fx.html&gt;`_</span>
-<span class="c1"># as the IR, so the traced module will become a ``torch.fx.GraphModule``, and we can also</span>
-<span class="c1"># see the forward function of it.</span>
-
-<span class="nb">print</span><span class="p">(</span><span class="n">attn_sch</span><span class="o">.</span><span class="n">mod</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The primitive basically does two things. First, it will <cite>implicitly</cite> trace the submodule
+into a static subgraph. Currently, we use <a class="reference external" href="https://pytorch.org/docs/stable/fx.html">torch.fx</a>
+as the IR, so the traced module will become a <code class="docutils literal notranslate"><span class="pre">torch.fx.GraphModule</span></code>, and we can also
+see the forward function of it.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="n">attn_sch</span><span class="o">.</span><span class="n">mod</span><span class="p">)</span>
 </pre></div>
 </div>
 <div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>GraphModule(
@@ -698,8 +809,15 @@ def forward(self, hidden_states):
 with <span class="math notranslate nohighlight">\(3\times\)</span> <code class="docutils literal notranslate"><span class="pre">out_features</span></code> compared to the original linear layer.
 The corresponding forward function is also changed to leverage the fused
 module.</p>
-<p>Similarly, we can directly find the core attention function and replace it
-with a more efficient implementation.</p>
+</div>
+<div class="section" id="replace-scaled-dot-product-attention">
+<h3>Replace Scaled Dot-Product Attention<a class="headerlink" href="#replace-scaled-dot-product-attention" title="Permalink to this headline"><span>¶</span></a></h3>
+<p>Next, we still use the <code class="docutils literal notranslate"><span class="pre">.find()</span></code> primitive to find the core attention function
+and replace it with a more efficient implementation. Different from the QKV example
+that requires us to explicitly write the fuzzy pattern, we can directly write
+a function with the identical computation subgraph as the pattern. Since the
+<code class="docutils literal notranslate"><span class="pre">scaled_dot_product</span></code> function has been defined previously, we can reuse it
+and pass it into <code class="docutils literal notranslate"><span class="pre">.find()</span></code>.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">core_attn_subgraph</span> <span class="o">=</span> <span class="n">attn_sch</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">scaled_dot_product</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="n">core_attn_subgraph</span><span class="p">)</span>
 </pre></div>
@@ -707,13 +825,23 @@ with a more efficient implementation.</p>
 <div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>[[(&#39;&#39;, getattr_4), (&#39;&#39;, getitem_3), (&#39;&#39;, transpose), (&#39;&#39;, matmul), (&#39;&#39;, sqrt), (&#39;&#39;, truediv), (&#39;&#39;, softmax), (&#39;&#39;, dropout), (&#39;&#39;, matmul_1)]]
 </pre></div>
 </div>
-<p>We can use the <code class="docutils literal notranslate"><span class="pre">FlashAttentionOp</span></code> from the <code class="docutils literal notranslate"><span class="pre">xformers</span></code> library to replace
-the core attention, which has been included in Slapo, so we can directly
-import and replace the subgraph with <code class="docutils literal notranslate"><span class="pre">FlashAttentionOp</span></code>.
+<p>We can use the <code class="docutils literal notranslate"><span class="pre">FlashAttentionOp</span></code> provided by Slapo that makes use
+of <a class="reference external" href="https://arxiv.org/abs/2205.14135">flash attention</a> kernels from
+<a class="reference external" href="https://github.com/facebookresearch/xformers">xFormers</a> and
+<a class="reference external" href="https://github.com/HazyResearch/flash-attention">flash-attention</a> libraries
+to replace the core attention. We directly import and replace the subgraph
+with <code class="docutils literal notranslate"><span class="pre">FlashAttentionOp</span></code>.
 Notice, since the <code class="docutils literal notranslate"><span class="pre">scaled_dot_product</span></code> function we defined above only accepts
 the <code class="docutils literal notranslate"><span class="pre">query</span></code>, <code class="docutils literal notranslate"><span class="pre">key</span></code>, and <code class="docutils literal notranslate"><span class="pre">value</span></code> tensors, while <code class="docutils literal notranslate"><span class="pre">FlashAttentionOp</span></code> requires
 five arguments, so we need to explicitly pass <code class="docutils literal notranslate"><span class="pre">None</span></code> to the <code class="docutils literal notranslate"><span class="pre">attention_mask</span></code>
 argument, and set the dropout probability <code class="docutils literal notranslate"><span class="pre">p</span></code> to 0.1 by setting the <code class="docutils literal notranslate"><span class="pre">concrete_args</span></code>.</p>
+<div class="margin admonition note">
+<p class="admonition-title">Note</p>
+<p>We use <code class="docutils literal notranslate"><span class="pre">native_xformers</span></code> in this tutorial to demonstrate the functionality.
+In reality, users can choose <code class="docutils literal notranslate"><span class="pre">cutlass</span></code>, <code class="docutils literal notranslate"><span class="pre">triton</span></code>, or <code class="docutils literal notranslate"><span class="pre">cuda</span></code> kernels to achieve
+better performance, while the latter two only support NVIDIA V100 GPU.
+Please refer to <cite>slapo.op.attention.FlashAttentionOp</cite> for more details.</p>
+</div>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">slapo.op.attention</span> <span class="kn">import</span> <a href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="torch.nn.Module" class="sphx-glr-backref-module-torch-nn sphx-glr-backref-type-py-class"><span class="n">FlashAttentionOp</span></a>
 
 <span class="n">flash_attn</span> <span class="o">=</span> <a href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="torch.nn.Module" class="sphx-glr-backref-module-torch-nn sphx-glr-backref-type-py-class"><span class="n">FlashAttentionOp</span></a><span class="p">(</span><span class="n">attn_op_name</span><span class="o">=</span><span class="s2">&quot;native_xformers&quot;</span><span class="p">,</span> <span class="n">apply_causal_mask</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
@@ -745,6 +873,10 @@ def forward(self, hidden_states):
 </div>
 <p>Again, the <code class="docutils literal notranslate"><span class="pre">FlashAttentionOp</span></code> is attached to the GraphModule, and the forward
 function becomes much simpler to call those two submodules.</p>
+</div>
+</div>
+<div class="section" id="optimize-the-projection-module">
+<h2>Optimize the Projection Module<a class="headerlink" href="#optimize-the-projection-module" title="Permalink to this headline"><span>¶</span></a></h2>
 <p>We then optimize the <code class="docutils literal notranslate"><span class="pre">Projection</span></code> module. A common practice is to fuse the
 dropout and the layer norm layer with those element-wise addition operations.
 We first create a subschedule for the <code class="docutils literal notranslate"><span class="pre">Projection</span></code> module.</p>
@@ -827,7 +959,7 @@ Slapo can still handle it correctly and grab all the required nodes in the subgr
 </div>
 <p>For this case of vertical fusion, Slapo provides a <code class="docutils literal notranslate"><span class="pre">.fuse()</span></code> primitive to easily fuse the subgraph.
 Users can specify the backend fusion compiler and the name of the fused module. By default, Slapo
-will use TorchScript (nvFuser) to fuse the subgraph.</p>
+will use TorchScript with nvFuser to fuse the subgraph.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">proj_sch</span><span class="o">.</span><span class="n">fuse</span><span class="p">(</span><span class="n">ln_subgraph</span><span class="p">,</span> <span class="n">compiler</span><span class="o">=</span><span class="s2">&quot;TorchScript&quot;</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;FusedLayerNorm&quot;</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="n">proj_sch</span><span class="o">.</span><span class="n">mod</span><span class="p">)</span>
 </pre></div>
@@ -857,11 +989,16 @@ def forward(self, hidden_states, input_tensor):
 </div>
 <p>As shown in the above output, the <code class="docutils literal notranslate"><span class="pre">FusedLayerNorm</span></code> module is attached to the GraphModule, and
 only <code class="docutils literal notranslate"><span class="pre">torch._C._nn.Linear</span></code> and <code class="docutils literal notranslate"><span class="pre">FusedLayerNorm</span></code> are called in the forward function.</p>
+</div>
+<div class="section" id="build-the-optimized-model">
+<h2>Build the Optimized Model<a class="headerlink" href="#build-the-optimized-model" title="Permalink to this headline"><span>¶</span></a></h2>
 <p>Finally, we finish all the optimizations for Attention module on a single device.
-We can print out the top-level module to see the changes. The optimizations are clearly
-reflected in the new module, and we still keep the module hierarchy, which greatly enhances
-the readability and debuggability of the code.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="p">)</span>
+We can pass the schedule into <code class="docutils literal notranslate"><span class="pre">sch.build</span></code> to build the optimized model for execution.
+It returns the optimized model and a default optimizer. We can print out the top-level module
+to see the changes. The optimizations are clearly reflected in the new module, and we still
+keep the module hierarchy, which greatly enhances the readability and debuggability of the code.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">opt_model</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">slapo</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="n">sch</span><span class="p">,</span> <span class="n">init_weights</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">opt_model</span><span class="p">)</span>
 </pre></div>
 </div>
 <div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Attention(
@@ -882,7 +1019,7 @@ the readability and debuggability of the code.</p>
 )
 </pre></div>
 </div>
-<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> ( 0 minutes  0.139 seconds)</p>
+<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> ( 0 minutes  0.125 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-gallery-attention-single-gpu-py">
 <div class="sphx-glr-download sphx-glr-download-python docutils container">
 <p><a class="reference download internal" download="" href="../_downloads/4011ed9eb8a93a419ccf3359a7195911/attention-single-gpu.py"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Python</span> <span class="pre">source</span> <span class="pre">code:</span> <span class="pre">attention-single-gpu.py</span></code></a></p>
@@ -892,6 +1029,7 @@ the readability and debuggability of the code.</p>
 </div>
 </div>
 <p class="sphx-glr-signature"><a class="reference external" href="https://sphinx-gallery.github.io">Gallery generated by Sphinx-Gallery</a></p>
+</div>
 </div>
 
 

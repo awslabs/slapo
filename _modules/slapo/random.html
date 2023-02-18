@@ -492,14 +492,13 @@ title="Source repository"
 <span class="sd">    after this function. Basically, this is replacement for that</span>
 <span class="sd">    function.</span>
 <span class="sd">    Two sets of RNG states are tracked:</span>
-<span class="sd">        default state: This is for data parallelism and is the same among a</span>
-<span class="sd">                       set of model parallel GPUs but different across</span>
-<span class="sd">                       different model paralle groups. This is used for</span>
-<span class="sd">                       example for dropout in the non-tensor-model-parallel regions.</span>
-<span class="sd">        tensor-model-parallel state: This state is different among a set of model</span>
-<span class="sd">                              parallel GPUs, but the same across data parallel</span>
-<span class="sd">                              groups. This is used for example for dropout in</span>
-<span class="sd">                              model parallel regions.</span>
+
+<span class="sd">    - default state: This is for data parallelism and is the same among a</span>
+<span class="sd">        set of model parallel GPUs but different across different model parallel groups.</span>
+<span class="sd">        This is used for example for dropout in the non-tensor-model-parallel regions.</span>
+<span class="sd">    - tensor-model-parallel state: This state is different among a set of model</span>
+<span class="sd">        parallel GPUs, but the same across data parallel groups. This is used for</span>
+<span class="sd">        example for dropout in model parallel regions.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -532,7 +531,7 @@ title="Source repository"
 
 
 <div class="viewcode-block" id="set_random_seed"><a class="viewcode-back" href="../../python_api/root.html#slapo.random.set_random_seed">[docs]</a><span class="k">def</span> <span class="nf">set_random_seed</span><span class="p">(</span><span class="n">seed</span><span class="o">=</span><span class="mi">2013</span><span class="p">,</span> <span class="n">dp_rank</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pp_rank</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tp_rank</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Set random seed for reproducability.</span>
+    <span class="sd">&quot;&quot;&quot;Set random seed for reproducibility.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>

@@ -428,13 +428,13 @@ title="Print to PDF"
 <td><p>Get cuda rng tracker.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#slapo.random.model_parallel_cuda_manual_seed" title="slapo.random.model_parallel_cuda_manual_seed"><code class="xref py py-obj docutils literal notranslate"><span class="pre">model_parallel_cuda_manual_seed</span></code></a>(seed, tp_rank)</p></td>
-<td><p>Initialize model parallel cuda seed. This function should be called after the model parallel is initialized. Also, no torch.cuda.manual_seed should be called after this function. Basically, this is replacement for that function. Two sets of RNG states are tracked:     default state: This is for data parallelism and is the same among a                    set of model parallel GPUs but different across                    different model paralle groups. This is used for                    example for dropout in the non-tensor-model-parallel regions. tensor-model-parallel state: This state is different among a set of model                           parallel GPUs, but the same across data parallel                           groups. This is used for example for dropout in                           model parallel regions.</p></td>
+<td><p>Initialize model parallel cuda seed.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#slapo.random.is_random_seed_set" title="slapo.random.is_random_seed_set"><code class="xref py py-obj docutils literal notranslate"><span class="pre">is_random_seed_set</span></code></a>()</p></td>
 <td><p>Check if random seed is set.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#slapo.random.set_random_seed" title="slapo.random.set_random_seed"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_random_seed</span></code></a>([seed, dp_rank, pp_rank, ...])</p></td>
-<td><p>Set random seed for reproducability.</p></td>
+<td><p>Set random seed for reproducibility.</p></td>
 </tr>
 </tbody>
 </table>
@@ -520,18 +520,20 @@ initialized. Also, no torch.cuda.manual_seed should be called
 after this function. Basically, this is replacement for that
 function.
 Two sets of RNG states are tracked:</p>
-<blockquote>
-<div><dl class="simple">
-<dt>default state: This is for data parallelism and is the same among a</dt><dd><p>set of model parallel GPUs but different across
-different model paralle groups. This is used for
-example for dropout in the non-tensor-model-parallel regions.</p>
-</dd>
-<dt>tensor-model-parallel state: This state is different among a set of model</dt><dd><p>parallel GPUs, but the same across data parallel
-groups. This is used for example for dropout in
-model parallel regions.</p>
+<ul class="simple">
+<li><dl class="simple">
+<dt>default state: This is for data parallelism and is the same among a</dt><dd><p>set of model parallel GPUs but different across different model parallel groups.
+This is used for example for dropout in the non-tensor-model-parallel regions.</p>
 </dd>
 </dl>
-</div></blockquote>
+</li>
+<li><dl class="simple">
+<dt>tensor-model-parallel state: This state is different among a set of model</dt><dd><p>parallel GPUs, but the same across data parallel groups. This is used for
+example for dropout in model parallel regions.</p>
+</dd>
+</dl>
+</li>
+</ul>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
@@ -557,7 +559,7 @@ model parallel regions.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="slapo.random.set_random_seed">
 <span class="sig-prename descclassname"><span class="pre">slapo.random.</span></span><span class="sig-name descname"><span class="pre">set_random_seed</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2013</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dp_rank</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pp_rank</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tp_rank</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/random.html#set_random_seed"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.random.set_random_seed" title="Permalink to this definition"><span>¶</span></a></dt>
-<dd><p>Set random seed for reproducability.</p>
+<dd><p>Set random seed for reproducibility.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">

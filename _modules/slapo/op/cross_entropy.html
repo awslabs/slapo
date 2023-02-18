@@ -486,13 +486,19 @@ title="Source repository"
 <span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Performs cross entropy loss when logits are split across tensor parallel ranks</span>
-<span class="sd">    Arguments:</span>
-<span class="sd">        vocab_parallel_logits: logits split across tensor parallel ranks</span>
-<span class="sd">                               dimension is [sequence_length, batch_size, hidden_size]</span>
-<span class="sd">        target: correct vocab ids of dimseion [sequence_length, micro_batch_size]</span>
-<span class="sd">        label_smoothing: smoothing factor, must be in range [0.0, 1.0)</span>
-<span class="sd">                         default is no smoothing (=0.0)</span>
-<span class="sd">        group: torch.distributed group</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    vocab_parallel_logits</span>
+<span class="sd">        logits split across tensor parallel ranks</span>
+<span class="sd">        dimension is [sequence_length, batch_size, hidden_size]</span>
+<span class="sd">    target</span>
+<span class="sd">        correct vocab ids of dimension [sequence_length, micro_batch_size]</span>
+<span class="sd">    label_smoothing</span>
+<span class="sd">        smoothing factor, must be in range [0.0, 1.0)</span>
+<span class="sd">        default is no smoothing (=0.0)</span>
+<span class="sd">    group</span>
+<span class="sd">        torch.distributed group</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="c1"># pylint: disable=missing-type-doc</span>
     <span class="k">return</span> <span class="n">_VocabParallelCrossEntropy</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>

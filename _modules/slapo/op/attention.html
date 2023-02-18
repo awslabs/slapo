@@ -729,12 +729,14 @@ title="Source repository"
     <span class="sd">&quot;&quot;&quot;A HuggingFace self attention module with flash attention kernels.</span>
 <span class="sd">    Note that this module has limited supports to specialized processing,</span>
 <span class="sd">    documetned as follows:</span>
+
 <span class="sd">    - Only support absolute positional embeddings.</span>
 <span class="sd">    - Do not support cross attention.</span>
 <span class="sd">    - Do not support head mask, encoder_attention_mask, and output attention.</span>
 
 <span class="sd">    We organize the Attention module as follows:</span>
-<span class="sd">    Attention</span>
+
+<span class="sd">    - Attention</span>
 <span class="sd">        - SelfAttention</span>
 <span class="sd">            - Q, K, V</span>
 <span class="sd">            - CoreAttention</span>

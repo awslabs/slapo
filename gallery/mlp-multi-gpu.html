@@ -379,12 +379,56 @@ title="Print to PDF"
     </ul>
   </div>
 </div>
+<label for="__page-toc"
+  class="headerbtn headerbtn-page-toc"
+  
+>
+  
+
+<span class="headerbtn__icon-container">
+  <i class="fas fa-list"></i>
+  </span>
+
+</label>
 
     </div>
 </div>
 
 <!-- Table of contents -->
 <div class="col-md-3 bd-toc show noprint">
+    <div class="tocsection onthispage pt-5 pb-3">
+        <i class="fas fa-list"></i> Contents
+    </div>
+    <nav id="bd-toc-nav" aria-label="Page">
+        <ul class="visible nav section-nav flex-column">
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#model-definition">
+   Model Definition
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#create-model-schedule">
+   Create Model Schedule
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#tensor-parallelism">
+   Tensor Parallelism
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#operator-fusion">
+   Operator Fusion
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#build-the-optimized-model">
+   Build the Optimized Model
+  </a>
+ </li>
+</ul>
+
+    </nav>
 </div>
     </div>
     <div class="article row">
@@ -396,6 +440,39 @@ title="Print to PDF"
                 <div id="print-main-content">
                     <div id="jb-print-toc">
                         
+                        <div>
+                            <h2> Contents </h2>
+                        </div>
+                        <nav aria-label="Page">
+                            <ul class="visible nav section-nav flex-column">
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#model-definition">
+   Model Definition
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#create-model-schedule">
+   Create Model Schedule
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#tensor-parallelism">
+   Tensor Parallelism
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#operator-fusion">
+   Operator Fusion
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#build-the-optimized-model">
+   Build the Optimized Model
+  </a>
+ </li>
+</ul>
+
+                        </nav>
                     </div>
                 </div>
             </div>
@@ -424,15 +501,18 @@ the PyTorch framework.</p>
 </pre></div>
 </div>
 <p>Since we will use multiple GPUs to run the model, we need to initialize the distributed
-backend. Slapo provides a logger for users to only output certain messages on the
-given rank. In this tutorial, we only output the log on rank 0.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">slapo</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;gloo&quot;</span><span class="p">)</span>
+backend. We only initialize the CPU backend in this tutorial, but you can
+initialize the NCCL backend on GPU by passing in <code class="docutils literal notranslate"><span class="pre">backend=&quot;nccl&quot;</span></code>, and change
+the actual number of devices accordingly.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">slapo</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="n">rank</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">world_size</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="s2">&quot;gloo&quot;</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;rank: {dist.get_rank()}, world_size: {dist.get_world_size()}&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 <div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>rank: 0, world_size: 1
 </pre></div>
 </div>
+<div class="section" id="model-definition">
+<h2>Model Definition<a class="headerlink" href="#model-definition" title="Permalink to this headline"><span>¶</span></a></h2>
 <p>We first define a MLP module that consists of two linear layers and a GELU activation,
 which is a basic component in Transformer-based models like GPT. Users can instantiate
 the module as usual.</p>
@@ -453,6 +533,9 @@ the module as usual.</p>
 <span class="n">model</span> <span class="o">=</span> <a href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="torch.nn.Module" class="sphx-glr-backref-module-torch-nn sphx-glr-backref-type-py-class"><span class="n">MLP</span></a><span class="p">(</span><span class="mi">1024</span><span class="p">)</span>
 </pre></div>
 </div>
+</div>
+<div class="section" id="create-model-schedule">
+<h2>Create Model Schedule<a class="headerlink" href="#create-model-schedule" title="Permalink to this headline"><span>¶</span></a></h2>
 <p>We then create a default schedule <code class="docutils literal notranslate"><span class="pre">sch</span></code> for the model. Users can always check the
 corresponding PyTorch model by calling <code class="docutils literal notranslate"><span class="pre">sch.mod</span></code>.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sch</span> <span class="o">=</span> <span class="n">slapo</span><span class="o">.</span><span class="n">create_schedule</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
@@ -466,13 +549,16 @@ corresponding PyTorch model by calling <code class="docutils literal notranslate
 )
 </pre></div>
 </div>
+</div>
+<div class="section" id="tensor-parallelism">
+<h2>Tensor Parallelism<a class="headerlink" href="#tensor-parallelism" title="Permalink to this headline"><span>¶</span></a></h2>
 <p>Here comes the most important part of transforming the single-device model to
 a parallelized one. Slapo provides a <code class="docutils literal notranslate"><span class="pre">.shard()</span></code> primitive to realize tensor
 parallelism. Users can specify the name of the tensor and the axis to shard the
 tensor along. We follow the convention of <a class="reference external" href="https://arxiv.org/abs/1909.08053">Megatron-LM</a>
 to shard the weight <span class="math notranslate nohighlight">\(A\)</span> in the first linear layer by column, and the
-weight <span class="math notranslate nohighlight">\(B\)</span> in the second linear layer by row. Basically, the computation
-becomes as follows:</p>
+weight <span class="math notranslate nohighlight">\(B\)</span> in the second linear layer by row. Consider a machine with two
+devices, the computation becomes as follows:</p>
 <div class="math notranslate nohighlight">
 \[\begin{split}f(XA)B = f\left(X\begin{bmatrix}A_1 &amp; A_2\end{bmatrix}\right) \begin{bmatrix}B_1 \\ B_2\end{bmatrix} =f(XA_1)B_1 + f(XA_2)B_2\end{split}\]</div>
 <p>where <span class="math notranslate nohighlight">\(X\)</span> is the input tensor. Since PyTorch’s <code class="docutils literal notranslate"><span class="pre">nn.Linear</span></code> module by default
@@ -499,10 +585,13 @@ the low-level implementation details.</p>
 )
 </pre></div>
 </div>
-<p>From the above output, we can see that the weight and bias of the linear layers
-are correctly sharded, where the output dimension of the first linear layer
-becomes half of the original one, and each device only holds half of the
-weight.</p>
+<p>If lanuch this script with two devices, you can see that the weight and bias
+of the linear layers are correctly sharded, where the output dimension of
+the first linear layer becomes half of the original one, and each device
+only holds half of the weight.</p>
+</div>
+<div class="section" id="operator-fusion">
+<h2>Operator Fusion<a class="headerlink" href="#operator-fusion" title="Permalink to this headline"><span>¶</span></a></h2>
 <p>Another optimization we can do is to fuse the GELU activation with the first
 linear layer. We can use <code class="docutils literal notranslate"><span class="pre">.decompose()</span></code> to decompose the linear layer into
 a matrix multiplication and a bias addition. As shown in the output below,
@@ -565,7 +654,7 @@ their subgraphs.</p>
 </div>
 <p>As expected, the subgraph consists of two nodes, one for the bias addition and
 the other for the GELU activation. We can then fuse the subgraph into a single
-node by calling <code class="docutils literal notranslate"><span class="pre">.fuse()</span></code>. By default, Slapo will use TorchScript (nvFuser)
+node by calling <code class="docutils literal notranslate"><span class="pre">.fuse()</span></code>. By default, Slapo will use TorchScript with nvFuser
 as the backend compiler.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sch</span><span class="o">.</span><span class="n">fuse</span><span class="p">(</span><span class="n">subgraph</span><span class="p">,</span> <span class="n">compiler</span><span class="o">=</span><span class="s2">&quot;TorchScript&quot;</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;BiasGeLU&quot;</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="p">)</span>
@@ -595,6 +684,9 @@ def forward(self, data):
 # To see more debug info, please use `graph_module.print_readable()`
 </pre></div>
 </div>
+</div>
+<div class="section" id="build-the-optimized-model">
+<h2>Build the Optimized Model<a class="headerlink" href="#build-the-optimized-model" title="Permalink to this headline"><span>¶</span></a></h2>
 <p>We can see the previous sharding optimization is still preserved, and the fused
 kernel is correctly inserted into the hierarchical module definition and the
 corresponding dataflow graph.</p>
@@ -602,7 +694,7 @@ corresponding dataflow graph.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">opt_model</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">slapo</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="n">sch</span><span class="p">,</span> <span class="n">init_weights</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 </pre></div>
 </div>
-<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> ( 0 minutes  0.080 seconds)</p>
+<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> ( 0 minutes  0.074 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-gallery-mlp-multi-gpu-py">
 <div class="sphx-glr-download sphx-glr-download-python docutils container">
 <p><a class="reference download internal" download="" href="../_downloads/3f543fc069f615fa6b9b1314f0b64121/mlp-multi-gpu.py"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Python</span> <span class="pre">source</span> <span class="pre">code:</span> <span class="pre">mlp-multi-gpu.py</span></code></a></p>
@@ -612,6 +704,7 @@ corresponding dataflow graph.</p>
 </div>
 </div>
 <p class="sphx-glr-signature"><a class="reference external" href="https://sphinx-gallery.github.io">Gallery generated by Sphinx-Gallery</a></p>
+</div>
 </div>
 
 

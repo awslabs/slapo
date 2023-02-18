@@ -589,14 +589,16 @@ registered hooks while the latter silently ignores them.</p>
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">slapo.op.attention.</span></span><span class="sig-name descname"><span class="pre">FlashAttention</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">hidden_size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_attention_heads</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">attn_pdrop</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resid_pdrop</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">attn_op_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'auto'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bias</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_proj</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fused_qkv</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/slapo/op/attention.html#FlashAttention"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.op.attention.FlashAttention" title="Permalink to this definition"><span>¶</span></a></dt>
 <dd><p>A HuggingFace self attention module with flash attention kernels.
 Note that this module has limited supports to specialized processing,
-documetned as follows:
-- Only support absolute positional embeddings.
-- Do not support cross attention.
-- Do not support head mask, encoder_attention_mask, and output attention.</p>
-<p>We organize the Attention module as follows:
-Attention</p>
-<blockquote>
-<div><ul class="simple">
+documetned as follows:</p>
+<ul class="simple">
+<li><p>Only support absolute positional embeddings.</p></li>
+<li><p>Do not support cross attention.</p></li>
+<li><p>Do not support head mask, encoder_attention_mask, and output attention.</p></li>
+</ul>
+<p>We organize the Attention module as follows:</p>
+<ul class="simple">
+<li><dl class="simple">
+<dt>Attention</dt><dd><ul>
 <li><dl class="simple">
 <dt>SelfAttention</dt><dd><ul>
 <li><p>Q, K, V</p></li>
@@ -613,7 +615,10 @@ Attention</p>
 </dl>
 </li>
 </ul>
-</div></blockquote>
+</dd>
+</dl>
+</li>
+</ul>
 <p><strong>Methods:</strong></p>
 <table class="autosummary longtable table autosummary">
 <colgroup>

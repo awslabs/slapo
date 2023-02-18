@@ -129,13 +129,19 @@ def vocab_parallel_cross_entropy(
 ):
     """
     Performs cross entropy loss when logits are split across tensor parallel ranks
-    Arguments:
-        vocab_parallel_logits: logits split across tensor parallel ranks
-                               dimension is [sequence_length, batch_size, hidden_size]
-        target: correct vocab ids of dimseion [sequence_length, micro_batch_size]
-        label_smoothing: smoothing factor, must be in range [0.0, 1.0)
-                         default is no smoothing (=0.0)
-        group: torch.distributed group
+
+    Parameters
+    ----------
+    vocab_parallel_logits
+        logits split across tensor parallel ranks
+        dimension is [sequence_length, batch_size, hidden_size]
+    target
+        correct vocab ids of dimension [sequence_length, micro_batch_size]
+    label_smoothing
+        smoothing factor, must be in range [0.0, 1.0)
+        default is no smoothing (=0.0)
+    group
+        torch.distributed group
     """
     # pylint: disable=missing-type-doc
     return _VocabParallelCrossEntropy.apply(

@@ -24,7 +24,7 @@ def setup():
 
     setuptools.setup(
         name="slapo",
-        description="Slapo: A Schedule LAnguage for Progressive Optimization.",
+        description="Slapo: A Schedule Language for Progressive Optimization.",
         version=get_version(),
         author="Slapo Community",
         long_description=long_description,

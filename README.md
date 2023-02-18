@@ -2,7 +2,9 @@
 <!--- SPDX-License-Identifier: Apache-2.0  -->
 
 # Slapo: A Schedule Language for Large Model Training
+[**Documentation**](https://awslabs.github.io/slapo/) 
 
+![GitHub](https://img.shields.io/github/license/awslabs/slapo)
 ![CI-Lass-Pass](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/aire-meta-bot/4b5f48daff54fb5d1a862c1649632648/raw/awslabs-slapo-ci-badge-last-pass.json)
 
 

@@ -100,7 +100,9 @@ def flat_and_name_tensor_list(data, name, suffix):
 def encode_metadata(metadata):
     """Encode metadata to a string.
     The metadata format is:
+
         [<path>,<type>), (<path>,<type>), ...]
+
     After encoding: "<path>,<type>|<path>,<type>|..."
     """
     return "|".join([f"{p},{t}" for p, t in metadata])
@@ -115,11 +117,14 @@ def flatten(outputs, device, path="", metadata=None, ret=None):
     """Flatten nested structure of outputs and make sure every
     output is a torch.Tensor. We maintain a metadata to restore
     the original structure. The metadata format is:
+
         [<path>,<type>), (<path>,<type>), ...]
+
     - <path> is the path to the tensor in the nested structure. For example,
      the paths of t1 and t2 in [[t1, t2]] are "0.0" and "0.1". The path of
      t1 and t2 in [[t1], [t2]] is "0.0" and "1.0".
     - <type> is WrappedTypeCode of the tensor.
+
     Note that len(metadata) == len(ret)
     """
     metadata = metadata if metadata else []

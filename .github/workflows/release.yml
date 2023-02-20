@@ -24,6 +24,8 @@ jobs:
         options: --user root
     steps:
       - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # Checkout all branches and history.
       - name: Build wheels
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"

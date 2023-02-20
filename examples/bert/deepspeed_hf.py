@@ -1,6 +1,7 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 """Train with DeepSpeed ZeRO-3 or pipeline."""
+import os
 import argparse
 
 import deepspeed
@@ -284,6 +285,8 @@ if __name__ == "__main__":
         "--num-attn-heads", type=int, default=-1, help="number of attention heads"
     )
     args = parser.parse_args()
+    if os.environ.get("LOCAL_RANK"):
+        args.local_rank = int(os.environ["LOCAL_RANK"])
 
     if args.hidden_size > 0:
         assert args.intermediate_size > 0, "must have intermediate_size > 0"

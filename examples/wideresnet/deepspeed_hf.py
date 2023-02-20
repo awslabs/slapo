@@ -4,6 +4,7 @@
 Note that this model is not from HuggingFace, but we just use a unified
 file name for easy benchmarking.
 """
+import os
 import argparse
 
 import deepspeed
@@ -204,5 +205,7 @@ if __name__ == "__main__":
         help="Unused. Only for compatibility with other scripts.",
     )
     args = parser.parse_args()
+    if os.environ.get("LOCAL_RANK"):
+        args.local_rank = int(os.environ["LOCAL_RANK"])
     # The main entry point is called directly without using subprocess
     train(args)

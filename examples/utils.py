@@ -35,6 +35,7 @@ def get_ds_config(
         "pipeline": {
             "sequence_parallel": sequence_parallel,
         },
+        "wall_clock_breakdown": False,
     }
 
     if zero_stage > 0:

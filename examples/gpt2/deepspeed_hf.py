@@ -1,6 +1,7 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+import os
 import argparse
 
 import deepspeed
@@ -337,6 +338,8 @@ if __name__ == "__main__":
         help="bf16 is enabled",
     )
     args = parser.parse_args()
+    if os.environ.get("LOCAL_RANK"):
+        args.local_rank = int(os.environ["LOCAL_RANK"])
 
     if args.fp16 and args.bf16:
         raise ValueError(

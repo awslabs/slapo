@@ -1,6 +1,7 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+import os
 import argparse
 
 import deepspeed
@@ -245,5 +246,7 @@ if __name__ == "__main__":
         help="Disable Slapo schedule (only applicable with --disable-pipeline)",
     )
     args = parser.parse_args()
+    if os.environ.get("LOCAL_RANK"):
+        args.local_rank = int(os.environ["LOCAL_RANK"])
     # The main entry point is called directly without using subprocess
     train(args)

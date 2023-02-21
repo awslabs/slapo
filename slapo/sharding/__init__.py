@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Sharding utilities."""
 
-from .infer_type import *
+from .shard_ops import *
 from .sync_ops import (
     all_gather_forward_output,
     reduce_backward_grad,

@@ -30,7 +30,7 @@ from .pipeline import (
 )
 from .sharding import (
     all_gather_forward_output,
-    get_output_type_after_sharding,
+    postproc_sharding,
     reduce_forward_output,
     reduce_backward_grad,
     reduce_scatter_forward_output,
@@ -302,7 +302,7 @@ class Schedule:
                         f"{gather_axis} is requested"
                     ) from None
 
-        out_type, out_part_axis = get_output_type_after_sharding(
+        out_type, out_part_axis = postproc_sharding(
             self.mod, tensor_name, sharded_size, axis
         )
         if out_type is not None:

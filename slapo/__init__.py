@@ -5,6 +5,8 @@ from .autotune.tune import Database, Space, Symbol
 from .env import *
 from .initialization import init_empty_weights
 from .logger import get_logger
+from .primitives import register_primitive
+from .build import *
 from .schedule import *
 from .tracer import *
 from .utils import *

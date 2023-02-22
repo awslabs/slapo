@@ -3,15 +3,13 @@
 from __future__ import annotations
 
 import inspect
-import operator
-import gc
 import re
 from collections import OrderedDict
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from functools import partial
 from types import FunctionType
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 import torch
 import torch.distributed as dist
@@ -20,30 +18,12 @@ from torch import fx, nn
 # pylint: disable=unused-import
 import torch.nn.functional as F
 
-from .checkpoint import checkpoint as checkpoint_module
 from .logger import get_logger
-from .framework_dialect import get_dialect_cls
-from .pipeline import (
-    analyze_tie_weights,
-    build_pipeline_model,
-    generate_pipeline_partition,
-)
-from .sharding import (
-    all_gather_forward_output,
-    postproc_sharding,
-    reduce_forward_output,
-    reduce_backward_grad,
-    reduce_scatter_forward_output,
-    scatter_forward_output,
-)
+from .primitives import PRIMITIVES
+from .pipeline import analyze_tie_weights
+
 from .tracer import trace as trace_module
-from .initialization import init_empty_weights
-from .op.linear import LinearWithSeparateBias
-from .utils.common import (
-    transfer_hooks,
-    transfer_hooks_for_fusion,
-    is_lambda_function,
-)
+from .utils.common import is_lambda_function
 from .utils.mapping import MAPPING_FROM_FUNCTIONAL_TO_MODULE
 from .pattern import Pattern, ModulePattern, call_module
 
@@ -57,32 +37,9 @@ logger = get_logger()
 fx.wrap(call_module)
 
 
-def _get_unique_module_name(gm_or_modules, name):
-    if isinstance(gm_or_modules, fx.GraphModule):
-        named_module = dict(gm_or_modules.named_modules())
-    else:
-        named_module = gm_or_modules
-    num = 1
-    new_name = name + "_0"
-    while new_name in named_module.keys():
-        new_name = name + "_" + str(num)
-        num += 1
-    return new_name
-
-
-class DictWithValidation(dict):
-    def __setitem__(self, key, value):
-        if key in self and self[key] != value:
-            raise KeyError(f"{key}:{value} conflicts exists value {self[key]}")
-        super().__setitem__(key, value)
-
-
 @dataclass
 class ScheduleMetadata:
     # pylint: disable=unnecessary-lambda
-    # FIXME: 1) A mechanism to let each primitive register their metadata.
-    # 2) Let each primitive derive metadata class.
-    shard: dict[str, Any] = field(default_factory=lambda: DictWithValidation())
 
     # Tie weight analysis only at the top level module.
     # tie_weights is a mapping from parameter object to the same
@@ -92,43 +49,8 @@ class ScheduleMetadata:
         default_factory=lambda: OrderedDict()
     )
 
-    # A set of paths to the modules that includes pipeline cutting annotations.
-    # Note that we use ordered set to keep the order of the modules.
-    pipeline_cutting_paths: dict[str, Any] = field(
-        default_factory=lambda: OrderedDict()
-    )
-
-
-def register_primitive(need_dist=False, finalize=False):
-    """
-    Wrap a schedule primitive to annotate attributes:
-        finalize: Whether the primitive will finalize the schedule.
-        doc: TODO
-
-    TODO:
-    1. Record invoked primitives to be a tape for later replay.
-    2. Print primitive status.
-    """
-
-    def dectorator(func):
-        def wrapper(self, *args, **kwargs):
-            if need_dist and not dist.is_initialized():
-                raise RuntimeError(
-                    f"Schedule {func.__name__} requires distribution, "
-                    f"but torch.distributed is not initialized"
-                )
-            if self.finalized:
-                raise RuntimeError(
-                    f"Schedule for {self.path} is already finalized "
-                    f"and cannot apply {func.__name__}"
-                )
-            ret = func(self, *args, **kwargs)
-            self.finalized = finalize
-            return ret
-
-        return wrapper
-
-    return dectorator
+    # Primitive specific metadata.
+    primitives: dict[str, Any] = field(default_factory=lambda: OrderedDict())
 
 
 class Schedule:
@@ -168,7 +90,10 @@ class Schedule:
             # Inherit tie_weights from parent.
             self.metadata.tie_weights = parent.metadata.tie_weights
 
-        self.finalized = False
+        # Register primitives.
+        for pname, cls in PRIMITIVES.items():
+            setattr(self, pname, partial(cls.apply, self))
+            self.metadata.primitives[pname] = cls.init_metadata()
 
     @staticmethod
     def tokenize_module_path(module_path: str) -> list[str]:
@@ -199,13 +124,15 @@ class Schedule:
         for token in self.tokenize_module_path(full_path):
             sub_tokens = token.split(".")
             if len(sub_tokens) == 2 and sub_tokens[0] in curr_sch.child:
-                # If this token is in the format of "layer.0" and "layer" is a child of curr_sch,
-                # then "layer" is nn.Sequential. In this case, we have to first get the nn.Sequential module first.
+                # If this token is in the format of "layer.0" and "layer" is
+                # a child of curr_sch, then "layer" is nn.Sequential. In this case,
+                # we have to first get the nn.Sequential module first.
                 curr_sch = curr_sch.child[sub_tokens[0]]
                 token = sub_tokens[1]
             if token not in curr_sch.child:
                 raise KeyError(
-                    f"The schedule of '{full_path}' ({token}) is not a child of {curr_sch.name}"
+                    f"The schedule of '{full_path}' ({token}) is not a child "
+                    f"of {curr_sch.name}"
                 )
             curr_sch = curr_sch.child[token]
             if not curr_sch:
@@ -221,300 +148,6 @@ class Schedule:
             if not curr_sch:
                 return False
         return True
-
-    @register_primitive(need_dist=True)
-    def shard(self, tensor_name: str, axis: int):
-        def _shard(name, tensor):
-            assert axis < len(tensor.shape)
-            # TODO: Support arbitrary size sharding
-            if tensor.shape[axis] % self.world_size != 0:
-                raise RuntimeError(
-                    f"Parameter/Buffer {name} in {self.path} cannot be sharded "
-                    f"along axis {axis} with size {tensor.shape[axis]} "
-                    f"by {self.world_size}"
-                )
-            sharded_size = tensor.shape[axis] // self.world_size
-            return (
-                tensor.detach().split(sharded_size, dim=axis)[self.rank].contiguous(),
-                sharded_size,
-            )
-
-        try:
-            param = self.mod.get_parameter(tensor_name)
-            new_tensor, sharded_size = _shard(tensor_name, param)
-            if param in self.metadata.tie_weights:
-                if id(self.metadata.tie_weights[param]) != id(param):
-                    # This parameter is tied to another parameter, and the other
-                    # parameter is already sharded. In this case we directly
-                    # register the sharded parameter to the module to keep them tied.
-                    if new_tensor.shape != self.metadata.tie_weights[param].shape:
-                        raise RuntimeError(
-                            f"Parameter {tensor_name} in {self.path} is tied, "
-                            "but they have different sharded shapes: "
-                            f"{new_tensor.shape} vs "
-                            f"{self.metadata.tie_weights[param].shape}"
-                        )
-                    new_param = self.metadata.tie_weights[param]
-                else:
-                    # The first parameter in this tie group is sharded.
-                    new_param = nn.Parameter(new_tensor)
-                    self.metadata.tie_weights[param] = new_param
-            else:
-                new_param = nn.Parameter(new_tensor)
-            # Tag param with model parallel attribute, used for grad clipping
-            new_param.tensor_model_parallel = True
-            # Save the original size of the parameter for consolidation.
-            new_param.orig_shape = param.shape
-            self.mod.register_parameter(tensor_name, new_param)
-        except AttributeError:
-            buffer = self.mod.get_buffer(tensor_name)
-            new_buffer, sharded_size = _shard(tensor_name, buffer)
-            self.mod.register_buffer(tensor_name, new_buffer)
-
-        # Add metadata for sync and check. FIXME: A validation mechanism to check this.
-        # 1. Whether the param is already sharded in different axis.
-        # 2. Whether the output syncing method is conflict.
-        try:
-            self.metadata.shard[tensor_name] = axis
-        except KeyError:
-            raise RuntimeError(
-                f"Parameter/Buffer {tensor_name} in {self.path} is already "
-                f"sharded along axis {self.metadata.shard[tensor_name]}"
-            ) from None
-
-        def set_output_type(output_type, gather_axis=None):
-            try:
-                self.metadata.shard["output_type"] = output_type
-            except KeyError:
-                raise RuntimeError(
-                    f"Output type of {self.path} is already "
-                    f"{self.metadata.shard['output_type']}, but "
-                    f"{output_type} is requested"
-                ) from None
-
-            if gather_axis is not None:
-                try:
-                    self.metadata.shard["gather_axis"] = gather_axis
-                except KeyError:
-                    raise RuntimeError(
-                        f"Output of {self.path} has to be gathered along axis "
-                        f"{self.metadata.shard['gather_axis']}, but "
-                        f"{gather_axis} is requested"
-                    ) from None
-
-        out_type, out_part_axis = postproc_sharding(
-            self.mod, tensor_name, sharded_size, axis
-        )
-        if out_type is not None:
-            set_output_type(out_type, gather_axis=out_part_axis)
-
-    @register_primitive(need_dist=True)
-    def sync(self, mode, sync_op_or_fn, **kwargs):
-        """Synchronize the tensor across multiple devices.
-        Since the underlying implementation is registering a PyTorch hook
-        to the target module, the mode could be "fwd_pre", "fwd_post", "bwd_post".
-        The following are some example use cases:
-
-        Case 1: (replica x, shard_out w) -> partition output -> allgather
-                -> full output -> (replica x, shard_out w).
-            In this case, since forward uses all-gather to get a full output,
-            backward must have a split to match the shape, and
-            allreduce is also required for x.grad, so we use:
-            ```python
-            sch["out_prj"].shard("weight", axis=0)
-            sch["out_prj"].sync(mode="fwd_post", sync_op_or_fn="all_gather", axis=1)
-            sch["out_prj"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
-            ```
-
-        Case 2: (replica x, shard_out w) -> partition output -> (shard x, shard_in w).
-            In this case, backward still needs allreduce, so we use:
-            ```python
-            sch["out_prj"].shard("weight", axis=0)
-            sch["out_prj"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
-            ```
-
-        Case 3: (shard x, shard_in w) -> partial sum -> allreduce
-                -> (replica x, shard_out w).
-            In this case, backward does not need allreduce, so mode should be 'forward'.
-            ```python
-            sch["out_prj"].shard("weight", axis=1)
-            sch["out_prj"].sync(mode="fwd_post", sync_op_or_fn="all_reduce")
-            ```
-
-        Case 4: (shard x, shard_in w) -> partial sum -> reduce-scatter
-                -> ... -> allgather -> full output.
-            This case breaks the allreduce in case 3 to reduce-scatter and allgather,
-            which is called "sequence parallelism". In this case, we also need
-            to specify the allgather point in kwargs, so we use:
-            ```python
-            sch["out_prj"].shard("weight", axis=1)
-            sch["out_prj"].sync(mode="fwd_post", sync_op_or_fn="reduce_scatter", axis=1)
-            sch["dropout"].sync(mode="fwd_post", sync_op_or_fn="all_gather", axis=1)
-            ```
-
-        Case 5: Custom sync function.
-            We may need additional logic when syncing the output. In this case,
-            we could use a custom sync function. Here is an example of sharding
-            a word embedding:
-            ```python
-            sch["wte"].shard("weight", axis=0)
-
-            def fwd_pre_hook(_module, _input):
-                ...
-            def fwd_post_hook(_module, _input, output):
-                ...
-            sch["wte"].sync(mode="fw_pre", sync_op_or_fn=fwd_pre_hook)
-            sch["wte"].sync(mode="fw_post", sync_op_or_fn=fwd_post_hook)
-            ```
-
-        Parameters
-        ----------
-        mode: str
-            Where to sync the output. Could be "fwd_pre", "fwd_post", or "bwd_post".
-        sync_op_or_fn: Union[str, Callable]
-            The sync_op_or_fn (e.g., all_gather, all_reduce, reduce_scatter) or
-            hook function.
-        kwargs: Dict[str, Any]
-            Additional arguments. For example, if sync_op_or_fn is specified,
-            axis is required for reduce_scatter and all_gather. Note that the axis
-            is the axis of the output tensor, not the input or weight tensor.
-        """
-
-        def validate_sync_op(mode, sync_op_or_fn, axis=None):
-            """A helper function to validate the user given sync_op_or_fn."""
-            if mode == "fwd_post" and sync_op_or_fn == "scatter":
-                if "output_type" in self.metadata.shard:
-                    raise ValueError(
-                        "Output of {self.path} cannot be scatter along axis {axis}, "
-                        "if its parameter is sharded"
-                    )
-
-            if "output_type" not in self.metadata.shard:
-                return
-            output_type = self.metadata.shard["output_type"]
-
-            if mode == "fwd_post" and sync_op_or_fn == "all_gather":
-                if output_type == "partition":
-                    gather_axis = self.metadata.shard["gather_axis"]
-                    if gather_axis != axis:
-                        raise ValueError(
-                            f"Output of {self.path} has to be gathered along axis "
-                            f"{gather_axis}, but {axis} is requested"
-                        )
-                else:
-                    raise ValueError("Cannot all-gather a full output")
-            elif mode == "fwd_post" and sync_op_or_fn == "reduce_scatter":
-                if output_type == "partition":
-                    raise ValueError("Cannot reduce-scatter a partition output")
-            elif mode == "fwd_pre" and sync_op_or_fn == "all_gather":
-                if output_type == "partial":
-                    raise ValueError(
-                        "Cannot all-gather a partition input since the operator "
-                        "with parameter sharded in the input dimension expects "
-                        "partitioned input"
-                    )
-            elif sync_op_or_fn == "all_reduce":
-                if mode == "fwd_post" and output_type == "partition":
-                    raise ValueError("Cannot all-reduce a partition output")
-
-        # Generate the hook if sync_op_or_fn is a string.
-        if isinstance(sync_op_or_fn, str):
-            if mode == "fwd_post":
-                sync_fn = None
-                axis = kwargs.get("axis", 0)
-                if sync_op_or_fn == "all_gather":
-                    tensor_parallel_output_grad = kwargs.get(
-                        "tensor_parallel_output_grad", True
-                    )
-                    validate_sync_op(mode, sync_op_or_fn, axis)
-                    sync_fn = partial(
-                        all_gather_forward_output,
-                        dim=axis,
-                        group=self.group,
-                        tensor_parallel_output_grad=tensor_parallel_output_grad,
-                    )
-                elif sync_op_or_fn == "reduce_scatter":
-                    validate_sync_op(mode, sync_op_or_fn)
-                    sync_fn = partial(
-                        reduce_scatter_forward_output, dim=axis, group=self.group
-                    )
-                elif sync_op_or_fn == "scatter":
-                    validate_sync_op(mode, sync_op_or_fn)
-                    sync_fn = partial(
-                        scatter_forward_output, dim=axis, group=self.group
-                    )
-                elif sync_op_or_fn == "all_reduce":
-                    validate_sync_op(mode, sync_op_or_fn)
-                    sync_fn = partial(reduce_forward_output, group=self.group)
-                else:
-                    raise ValueError(
-                        f"Invalid sync_op_or_fn {sync_op_or_fn} for mode {mode} "
-                        "in {self.path}."
-                    )
-
-                def hook_fn(_module, _input, output):
-                    output = sync_fn(output)
-                    return output
-
-            elif mode == "fwd_pre":
-                sync_fn = None
-                axis = kwargs.get("axis", 0)
-                if sync_op_or_fn == "all_gather":
-                    tensor_parallel_output_grad = kwargs.get(
-                        "tensor_parallel_output_grad", True
-                    )
-                    validate_sync_op(mode, sync_op_or_fn, axis)
-                    sync_fn = partial(
-                        all_gather_forward_output,
-                        dim=axis,
-                        group=self.group,
-                        tensor_parallel_output_grad=tensor_parallel_output_grad,
-                    )
-                else:
-                    raise ValueError(
-                        f"Invalid sync_op_or_fn {sync_op_or_fn} for mode {mode} "
-                        "in {self.path}."
-                    )
-
-                def hook_fn(_module, _input):
-                    _input = sync_fn(_input[0])
-                    return _input
-
-            elif mode == "bwd_post":
-                # We register this hook to forward pre hook, and
-                # use an autograd function to do the sync in backward.
-                # This is to avoid using backward hook which semantic is not clear.
-                if sync_op_or_fn == "all_reduce":
-                    validate_sync_op(mode, sync_op_or_fn)
-                    sync_fn = partial(reduce_backward_grad, group=self.group)
-                    mode = "fwd_pre"
-                else:
-                    raise ValueError(
-                        f"Invalid sync_op_or_fn {sync_op_or_fn} for mode {mode} "
-                        "in {self.path}."
-                    )
-
-                def hook_fn(_module, _input):
-                    _input = sync_fn(_input[0])
-                    return _input
-
-            else:
-                raise ValueError(
-                    f"Unsupported combination of mode {mode} and "
-                    f"sync_op_or_fn {sync_op_or_fn}. Please specify "
-                    "sync_op_or_fn as a hook function."
-                )
-        else:
-            hook_fn = sync_op_or_fn
-
-        if mode == "fwd_pre":
-            self.mod.register_forward_pre_hook(hook_fn)
-        elif mode == "fwd_post":
-            self.mod.register_forward_hook(hook_fn)
-        elif mode == "bwd_post":
-            self.mod.register_full_backward_hook(hook_fn)
-        else:
-            raise ValueError(f"Unsupported mode {mode}.")
 
     def get_module(self, name):
         return dict(self.mod.named_modules())[name]
@@ -567,20 +200,21 @@ class Schedule:
         Parameters
         ----------
         regex_or_pattern_fn : Union[str, Callable]
-            If this argument is a regular expression, it will only match the `call_module` node
-            whose `target` satisfies the regex;
-            otherwise, it will try to match all the nodes satisfies the pattern function.
-            The pattern_fn should be in `lambda node: ...` format.
+            If this argument is a regular expression, it will only match the
+            `call_module` node whose `target` satisfies the regex;
+            otherwise, it will try to match all the nodes satisfies the
+            pattern function. The pattern_fn should be in `lambda node: ...` format.
 
         Returns
         -------
         Union[List[Tuple[str, fx.Node]], List[List[Tuple[str, fx.Node]]]
-            Returns all the nodes whose names satisfying the regex, or the nodes satisfying
-            the given pattern constraints.
+            Returns all the nodes whose names satisfying the regex,
+            or the nodes satisfying the given pattern constraints.
         """
         if not isinstance(regex_or_pattern_fn, (str, Callable)):
             raise ValueError(
-                "Please pass in a str (regex) or a callable object to describe the node pattern"
+                "Please pass in a str (regex) or a callable object to describe "
+                "the node pattern"
             )
         self.trace()
 
@@ -612,10 +246,11 @@ class Schedule:
         Returns
         -------
         List[List[Tuple[str, fx.Node]]
-            Returns all the subgraphs containing the nodes satisfying the pattern constraints.
-            The outer-most list contains different subgraphs, and the inner list contains
-            the nodes inside a specific subgraph. The inner-most tuple includes the name of
-            the parent module that the node belongs to, and the matched node object.
+            Returns all the subgraphs containing the nodes satisfying the
+            pattern constraints. The outer-most list contains different subgraphs,
+            and the inner list contains the nodes inside a specific subgraph.
+            The inner-most tuple includes the name of the parent module that the node
+            belongs to, and the matched node object.
         """
 
         named_modules = dict(self.mod.named_modules())
@@ -776,307 +411,6 @@ class SubgraphWrapper(nn.Module):
             return self.find_node(regex_or_pattern_fn)
         raise RuntimeError(f"Unrecognized pattern type {type(regex_or_pattern_fn)}")
 
-    def _replace_function(self, func, target_op):
-        """Replace a function, in terms of a call_function node in fx graph.
-        Do NOT directly call this function, use `.replace()` instead
-
-        Parameters
-        ----------
-        func : Callable
-            The new function to replace the current function.
-        target_op : List[Tuple[str, torch.fx.Node]]
-            The call_function node to be replaced.
-            The string in the tuple is the name of the parent module that
-            the node belongs to.
-        """
-        _, node = target_op
-        with self.mod.graph.inserting_after(node):
-            new_node = self.mod.graph.call_function(func, node.args, node.kwargs)
-            node.replace_all_uses_with(new_node)
-        self.mod.graph.erase_node(node)
-
-    def _replace_module(self, new_mod, subgraphs=None, name=None, concrete_args=None):
-        """Replace an entire module with a new one.
-        Do NOT directly call this function, use `.replace()` instead.
-
-        If subgraphs is None, replace the whole self module;
-        Otherwise, replace target forward subgraphs with the new module.
-
-        Parameters
-        ----------
-        new_mod : torch.nn.Module
-            The new module to replace the current module.
-        subgraphs : Optional[List[Tuple[str, torch.fx.Node]]]
-            The list of subgraphs to replace. Each subgraph is a tuple of
-            (module_name, node). If it is None, replace the whole module.
-        name : Optional[str]
-            The name of the replaced module. If it is None, a default name
-            will be automatically generated.
-        concrete_args : Optional[Dict[str, Any]]
-            The concrete arguments of the forward function of the new module.
-        """
-        if subgraphs is None:
-            if name is not None and name != self.name:
-                logger.warning(
-                    "Cannot change the name of %s when replacing the whole module. "
-                    "The given name %s will be ignored",
-                    self.name,
-                    name,
-                )
-            name = self.name
-        else:
-            if name is None:
-                name = new_mod._get_name().split(".")[-1]
-            name = _get_unique_module_name(self.mod, name)
-        # Create a new schedule for the replaced module
-        new_sch = create_schedule(new_mod, name, self.path, self.parent, self.group)
-        # Replace the corresponding part in the current module
-        if subgraphs is None:
-            # If subgraphs is None, replace the whole self module.
-            # Transfer hooks from the old module to the new module.
-            transfer_hooks(self.mod, new_sch.mod)
-            # Update schedules
-            self.mod = new_sch.mod
-            self.child = new_sch.child
-            for _, sch in self.child.items():
-                sch.parent = self
-            if self.parent:
-                self.update_submodule(self.parent.mod, self.name, new_mod)
-        else:
-            # Replacing target forward subgraphs with the new module
-            # requires the current module in torch.fx so it has to be traced.
-            self.trace()
-            assert len(subgraphs) > 0, "Should have at least one operator to replace"
-            if len(subgraphs) > 1:
-                # horizontal fusion, e.g.,
-                #     x
-                #   / | \
-                #  s0 s1 s2
-                #  v0 v1 v2
-                #  [[s0, v0], [s1, v1], [s2, v2]]
-                path, node = subgraphs[0][0]
-                target_mod = self.mod
-                if path:
-                    assert hasattr(
-                        self.mod, path
-                    ), f"{path} is not an attribute of {self.mod}"
-                    target_mod = getattr(self.mod, path)
-
-                target_mod.add_module(name, new_mod)
-                # TODO: Need to handle the case where the replaced module
-                # has different numbers of arguments with the original module.
-                # Also need more tests.
-                with target_mod.graph.inserting_before(node):
-                    new_node = target_mod.graph.call_module(
-                        name, node.args, node.kwargs
-                    )
-                with target_mod.graph.inserting_after(new_node):
-                    for i, sublst in enumerate(subgraphs):
-                        getitem = target_mod.graph.call_function(
-                            operator.getitem, (new_node, i)
-                        )
-                        sublst = [sublst] if not isinstance(sublst, list) else sublst
-                        for _, node in reversed(sublst):
-                            if node.users not in sublst:
-                                node.replace_all_uses_with(getitem)
-                            target_mod.graph.erase_node(node)
-                transfer_hooks_for_fusion(self, subgraphs, new_mod)
-            else:
-                # vertical fusion, e.g.,
-                # s0->v0
-                # [[s0, v0]]
-                ops = subgraphs[0]
-                path, first_node = ops[0]
-                ops = [op[1] for op in ops]
-                target_mod = self.mod
-                if path:
-                    assert hasattr(
-                        self.mod, path
-                    ), f"{path} is not an attribute of {self.mod}"
-                    target_mod = getattr(self.mod, path)
-
-                target_mod.add_module(name, new_mod)
-                with target_mod.graph.inserting_before(first_node):
-                    sig = inspect.signature(new_mod.forward)
-                    mod_args_need_inputs = [
-                        k
-                        for k, v in sig.parameters.items()
-                        if v.default is inspect.Parameter.empty
-                        and v.kind is not inspect.Parameter.VAR_POSITIONAL
-                    ]
-                    default_args = {
-                        k: v.default
-                        for k, v in sig.parameters.items()
-                        if v.default is not inspect.Parameter.empty
-                    }
-                    new_kwargs = {}
-                    for key, value in default_args:
-                        if key in first_node.kwargs:
-                            new_kwargs[key] = value
-                    if concrete_args is not None:
-                        new_kwargs.update(concrete_args)
-                    else:
-                        concrete_args = {}
-                    subgraph_args = []
-                    for node in ops:
-                        for arg in node.args:
-                            if (
-                                isinstance(arg, fx.Node)
-                                and arg not in ops
-                                and arg not in subgraph_args
-                            ):
-                                subgraph_args.append(arg)
-                    if len(subgraph_args) + len(concrete_args) != len(
-                        mod_args_need_inputs
-                    ):
-                        raise ValueError(
-                            f"The number of arguments (w/o default values) of the new module ({len(mod_args_need_inputs)}) does not match the number of arguments of the original subgraph ({len(subgraph_args)}). Please use `concrete_args` to specify the arguments."
-                        )
-                    new_node = target_mod.graph.call_module(
-                        name, tuple(subgraph_args), new_kwargs
-                    )
-                last_node = ops[-1]
-                last_node.replace_all_uses_with(new_node)
-                for node in reversed(ops):
-                    target_mod.graph.erase_node(node)
-                transfer_hooks_for_fusion(self, subgraphs, new_mod)
-            # Update schedules
-            self.child[name] = new_sch
-
-    @register_primitive()
-    def replace(self, new_mod_or_func, target_ops=None, name=None, concrete_args=None):
-        """Replace one of the following scenarios:
-        1. Replace an entire module (new_mod_or_func is the new module object, target_ops=None).
-        2. Replace a part of the forward function (target_ops) with a new module or function.
-        """
-        if isinstance(new_mod_or_func, FunctionType):
-            if isinstance(target_ops, list):
-                raise ValueError(
-                    "Cannot replace multiple nodes in forward with one function"
-                )
-            self._replace_function(new_mod_or_func, target_ops)
-        else:
-            self._replace_module(new_mod_or_func, target_ops, name, concrete_args)
-
-        # Clean up and update the schedule child list.
-        if isinstance(self.mod, fx.GraphModule):
-            self.mod.graph.eliminate_dead_code()
-            self.mod.delete_all_unused_submodules()
-            self.mod.graph.lint()
-            self.mod.recompile()
-
-            # Remove OOD child.
-            named_children = [name for name, _ in self.mod.named_children()]
-            to_be_removed = []
-            for child_name in self.child:
-                if child_name not in named_children:
-                    to_be_removed.append(child_name)
-
-            for child_name in to_be_removed:
-                del self.child[child_name]
-
-            # Add new child.
-            for child_name, submod in self.mod.named_children():
-                if child_name not in self.child:
-                    self.child[child_name] = create_schedule(
-                        submod,
-                        child_name,
-                        f"{self.path}.{child_name}",
-                        self,
-                        self.group,
-                    )
-
-    @register_primitive()
-    def fuse(self, subgraph, compiler="TorchScript", name="FusedModule"):
-        assert (
-            compiler == "TorchScript"
-        ), "Only support TorchScript as the backend compiler for now"
-        assert (
-            len(subgraph) == 1 and len(subgraph[0]) > 1
-        ), "Only vertical fusion is supported"
-        new_gm = self._construct_fx_graph(subgraph[0])
-        new_mod = torch.jit.script(new_gm)
-        self.replace(new_mod, subgraph, name)
-
-    @register_primitive()
-    def decompose(self):
-        if not isinstance(self.mod, nn.Linear):
-            raise RuntimeError(
-                "Can only support decomposing a `nn.Linear` layer for now"
-            )
-        if (
-            self.mod.weight.shape[1] != self.mod.in_features
-            or self.mod.weight.shape[0] != self.mod.out_features
-        ):
-            raise RuntimeError(".shard() should be applied after .decompose()")
-        # Replace the linear module
-        with init_empty_weights(
-            enable=(self.mod.weight.device == torch.device("meta"))
-        ):
-            new_mod = LinearWithSeparateBias(
-                self.mod.weight.shape[1],
-                self.mod.weight.shape[0],
-                device=self.mod.weight.device,
-                dtype=self.mod.weight.dtype,
-            )
-            # Use original value
-            new_mod.weight = self.mod.weight
-            new_mod.bias = self.mod.bias
-            self.replace(new_mod)
-
-    @register_primitive()
-    def checkpoint(self, subgraph=None, order_args_fn=None):
-        class CheckPointWrapper(nn.Module):
-            def __init__(self, mod) -> None:
-                super().__init__()
-                self.mod = mod
-
-            def forward(self, *args, **kwargs):
-                ordered_args = []
-                if order_args_fn is None:
-                    ordered_args = list(args)
-                    for value in kwargs.values():
-                        ordered_args += [value]
-                else:
-                    ordered_args = order_args_fn(*args, **kwargs)
-
-                # Note: checkpoint cannot accept kwargs
-                return checkpoint_module(self.mod, *ordered_args)
-
-        if subgraph is None:
-            # Checkpoint the entire module.
-            self.replace(CheckPointWrapper(self.mod))
-        else:
-            # Checkpoint the subgraph
-            new_gm = self._construct_fx_graph(subgraph[0])
-            self.replace(CheckPointWrapper(new_gm), subgraph)
-
-    @register_primitive()
-    def cut_pipeline_stage(self):
-        parent_sch = self.parent
-
-        # Sanity check.
-        if not parent_sch:
-            raise ValueError("Cannot cut the top module")
-        if not isinstance(parent_sch.mod, fx.GraphModule):
-            raise RuntimeError(
-                "Parent module has not been traced. "
-                "Please use 'trace_for_pipeline' to trace until "
-                "the level you want to cut pipeline stages."
-            )
-
-        # Find the corresponding call node in the parent module
-        # and annotate it with pipeline partition.
-        for node in parent_sch.mod.graph.nodes:
-            if node.op == "call_module" and node.target == self.name:
-                node.meta["partition"] = True
-
-        # Propogate the pipeline cutting level to the root.
-        root_sch = parent_sch
-        while root_sch is not None:
-            root_sch.metadata.pipeline_cutting_paths[parent_sch.path] = True
-            root_sch = root_sch.parent
-
     def trace_for_pipeline(self, paths, **kwargs):
         """Trace from the top module until the sub-module specified in path,
         so that we can cut pipeline stages at the level."""
@@ -1128,6 +462,35 @@ class SubgraphWrapper(nn.Module):
         return False
 
 
+def list_primitives():
+    """List all available schedule primitives.
+
+    Returns
+    -------
+    list[str]
+        A list of all available schedule primitives.
+    """
+    return list(PRIMITIVES.keys())
+
+
+def desc_primitive(name):
+    """Describe a schedule primitive.
+
+    Parameters
+    ----------
+    name : str
+        The name of the primitive.
+
+    Returns
+    -------
+    str
+        The description of the primitive.
+    """
+    if name not in PRIMITIVES:
+        raise ValueError(f"Primitive {name} is not registered")
+    return PRIMITIVES[name].__doc__
+
+
 def create_schedule(
     root: nn.Module,
     name: str = "",
@@ -1136,6 +499,29 @@ def create_schedule(
     group: Optional[dist.ProcessGroup] = None,
     **kwargs,
 ):
+    """Create a schedule for the given module and preserve the module hierarchy.
+
+    Parameters
+    ----------
+    root : nn.Module
+        The root module to create the schedule for.
+    name : str
+        The name of the module.
+    path : str
+        The path from the top module.
+    parent : Optional[Schedule]
+        The parent schedule. None if the module is the top module.
+    group : Optional[dist.ProcessGroup]
+        The process group for the module. If None, use all available devices.
+    **kwargs
+        Additional arguments for the schedule.
+
+    Returns
+    -------
+    Schedule
+        The schedule for the module.
+    """
+
     def is_leaf(module):
         return (
             module.__module__.startswith("torch.nn")
@@ -1209,227 +595,3 @@ def create_schedule(
 
     root_sch.child = child_schedules
     return root_sch
-
-
-def consolidate_model(
-    sch: Schedule,
-    target: str,
-    param_init_fn: Optional[Callable[[nn.Module], None]] = None,
-    **kwargs,
-):
-    """Consolidate the model weights.
-    FIXME: When pipeline is enabled, this function only supports DeepSpeed
-    runtime because it relies on DeepSpeed topology. We should use dialects
-    in this function to make it general applicable.
-    """
-    topology = kwargs.get("topology", None)
-    if dist.is_initialized() and dist.get_world_size() > sch.world_size:
-        if topology is None:
-            raise ValueError(
-                "topology must be given when there are multiple "
-                "tensor paralel groups or pipeline parallelism is used"
-            )
-        if target != "deepspeed":
-            raise ValueError(
-                "Only deepspeed runtime is supported for now when there are multiple "
-                "tensor paralel groups or pipeline parallelism is used"
-            )
-
-    cnt_meta, cnt_materialized = 0, 0
-    # Since some parameters are attached to non-leaf modules, we need to
-    # fix them layer-by-layer. See the following example:
-    # https://github.com/huggingface/transformers/blob/v4.25.1/src/transformers/models/bert/modeling_bert.py#L693
-    for _, param in sch.mod.named_parameters(recurse=True):
-        if param.device == torch.device("meta"):
-            cnt_meta += 1
-        else:
-            cnt_materialized += 1
-
-    stage_groups = None
-    # local rank means the rank in a node
-    local_rank = torch.cuda.current_device()
-    global_rank = None
-    global_ranks = [None]
-    if cnt_meta != 0 or cnt_materialized != 0:
-        if dist.is_initialized():
-            # Tackle with pipeline modules.
-            # Even the model does not use meta device, we still need to broadcast
-            # the weights to ensure consistency
-            global_rank = dist.get_rank()
-            if topology is not None:
-                # 1st DP: devices in the same bracket are in the same TP group
-                #         vertical lines separate different PP stages
-                # [0, 1] |
-                #        | [4, 5]
-                # 2nd DP
-                # [2, 3] |
-                #        | [6, 7]
-                # >>> topo = PipeModelDataParallelTopology(2, 2, 2)
-                # >>> topo.get_axis_comm_lists("model")
-                # [[0, 1], [2, 3], [4, 5], [6, 7]]
-                # >>> topo.get_axis_comm_lists("pipe")
-                # [[0, 4], [1, 5], [2, 6], [3, 7]]
-                # >>> topo.get_axis_comm_lists("data")
-                # [[0, 2], [1, 3], [4, 6], [5, 7]]
-                # >>> topo.filter_match(pipe=0)
-                # [0, 1, 2, 3]
-                # create dist group for broadcasting
-                num_pp = topology.get_dim("pipe")
-                # each group contains the devices on the same stage
-                stage_groups = []
-                for i in range(num_pp):
-                    stage_groups.append(
-                        dist.new_group(ranks=topology.filter_match(pipe=i))
-                    )
-            else:
-                stage_groups = [dist.new_group()]
-
-            global_ranks = list(range(dist.get_world_size()))
-    else:
-        return sch
-
-    def _init_module(sch: Schedule):
-        if param_init_fn:
-            param_init_fn(sch.mod)
-        elif hasattr(sch.mod, "_init_weights"):
-            # `_init_weights` is a HF specific API, see
-            # https://github.com/huggingface/transformers/blob/v4.25.1/src/transformers/models/bert/modeling_bert.py#L748
-            sch.mod._init_weights(sch.mod)
-        elif hasattr(sch.mod, "reset_parameters"):
-            sch.mod.reset_parameters()
-        else:
-            raise RuntimeError(
-                f"Module {sch.name} should have `reset_parameters` or "
-                "`_init_weights` method or param_init_fn={param_init_fn} needs "
-                "to be provided in order to support delay initialization"
-            )
-
-    def _consolidate_and_broadcast(sch: Schedule):
-        if isinstance(sch.mod, torch.jit.ScriptModule):
-            # Scripted module requires the parameters to be initialized in advance,
-            # so no need to consolidate
-            return 0, 0
-
-        if hasattr(sch, "partition_idx") and topology is not None:
-            curr_part_idx = sch.partition_idx
-            # topology stores the global ranks
-            curr_stage_devices = topology.filter_match(pipe=curr_part_idx)
-        else:
-            curr_part_idx = 0
-            curr_stage_devices = global_ranks
-
-        if global_rank not in curr_stage_devices:
-            # do nothing if the target module is NOT on this device group
-            return 0, 0
-
-        # Register parameters with the original shape (if sharded) for initialization.
-        num_params = 0
-        new_param_shapes = {}
-        for param_name, param in sch.mod.named_parameters(recurse=False):
-            num_params += 1
-            new_param_shapes[param_name] = param.shape
-            orig_shape = (
-                param.orig_shape if hasattr(param, "orig_shape") else param.shape
-            )
-            new_param = nn.Parameter(
-                torch.empty(orig_shape, dtype=param.dtype, device=local_rank)
-            )
-            sch.mod.register_parameter(
-                param_name,
-                new_param,
-            )
-            if hasattr(param, "replicated_param") and param.replicated_param:
-                new_param.replicated_param = True
-
-        # Use original shape to initialize parameters.
-        if global_rank == curr_stage_devices[0] and num_params > 0:
-            # only the first device in the PP group needs to initialize the weights
-            _init_module(sch)
-
-        # Broadcast complete params from rank 0 to make sure all the TP+DP ranks
-        # take the same params.
-        if dist.is_initialized():
-            curr_stage_group = stage_groups[curr_part_idx]
-            for _, param in sch.mod.named_parameters(recurse=False):
-                dist.broadcast(param, src=curr_stage_devices[0], group=curr_stage_group)
-
-        # Only keep the partition for this device for sharded params.
-        tp_rank = sch.rank
-        cnt_shard = 0
-        for param_name, param in sch.mod.named_parameters(recurse=False):
-            is_found = False
-            for idx, new_size in enumerate(new_param_shapes[param_name]):
-                if new_size != param.shape[idx]:
-                    assert not is_found, "Cannot have two sharded dimensions!"
-                    sharded_size = new_size
-                    axis = idx
-                    is_found = True
-            if is_found:
-                cnt_shard += 1
-                sharded_param = param.detach().split(sharded_size, dim=axis)[tp_rank]
-                sharded_param = sharded_param.contiguous()
-                new_param = nn.Parameter(sharded_param)
-                new_param.tensor_model_parallel = True
-                sch.mod.register_parameter(param_name, new_param)
-
-        for subsch in sch.child.values():
-            ret = _consolidate_and_broadcast(subsch)
-            num_params += ret[0]
-            cnt_shard += ret[1]
-
-        return num_params, cnt_shard
-
-    if cnt_meta != 0 or cnt_materialized != 0:
-        num_params, cnt_shard = _consolidate_and_broadcast(sch)
-
-    logger.info(
-        "Finished consolidating %d parameter tensors with %d being sharded",
-        num_params,
-        cnt_shard,
-    )
-
-    gc.collect()
-    torch.cuda.empty_cache()
-
-    return sch
-
-
-def init_target_engine(sch, target, **kwargs):
-    """Initialize the runtime engine for a specific target framework."""
-    init_engine_fn = get_dialect_cls("runtime_engine", target, allow_none=True)
-    return init_engine_fn(
-        sch,
-        **kwargs,
-    )
-
-
-def build(
-    sch: Schedule,
-    target=None,
-    init_weights: Optional[Union[bool, Callable]] = True,
-    **kwargs,
-):
-    if sch.metadata.pipeline_cutting_paths:
-        # pipeline stages will be wrapped into PipeStageWrapper
-        sch = generate_pipeline_partition(sch)
-        # Re-analyzie tie weights before consolidation.
-        sch.metadata.tie_weights = analyze_tie_weights(
-            sch.mod, is_pipeline_partitioned=True
-        )
-
-    # delay initialization
-    if init_weights:
-        init_weight_fn = init_weights if isinstance(init_weights, Callable) else None
-        sch = consolidate_model(sch, target, init_weight_fn, **kwargs)
-
-    if sch.metadata.pipeline_cutting_paths and target is not None:
-        # Generate pipeline modules for a particular target.
-        model = build_pipeline_model(
-            sch,
-            target,
-            **kwargs,
-        )
-    else:
-        model = sch.mod
-
-    return init_target_engine(model, target, **kwargs)

@@ -81,7 +81,7 @@ We provide the following primitives for dynamic graph optimizations:
 | :--: | :-- |
 | Module replacement | `s[op].replace(new_module)` |
 | Tensor parallelism | `s[op].shard(param_name, axis)` |
-| Synchronization | `s[op].sync(mode="forward/backward/both", sync_op_or_fn, **kwargs)` |
+| Synchronization | `s[op].sync(mode="fwd_pre/fwd_post/bwd_post", sync_op_or_fn, **kwargs)` |
 | Checkpointing | `s[op].checkpoint()` |
 
 And the following primitives for static graph optimizations:
@@ -90,10 +90,24 @@ And the following primitives for static graph optimizations:
 | Module Tracing | `s.trace(leaves, flatten)` |
 | Pattern matching | `s.find(regex_or_pattern_fn)` |
 | Operator fusion | `s[op].fuse(compiler, subgraph)` |
+| Layer decomposition | `s[op].decompose()` |
 | Partial module replacement | `s[op].replace(new_module, subgraph)` |
 | Partial gradient checkpointing | `s[op].checkpoint(subgraph)` |
-| Pipeline parallelism | `s[op].pipeline_split()` |
+| Pipeline parallelism | `s[op].cut_pipeline_stage()` |
 
+You can look for all supported primitvies with the following API:
+
+```python
+import slapo
+print(slapo.list_primitives())
+```
+
+You could also check the description of each primitive on the fly:
+
+```python
+import slapo
+print(slapo.desc_primitive("shard"))
+```
 
 ### Auto-Tuning
 We also provide a light-weight interface for auto-tuning, so the developers can (1) construct a polyhedral search space using our APIs, and (2) leverage Slapo auto-tuner to automatically search for the best training configuration.

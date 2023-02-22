@@ -462,33 +462,23 @@ class SubgraphWrapper(nn.Module):
         return False
 
 
-def list_primitives():
+def list_primitives(name_only=True):
     """List all available schedule primitives.
-
-    Returns
-    -------
-    list[str]
-        A list of all available schedule primitives.
-    """
-    return list(PRIMITIVES.keys())
-
-
-def desc_primitive(name):
-    """Describe a schedule primitive.
 
     Parameters
     ----------
-    name : str
-        The name of the primitive.
+    name_only : bool
+        If True, only return the name of the primitives. Otherwise, return the
+        primitive class.
 
     Returns
     -------
-    str
-        The description of the primitive.
+    Optional[list[str], dict[str, Primitive]]
+        If name_only, return a list of all available schedule primitives;
+        otherwise return a dictionary mapping the name of the primitive to the
+        primitive class.
     """
-    if name not in PRIMITIVES:
-        raise ValueError(f"Primitive {name} is not registered")
-    return PRIMITIVES[name].__doc__
+    return list(PRIMITIVES.keys()) if name_only else PRIMITIVES
 
 
 def create_schedule(

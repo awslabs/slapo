@@ -106,7 +106,7 @@ You could also check the description of each primitive on the fly:
 
 ```python
 import slapo
-print(slapo.desc_primitive("shard"))
+help(slapo.list_primitives(name_only=False)["shard"])
 ```
 
 ### Auto-Tuning

@@ -9,11 +9,11 @@ try:
 except ImportError:
     Conv1D = None
 
-OUTPUT_INFER_FN = {}
+POSTPROC_FN = {}
 
 
-def register_output_infer_fn(module_cls):
-    """Register an output inference function for an op."""
+def register_postproc_shard_fn(module_cls):
+    """Register a postproc function for a sharded op."""
 
     def decorator(rule_fn):
         # Do nothing if the module class is None. This happens when
@@ -21,9 +21,11 @@ def register_output_infer_fn(module_cls):
         if module_cls is None:
             return rule_fn
 
-        if module_cls in OUTPUT_INFER_FN:
-            raise ValueError(f"{module_cls} already registered for output inference")
-        OUTPUT_INFER_FN[module_cls] = rule_fn
+        if module_cls in POSTPROC_FN:
+            raise ValueError(
+                f"{module_cls} already registered a postproc function for sharding"
+            )
+        POSTPROC_FN[module_cls] = rule_fn
         return rule_fn
 
     return decorator
@@ -31,12 +33,12 @@ def register_output_infer_fn(module_cls):
 
 def get_all_rules():
     """Get all registered ops with output inference functions."""
-    return OUTPUT_INFER_FN
+    return POSTPROC_FN
 
 
-def get_output_type_after_sharding(module, param_name, sharded_size, axis):
-    """Get the output type (partition or partial) after sharding the module
-    along the given axis.
+def postproc_sharding(module, param_name, sharded_size, axis):
+    """Update module attributes and return the output type (partition or partial)
+    after sharding the module along the given axis.
 
     Parameters
     ----------
@@ -57,14 +59,14 @@ def get_output_type_after_sharding(module, param_name, sharded_size, axis):
         registered.
     """
     module_cls = module.__class__
-    if module_cls in OUTPUT_INFER_FN:
-        return OUTPUT_INFER_FN[module_cls](module, param_name, sharded_size, axis)
+    if module_cls in POSTPROC_FN:
+        return POSTPROC_FN[module_cls](module, param_name, sharded_size, axis)
     return None, None
 
 
-@register_output_infer_fn(nn.Linear)
+@register_postproc_shard_fn(nn.Linear)
 def _linear(module, param_name, sharded_size, axis):
-    """Output inference for linear layer.
+    """Update attributes and return the output type for linear layer.
     It adjusts the input or output feature size to reflect the shard size,
     and returns the output type (partial or partition) after sharding.
 
@@ -93,9 +95,9 @@ def _linear(module, param_name, sharded_size, axis):
     return ("partial", None)
 
 
-@register_output_infer_fn(nn.Conv2d)
+@register_postproc_shard_fn(nn.Conv2d)
 def _conv2d(module, param_name, sharded_size, axis):
-    """Output inference for conv2d layer.
+    """Update attributes and return the output type for conv2d layer.
     It adjusts the input or output channel number to reflect the shard size,
     and returns the output type (partial or partition) after sharding.
 
@@ -126,9 +128,9 @@ def _conv2d(module, param_name, sharded_size, axis):
     raise NotImplementedError
 
 
-@register_output_infer_fn(nn.BatchNorm2d)
+@register_postproc_shard_fn(nn.BatchNorm2d)
 def _batchnorm2d(module, param_name, sharded_size, axis):
-    """Output inference for BatchNorm2d layer.
+    """Update attributes and return the output type for BatchNorm2d layer.
     It adjusts the feature number to reflect the shard size,
     and returns the output type (partition along axis=1).
 
@@ -154,10 +156,10 @@ def _batchnorm2d(module, param_name, sharded_size, axis):
     return ("partition", 1)
 
 
-@register_output_infer_fn(Conv1D)
+@register_postproc_shard_fn(Conv1D)
 def _conv1d(module, param_name, sharded_size, axis):
-    """Output inference for Conv1D layer. Note that Conv1D has a transposed
-    weight (input features, output features) compared to Linear.
+    """Update attributes and return the output type for Conv1D layer. Note that
+    Conv1D has a transposed weight (input features, output features) compared to Linear.
     It adjusts the input or output feature size to reflect the shard size,
     and returns the output type (partial or partition) after sharding.
 

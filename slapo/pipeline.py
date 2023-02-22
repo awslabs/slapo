@@ -368,8 +368,10 @@ def analyze_tie_weights(top_mod, is_pipeline_partitioned):
 def generate_pipeline_partition(sch):
     # Identify the common ancestor of all pipeline cutting paths.
     common_ancestor_path = ""
-    if len(sch.metadata.pipeline_cutting_paths) > 1:
-        path_tokens = [path.split(".") for path in sch.metadata.pipeline_cutting_paths]
+    if len(sch.metadata.primitives["cut_pipeline_stage"]) > 1:
+        path_tokens = [
+            path.split(".") for path in sch.metadata.primitives["cut_pipeline_stage"]
+        ]
         for tokens in zip(*path_tokens):
             if len(list(set(tokens))) != 1:
                 break
@@ -379,8 +381,8 @@ def generate_pipeline_partition(sch):
 
     # Propogate pipeline partitioning from the cutting level to the common ancestor.
     starting_stage_id = 0
-    assert sch.metadata.pipeline_cutting_paths
-    for path in sch.metadata.pipeline_cutting_paths:
+    assert sch.metadata.primitives["cut_pipeline_stage"]
+    for path in sch.metadata.primitives["cut_pipeline_stage"]:
         if path == common_ancestor_path:
             # Skip the common ancestor because it should be handled in the next step.
             continue

@@ -5,5 +5,5 @@ from .attention import FlashAttention, FlashAttentionOp, AttentionOpWithRNG
 from .bias_gelu import FusedBiasGELU, FusedBiasNewGELU
 from .cross_entropy import ParallelCrossEntropy
 from .dropout import DropoutWithTensorParallel
-from .linear import FusedQKV
+from .linear import FusedQKV, LinearWithSeparateBias
 from .mlp import FusedMLP

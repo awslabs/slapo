@@ -26,16 +26,17 @@ jobs:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0 # Checkout all branches and history.
+      - name: Install dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          pip3 install twine wheel setuptools --upgrade
       - name: Build wheels
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           bash ./scripts/build_wheel.sh
-      - name: Install dependencies
-        run: |
-          python3 -m pip install --upgrade pip
-          pip3 install twine
+          ls -ltr dist/
+          twine check dist/*
       - name: Publish to Pypi
         run: |
           echo "Publish to PyPI"
-          ls -ltr dist/
           python3 -m twine upload --verbose dist/*

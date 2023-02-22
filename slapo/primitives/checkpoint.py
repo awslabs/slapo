@@ -19,6 +19,8 @@ class CheckpointPrimitive(Primitive):
         The subgraph to be checkpointed. If None, checkpoint the entire module.
     order_args_fn : Optional[Callable]
         A function to order the position and keyword arguments of the module.
+        The function should take the same arguments as the module forward function,
+        and return a list or tuple of the ordered arguments.
         If None, the arguments will be ordered by the order of the position arguments,
         followed by the key order of the keyword arguments.
     """

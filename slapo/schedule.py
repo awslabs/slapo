@@ -473,7 +473,7 @@ def list_primitives(name_only=True):
 
     Returns
     -------
-    Optional[list[str], dict[str, Primitive]]
+    Union[list[str], dict[str, Primitive]]
         If name_only, return a list of all available schedule primitives;
         otherwise return a dictionary mapping the name of the primitive to the
         primitive class.

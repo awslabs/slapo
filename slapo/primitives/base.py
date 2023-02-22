@@ -14,6 +14,8 @@ def register_primitive():
 
         if cls.name() in PRIMITIVES:
             raise ValueError(f"Primitive {cls.name()} already registered")
+        if not issubclass(cls, Primitive):
+            raise ValueError(f"Class {cls} is not a subclass of Primitive")
         PRIMITIVES[cls.name()] = cls
         return cls
 

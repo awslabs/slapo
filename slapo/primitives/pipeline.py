@@ -39,7 +39,7 @@ class CutPipelineStagePrimitive(Primitive):
         if not isinstance(parent_sch.mod, fx.GraphModule):
             raise RuntimeError(
                 "Parent module has not been traced. "
-                "Please use 'trace_for_pipeline' to trace until "
+                "Please use 'trace_until' to trace until "
                 "the level you want to cut pipeline stages."
             )
 

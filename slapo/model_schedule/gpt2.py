@@ -95,7 +95,7 @@ def _apply_schedule(
 
         sequence_parallel = sch_config.get("sequence_parallel", False)
         if sequence_parallel:
-            tag_layernorm(sch)
+            annotate_layernorm(sch)
 
     # Insert activation checkpoints.
     if ckpt_ratio > 0.0:
@@ -533,18 +533,21 @@ def shard_parameters(
     return log_list
 
 
-def tag_layernorm(sch):
-    """Tag parameters that require additional allreduce on tensor parallel group
-    when sequence parallelism is turned on.
+def annotate_layernorm(sch):
+    """Annotate parameters that require additional allreduce on tensor parallel group
+    when sequence parallelism is turned on. This is specific for DeepSpeed pipeline
+    runtime.
+
     Parameters
     ----------
     sch : slapo.Schedule
         The schedule of the model.
     """
-    for m in sch.mod.modules():
-        if isinstance(m, nn.LayerNorm):
-            for p in m.parameters(recurse=False):
-                p.replicated_param = True
+    for sub_sch in sch.child():
+        if isinstance(sub_sch.mod, nn.LayerNorm):
+            for name, _ in sub_sch.mod.named_parameters(recurse=False):
+                sub_sch.annotate(name, "replicated_param", True)
+        annotate_layernorm(sub_sch)
 
 
 def checkpoint(
@@ -657,9 +660,7 @@ def generate_pipeline_schedule(sch, sch_config):
             for p in sig.parameters.values()
             if p.name not in input_names
         }
-        sch.trace_for_pipeline(
-            f"{prefix}", tracer="huggingface", concrete_args=concrete_args
-        )
+        sch.trace_until(f"{prefix}", tracer="huggingface", concrete_args=concrete_args)
         _prefix = f"{prefix}." if prefix else ""
         for cut in pipeline_cuts:
             sch[f"{_prefix}h.{cut}"].cut_pipeline_stage()

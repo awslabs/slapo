@@ -186,7 +186,7 @@ def generate_pipeline_schedule(sch, sch_config):
             if p.name not in input_names
         }
         _prefix = f"{prefix}." if prefix else ""
-        sch.trace_for_pipeline(
+        sch.trace_until(
             [f"{_prefix}encoder", f"{_prefix}decoder"],
             tracer="huggingface",
             concrete_args=concrete_args,

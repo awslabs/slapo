@@ -373,6 +373,18 @@ def deepspeed_pipe_engine(
     else:
         param_dtype = torch.float
 
+    # Tag all sharded parameters with model parallel attribute for grad clipping.
+    cnt_shard = 0
+    for module in stage_modules:
+        for param in module.parameters():
+            if param.device != torch.device("meta") and hasattr(param, "orig_shape"):
+                param.tensor_model_parallel = True
+                cnt_shard += 1
+    logger.info(
+        "Set tensor_model_parallel=True to %d sharded parameters",
+        cnt_shard,
+    )
+
     # pylint: disable=unexpected-keyword-arg
     model = pipe.PipelineModule(
         stage_modules,
@@ -390,7 +402,8 @@ def deepspeed_pipe_engine(
     if not hasattr(pipe, "TiedWeight"):
         logger.warning(
             "DeepSpeed pipeline runtime does not support TiedWeight. "
-            "The tie weight will be ignored."
+            "The tie weight will be ignored.",
+            ranks=0,
         )
         return model
 

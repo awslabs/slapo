@@ -77,7 +77,7 @@ def _apply_schedule(
 
     sequence_parallel = sch_config.get("sequence_parallel", False)
     if sequence_parallel:
-        tag_layernorm(sch)
+        annotate_layernorm(sch)
 
     if sch.world_size > 1 and sch_config.get("bcast_input", False):
         # Broadcast input to all devices within the MP group.
@@ -394,18 +394,21 @@ def shard_parameters(
                 sub_sch[fc_names[2]].sync(mode="fwd_post", sync_op_or_fn="all_reduce")
 
 
-def tag_layernorm(sch):
-    """Tag parameters that require additional allreduce on tensor parallel group
-    when sequence parallelism is turned on.
+def annotate_layernorm(sch):
+    """Annotate parameters that require additional allreduce on tensor parallel group
+    when sequence parallelism is turned on. This is specific for DeepSpeed pipeline
+    runtime.
+
     Parameters
     ----------
     sch : slapo.Schedule
         The schedule of the model.
     """
-    for m in sch.mod.modules():
-        if isinstance(m, nn.LayerNorm):
-            for p in m.parameters(recurse=False):
-                p.replicated_param = True
+    for sub_sch in sch.child():
+        if isinstance(sub_sch.mod, nn.LayerNorm):
+            for name, _ in sub_sch.mod.named_parameters(recurse=False):
+                sub_sch.annotate(name, "replicated_param", True)
+        annotate_layernorm(sub_sch)
 
 
 def checkpoint(

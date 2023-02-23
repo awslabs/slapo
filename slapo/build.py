@@ -11,6 +11,7 @@ import torch
 from torch import distributed as dist
 from torch import nn
 
+from .utils.common import transfor_param_tags
 from .framework_dialect import get_dialect_cls
 from .logger import get_logger
 from .pipeline import (
@@ -150,8 +151,7 @@ def consolidate_model(
                 param_name,
                 new_param,
             )
-            if hasattr(param, "replicated_param") and param.replicated_param:
-                new_param.replicated_param = True
+            transfor_param_tags(sch, param, new_param)
 
         # Use original shape to initialize parameters.
         if global_rank == curr_stage_devices[0] and num_params > 0:
@@ -181,8 +181,8 @@ def consolidate_model(
                 sharded_param = param.detach().split(sharded_size, dim=axis)[tp_rank]
                 sharded_param = sharded_param.contiguous()
                 new_param = nn.Parameter(sharded_param)
-                new_param.tensor_model_parallel = True
                 sch.mod.register_parameter(param_name, new_param)
+                transfor_param_tags(sch, param, new_param)
 
         for subsch in sch.child.values():
             ret = _consolidate_and_broadcast(subsch)

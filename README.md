@@ -84,6 +84,7 @@ We provide the following primitives for dynamic graph optimizations:
 | Synchronization | `s[op].sync(mode="fwd_pre/fwd_post/bwd_post", sync_op_or_fn, **kwargs)` |
 | Checkpointing | `s[op].checkpoint()` |
 | Fork random number generator | `s[op].fork_rng()` |
+| Annotate parameters | `s[op].annotate(param_name, key, value)` |
 
 And the following primitives for static graph optimizations:
 | Feature | Primitive |

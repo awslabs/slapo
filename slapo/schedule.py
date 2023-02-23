@@ -46,6 +46,7 @@ class ScheduleMetadata:
     new schedule, because the new module may not have the same structure
     as the original module.
     """
+
     # pylint: disable=unnecessary-lambda
 
     # Tie weight analysis only at the top level module.

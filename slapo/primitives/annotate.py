@@ -3,9 +3,8 @@
 """Annotation primitive."""
 # pylint: disable=arguments-differ
 
-from torch import nn
-
 from .base import register_primitive, Primitive
+
 
 @register_primitive()
 class AnnotateParamPrimitive(Primitive):

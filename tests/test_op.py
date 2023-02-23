@@ -4,7 +4,6 @@
 Test custom ops. Note that attn test has to be invoked by torchrun since
 most custom ops are for tensor parallelism.
 """
-# pylint: disable=unused-argument
 import pytest
 
 import torch

@@ -5,7 +5,7 @@
 from torch import nn
 
 from ..schedule import create_schedule
-from ..op import FlashAttention, FusedMLP, AttentionOpWithRNG
+from ..op import FlashAttention, FusedMLP
 from ..initialization import init_empty_weights
 from ..logger import get_logger
 from .registry import register_schedule
@@ -367,12 +367,7 @@ def shard_parameters(
 
                 # In this case, the attention dropout in between has to
                 # use different random seeds.
-                new_op = AttentionOpWithRNG(
-                    sub_sch["module"]["attn_op"].mod.attn_op_name,
-                    sub_sch["module"]["attn_op"].mod.apply_causal_mask,
-                    sub_sch["module"]["attn_op"].mod.scale,
-                )
-                sub_sch["module"]["attn_op"].replace(new_op)
+                sub_sch["module"]["attn_op"].fork_rng()
 
     # Shard MLP.
     if "mlp" in shard_target:

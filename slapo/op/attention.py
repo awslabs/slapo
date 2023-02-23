@@ -23,7 +23,6 @@ from torch import nn
 
 from ..logger import get_logger
 from ..utils.common import importlib_or_none
-from ..random import get_cuda_rng_tracker
 
 logger = get_logger()
 
@@ -520,11 +519,3 @@ class FlashAttention(nn.Module):
         else:
             outputs = (context_layer, None)
         return outputs
-
-
-class AttentionOpWithRNG(FlashAttentionOp):
-    def forward(self, query_layer, key_layer, value_layer, attention_mask, p):
-        with get_cuda_rng_tracker().fork():
-            return super().forward(
-                query_layer, key_layer, value_layer, attention_mask, p
-            )

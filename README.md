@@ -83,6 +83,7 @@ We provide the following primitives for dynamic graph optimizations:
 | Tensor parallelism | `s[op].shard(param_name, axis)` |
 | Synchronization | `s[op].sync(mode="fwd_pre/fwd_post/bwd_post", sync_op_or_fn, **kwargs)` |
 | Checkpointing | `s[op].checkpoint()` |
+| Fork random number generator | `s[op].fork_rng()` |
 
 And the following primitives for static graph optimizations:
 | Feature | Primitive |

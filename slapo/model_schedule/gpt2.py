@@ -9,7 +9,7 @@ from torch import nn
 from torch.distributed import distributed_c10d as dist
 
 from ..schedule import create_schedule
-from ..op import FlashAttention, FusedMLP, AttentionOpWithRNG
+from ..op import FlashAttention, FusedMLP
 from ..initialization import init_empty_weights
 from ..sharding import reduce_forward_output
 from ..logger import get_logger
@@ -487,12 +487,7 @@ def shard_parameters(
 
                 # In this case, the attention dropout in between has to
                 # use different random seeds.
-                new_op = AttentionOpWithRNG(
-                    sub_sch["module"]["attn_op"].mod.attn_op_name,
-                    sub_sch["module"]["attn_op"].mod.apply_causal_mask,
-                    sub_sch["module"]["attn_op"].mod.scale,
-                )
-                sub_sch["module"]["attn_op"].replace(new_op)
+                sub_sch["module"]["attn_op"].fork_rng()
 
         log_list.append(f"Shard {model_config.num_hidden_layers} attention layers")
     else:

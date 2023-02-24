@@ -11,7 +11,7 @@ from torch import nn
 from ..random import get_cuda_rng_tracker
 from ..sharding import (
     all_gather_forward_output,
-    postproc_sharding,
+    apply_shard_method,
     reduce_backward_grad,
     reduce_forward_output,
     reduce_scatter_forward_output,
@@ -96,31 +96,10 @@ class ShardPrimitive(Primitive):
                 f"sharded along axis {sch.metadata.primitives['shard'][tensor_name]}"
             ) from None
 
-        def set_output_type(output_type, gather_axis=None):
-            try:
-                sch.metadata.primitives["shard"]["output_type"] = output_type
-            except KeyError:
-                raise RuntimeError(
-                    f"Output type of {sch.path} is already "
-                    f"{sch.metadata.primitives['shard']['output_type']}, but "
-                    f"{output_type} is requested"
-                ) from None
-
-            if gather_axis is not None:
-                try:
-                    sch.metadata.primitives["shard"]["gather_axis"] = gather_axis
-                except KeyError:
-                    raise RuntimeError(
-                        f"Output of {sch.path} has to be gathered along axis "
-                        f"{sch.metadata.primitives['shard']['gather_axis']}, but "
-                        f"{gather_axis} is requested"
-                    ) from None
-
-        out_type, out_part_axis = postproc_sharding(
-            sch.mod, tensor_name, sharded_size, axis
+        apply_shard_method("postproc", sch, tensor_name, sharded_size, axis)
+        apply_shard_method(
+            "infer_and_set_output_type", sch, tensor_name, sharded_size, axis
         )
-        if out_type is not None:
-            set_output_type(out_type, gather_axis=out_part_axis)
 
     @staticmethod
     def init_metadata():

@@ -123,9 +123,7 @@ def generate_pipeline_schedule(sch, sch_config):
             for p in sig.parameters.values()
             if p.name not in input_names
         }
-        sch.trace_for_pipeline(
-            f"{prefix}", tracer="huggingface", concrete_args=concrete_args
-        )
+        sch.trace_until(f"{prefix}", tracer="huggingface", concrete_args=concrete_args)
         _prefix = f"{prefix}." if prefix else ""
         for cut in pipeline_cuts:
             sch[f"{_prefix}h.{cut}"].cut_pipeline_stage()

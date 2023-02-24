@@ -90,7 +90,8 @@ def transfer_hooks_for_fusion(sch, subgraphs, new_mod):
                 for hook in hook_types:
                     if has_hook(old_mod, hook) > 0:
                         raise RuntimeError(
-                            f"Cannot use horizontal fusion since module {node.target} has a {hook} hook"
+                            "Cannot use horizontal fusion since module "
+                            f"{node.target} has a {hook} hook"
                         )
     else:
         ops = subgraphs[0]
@@ -100,19 +101,28 @@ def transfer_hooks_for_fusion(sch, subgraphs, new_mod):
                 if i == 0:  # the first node
                     if has_hook(old_mod, "fwd_post"):
                         raise RuntimeError(
-                            f"Cannot transfer hooks from {node.target} to the new module since {node.target} has a fwd_post hook"
+                            f"Cannot transfer hooks from {node.target} to the "
+                            f"new module since {node.target} has a fwd_post hook"
                         )
                     transfer_hooks(old_mod, new_mod, ["fwd_pre", "bwd_post"])
                 elif i == len(ops) - 1:  # the last node
                     if has_hook(old_mod, "fwd_pre") or has_hook(old_mod, "bwd_post"):
                         raise RuntimeError(
-                            f"Cannot transfer hooks from {node.target} to the new module since {node.target} has a fwd_pre/bwd_post hook"
+                            f"Cannot transfer hooks from {node.target} to the new "
+                            f"module since {node.target} has a fwd_pre/bwd_post hook"
                         )
                     transfer_hooks(old_mod, new_mod, ["fwd_post"])
                 elif any(has_hook(old_mod, x) for x in hook_types):
                     raise RuntimeError(
-                        f"Cannot transfer hooks from {node.target} to the new module since {node.target} is in the middle of the subgraph"
+                        f"Cannot transfer hooks from {node.target} to the new module "
+                        f"since {node.target} is in the middle of the subgraph"
                     )
+
+
+def transfor_param_tags(sch, param, new_param):
+    for param_tag_name in sch.get_top_schedule().metadata.param_tags:
+        if hasattr(param, param_tag_name):
+            setattr(new_param, param_tag_name, getattr(param, param_tag_name))
 
 
 def is_lambda_function(obj):

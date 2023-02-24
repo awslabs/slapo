@@ -106,7 +106,7 @@ def generate_pipeline_schedule(sch, sch_config):
         _prefix = f"{prefix}." if prefix else ""
 
         leaves = [f"{_prefix}layer{idx + 1}" for idx in range(4) if pipeline_cuts[idx]]
-        sch.trace_for_pipeline(
+        sch.trace_until(
             leaves,
             tracer="pytorch",
             concrete_args=concrete_args,

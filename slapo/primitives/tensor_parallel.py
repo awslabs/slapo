@@ -76,11 +76,10 @@ class ShardPrimitive(Primitive):
                     sch.metadata.tie_weights[param] = new_param
             else:
                 new_param = nn.Parameter(new_tensor)
-            # Tag param with model parallel attribute, used for grad clipping
-            new_param.tensor_model_parallel = True
-            # Save the original size of the parameter for consolidation.
-            new_param.orig_shape = param.shape
             sch.mod.register_parameter(tensor_name, new_param)
+
+            # Save the original size of the parameter for consolidation.
+            sch.annotate(tensor_name, "orig_shape", param.shape)
         except AttributeError:
             buffer = sch.mod.get_buffer(tensor_name)
             new_buffer, sharded_size = _shard(tensor_name, buffer)

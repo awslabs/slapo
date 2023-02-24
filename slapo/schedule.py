@@ -39,6 +39,14 @@ fx.wrap(call_module)
 
 @dataclass
 class ScheduleMetadata:
+    """The metadata of a schedule. It is used to store the metadata of
+    primitives and the top module mainly for 1) verification and
+    2) applying framework dialects. Note that when replacing a module,
+    the schedule metadata of the original module is NOT transferred to the
+    new schedule, because the new module may not have the same structure
+    as the original module.
+    """
+
     # pylint: disable=unnecessary-lambda
 
     # Tie weight analysis only at the top level module.
@@ -48,6 +56,11 @@ class ScheduleMetadata:
     tie_weights: dict[nn.Parameter, nn.Parameter] = field(
         default_factory=lambda: OrderedDict()
     )
+
+    # The set of parameter tags added either by primitives or users.
+    # These tags will be transferred to the new parameter when it is replaced
+    # (e.g., sharding and consolidation).
+    param_tags: set[str] = field(default_factory=set)
 
     # Primitive specific metadata.
     primitives: dict[str, Any] = field(default_factory=lambda: OrderedDict())
@@ -148,6 +161,11 @@ class Schedule:
             if not curr_sch:
                 return False
         return True
+
+    def get_top_schedule(self):
+        if self.parent is None:
+            return self
+        return self.parent.get_top_schedule()
 
     def get_module(self, name):
         return dict(self.mod.named_modules())[name]
@@ -411,12 +429,22 @@ class SubgraphWrapper(nn.Module):
             return self.find_node(regex_or_pattern_fn)
         raise RuntimeError(f"Unrecognized pattern type {type(regex_or_pattern_fn)}")
 
-    def trace_for_pipeline(self, paths, **kwargs):
-        """Trace from the top module until the sub-module specified in path,
-        so that we can cut pipeline stages at the level."""
+    def trace_until(self, paths, **kwargs):
+        """A syntax sugar that traces from the top module until the sub-module
+        specified in path, so that we can apply computation optimization, such as
+        cutting pipeline stages at the level.
+
+        Parameters
+        ----------
+        paths : Union[str, List[str]]
+            The path to the sub-module that we want to trace until.
+        **kwargs
+            Other arguments for `trace` API.
+        """
+
         # Sanity check.
         if self.parent:
-            raise ValueError("trace_for_pipeline can only be called on the top module")
+            raise ValueError("trace_until can only be called on the top module")
         if isinstance(self.mod, fx.GraphModule):
             raise RuntimeError("Top module has been traced")
 
@@ -429,6 +457,7 @@ class SubgraphWrapper(nn.Module):
         concrete_args = kwargs.pop("concrete_args", {})
         self.trace(
             recursive=True,
+            flatten=False,
             leaf_modules=leaf_modules,
             tracer=tracer,
             concrete_args=concrete_args,

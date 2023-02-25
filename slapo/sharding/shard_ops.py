@@ -357,12 +357,15 @@ class ShardLinear(ShardMethod):
 
     @staticmethod
     def sync(sch, mode, sync_op_or_fn, **kwargs):
-        if "output_type" not in sch.metadata.primitives["shard"]:
-            raise ValueError(f"{sch.path} is not sharded so cannot be synced")
-        output_type = sch.metadata.primitives["shard"]["output_type"]
-
-        # If the output is partitioned, simply use the default sync method.
-        if output_type == "partition":
+        # In the following two cases, we simply fallback to the default syncing method:
+        # 1. If the output type is not specified, meaning that this is "fwd_pre"
+        #    syncing. In this case, we don't need special handling for the linear.
+        # 2. If the output is partitioned, we don't need to insert the sync op
+        #    before the bias addition.
+        if (
+            "output_type" not in sch.metadata.primitives["shard"]
+            or sch.metadata.primitives["shard"]["output_type"] == "partition"
+        ):
             ShardMethod.sync(sch, mode, sync_op_or_fn, **kwargs)
             return
 
@@ -415,8 +418,6 @@ class ShardConv2d(ShardMethod):
             sch.mod.out_channels = sharded_size
         if axis == axes[1]:
             sch.mod.in_channels = sharded_size
-
-        raise NotImplementedError
 
     @staticmethod
     def infer_output_type(sch, param_name, sharded_size, axis):

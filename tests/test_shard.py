@@ -22,6 +22,10 @@ def gather_grad(model, param_path_and_gather_axis):
     world_size = dist.get_world_size()
     local_rank = int(os.environ["LOCAL_RANK"])
 
+    def _allreduce_grad(grad):
+        dist.all_reduce(grad)
+        return grad
+
     def _gather_grad(part_grad, axis=0):
         if axis < 0:
             return part_grad
@@ -38,10 +42,12 @@ def gather_grad(model, param_path_and_gather_axis):
         param = model
         for token in path.split("."):
             param = getattr(param, token)
-        if axis != -1:
-            grad = _gather_grad(param.grad, axis)
-        else:
+        if axis == "allreduce":
+            grad = _allreduce_grad(param.grad)
+        elif axis == "none":
             grad = param.grad
+        else:
+            grad = _gather_grad(param.grad, axis)
         ret[path] = grad
     return ret
 
@@ -51,7 +57,7 @@ def gather_and_copy_model(src_model, dest_model, param_path_and_gather_axis):
     local_rank = int(os.environ["LOCAL_RANK"])
 
     def _gather_param(part_param, axis=0):
-        if axis < 0:
+        if not isinstance(axis, int) or axis < 0:
             return part_param
 
         parts = [
@@ -67,11 +73,7 @@ def gather_and_copy_model(src_model, dest_model, param_path_and_gather_axis):
         for token in path.split("."):
             part_param = getattr(part_param, token)
             dest_param = getattr(dest_param, token)
-        if axis != -1:
-            param = _gather_param(part_param, axis)
-        else:
-            param = part_param
-        dest_param.data = param
+        dest_param.data = _gather_param(part_param, axis)
 
 
 def verify_grads(ref_model, path_and_grads, tol=1e-5):
@@ -125,7 +127,7 @@ def test_linear(init_dist):
         "linear1.weight": 0,
         "linear1.bias": 0,
         "linear2.weight": 1,
-        "linear2.bias": -1,
+        "linear2.bias": "none",
     }
     path_and_grads = gather_grad(sch_model, param_path_and_gather_axis)
 
@@ -145,7 +147,7 @@ def test_seq_para(init_dist):
         def __init__(self):
             super().__init__()
             self.linear1 = torch.nn.Linear(30, 30)
-            self.linear2 = torch.nn.Linear(30, 30, bias=False)
+            self.linear2 = torch.nn.Linear(30, 30)
 
         def forward(self, data):
             out = self.linear1(data)
@@ -181,7 +183,7 @@ def test_seq_para(init_dist):
         tensor_parallel_output_grad=False,
     )
 
-    sch_model, _ = slapo.build(sch)
+    sch_model, _ = slapo.build(sch, init_weights=False)
     sch_model.cuda(local_rank)
 
     data = torch.randn((3, 16, 30), requires_grad=True).cuda(local_rank)
@@ -193,6 +195,7 @@ def test_seq_para(init_dist):
         "linear1.weight": 0,
         "linear1.bias": 0,
         "linear2.weight": 1,
+        "linear2.bias": "allreduce",
     }
     path_and_grads = gather_grad(sch_model, param_path_and_gather_axis)
 
@@ -303,7 +306,7 @@ def test_conv(init_dist):
         tensor_parallel_output_grad=False,
     )
     sch["bn3"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
-    sch_model, _ = slapo.build(sch, init_required=False)
+    sch_model, _ = slapo.build(sch, init_weights=False)
 
     sch_model.cuda(local_rank)
     data = torch.randn((4, 64, 56, 56), requires_grad=True).cuda(local_rank)
@@ -320,8 +323,8 @@ def test_conv(init_dist):
         "conv1.weight": 0,
         "bn1.weight": 0,
         "bn1.bias": 0,
-        "bn2.weight": -1,
-        "bn2.bias": -1,
+        "bn2.weight": "none",
+        "bn2.bias": "none",
         "bn3.weight": 0,
         "bn3.bias": 0,
     }

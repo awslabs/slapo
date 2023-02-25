@@ -3,5 +3,5 @@
 """Custom Ops."""
 from .attention import FlashAttention, FlashAttentionOp
 from .cross_entropy import ParallelCrossEntropy
-from .linear import FusedQKV, LinearWithSeparateBias
+from .linear import FusedQKV, LinearWithSeparateBias, LinearWithSyncFunc
 from .mlp import FusedMLP

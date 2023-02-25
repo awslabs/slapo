@@ -6,7 +6,6 @@ from functools import partial
 
 import torch
 from torch import nn
-from torch.nn import functional as F
 
 try:
     from transformers.modeling_utils import Conv1D
@@ -21,6 +20,7 @@ from .sync_ops import (
     scatter_forward_output,
 )
 from ..initialization import init_empty_weights
+from ..op import LinearWithSyncFunc
 
 SHARD_METHODS = {}
 
@@ -319,27 +319,6 @@ class ShardLinear(ShardMethod):
     function to insert the the sync op before the bias addition.
     """
 
-    class LinearWithSyncFunc(nn.Linear):
-        def __init__(
-            self,
-            in_features,
-            out_features,
-            bias=True,
-            device=None,
-            dtype=None,
-            sync_fn=None,
-        ):
-            super().__init__(in_features, out_features, bias, device, dtype)
-            self.sync_fn = sync_fn
-
-        def forward(self, x):
-            x = F.linear(x, self.weight, None)
-            if self.sync_fn is not None:
-                x = self.sync_fn(x)
-            if self.bias is not None:
-                x = x + self.bias
-            return x
-
     @staticmethod
     def postproc(sch, param_name, sharded_size, axis):
         if axis == 0:
@@ -385,7 +364,7 @@ class ShardLinear(ShardMethod):
         # If the output is partial, we need to insert the sync op
         # before the bias addition.
         with init_empty_weights(enable=(sch.mod.weight.device == torch.device("meta"))):
-            new_mod = ShardLinear.LinearWithSyncFunc(
+            new_mod = LinearWithSyncFunc(
                 sch.mod.in_features,
                 sch.mod.out_features,
                 sch.mod.bias is not None,
@@ -396,12 +375,6 @@ class ShardLinear(ShardMethod):
         new_mod.register_parameter("weight", sch.mod.weight)
         new_mod.register_parameter("bias", sch.mod.bias)
         sch.replace(new_mod)
-
-        # Deal with tied weights.
-        # new_param = new_or_get_tied_param(
-        #     sch, sch.mod.get_parameter("weight"), new_mod.weight
-        # )
-        # sch.mod.register_parameter("weight", new_param)
 
 
 @register_shard_method(nn.Conv2d)

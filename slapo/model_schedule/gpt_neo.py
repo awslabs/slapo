@@ -5,7 +5,7 @@
 from torch import nn
 
 from ..schedule import create_schedule
-from ..op import FlashAttention, FusedMLP
+from ..op import FlashAttention, FusedMLP, LinearWithSyncFunc
 from ..initialization import init_empty_weights
 from ..logger import get_logger
 from .registry import register_schedule
@@ -77,7 +77,7 @@ def _apply_schedule(
 
     sequence_parallel = sch_config.get("sequence_parallel", False)
     if sequence_parallel:
-        annotate_layernorm(sch)
+        annotate_layernorm_and_bias(sch)
 
     if sch.world_size > 1 and sch_config.get("bcast_input", False):
         # Broadcast input to all devices within the MP group.
@@ -394,7 +394,7 @@ def shard_parameters(
                 sub_sch[fc_names[1]].sync(mode="fwd_post", sync_op_or_fn="all_reduce")
 
 
-def annotate_layernorm(sch):
+def annotate_layernorm_and_bias(sch):
     """Annotate parameters that require additional allreduce on tensor parallel group
     when sequence parallelism is turned on. This is specific for DeepSpeed pipeline
     runtime.
@@ -404,11 +404,13 @@ def annotate_layernorm(sch):
     sch : slapo.Schedule
         The schedule of the model.
     """
-    for sub_sch in sch.child():
+    for sub_sch in sch.child.values():
         if isinstance(sub_sch.mod, nn.LayerNorm):
             for name, _ in sub_sch.mod.named_parameters(recurse=False):
                 sub_sch.annotate(name, "replicated_param", True)
-        annotate_layernorm(sub_sch)
+        if isinstance(sub_sch.mod, LinearWithSyncFunc):
+            sub_sch.annotate("bias", "replicated_param", True)
+        annotate_layernorm_and_bias(sub_sch)
 
 
 def checkpoint(

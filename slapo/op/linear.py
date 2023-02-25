@@ -1,5 +1,7 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
+"""Custom linear modules."""
+# pylint: disable=arguments-renamed
 from functools import partial
 
 import torch
@@ -60,10 +62,49 @@ class LinearWithSeparateBias(nn.Linear):
     Arguments are the same as the inputs of `nn.Linear`
     """
 
-    # pylint: disable=arguments-renamed
     def forward(self, x: Tensor) -> Tensor:
         x = F.linear(x, self.weight, None)
         x = x + self.bias
+        return x
+
+
+class LinearWithSyncFunc(nn.Linear):
+    """Derived from `nn.Linear` but with a sync function that will be invoked
+    before the bias addition.
+
+    Parameters
+    ----------
+    in_features: int
+        Size of each input sample.
+    out_features: int
+        Size of each output sample.
+    bias: bool
+        This is to align the interface with `nn.Linear`. However, this module
+        requires bias to be True.
+    device: torch.device
+        The device of the module.
+    dtype: torch.dtype
+        The data type of the module.
+    """
+
+    def __init__(
+        self,
+        in_features,
+        out_features,
+        bias=True,
+        device=None,
+        dtype=None,
+        sync_fn=None,
+    ):
+        super().__init__(in_features, out_features, bias, device, dtype)
+        self.sync_fn = sync_fn
+
+    def forward(self, x):
+        x = F.linear(x, self.weight, None)
+        if self.sync_fn is not None:
+            x = self.sync_fn(x)
+        if self.bias is not None:
+            x = x + self.bias
         return x
 
 
@@ -87,7 +128,6 @@ class LinearWithAct(nn.Linear):
         The data type of the module.
     """
 
-    # pylint: disable=arguments-renamed
     def __init__(
         self,
         in_features,
@@ -143,7 +183,6 @@ class LinearWithDropout(nn.Linear):
         Whether to use torchscript or memory_efficient_fusion to fuse dropout.
     """
 
-    # pylint: disable=arguments-renamed
     def __init__(
         self,
         in_features,

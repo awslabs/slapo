@@ -38,7 +38,11 @@ def gather_grad(model, param_path_and_gather_axis):
         param = model
         for token in path.split("."):
             param = getattr(param, token)
-        ret[path] = _gather_grad(param.grad, axis)
+        if axis != -1:
+            grad = _gather_grad(param.grad, axis)
+        else:
+            grad = param.grad
+        ret[path] = grad
     return ret
 
 
@@ -63,7 +67,10 @@ def gather_and_copy_model(src_model, dest_model, param_path_and_gather_axis):
         for token in path.split("."):
             part_param = getattr(part_param, token)
             dest_param = getattr(dest_param, token)
-        param = _gather_param(part_param, axis)
+        if axis != -1:
+            param = _gather_param(part_param, axis)
+        else:
+            param = part_param
         dest_param.data = param
 
 
@@ -88,10 +95,7 @@ def test_linear(init_dist):
         def __init__(self):
             super().__init__()
             self.linear1 = torch.nn.Linear(20, 30)
-            # FIXME: Enable bias results in incorrect results with sharding,
-            # because when sharding the input dimension, bias should also
-            # be scaled by world size,
-            self.linear2 = torch.nn.Linear(30, 40, bias=False)
+            self.linear2 = torch.nn.Linear(30, 40)
 
         def forward(self, data):
             out = self.linear1(data)
@@ -109,7 +113,7 @@ def test_linear(init_dist):
     sch["linear1"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
     sch["linear2"].shard("weight", axis=1)
     sch["linear2"].sync(mode="fwd_post", sync_op_or_fn="all_reduce")
-    sch_model, _ = slapo.build(sch)
+    sch_model, _ = slapo.build(sch, init_weights=False)
 
     sch_model.cuda(local_rank)
     data = torch.randn((10, 20), requires_grad=True).cuda(local_rank)
@@ -121,6 +125,7 @@ def test_linear(init_dist):
         "linear1.weight": 0,
         "linear1.bias": 0,
         "linear2.weight": 1,
+        "linear2.bias": -1,
     }
     path_and_grads = gather_grad(sch_model, param_path_and_gather_axis)
 

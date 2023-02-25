@@ -4,19 +4,11 @@
 # pylint: disable=arguments-differ
 
 from collections import OrderedDict
-from functools import partial
 
 from torch import nn
 
 from ..random import get_cuda_rng_tracker
-from ..sharding import (
-    all_gather_forward_output,
-    apply_shard_method,
-    reduce_backward_grad,
-    reduce_forward_output,
-    reduce_scatter_forward_output,
-    scatter_forward_output,
-)
+from ..sharding import apply_shard_method, apply_sync_method, new_or_get_tied_param
 from .base import Primitive, register_primitive
 
 
@@ -57,25 +49,7 @@ class ShardPrimitive(Primitive):
         try:
             param = sch.mod.get_parameter(tensor_name)
             new_tensor, sharded_size = _shard(tensor_name, param)
-            if param in sch.metadata.tie_weights:
-                if id(sch.metadata.tie_weights[param]) != id(param):
-                    # This parameter is tied to another parameter, and the other
-                    # parameter is already sharded. In this case we directly
-                    # register the sharded parameter to the module to keep them tied.
-                    if new_tensor.shape != sch.metadata.tie_weights[param].shape:
-                        raise RuntimeError(
-                            f"Parameter {tensor_name} in {sch.path} is tied, "
-                            "but they have different sharded shapes: "
-                            f"{new_tensor.shape} vs "
-                            f"{sch.metadata.tie_weights[param].shape}"
-                        )
-                    new_param = sch.metadata.tie_weights[param]
-                else:
-                    # The first parameter in this tie group is sharded.
-                    new_param = nn.Parameter(new_tensor)
-                    sch.metadata.tie_weights[param] = new_param
-            else:
-                new_param = nn.Parameter(new_tensor)
+            new_param = new_or_get_tied_param(sch, param, new_tensor)
             sch.mod.register_parameter(tensor_name, new_param)
 
             # Save the original size of the parameter for consolidation.
@@ -104,44 +78,6 @@ class ShardPrimitive(Primitive):
     @staticmethod
     def init_metadata():
         return OrderedDict()
-
-
-def _validate_sync_op(sch, mode, sync_op_or_fn, axis=None):
-    """A helper function to validate the user given sync_op_or_fn."""
-    if mode == "fwd_post" and sync_op_or_fn == "scatter":
-        if "output_type" in sch.metadata.primitives["shard"]:
-            raise ValueError(
-                "Output of {sch.path} cannot be scatter along axis {axis}, "
-                "if its parameter is sharded"
-            )
-
-    if "output_type" not in sch.metadata.primitives["shard"]:
-        return
-    output_type = sch.metadata.primitives["shard"]["output_type"]
-
-    if mode == "fwd_post" and sync_op_or_fn == "all_gather":
-        if output_type == "partition":
-            gather_axis = sch.metadata.primitives["shard"]["gather_axis"]
-            if gather_axis != axis:
-                raise ValueError(
-                    f"Output of {sch.path} has to be gathered along axis "
-                    f"{gather_axis}, but {axis} is requested"
-                )
-        else:
-            raise ValueError("Cannot all-gather a full output")
-    elif mode == "fwd_post" and sync_op_or_fn == "reduce_scatter":
-        if output_type == "partition":
-            raise ValueError("Cannot reduce-scatter a partition output")
-    elif mode == "fwd_pre" and sync_op_or_fn == "all_gather":
-        if output_type == "partial":
-            raise ValueError(
-                "Cannot all-gather a partition input since the operator "
-                "with parameter sharded in the input dimension expects "
-                "partitioned input"
-            )
-    elif sync_op_or_fn == "all_reduce":
-        if mode == "fwd_post" and output_type == "partition":
-            raise ValueError("Cannot all-reduce a partition output")
 
 
 @register_primitive()
@@ -222,102 +158,7 @@ class SyncPrimitive(Primitive):
 
     @staticmethod
     def apply(sch, mode, sync_op_or_fn, **kwargs):
-        # Generate the hook if sync_op_or_fn is a string.
-        if isinstance(sync_op_or_fn, str):
-            if mode == "fwd_post":
-                sync_fn = None
-                axis = kwargs.get("axis", 0)
-                if sync_op_or_fn == "all_gather":
-                    tensor_parallel_output_grad = kwargs.get(
-                        "tensor_parallel_output_grad", True
-                    )
-                    _validate_sync_op(sch, mode, sync_op_or_fn, axis)
-                    sync_fn = partial(
-                        all_gather_forward_output,
-                        dim=axis,
-                        group=sch.group,
-                        tensor_parallel_output_grad=tensor_parallel_output_grad,
-                    )
-                elif sync_op_or_fn == "reduce_scatter":
-                    _validate_sync_op(sch, mode, sync_op_or_fn)
-                    sync_fn = partial(
-                        reduce_scatter_forward_output, dim=axis, group=sch.group
-                    )
-                elif sync_op_or_fn == "scatter":
-                    _validate_sync_op(sch, mode, sync_op_or_fn)
-                    sync_fn = partial(scatter_forward_output, dim=axis, group=sch.group)
-                elif sync_op_or_fn == "all_reduce":
-                    _validate_sync_op(sch, mode, sync_op_or_fn)
-                    sync_fn = partial(reduce_forward_output, group=sch.group)
-                else:
-                    raise ValueError(
-                        f"Invalid sync_op_or_fn {sync_op_or_fn} for mode {mode} "
-                        "in {sch.path}."
-                    )
-
-                def hook_fn(_module, _input, output):
-                    output = sync_fn(output)
-                    return output
-
-            elif mode == "fwd_pre":
-                sync_fn = None
-                axis = kwargs.get("axis", 0)
-                if sync_op_or_fn == "all_gather":
-                    tensor_parallel_output_grad = kwargs.get(
-                        "tensor_parallel_output_grad", True
-                    )
-                    _validate_sync_op(sch, mode, sync_op_or_fn, axis)
-                    sync_fn = partial(
-                        all_gather_forward_output,
-                        dim=axis,
-                        group=sch.group,
-                        tensor_parallel_output_grad=tensor_parallel_output_grad,
-                    )
-                else:
-                    raise ValueError(
-                        f"Invalid sync_op_or_fn {sync_op_or_fn} for mode {mode} "
-                        "in {sch.path}."
-                    )
-
-                def hook_fn(_module, _input):
-                    _input = sync_fn(_input[0])
-                    return _input
-
-            elif mode == "bwd_post":
-                # We register this hook to forward pre hook, and
-                # use an autograd function to do the sync in backward.
-                # This is to avoid using backward hook which semantic is not clear.
-                if sync_op_or_fn == "all_reduce":
-                    _validate_sync_op(sch, mode, sync_op_or_fn)
-                    sync_fn = partial(reduce_backward_grad, group=sch.group)
-                    mode = "fwd_pre"
-                else:
-                    raise ValueError(
-                        f"Invalid sync_op_or_fn {sync_op_or_fn} for mode {mode} "
-                        "in {sch.path}."
-                    )
-
-                def hook_fn(_module, _input):
-                    _input = sync_fn(_input[0])
-                    return _input
-
-            else:
-                raise ValueError(
-                    f"Unsupported combination of mode {mode} and "
-                    f"sync_op_or_fn {sync_op_or_fn}. Please specify "
-                    "sync_op_or_fn as a hook function."
-                )
-        else:
-            hook_fn = sync_op_or_fn
-
-        if mode == "fwd_pre":
-            sch.mod.register_forward_pre_hook(hook_fn)
-        elif mode == "fwd_post":
-            sch.mod.register_forward_hook(hook_fn)
-        elif mode == "bwd_post":
-            sch.mod.register_full_backward_hook(hook_fn)
-        else:
-            raise ValueError(f"Unsupported mode {mode}.")
+        apply_sync_method(sch, mode, sync_op_or_fn, **kwargs)
 
 
 @register_primitive()

@@ -11,6 +11,8 @@ on:
   # we cannot use AWS credential in this workflow. Instead, we trigger
   # another workflow to run the rest CI jobs on AWS batch.
   pull_request:
+    paths-ignore:
+      - 'docs/**'
 
 defaults:
   run:

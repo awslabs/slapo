@@ -7,9 +7,13 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'docs/**'
   pull_request:
     branches:
       - main
+    paths:
+      - 'docs/**'
 
 jobs:
   build:
@@ -19,7 +23,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
       with:
-        ref: docs
+        ref: ${{ github.ref }}
     # This step uses ammaraskar's Sphinx Build Action: https://github.com/ammaraskar/sphinx-action
     - uses: ammaraskar/sphinx-action@master
       with:

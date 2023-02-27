@@ -128,42 +128,42 @@ def _validate_sync(sch, mode, sync_op_or_fn, axis=None):
             raise ValueError("Cannot all-reduce a partition output")
 
 
-def _gen_sync_func_from_str(sch, mode, sync_op_or_fn, **kwargs):
+def _gen_sync_func_from_str(sch, mode, sync_op, **kwargs):
+    """A helper function to generate a sync function from the sync op and mode."""
     sync_fn = None
     if mode == "fwd_post":
         axis = kwargs.get("axis", 0)
-        if sync_op_or_fn == "all_gather":
+        if sync_op == "all_gather":
             tensor_parallel_output_grad = kwargs.get(
                 "tensor_parallel_output_grad", True
             )
-            _validate_sync(sch, mode, sync_op_or_fn, axis)
+            _validate_sync(sch, mode, sync_op, axis)
             sync_fn = partial(
                 all_gather_forward_output,
                 dim=axis,
                 group=sch.group,
                 tensor_parallel_output_grad=tensor_parallel_output_grad,
             )
-        elif sync_op_or_fn == "reduce_scatter":
-            _validate_sync(sch, mode, sync_op_or_fn)
+        elif sync_op == "reduce_scatter":
+            _validate_sync(sch, mode, sync_op)
             sync_fn = partial(reduce_scatter_forward_output, dim=axis, group=sch.group)
-        elif sync_op_or_fn == "scatter":
-            _validate_sync(sch, mode, sync_op_or_fn)
+        elif sync_op == "scatter":
+            _validate_sync(sch, mode, sync_op)
             sync_fn = partial(scatter_forward_output, dim=axis, group=sch.group)
-        elif sync_op_or_fn == "all_reduce":
-            _validate_sync(sch, mode, sync_op_or_fn)
+        elif sync_op == "all_reduce":
+            _validate_sync(sch, mode, sync_op)
             sync_fn = partial(reduce_forward_output, group=sch.group)
         else:
             raise ValueError(
-                f"Invalid sync_op_or_fn {sync_op_or_fn} for mode {mode} "
-                "in {sch.path}."
+                f"Invalid sync_op_or_fn {sync_op} for mode {mode} " "in {sch.path}."
             )
     elif mode == "fwd_pre":
         axis = kwargs.get("axis", 0)
-        if sync_op_or_fn == "all_gather":
+        if sync_op == "all_gather":
             tensor_parallel_output_grad = kwargs.get(
                 "tensor_parallel_output_grad", True
             )
-            _validate_sync(sch, mode, sync_op_or_fn, axis)
+            _validate_sync(sch, mode, sync_op, axis)
             sync_fn = partial(
                 all_gather_forward_output,
                 dim=axis,
@@ -172,33 +172,55 @@ def _gen_sync_func_from_str(sch, mode, sync_op_or_fn, **kwargs):
             )
         else:
             raise ValueError(
-                f"Invalid sync_op_or_fn {sync_op_or_fn} for mode {mode} "
-                "in {sch.path}."
+                f"Invalid sync_op_or_fn {sync_op} for mode {mode} " "in {sch.path}."
             )
     elif mode == "bwd_post":
         # We register this hook to forward pre hook, and
         # use an autograd function to do the sync in backward.
         # This is to avoid using backward hook which semantic is not clear.
-        if sync_op_or_fn == "all_reduce":
-            _validate_sync(sch, mode, sync_op_or_fn)
+        if sync_op == "all_reduce":
+            _validate_sync(sch, mode, sync_op)
             sync_fn = partial(reduce_backward_grad, group=sch.group)
             mode = "fwd_pre"
         else:
             raise ValueError(
-                f"Invalid sync_op_or_fn {sync_op_or_fn} for mode {mode} "
-                "in {sch.path}."
+                f"Invalid sync_op_or_fn {sync_op} for mode {mode} " "in {sch.path}."
             )
     else:
         raise ValueError(
             f"Unsupported combination of mode {mode} and "
-            f"sync_op_or_fn {sync_op_or_fn}. Please specify "
+            f"sync_op_or_fn {sync_op}. Please specify "
             "sync_op_or_fn as a hook function."
         )
     return mode, sync_fn
 
 
 def new_or_get_tied_param(sch, old_param, new_tensor):
-    """TBA"""
+    """New a nn.Parameter with the sharded tensor to replace the existing one.
+    However, if the existing parameter is tied to another parameter:
+    1) If the other parameter is already sharded, then we directly return
+       the sharded parameter to keep them tied.
+    2) If the other parameter is not sharded, then we create a new parameter.
+       In this case, if the other parameter is sharded later, we will return
+       the same parameter to keep them tied. If the other parameter is never
+       sharded (usually due to a mistake in the user-written schedule), then
+       the tied parameters will be broken.
+
+    Parameters
+    ----------
+    sch : Schedule
+        The schedule of the module.
+    old_param : nn.Parameter
+        The existing parameter before sharding.
+    new_tensor : torch.Tensor
+        The sharded tensor.
+
+    Returns
+    -------
+    nn.Parameter
+        The new parameter with the sharded tensor, or the already created
+        tied parameter.
+    """
     if old_param in sch.metadata.tie_weights:
         if id(sch.metadata.tie_weights[old_param]) != id(old_param):
             # This parameter is tied to another parameter, and the other
@@ -222,16 +244,70 @@ def new_or_get_tied_param(sch, old_param, new_tensor):
 
 
 class ShardMethod:
+    """The class with default sharding methods. Note that this class
+    should never be instantiated, because all methods are static methods.
+    """
+
     @staticmethod
     def preproc(sch, param_name, sharded_size, axis):
-        pass
+        """Preprocess the module before sharding.
+
+        Parameters
+        ----------
+        sch: Schedule
+            The schedule of the module to be sharded.
+        param_name: str
+            The name of the parameter to shard.
+        sharded_size: int
+            The size of the sharded dimension.
+        axis: int
+            The axis to shard on.
+        """
 
     @staticmethod
     def postproc(sch, param_name, sharded_size, axis):
-        pass
+        """Postprocess the module after sharding. This is usually used to
+        update the module's attributes (e.g., feature size) to reflect the sharding.
+
+        Parameters
+        ----------
+        sch: Schedule
+            The schedule of the module to be sharded.
+        param_name: str
+            The name of the parameter to shard.
+        sharded_size: int
+            The size of the sharded dimension.
+        axis: int
+            The axis to shard on.
+        """
 
     @staticmethod
     def infer_output_type(sch, param_name, sharded_size, axis):
+        """Infer the output type of the module after sharding. The output type
+        here includes 1) whether the output is a partition of the tensor, or 2)
+        a partial sum. If the output is a partition of the tensor, then this method
+        also returns the axis to gather on.
+
+        By default, this method returns (None, None), meaning "unknown".
+        In this case, we do not validate the sync operations.
+
+        Parameters
+        ----------
+        sch: Schedule
+            The schedule of the module to be sharded.
+        param_name: str
+            The name of the parameter to shard.
+        sharded_size: int
+            The size of the sharded dimension.
+        axis: int
+            The axis to shard on.
+
+        Returns
+        -------
+        Tuple[str, int]
+            (The output type of the module after sharding,
+             The axis to gather on if the output type is "partition"; otherwise None)
+        """
         return None, None
 
     @staticmethod
@@ -265,6 +341,12 @@ class ShardMethod:
                 ) from None
 
         if gather_axis is not None:
+            if output_type != "partition":
+                raise RuntimeError(
+                    f"Output of {sch.path} is {output_type}, which is not partition, "
+                    "but gather_axis is given"
+                )
+
             try:
                 sch.metadata.primitives["shard"]["gather_axis"] = gather_axis
             except KeyError:
@@ -276,6 +358,29 @@ class ShardMethod:
 
     @staticmethod
     def sync(sch, mode, sync_op_or_fn, **kwargs):
+        """Sync the module input or output. Specifically, this function
+        performs the following steps:
+        1) Generate a sync op if sync_op_or_fn is a string.
+        2) Generate a hook function based on the sync mode.
+        3) Register the hook function to the module.
+
+        Parameters
+        ----------
+        sch: Schedule
+            The schedule of the module.
+        mode: str
+            The mode of the sync operation. It can be "fwd_pre", "fwd_post",
+            or "bwd_post".
+        sync_op_or_fn: Union[str, Callable]
+            The sync operation or function. If it is a string, it should be
+            one of the supported sync operations. If it is a callable, it
+            should be a hook function that takes the module, the input, and
+            the output (for "fwd_post" and "bwd_post") or the input (for
+            "fwd_pre") as arguments, and returns the input or output after
+            sync.
+        **kwargs:
+            Additional arguments for the sync operation or function.
+        """
         # Generate the hook if sync_op_or_fn is a string.
         if isinstance(sync_op_or_fn, str):
             mode, sync_fn = _gen_sync_func_from_str(sch, mode, sync_op_or_fn, **kwargs)
@@ -339,8 +444,8 @@ class ShardLinear(ShardMethod):
         # In the following two cases, we simply fallback to the default syncing method:
         # 1. If the output type is not specified, meaning that this is "fwd_pre"
         #    syncing. In this case, we don't need special handling for the linear.
-        # 2. If the output is partitioned or no bias, we don't need to insert the
-        #    sync op before the bias addition.
+        # 2. If the output is partitioned or this linear module does not have bias,
+        #    we don't need to insert the sync op before the bias addition.
         if (
             "output_type" not in sch.metadata.primitives["shard"]
             or sch.metadata.primitives["shard"]["output_type"] == "partition"
@@ -408,7 +513,7 @@ class ShardConv2d(ShardMethod):
 
 @register_shard_method(Conv1D)
 class ShardConv1D(ShardMethod):
-    """Sharding methods for Conv1D layer. Note that
+    """Sharding methods for HuggingFace transformer's Conv1D layer. Note that
     Conv1D has a transposed weight (input features, output features) compared to Linear.
     It adjusts the input or output feature size to reflect the shard size,
     and returns the output type (partial or partition) after sharding.

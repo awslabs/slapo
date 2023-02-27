@@ -1,13 +1,14 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""BiasGeLU module using with fused kernels."""
+"""Fuse bias with the subsequent ops, such as activation function or dropout."""
 # pylint: disable=abstract-method
 from __future__ import annotations
 
 import math
+from functools import partial
 
 import torch
-import torch.nn.functional as F
+from torch.nn import functional as F
 
 try:
     from functorch.compile import memory_efficient_fusion
@@ -52,11 +53,10 @@ class BiasGeLUFunction(torch.autograd.Function):
 
 
 class FusedBiasGELU(torch.nn.Module):
-    def __init__(self, size, device=None, dtype=None, prev_weight=None, fused=True):
+    def __init__(self, size, device=None, dtype=None, prev_weight=None):
         factory_kwargs = {"device": device, "dtype": dtype}
         super().__init__()
         self.bias = torch.nn.Parameter(torch.empty(size, **factory_kwargs))
-        self.fused = fused
         self.reset_parameters(prev_weight)
 
     def reset_parameters(self, prev_weight=None):
@@ -68,9 +68,7 @@ class FusedBiasGELU(torch.nn.Module):
         torch.nn.init.uniform_(self.bias, *p_range)
 
     def forward(self, inp):
-        if self.fused:
-            return BiasGeLUFunction.apply(inp, self.bias)
-        return F.gelu(inp + self.bias, approximate="none")
+        return BiasGeLUFunction.apply(inp, self.bias)
 
 
 def new_gelu(inp):
@@ -87,26 +85,20 @@ def new_gelu(inp):
     )
 
 
-def bias_new_gelu(inp, bias):
+def bias_new_gelu(inp: torch.Tensor, bias: torch.Tensor) -> torch.Tensor:
     return new_gelu(inp + bias)
 
 
 class FusedBiasNewGELU(torch.nn.Module):
-    def __init__(
-        self, size, device=None, dtype=None, prev_weight=None, fused=True, aot=True
-    ):
+    def __init__(self, size, device=None, dtype=None, prev_weight=None):
         factory_kwargs = {"device": device, "dtype": dtype}
         super().__init__()
         self.bias = torch.nn.Parameter(torch.empty(size, **factory_kwargs))
-        self.fused = fused
         self.reset_parameters(prev_weight)
-        if self.fused:
-            if aot and memory_efficient_fusion is not None:
-                self.func = memory_efficient_fusion(bias_new_gelu)
-            else:
-                self.func = torch.jit.script(bias_new_gelu)
+        if memory_efficient_fusion is not None:
+            self.func = memory_efficient_fusion(bias_new_gelu)
         else:
-            self.func = bias_new_gelu
+            self.func = torch.jit.script(bias_new_gelu)
 
     def reset_parameters(self, prev_weight=None):
         p_range = (0, 1)
@@ -118,3 +110,52 @@ class FusedBiasNewGELU(torch.nn.Module):
 
     def forward(self, inp):
         return self.func(inp, self.bias)
+
+
+def bias_dropout(
+    x: torch.Tensor,
+    bias: torch.Tensor,
+    p: float = 0.5,
+    training: bool = True,
+    inplace: bool = False,
+) -> torch.Tensor:
+    return F.dropout(x + bias, p=p, training=training, inplace=inplace)
+
+
+class FusedBiasDropout(torch.nn.Module):
+    def __init__(
+        self,
+        size,
+        p=0.5,
+        training=True,
+        inplace=False,
+        device=None,
+        dtype=None,
+        prev_weight=None,
+    ):
+        factory_kwargs = {"device": device, "dtype": dtype}
+        super().__init__()
+        self.bias = torch.nn.Parameter(torch.empty(size, **factory_kwargs))
+        self.reset_parameters(prev_weight)
+        self.p = p
+        self.training = training
+        self.inplace = inplace
+        self.func = torch.jit.script(bias_dropout)
+        # Somehow memory_efficient_fusion generates a different dropout mask
+        # against the original dropout function even the random seed is the same.
+        # if memory_efficient_fusion is not None:
+        #     bias_dropout_func = partial(
+        #         bias_dropout, p=p, training=training, inplace=inplace
+        #     )
+        #     self.func = memory_efficient_fusion(bias_dropout_func)
+
+    def reset_parameters(self, prev_weight=None):
+        p_range = (0, 1)
+        if prev_weight is not None and len(prev_weight.shape) > 1:
+            fan_in, _ = torch.nn.init._calculate_fan_in_and_fan_out(prev_weight)
+            bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
+            p_range = (-bound, bound)
+        torch.nn.init.uniform_(self.bias, *p_range)
+
+    def forward(self, inp):
+        return self.func(inp, self.bias, self.p, self.training, self.inplace)

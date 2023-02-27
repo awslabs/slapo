@@ -4,12 +4,25 @@
 Test custom ops. Note that attn test has to be invoked by torchrun since
 most custom ops are for tensor parallelism.
 """
-import pytest
+import random
 
+import numpy as np
+import pytest
 import torch
 
 from slapo import op
 
+def _run_forward_backward(func, inputs):
+    outs = func(*inputs)
+    target_out = []
+    target_grad = []
+    for out in outs:
+        if out is not None:
+            target_out.append(out)
+            target_grad.append(torch.ones_like(out))
+    torch.autograd.backward(target_out, target_grad)
+    torch.cuda.synchronize()
+    return outs
 
 @pytest.mark.parametrize("op_name", ["cutlass", "cuda", "triton"])
 @pytest.mark.parametrize("shape", [(4, 1024, 2048, 16, 50264)])
@@ -52,18 +65,6 @@ def test_attention(op_name, shape):
                     f"for testing: {err}"
                 )
         return attn.half().cuda()
-
-    def _run_forward_backward(func, inputs):
-        outs = func(*inputs)
-        target_out = []
-        target_grad = []
-        for out in outs:
-            if out is not None:
-                target_out.append(out)
-                target_grad.append(torch.ones_like(out))
-        torch.autograd.backward(target_out, target_grad)
-        torch.cuda.synchronize()
-        return outs
 
     def _relayout_qkv(gpts_attn, weight):
         # GPT-2 uses contiguous weight layout; while we use interleaved
@@ -130,6 +131,81 @@ def test_attention(op_name, shape):
             # Bias gradient is not supported yet.
             continue
         torch.testing.assert_close(grad, grad_ref, atol=5e-2, rtol=5e-2)
+
+
+@pytest.mark.parametrize("shape", [(4, 1024, 2048)])
+def test_fused_mlp(shape):
+    try:
+        from transformers import AutoConfig
+        from transformers.models.gpt2.modeling_gpt2 import GPT2MLP
+    except ImportError:
+        pytest.skip(reason="transformers not installed")
+
+    batch_size, seq_len, hidden_size = shape
+    intermediate_size = hidden_size * 4
+    config = AutoConfig.from_pretrained("gpt2-medium")
+    config.n_embed = config.hidden_size = hidden_size
+    config.resid_pdrop = 0.2
+    config.activation_function = "gelu_new"
+
+    def _init(config, ref):
+        # pylint: disable=redefined-variable-type
+        if ref:
+            mlp = GPT2MLP(intermediate_size, config)
+        else:
+            mlp = op.FusedMLP(
+                hidden_size,
+                intermediate_size,
+                config.activation_function,
+                config.resid_pdrop,
+            )
+        return mlp.half().cuda()
+
+    def _reset_random_seeds():
+        random.seed(2023)
+        np.random.seed(2023)
+        torch.manual_seed(2023)
+
+    # Initialize the mlp module.
+    mlp_ref = _init(config, True)
+    mlp = _init(config, False)
+
+    # Sync parameters.
+    requires_grad = mlp_ref.c_fc.weight.requires_grad
+    mlp.fc_in.weight = torch.nn.Parameter(
+        mlp_ref.c_fc.weight.detach().clone().transpose(1, 0),
+        requires_grad=requires_grad,
+    )
+    mlp.act.bias = mlp_ref.c_fc.bias
+    mlp.fc_out.weight = torch.nn.Parameter(
+        mlp_ref.c_proj.weight.detach().clone().transpose(1, 0),
+        requires_grad=requires_grad,
+    )
+    mlp.bias_dropout.bias = mlp_ref.c_proj.bias
+
+    # Generate inputs.
+    hidden_states = torch.randn(
+        [batch_size, seq_len, hidden_size],
+        dtype=torch.float16,
+        device="cuda",
+        requires_grad=True,
+    )
+
+    # Run reference.
+    _reset_random_seeds()
+    out_ref = _run_forward_backward(mlp_ref, [hidden_states])
+    grad_ref = hidden_states.grad
+
+    # Zero out gradients.
+    hidden_states.grad = None
+
+    # Run custom op.
+    _reset_random_seeds()
+    out = _run_forward_backward(mlp, [hidden_states])
+    grad = hidden_states.grad
+
+    torch.testing.assert_close(out, out_ref, atol=5e-2, rtol=5e-2)
+    torch.testing.assert_close(grad, grad_ref, atol=5e-2, rtol=5e-2)
 
 
 if __name__ == "__main__":

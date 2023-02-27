@@ -133,8 +133,9 @@ def test_attention(op_name, shape):
         torch.testing.assert_close(grad, grad_ref, atol=5e-2, rtol=5e-2)
 
 
+@pytest.mark.parametrize("act_fn", ["gelu", "gelu_new"])
 @pytest.mark.parametrize("shape", [(4, 1024, 2048)])
-def test_fused_mlp(shape):
+def test_fused_mlp(act_fn, shape):
     try:
         from transformers import AutoConfig
         from transformers.models.gpt2.modeling_gpt2 import GPT2MLP
@@ -146,7 +147,7 @@ def test_fused_mlp(shape):
     config = AutoConfig.from_pretrained("gpt2-medium")
     config.n_embed = config.hidden_size = hidden_size
     config.resid_pdrop = 0.2
-    config.activation_function = "gelu_new"
+    config.activation_function = act_fn
 
     def _init(config, ref):
         # pylint: disable=redefined-variable-type

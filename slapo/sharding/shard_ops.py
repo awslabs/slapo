@@ -339,11 +339,12 @@ class ShardLinear(ShardMethod):
         # In the following two cases, we simply fallback to the default syncing method:
         # 1. If the output type is not specified, meaning that this is "fwd_pre"
         #    syncing. In this case, we don't need special handling for the linear.
-        # 2. If the output is partitioned, we don't need to insert the sync op
-        #    before the bias addition.
+        # 2. If the output is partitioned or no bias, we don't need to insert the
+        #    sync op before the bias addition.
         if (
             "output_type" not in sch.metadata.primitives["shard"]
             or sch.metadata.primitives["shard"]["output_type"] == "partition"
+            or sch.mod.bias is None
         ):
             ShardMethod.sync(sch, mode, sync_op_or_fn, **kwargs)
             return
@@ -361,8 +362,8 @@ class ShardLinear(ShardMethod):
                 f"sharded, but got {mode}"
             )
 
-        # If the output is partial, we need to insert the sync op
-        # before the bias addition.
+        # Replace nn.Linear with a custom linear module that allows us to insert
+        # the sync op before the bias addition.
         with init_empty_weights(enable=(sch.mod.weight.device == torch.device("meta"))):
             new_mod = LinearWithSyncFunc(
                 sch.mod.in_features,
@@ -372,6 +373,8 @@ class ShardLinear(ShardMethod):
                 sch.mod.weight.dtype,
                 sync_fn,
             )
+        # Directly register the current parameters to the new module to maintain
+        # possible tied weights.
         new_mod.register_parameter("weight", sch.mod.weight)
         new_mod.register_parameter("bias", sch.mod.bias)
         sch.replace(new_mod)

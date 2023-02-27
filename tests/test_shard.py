@@ -142,6 +142,61 @@ def test_linear(init_dist):
         verify_grads(model, path_and_grads)
 
 
+def test_conv1d(init_dist):
+    try:
+        from transformers.pytorch_utils import Conv1D
+    except ImportError:
+        pytest.skip(reason="transformers not installed")
+
+    class Model(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.linear1 = Conv1D(30, 20)
+            self.linear2 = Conv1D(40, 30)
+
+        def forward(self, data):
+            out = self.linear1(data)
+            out = self.linear2(out)
+            return out
+
+    rank = dist.get_rank()
+    local_rank = int(os.environ["LOCAL_RANK"])
+    torch.cuda.set_device(local_rank)
+    model = Model()
+
+    sch = slapo.create_schedule(copy.deepcopy(model))
+    sch["linear1"].shard("weight", axis=1)
+    sch["linear1"].shard("bias", axis=0)
+    sch["linear1"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
+    sch["linear2"].shard("weight", axis=0)
+    sch["linear2"].sync(mode="fwd_post", sync_op_or_fn="all_reduce")
+    sch_model, _ = slapo.build(sch, init_weights=False)
+
+    sch_model.cuda(local_rank)
+    data = torch.randn((10, 20), requires_grad=True).cuda(local_rank)
+    dist.broadcast(data, src=0)
+    out = sch_model(data)
+    out.mean().backward()
+
+    param_path_and_gather_axis = {
+        "linear1.weight": 1,
+        "linear1.bias": 0,
+        "linear2.weight": 0,
+        "linear2.bias": "none",
+    }
+    path_and_grads = gather_grad(sch_model, param_path_and_gather_axis)
+
+    gather_and_copy_model(sch_model, model, param_path_and_gather_axis)
+
+    if rank == 0:
+        model.cuda(local_rank)
+        out_ref = model(data)
+        out_ref.mean().backward()
+
+        torch.testing.assert_close(out, out_ref)
+        verify_grads(model, path_and_grads)
+
+
 def test_seq_para(init_dist):
     class Model(torch.nn.Module):
         def __init__(self):

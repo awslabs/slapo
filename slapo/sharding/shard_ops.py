@@ -519,6 +519,25 @@ class ShardConv1D(ShardMethod):
     and returns the output type (partial or partition) after sharding.
     """
 
+    class Conv1DWithSyncFunc(Conv1D):
+        """Implementation modified from `Conv1D` but with a sync function
+        that will be invoked before the bias addition.
+        Arguments are the same as the inputs of `Conv1D`
+        """
+
+        def __init__(self, nf, nx, sync_fn=None):
+            super().__init__(nf, nx)
+            self.sync_fn = sync_fn
+
+        def forward(self, x):
+            size_out = x.size()[:-1] + (self.nf,)
+            x = torch.mm(x.view(-1, x.size(-1)), self.weight)
+            if self.sync_fn is not None:
+                x = self.sync_fn(x)
+            x = x + self.bias
+            x = x.view(size_out)
+            return x
+
     @staticmethod
     def postproc(sch, param_name, sharded_size, axis):
         if axis == 1 or param_name == "bias":
@@ -531,6 +550,45 @@ class ShardConv1D(ShardMethod):
             return ("partition", 1)
         # axis == 0
         return ("partial", None)
+
+    @staticmethod
+    def sync(sch, mode, sync_op_or_fn, **kwargs):
+        # In the following two cases, we simply fallback to the default syncing method:
+        # 1. If the output type is not specified, meaning that this is "fwd_pre"
+        #    syncing. In this case, we don't need special handling for the linear.
+        # 2. If the output is partitioned or this linear module does not have bias,
+        #    we don't need to insert the sync op before the bias addition.
+        if (
+            "output_type" not in sch.metadata.primitives["shard"]
+            or sch.metadata.primitives["shard"]["output_type"] == "partition"
+            or sch.mod.bias is None
+        ):
+            ShardMethod.sync(sch, mode, sync_op_or_fn, **kwargs)
+            return
+
+        if not isinstance(sync_op_or_fn, str):
+            raise ValueError(
+                "Only support string sync_op_or_fn for linear layer with input "
+                f"feature dimension sharded, but got {sync_op_or_fn}"
+            )
+
+        mode, sync_fn = _gen_sync_func_from_str(sch, mode, sync_op_or_fn, **kwargs)
+        if mode != "fwd_post":
+            raise ValueError(
+                "Only support mode fwd_post when syncing a linear with input feature "
+                f"sharded, but got {mode}"
+            )
+
+        # Replace nn.Linear with a custom linear module that allows us to insert
+        # the sync op before the bias addition.
+        with init_empty_weights(enable=(sch.mod.weight.device == torch.device("meta"))):
+            nx, nf = sch.mod.weight.shape
+            new_mod = ShardConv1D.Conv1DWithSyncFunc(nf, nx, sync_fn)
+        # Directly register the current parameters to the new module to maintain
+        # possible tied weights.
+        new_mod.register_parameter("weight", sch.mod.weight)
+        new_mod.register_parameter("bias", sch.mod.bias)
+        sch.replace(new_mod)
 
 
 @register_shard_method(nn.BatchNorm2d)

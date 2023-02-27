@@ -12,6 +12,7 @@ import torch
 
 from slapo import op
 
+
 def _run_forward_backward(func, inputs):
     outs = func(*inputs)
     target_out = []
@@ -23,6 +24,7 @@ def _run_forward_backward(func, inputs):
     torch.autograd.backward(target_out, target_grad)
     torch.cuda.synchronize()
     return outs
+
 
 @pytest.mark.parametrize("op_name", ["cutlass", "cuda", "triton"])
 @pytest.mark.parametrize("shape", [(4, 1024, 2048, 16, 50264)])

@@ -199,7 +199,7 @@ def train(args):
         model = model.to(device)
     report_memory(msg="After building model")
 
-    pp_rank = None if args.disable_pipelien else model.mpu.get_pipe_parallel_rank()
+    pp_rank = None if args.disable_pipeline else model.mpu.get_pipe_parallel_rank()
     set_random_seed(
         2013,
         model.mpu.get_data_parallel_rank(),

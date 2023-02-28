@@ -358,10 +358,6 @@ def shard_parameters(
                 sub_sch["module.out_proj"].sync(
                     mode="fwd_post", sync_op_or_fn="reduce_scatter", axis=1
                 )
-
-                # In this case, both attention droput and residual dropout
-                # have to use different random seeds.
-                sub_sch["module"].fork_rng()
             else:
                 # Shard qkv and output projection.
                 sub_sch["module.qkv"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
@@ -369,7 +365,7 @@ def shard_parameters(
                     mode="fwd_post", sync_op_or_fn="all_reduce"
                 )
 
-                # In this case, the attention dropout in between has to
+                # In this case, only the attention dropout in between has to
                 # use different random seeds.
                 sub_sch["module"]["attn_op"].fork_rng()
 
@@ -393,9 +389,6 @@ def shard_parameters(
                 sub_sch[fc_names[2]].sync(
                     mode="fwd_post", sync_op_or_fn="reduce_scatter", axis=1
                 )
-
-                # In this case, residual dropout has to use different random seeds.
-                sub_sch.fork_rng()
             else:
                 sub_sch[fc_names[0]].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
                 sub_sch[fc_names[2]].sync(mode="fwd_post", sync_op_or_fn="all_reduce")

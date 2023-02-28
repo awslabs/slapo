@@ -31,6 +31,7 @@ def _apply_schedule(
     ckpt_ratio = sch_config.get("ckpt_ratio", 0.0)
     checkpoint_method = sch_config.get("checkpoint_method", "uniform")
     pipeline_cuts = sch_config.get("pipeline_cuts", None)
+    sequence_parallel = sch_config.get("sequence_parallel", False)
 
     # Validate config.
     if model_config is None:
@@ -82,7 +83,7 @@ def _apply_schedule(
             head_sch,
             model_config,
             shard_target,
-            sequence_parallel=sch_config.get("sequence_parallel", False),
+            sequence_parallel=sequence_parallel,
         )
         for msg in log_list:
             logger.info(msg, ranks=0)
@@ -93,7 +94,6 @@ def _apply_schedule(
             logger.info("Broadcast input to all devices", ranks=0)
             broadcast_input(sch)
 
-        sequence_parallel = sch_config.get("sequence_parallel", False)
         if sequence_parallel:
             annotate_layernorm(sch)
 
@@ -478,10 +478,6 @@ def shard_parameters(
                 sub_sch["module.out_proj"].sync(
                     mode="fwd_post", sync_op_or_fn="reduce_scatter", axis=1
                 )
-
-                # In this case, both attention droput and residual dropout
-                # have to use different random seeds.
-                sub_sch["module"].fork_rng()
             else:
                 # Shard qkv and output projection.
                 sub_sch["module.qkv"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
@@ -489,7 +485,7 @@ def shard_parameters(
                     mode="fwd_post", sync_op_or_fn="all_reduce"
                 )
 
-                # In this case, the attention dropout in between has to
+                # In this case, only the attention dropout in between has to
                 # use different random seeds.
                 sub_sch["module"]["attn_op"].fork_rng()
 
@@ -526,9 +522,6 @@ def shard_parameters(
                 sub_sch[fc_names[2]].sync(
                     mode="fwd_post", sync_op_or_fn="reduce_scatter", axis=1
                 )
-
-                # In this case, residual dropout has to use different random seeds.
-                sub_sch.fork_rng()
             else:
                 sub_sch[fc_names[0]].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
                 sub_sch[fc_names[2]].sync(mode="fwd_post", sync_op_or_fn="all_reduce")
@@ -550,7 +543,7 @@ def annotate_layernorm(sch):
     sch : slapo.Schedule
         The schedule of the model.
     """
-    for sub_sch in sch.child():
+    for sub_sch in sch.child.values():
         if isinstance(sub_sch.mod, nn.LayerNorm):
             for name, _ in sub_sch.mod.named_parameters(recurse=False):
                 sub_sch.annotate(name, "replicated_param", True)

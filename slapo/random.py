@@ -128,7 +128,7 @@ def get_cuda_rng_tracker():
     return _CUDA_RNG_STATE_TRACKER
 
 
-def model_parallel_cuda_manual_seed(seed, tp_rank):
+def model_parallel_cuda_manual_seed(seed, tp_rank, always_enable_tp_seed):
     """Initialize model parallel cuda seed.
     This function should be called after the model parallel is
     initialized. Also, no torch.cuda.manual_seed should be called
@@ -149,6 +149,11 @@ def model_parallel_cuda_manual_seed(seed, tp_rank):
         Random seed.
     tp_rank : int
         Tensor model parallel rank.
+    always_enable_tp_seed : bool
+        Always enable tensor model parallel seed. This is used when sequence
+        parallelism is enabled and all dropouts should use different seeds
+        even they are in the same TP group. Default is False, meaning that
+        tensor model parallel seed is only enabled with get_cuda_rng_tracker().fork().
 
     Returns
     -------
@@ -160,7 +165,10 @@ def model_parallel_cuda_manual_seed(seed, tp_rank):
 
     _CUDA_RNG_STATE_TRACKER.reset()
     # Set the default state.
-    torch.cuda.manual_seed(seed)
+    if always_enable_tp_seed:
+        torch.cuda.manual_seed(tensor_model_parallel_seed)
+    else:
+        torch.cuda.manual_seed(seed)
     # and model parallel state.
     _CUDA_RNG_STATE_TRACKER.add(
         _MODEL_PARALLEL_RNG_TRACKER_NAME, tensor_model_parallel_seed
@@ -173,7 +181,9 @@ def is_random_seed_set():
     return bool(_CUDA_RNG_STATE_TRACKER.get_states())
 
 
-def set_random_seed(seed=2013, dp_rank=None, pp_rank=None, tp_rank=None):
+def set_random_seed(
+    seed=2013, dp_rank=None, pp_rank=None, tp_rank=None, always_enable_tp_seed=False
+):
     """Set random seed for reproducibility.
 
     Parameters
@@ -186,6 +196,11 @@ def set_random_seed(seed=2013, dp_rank=None, pp_rank=None, tp_rank=None):
         Pipeline parallel rank. Default is None means no pipeline parallelism.
     tp_rank : Optional[int]
         Tensor model parallel rank. Default is None means no tensor parallelism.
+    always_enable_tp_seed : bool
+        Always enable tensor model parallel seed. This is used when sequence
+        parallelism is enabled and all dropouts should use different seeds
+        even they are in the same TP group. Default is False, meaning that
+        tensor model parallel seed is only enabled with get_cuda_rng_tracker().fork().
 
     Returns
     -------
@@ -208,6 +223,6 @@ def set_random_seed(seed=2013, dp_rank=None, pp_rank=None, tp_rank=None):
     # However, we may need them to have different seeds for some cases, so
     # here we maintain different seeds for each device in TP group separately.
     if torch.cuda.device_count() > 0 and tp_rank is not None:
-        model_parallel_cuda_manual_seed(seed, tp_rank)
+        model_parallel_cuda_manual_seed(seed, tp_rank, always_enable_tp_seed)
 
     return seed

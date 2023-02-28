@@ -50,7 +50,9 @@ def test_model_parallel_seed():
     assert torch.cuda.initial_seed() != 123
 
     local_rank = int(os.environ["LOCAL_RANK"])
-    tp_seed = model_parallel_cuda_manual_seed(123, tp_rank=local_rank)
+    tp_seed = model_parallel_cuda_manual_seed(
+        123, tp_rank=local_rank, always_enable_tp_seed=False
+    )
     assert _CUDA_RNG_STATE_TRACKER.get_states()["model-parallel-rng"] is not None
 
     # Outside the context, the seed should be the same.

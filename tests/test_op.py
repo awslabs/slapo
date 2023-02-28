@@ -152,7 +152,6 @@ def test_fused_mlp(act_fn, shape):
     config.activation_function = act_fn
 
     def _init(config, ref):
-        # pylint: disable=redefined-variable-type
         if ref:
             mlp = GPT2MLP(intermediate_size, config)
         else:

@@ -155,11 +155,14 @@ def test_fused_mlp(act_fn, shape):
         if ref:
             mlp = GPT2MLP(intermediate_size, config)
         else:
+            # Somehow memory_efficient_fusion generates a different dropout mask
+            # against the original dropout function even the random seed is the same.
             mlp = op.FusedMLP(
                 hidden_size,
                 intermediate_size,
                 config.activation_function,
                 config.resid_pdrop,
+                use_torchscript=True,
             )
         return mlp.half().cuda()
 

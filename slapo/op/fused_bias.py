@@ -64,7 +64,6 @@ def bias_new_gelu(inp: torch.Tensor, bias: torch.Tensor) -> torch.Tensor:
     return new_gelu(inp + bias)
 
 
-@torch.jit.script
 def bias_dropout(
     x: torch.Tensor,
     bias: torch.Tensor,

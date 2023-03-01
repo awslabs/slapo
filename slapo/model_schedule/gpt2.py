@@ -501,30 +501,24 @@ def shard_parameters(
             prefix = path.replace("N", str(idx))
             sub_sch = sch[prefix]
 
-            # The name of first linear, the linear that bias belongs to,
-            # and last linear layers.
-            # fc_names = ["c_fc", "c_fc", "c_proj"]
             # FIXME: If MLP is not replaced, the weights in GPT2MLP are transposed
-            # and we don't handle that right now.
-            assert "act" in sub_sch
-            # When the MLP is replaced, the bias of the first linear
-            # is splitted to the new module of fused activation layer.
-            fc_names = ["fc_in", "act", "fc_out"]
+            # and the fc names are different. We don't handle that right now.
+            fc_names = ["fc_in", "fc_out"]
 
             sub_sch[fc_names[0]].shard("weight", axis=0)
-            sub_sch[fc_names[1]].shard("bias", axis=0)
-            sub_sch[fc_names[2]].shard("weight", axis=1)
+            sub_sch[fc_names[0]].shard("bias", axis=0)
+            sub_sch[fc_names[1]].shard("weight", axis=1)
 
             if sequence_parallel:
                 sub_sch[fc_names[0]].sync(
                     mode="fwd_pre", sync_op_or_fn="all_gather", axis=1
                 )
-                sub_sch[fc_names[2]].sync(
+                sub_sch[fc_names[1]].sync(
                     mode="fwd_post", sync_op_or_fn="reduce_scatter", axis=1
                 )
             else:
                 sub_sch[fc_names[0]].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
-                sub_sch[fc_names[2]].sync(mode="fwd_post", sync_op_or_fn="all_reduce")
+                sub_sch[fc_names[1]].sync(mode="fwd_post", sync_op_or_fn="all_reduce")
 
         log_list.append(f"Shard {model_config.num_hidden_layers} MLP layers")
     else:

@@ -6,6 +6,13 @@ from torch import nn
 import torch.nn.functional as F
 from torch import Tensor
 
+try:
+    from functorch.compile import memory_efficient_fusion
+except ImportError:
+    memory_efficient_fusion = None
+
+from .fused_bias import bias_dropout, bias_new_gelu, BiasGeLUFunction
+
 
 class FusedQKV(nn.Module):
     def __init__(self, hidden_size, num_heads, world_size) -> None:
@@ -45,3 +52,75 @@ class LinearWithSeparateBias(nn.Linear):
         x = F.linear(x, self.weight, None)
         x = x + self.bias
         return x
+
+
+class LinearWithAct(nn.Linear):
+    """Implementation modified from `nn.Linear`"""
+
+    # pylint: disable=arguments-renamed
+    def __init__(
+        self,
+        in_features,
+        out_features,
+        bias=True,
+        act_fn="gelu",
+        device=None,
+        dtype=None,
+    ):
+        super().__init__(in_features, out_features, bias, device, dtype)
+        if not bias:
+            raise ValueError(
+                "LinearWithAct requires bias. Please set bias=True or "
+                "simply use nn.Linear"
+            )
+
+        if act_fn == "gelu":
+            self.act = BiasGeLUFunction.apply
+        elif act_fn == "gelu_new":
+            if memory_efficient_fusion is not None:
+                self.act = memory_efficient_fusion(bias_new_gelu)
+            else:
+                self.act = torch.jit.script(bias_new_gelu)
+        else:
+            raise NotImplementedError(f"Unsupported activation: {act_fn}")
+
+    def forward(self, x: Tensor) -> Tensor:
+        x = F.linear(x, self.weight, None)
+        return self.act(x, self.bias)
+
+
+class LinearWithDropout(nn.Linear):
+    """Implementation modified from `nn.Linear`"""
+
+    # pylint: disable=arguments-renamed
+    def __init__(
+        self,
+        in_features,
+        out_features,
+        bias=True,
+        p=0.5,
+        inplace=False,
+        device=None,
+        dtype=None,
+    ):
+        super().__init__(in_features, out_features, bias, device, dtype)
+        if not bias:
+            raise ValueError(
+                "LinearWithDropout requires bias. Please set bias=True or "
+                "simply use nn.Linear"
+            )
+        self.p = p
+        self.inplace = inplace
+
+        # Somehow memory_efficient_fusion generates a different dropout mask
+        # against the original dropout function even the random seed is the same.
+        # if memory_efficient_fusion is not None:
+        #     bias_dropout_func = partial(
+        #         bias_dropout, p=p, training=self.training, inplace=inplace
+        #     )
+        #     self.func = memory_efficient_fusion(bias_dropout_func)
+        self.dropout = bias_dropout
+
+    def forward(self, x: Tensor) -> Tensor:
+        x = F.linear(x, self.weight, None)
+        return self.dropout(x, self.bias, self.p, self.training, self.inplace)

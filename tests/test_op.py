@@ -178,12 +178,12 @@ def test_fused_mlp(act_fn, shape):
         mlp_ref.c_fc.weight.detach().clone().transpose(1, 0),
         requires_grad=requires_grad,
     )
-    mlp.act.bias = mlp_ref.c_fc.bias
+    mlp.fc_in.bias = mlp_ref.c_fc.bias
     mlp.fc_out.weight = torch.nn.Parameter(
         mlp_ref.c_proj.weight.detach().clone().transpose(1, 0),
         requires_grad=requires_grad,
     )
-    mlp.bias_dropout.bias = mlp_ref.c_proj.bias
+    mlp.fc_out.bias = mlp_ref.c_proj.bias
 
     # Generate inputs.
     hidden_states = torch.randn(

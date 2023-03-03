@@ -68,7 +68,7 @@ class LinearWithSeparateBias(nn.Linear):
 
 
 class LinearWithAct(nn.Linear):
-    """Derived from `nn.Linear` but with the following acvitation functions fused.
+    """Derived from `nn.Linear` but with the following activation functions fused.
 
     Parameters
     ----------

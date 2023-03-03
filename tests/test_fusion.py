@@ -5,9 +5,7 @@
 # pylint: disable=comparison-with-callable
 import copy
 import operator
-import random
 import pytest
-import numpy as np
 
 import torch
 from torch import nn
@@ -15,6 +13,8 @@ import torch.nn.functional as F
 
 import slapo
 from slapo.pattern import call_module
+
+from .utils import reset_random_seeds
 
 
 def test_decompose():
@@ -159,13 +159,10 @@ def test_bias_layernorm():
 
     inp = torch.randn((1, 16, 1024, 1024), requires_grad=True).cuda()
     resid = torch.randn((1, 16, 1024, 1024), requires_grad=True).cuda()
-    random.seed(2023)
-    np.random.seed(2023)
-    torch.manual_seed(2023)
+    reset_random_seeds()
     out = sch_model(inp, resid)
-    random.seed(2023)
-    np.random.seed(2023)
-    torch.manual_seed(2023)
+
+    reset_random_seeds()
     out_ref = mod(inp, resid)
     torch.testing.assert_close(out, out_ref)
 

@@ -85,6 +85,8 @@ class LinearWithSyncFunc(nn.Linear):
         The device of the module.
     dtype: torch.dtype
         The data type of the module.
+    sync_fn: Callable
+        The sync function to be invoked before the bias addition.
     """
 
     def __init__(
@@ -107,9 +109,29 @@ class LinearWithSyncFunc(nn.Linear):
             x = x + self.bias
         return x
 
+    def extra_repr(self):
+        sync_fn_name = "None"
+        if self.sync_fn is not None:
+            if hasattr(self.sync_fn, "__name__"):
+                # Simply get the function name.
+                sync_fn_name = self.sync_fn.__name__
+            elif isinstance(self.sync_fn, partial):
+                # If the sync function is a partial function, extract the original
+                # function name and the partial arguments.
+                fixed_args = ", ".join([str(arg) for arg in self.sync_fn.args])
+                fixed_args += (
+                    ", ".join([f"{k}={v}" for k, v in self.sync_fn.keywords.items()])
+                    if self.sync_fn.keywords
+                    else ""
+                )
+                sync_fn_name = f"partial({self.sync_fn.func.__name__}, {fixed_args})"
+            else:
+                sync_fn_name = str(self.sync_fn)
+        return f"{super().extra_repr()}, sync_fn={sync_fn_name}"
 
-class LinearWithAct(nn.Linear):
-    """Derived from `nn.Linear` but with the following activation functions fused.
+
+class LinearWithAct(LinearWithSyncFunc):
+    """Derived from `LinearWithSyncFunc` but fusing the activation function.
 
     Parameters
     ----------
@@ -126,6 +148,8 @@ class LinearWithAct(nn.Linear):
         The device of the module.
     dtype: torch.dtype
         The data type of the module.
+    sync_fn: Callable
+        The sync function to be invoked before the bias addition.
     """
 
     def __init__(
@@ -136,31 +160,38 @@ class LinearWithAct(nn.Linear):
         act_fn="gelu",
         device=None,
         dtype=None,
+        sync_fn=None,
     ):
-        super().__init__(in_features, out_features, bias, device, dtype)
+        super().__init__(in_features, out_features, bias, device, dtype, sync_fn)
+        self.act_fn = act_fn
         if not bias:
             raise ValueError(
                 "LinearWithAct requires bias. Please set bias=True or "
                 "simply use nn.Linear"
             )
 
-        if act_fn == "gelu":
+        if self.act_fn == "gelu":
             self.act = BiasGeLUFunction.apply
-        elif act_fn == "gelu_new":
+        elif self.act_fn == "gelu_new":
             if memory_efficient_fusion is not None:
                 self.act = memory_efficient_fusion(bias_new_gelu)
             else:
                 self.act = torch.jit.script(bias_new_gelu)
         else:
-            raise NotImplementedError(f"Unsupported activation: {act_fn}")
+            raise NotImplementedError(f"Unsupported activation: {self.act_fn}")
 
     def forward(self, x: Tensor) -> Tensor:
         x = F.linear(x, self.weight, None)
+        if self.sync_fn is not None:
+            x = self.sync_fn(x)
         return self.act(x, self.bias)
 
+    def extra_repr(self):
+        return f"{super().extra_repr()}, act_fn={self.act_fn}"
 
-class LinearWithDropout(nn.Linear):
-    """Derived from `nn.Linear` but with the following dropout fused.
+
+class LinearWithDropout(LinearWithSyncFunc):
+    """Derived from `LinearWithSyncFunc` but fusing the dropout.
 
     Parameters
     ----------
@@ -179,6 +210,8 @@ class LinearWithDropout(nn.Linear):
         The device of the module.
     dtype: torch.dtype
         The data type of the module.
+    sync_fn: Callable
+        The sync function to be invoked before the bias addition.
     use_torchscript: bool
         Whether to use torchscript or memory_efficient_fusion to fuse dropout.
     """
@@ -192,9 +225,10 @@ class LinearWithDropout(nn.Linear):
         inplace=False,
         device=None,
         dtype=None,
+        sync_fn=None,
         use_torchscript=False,
     ):
-        super().__init__(in_features, out_features, bias, device, dtype)
+        super().__init__(in_features, out_features, bias, device, dtype, sync_fn)
         if not bias:
             raise ValueError(
                 "LinearWithDropout requires bias. Please set bias=True or "
@@ -216,6 +250,14 @@ class LinearWithDropout(nn.Linear):
 
     def forward(self, x: Tensor) -> Tensor:
         x = F.linear(x, self.weight, None)
+        if self.sync_fn is not None:
+            x = self.sync_fn(x)
         if self.use_torchscript:
             return self.dropout(x, self.bias, self.p, self.training, self.inplace)
         return self.dropout(x, self.bias)
+
+    def extra_repr(self):
+        return (
+            f"{super().extra_repr()}, p={self.p}, inplace={self.inplace}, "
+            f"use_torchscript={self.use_torchscript}"
+        )

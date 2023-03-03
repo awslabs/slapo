@@ -6,16 +6,21 @@ Test sharding primitive. Note that this test has to be invoked by torchrun.
 See ci/task_unit_tests.sh for an example.
 """
 # pylint: disable=unused-argument
-import os
-import copy
-import pytest
 
+import copy
+import os
+
+import pytest
 import torch
 import torch.distributed as dist
 from torch import nn
-from torch.nn import functional as F
 from torch.autograd import Variable
+from torch.nn import functional as F
+
 import slapo
+from slapo import op
+
+from .utils import reset_random_seeds
 
 
 def gather_grad(model, param_path_and_gather_axis):
@@ -90,6 +95,55 @@ def verify_grads(ref_model, path_and_grads, tol=1e-5):
             rtol=tol,
         )
         print(f"{path}.grad verified")
+
+
+def test_mlp(init_dist):
+    class Model(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.mlp = op.FusedMLP(10, 10, "gelu", 0.1, use_torchscript=False)
+
+        def forward(self, data):
+            return self.mlp(data)
+
+    rank = dist.get_rank()
+    local_rank = int(os.environ["LOCAL_RANK"])
+    torch.cuda.set_device(local_rank)
+    model = Model()
+
+    sch = slapo.create_schedule(copy.deepcopy(model))
+    sch["mlp.fc_in"].shard("weight", axis=0)
+    sch["mlp.fc_in"].shard("bias", axis=0)
+    sch["mlp.fc_in"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
+    sch["mlp.fc_out"].shard("weight", axis=1)
+    sch["mlp.fc_out"].sync(mode="fwd_post", sync_op_or_fn="all_reduce")
+    sch_model, _ = slapo.build(sch, init_weights=False)
+
+    sch_model.cuda(local_rank)
+    data = torch.randn((10, 10), requires_grad=True).cuda(local_rank)
+    dist.broadcast(data, src=0)
+    reset_random_seeds()
+    out = sch_model(data)
+    out.mean().backward()
+
+    param_path_and_gather_axis = {
+        "mlp.fc_in.weight": 0,
+        "mlp.fc_in.bias": 0,
+        "mlp.fc_out.weight": 1,
+        "mlp.fc_out.bias": "none",
+    }
+    path_and_grads = gather_grad(sch_model, param_path_and_gather_axis)
+
+    gather_and_copy_model(sch_model, model, param_path_and_gather_axis)
+
+    reset_random_seeds()
+    if rank == 0:
+        model.cuda(local_rank)
+        out_ref = model(data)
+        out_ref.mean().backward()
+
+        torch.testing.assert_close(out, out_ref)
+        verify_grads(model, path_and_grads)
 
 
 def test_linear(init_dist):

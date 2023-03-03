@@ -25,6 +25,28 @@ from ..op import LinearWithSyncFunc
 SHARD_METHODS = {}
 
 
+def dispatch_shard_method_cls(sch):
+    """According to the class of the sch.mod, dispatch to the corresponding
+    sharding method class.
+
+    Parameters
+    ----------
+    sch: Schedule
+        The schedule of the module to be sharded.
+
+    Returns
+    -------
+    ShardMethod
+        The sharding method class.
+    """
+    module_cls = sch.mod.__class__
+    for shard_method_cls, methods in SHARD_METHODS.items():
+        # To cover our custom ops such as LinearWithDropout.
+        if issubclass(module_cls, shard_method_cls):
+            return methods
+    return ShardMethod
+
+
 def apply_shard_method(method_type, sch, param_name, sharded_size, axis):
     """Apply sharding method to the module. If the module does not have
     registered sharding methods, the default sharding method is applied.
@@ -43,9 +65,9 @@ def apply_shard_method(method_type, sch, param_name, sharded_size, axis):
     axis: int
         The axis to shard on.
     """
-    module_cls = sch.mod.__class__
-    method = SHARD_METHODS[module_cls] if module_cls in SHARD_METHODS else ShardMethod
-    return getattr(method, method_type)(sch, param_name, sharded_size, axis)
+    return getattr(dispatch_shard_method_cls(sch), method_type)(
+        sch, param_name, sharded_size, axis
+    )
 
 
 def apply_sync_method(sch, mode, sync_op_or_fn, **kwargs):
@@ -66,9 +88,9 @@ def apply_sync_method(sch, mode, sync_op_or_fn, **kwargs):
         axis is required for reduce_scatter and all_gather. Note that the axis
         is the axis of the output tensor, not the input or weight tensor.
     """
-    module_cls = sch.mod.__class__
-    method = SHARD_METHODS[module_cls] if module_cls in SHARD_METHODS else ShardMethod
-    return getattr(method, "sync")(sch, mode, sync_op_or_fn, **kwargs)
+    return getattr(dispatch_shard_method_cls(sch), "sync")(
+        sch, mode, sync_op_or_fn, **kwargs
+    )
 
 
 def register_shard_method(module_cls):
@@ -467,22 +489,29 @@ class ShardLinear(ShardMethod):
                 f"sharded, but got {mode}"
             )
 
-        # Replace nn.Linear with a custom linear module that allows us to insert
-        # the sync op before the bias addition.
-        with init_empty_weights(enable=(sch.mod.weight.device == torch.device("meta"))):
-            new_mod = LinearWithSyncFunc(
-                sch.mod.in_features,
-                sch.mod.out_features,
-                sch.mod.bias is not None,
-                sch.mod.weight.device,
-                sch.mod.weight.dtype,
-                sync_fn,
-            )
-        # Directly register the current parameters to the new module to maintain
-        # possible tied weights.
-        new_mod.register_parameter("weight", sch.mod.weight)
-        new_mod.register_parameter("bias", sch.mod.bias)
-        sch.replace(new_mod)
+        if issubclass(sch.mod.__class__, LinearWithSyncFunc):
+            # If the module is already a LinearWithSyncFunc, which may be
+            # LinearWithAct or LinearWithDropout, then we simply update its sync_fn.
+            sch.mod.sync_fn = sync_fn
+        else:
+            # Replace nn.Linear with a custom linear module that allows us to insert
+            # the sync op before the bias addition.
+            with init_empty_weights(
+                enable=(sch.mod.weight.device == torch.device("meta"))
+            ):
+                new_mod = LinearWithSyncFunc(
+                    sch.mod.in_features,
+                    sch.mod.out_features,
+                    sch.mod.bias is not None,
+                    sch.mod.weight.device,
+                    sch.mod.weight.dtype,
+                    sync_fn,
+                )
+            # Directly register the current parameters to the new module to maintain
+            # possible tied weights.
+            new_mod.register_parameter("weight", sch.mod.weight)
+            new_mod.register_parameter("bias", sch.mod.bias)
+            sch.replace(new_mod)
 
 
 @register_shard_method(nn.Conv2d)

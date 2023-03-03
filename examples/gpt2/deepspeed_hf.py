@@ -199,15 +199,14 @@ def train(args):
         model = model.to(device)
     report_memory(msg="After building model")
 
-    if args.disable_pipeline or args.sequence_parallel:
-        set_random_seed(2013, model.mpu.get_data_parallel_rank(), None, tp_rank)
-    else:
-        set_random_seed(
-            2013,
-            model.mpu.get_data_parallel_rank(),
-            model.mpu.get_pipe_parallel_rank(),
-            tp_rank,
-        )
+    pp_rank = None if args.disable_pipeline else model.mpu.get_pipe_parallel_rank()
+    set_random_seed(
+        2013,
+        model.mpu.get_data_parallel_rank(),
+        pp_rank,
+        tp_rank,
+        always_enable_tp_seed=args.sequence_parallel,
+    )
 
     train_loader, _ = get_dataloader(
         args.model_name,

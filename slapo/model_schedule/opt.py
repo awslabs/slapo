@@ -300,7 +300,7 @@ def replace_and_shard_mlp(
                         model_config.resid_dropout,
                     )
                 sub_sch.replace(new_mod)
-                sub_sch.trace(leaf_modules=["FusedBiasGELU", "FusedBiasNewGELU"])
+                sub_sch.trace(leaf_modules=["LinearWithAct", "LinearWithDropout"])
             else:
 
                 def bias_gelu_pattern(x, bias):
@@ -319,7 +319,7 @@ def replace_and_shard_mlp(
         if sch.world_size > 1:
             if replaced_new_mlp:
                 sub_sch["fc_in"].shard("weight", axis=0)
-                sub_sch["act"].shard("bias", axis=0)
+                sub_sch["fc_in"].shard("bias", axis=0)
                 sub_sch["fc_in"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
                 sub_sch["fc_out"].shard("weight", axis=1)
                 sub_sch["fc_out"].sync(mode="fwd_post", sync_op_or_fn="all_reduce")

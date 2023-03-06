@@ -1,6 +1,7 @@
 sphinx==4.5.0
 sphinx-gallery
 sphinx-copybutton
+Pygments==2.13.0
 autodocsumm
 sphinx-book-theme
 matplotlib

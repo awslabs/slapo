@@ -16,4 +16,5 @@ Python API
    tracer
    random
    framework_dialect/index
+   model_schedule/index
    op/index

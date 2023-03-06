@@ -9,7 +9,7 @@ from torch import nn
 from torch.distributed import distributed_c10d as dist
 
 from ..schedule import create_schedule
-from ..op import FlashAttention, FusedMLP
+from ..op import FlashAttention, FusedMLP, LinearWithSyncFunc
 from ..initialization import init_empty_weights
 from ..sharding import reduce_forward_output
 from ..logger import get_logger
@@ -95,7 +95,7 @@ def _apply_schedule(
             broadcast_input(sch)
 
         if sequence_parallel:
-            annotate_layernorm(sch)
+            annotate_layernorm_and_bias(sch)
 
     # Insert activation checkpoints.
     if ckpt_ratio > 0.0:
@@ -527,7 +527,7 @@ def shard_parameters(
     return log_list
 
 
-def annotate_layernorm(sch):
+def annotate_layernorm_and_bias(sch):
     """Annotate parameters that require additional allreduce on tensor parallel group
     when sequence parallelism is turned on. This is specific for DeepSpeed pipeline
     runtime.
@@ -541,7 +541,9 @@ def annotate_layernorm(sch):
         if isinstance(sub_sch.mod, nn.LayerNorm):
             for name, _ in sub_sch.mod.named_parameters(recurse=False):
                 sub_sch.annotate(name, "replicated_param", True)
-        annotate_layernorm(sub_sch)
+        if isinstance(sub_sch.mod, LinearWithSyncFunc):
+            sub_sch.annotate("bias", "replicated_param", True)
+        annotate_layernorm_and_bias(sub_sch)
 
 
 def checkpoint(

@@ -2,15 +2,14 @@
 # SPDX-License-Identifier: Apache-2.0
 """
 Test custom ops. Note that attn test has to be invoked by torchrun since
-most custom ops are for tensor parallelism.
+some custom ops are for tensor parallelism.
 """
-import random
-
-import numpy as np
 import pytest
 import torch
 
 from slapo import op
+
+from .utils import reset_random_seeds
 
 
 def _run_forward_backward(func, inputs):
@@ -166,11 +165,6 @@ def test_fused_mlp(act_fn, shape):
             )
         return mlp.half().cuda()
 
-    def _reset_random_seeds():
-        random.seed(2023)
-        np.random.seed(2023)
-        torch.manual_seed(2023)
-
     # Initialize the mlp module.
     mlp_ref = _init(config, True)
     mlp = _init(config, False)
@@ -197,7 +191,7 @@ def test_fused_mlp(act_fn, shape):
     )
 
     # Run reference.
-    _reset_random_seeds()
+    reset_random_seeds()
     out_ref = _run_forward_backward(mlp_ref, [hidden_states])
     grad_ref = hidden_states.grad
 
@@ -205,7 +199,7 @@ def test_fused_mlp(act_fn, shape):
     hidden_states.grad = None
 
     # Run custom op.
-    _reset_random_seeds()
+    reset_random_seeds()
     out = _run_forward_backward(mlp, [hidden_states])
     grad = hidden_states.grad
 

@@ -182,18 +182,7 @@ class ForkRNGPrimitive(Primitive):
         class ModuleWithForkedRNG(nn.Module):
             def __init__(self, mod):
                 super().__init__()
-                self.__dict__["mod"] = mod
-
-            def __setattr__(self, name, value):
-                if name == "mod":
-                    self.__dict__["mod"] = value
-                else:
-                    setattr(self.__dict__["mod"], name, value)
-
-            def __getattr__(self, name):
-                if name == "mod":
-                    return self.__dict__["mod"]
-                return getattr(self.__dict__["mod"], name)
+                self.mod = mod
 
             def forward(self, *args, **kwargs):
                 with get_cuda_rng_tracker().fork():

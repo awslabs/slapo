@@ -21,6 +21,13 @@ from .logger import get_logger
 logger = get_logger()
 
 
+def is_fx_tracable(mod):
+    return not (
+        mod.__module__.startswith("slapo.op")
+        and "LinearWithSeparateBias" not in type(mod).__name__
+    )
+
+
 def fix_hf_module(
     root: nn.Module, root_graph: fx.Graph, submods: dict[str, fx.GraphModule]
 ):
@@ -365,8 +372,10 @@ def trace(model: nn.Module, **kwargs: dict[str, Any]):
                 def is_leaf_module(
                     self, m: nn.Module, module_qualified_name: str
                 ) -> bool:
-                    if any(t in type(m).__name__ for t in self.leaf_modules) or any(
-                        t == module_qualified_name for t in self.leaf_modules
+                    if (
+                        not is_fx_tracable(m)
+                        or any(t in type(m).__name__ for t in self.leaf_modules)
+                        or any(t == module_qualified_name for t in self.leaf_modules)
                     ):
                         return True
                     return super().is_leaf_module(m, module_qualified_name)
@@ -390,8 +399,10 @@ def trace(model: nn.Module, **kwargs: dict[str, Any]):
                 def is_leaf_module(
                     self, m: nn.Module, module_qualified_name: str
                 ) -> bool:
-                    if any(t in type(m).__name__ for t in self.leaf_modules) or any(
-                        t == module_qualified_name for t in self.leaf_modules
+                    if (
+                        not is_fx_tracable(m)
+                        or any(t in type(m).__name__ for t in self.leaf_modules)
+                        or any(t == module_qualified_name for t in self.leaf_modules)
                     ):
                         return True
                     return super().is_leaf_module(m, module_qualified_name)

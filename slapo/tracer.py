@@ -22,10 +22,14 @@ logger = get_logger()
 
 
 def is_fx_tracable(mod):
-    return not (
-        mod.__module__.startswith("slapo.op")
-        and "LinearWithSeparateBias" not in type(mod).__name__
-    )
+    return type(mod).__name__ not in [
+        "LinearWithSyncFunc",
+        "LinearWithAct",
+        "LinearWithDropout",
+    ]
+    # return not (
+    #     mod.__module__.startswith("slapo.op")
+    # )
 
 
 def fix_hf_module(

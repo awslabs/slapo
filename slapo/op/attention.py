@@ -426,6 +426,7 @@ class FlashAttention(nn.Module):
 
         self.attn_op_name = attn_op_name
         self.attn_op = FlashAttentionOp(attn_op_name, self.output_proj)
+        self.bias_layout = self.attn_op.bias_layout
 
     @staticmethod
     def layout_attention_mask(mask, num_attention_heads):
@@ -491,7 +492,7 @@ class FlashAttention(nn.Module):
             key_layer = torch.cat((past_key, key_layer), dim=-2)
             value_layer = torch.cat((past_value, value_layer), dim=-2)
 
-        if attention_mask is not None and self.attn_op.bias_layout == "bhqk":
+        if attention_mask is not None and self.bias_layout == "bhqk":
             # Required bias layout: [batch_size, #heads, seq_length, seq_length].
             # The input shape is [batch_size, 1, 1, seq_length].
             # In other words, we need to broadcast other dimensions manually.

@@ -1,0 +1,602 @@
+
+
+<!DOCTYPE html>
+
+
+<html >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>slapo.build &#8212; Slapo Documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "light";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=12da95d707ffb74b382d" rel="stylesheet" />
+<link href="../../_static/styles/bootstrap.css?digest=12da95d707ffb74b382d" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=12da95d707ffb74b382d" rel="stylesheet" />
+
+  
+  <link href="../../_static/vendor/fontawesome/6.1.2/css/all.min.css?digest=12da95d707ffb74b382d" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../../_static/vendor/fontawesome/6.1.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../../_static/vendor/fontawesome/6.1.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../../_static/vendor/fontawesome/6.1.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" href="../../_static/styles/sphinx-book-theme.css?digest=14f4ca6b54d191a8c7657f6c759bf11a5fb86285" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-binder.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-dataframe.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-rendered-html.css" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=12da95d707ffb74b382d" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=12da95d707ffb74b382d" />
+
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/clipboard.min.js"></script>
+    <script src="../../_static/copybutton.js"></script>
+    <script src="../../_static/scripts/sphinx-book-theme.js?digest=5a5c038af52cf7bc1a1ec88eea08e6366ee68824"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = '_modules/slapo/build';</script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="None"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__primary"
+          id="__primary"/>
+  <label class="overlay overlay-primary" for="__primary"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__secondary"
+          id="__secondary"/>
+  <label class="overlay overlay-secondary" for="__secondary"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+  
+    <nav class="bd-header navbar navbar-expand-lg bd-navbar">
+    </nav>
+  
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+    <p class="title logo__title">Slapo Documentation</p>
+  
+</a></div>
+        <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        <p aria-level="2" class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../setup/index.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../gallery/quick-start.html">Quick Start</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Tutorials</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../gallery/attention-single-gpu.html">Optimize Attention Module on A Single Device</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../gallery/mlp-multi-gpu.html">Optimize MLP Module on Multi-Device</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../python_api/index.html">Python API</a><input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-1"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../python_api/root.html">slapo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../python_api/schedule.html">slapo.schedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../python_api/initialization.html">slapo.initialization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../python_api/pattern.html">slapo.pattern</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../python_api/pipeline.html">slapo.pipeline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../python_api/tracer.html">slapo.tracer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../python_api/random.html">slapo.random</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../python_api/framework_dialect/index.html">slapo.framework_dialect</a><input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-2"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../python_api/framework_dialect/registry.html">slapo.framework_dialect.registry</a></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../python_api/framework_dialect/deepspeed/index.html">slapo.framework_dialect.deepspeed</a><input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-3"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../python_api/framework_dialect/deepspeed/engine.html">slapo.framework_dialect.deepspeed.engine</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../python_api/framework_dialect/deepspeed/pipeline.html">slapo.framework_dialect.deepspeed.pipeline</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../python_api/model_schedule/index.html">slapo.model_schedule</a><input class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-4"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../python_api/model_schedule/api.html">slapo.model_schedule.api</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../python_api/op/index.html">slapo.op</a><input class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-5"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../python_api/op/attention.html">slapo.op.attention</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../python_api/op/cross_entropy.html">slapo.op.cross_entropy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../python_api/op/fused_bias.html">slapo.op.fused_bias</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../python_api/op/linear.html">slapo.op.linear</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../python_api/op/mlp.html">slapo.op.mlp</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../genindex.html">Index</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><label class="sidebar-toggle primary-toggle btn btn-sm" for="__primary" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</label></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+<a href="https://github.com/awslabs/slapo" target="_blank"
+   class="btn btn-sm btn-source-repository-button"
+   title="Source repository"
+   data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+
+</a>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+<script>
+document.write(`
+  <button class="theme-switch-button btn btn-sm btn-outline-primary navbar-btn rounded-circle" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch" data-mode="light"><i class="fa-solid fa-sun"></i></span>
+    <span class="theme-switch" data-mode="dark"><i class="fa-solid fa-moon"></i></span>
+    <span class="theme-switch" data-mode="auto"><i class="fa-solid fa-circle-half-stroke"></i></span>
+  </button>
+`);
+</script>
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+  </button>
+`);
+</script>
+
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1></h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article" role="main">
+                  
+  <h1>Source code for slapo.build</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.</span>
+<span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
+<span class="sd">&quot;&quot;&quot;Functions to build the model based on the schedule.&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span> <span class="nn">gc</span>
+<span class="kn">from</span> <span class="nn">collections.abc</span> <span class="kn">import</span> <span class="n">Callable</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">distributed</span> <span class="k">as</span> <span class="n">dist</span>
+<span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">nn</span>
+
+<span class="kn">from</span> <span class="nn">.utils.common</span> <span class="kn">import</span> <span class="n">transfor_param_tags</span>
+<span class="kn">from</span> <span class="nn">.framework_dialect</span> <span class="kn">import</span> <span class="n">get_dialect_cls</span>
+<span class="kn">from</span> <span class="nn">.logger</span> <span class="kn">import</span> <span class="n">get_logger</span>
+<span class="kn">from</span> <span class="nn">.pipeline</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">analyze_tie_weights</span><span class="p">,</span>
+    <span class="n">build_pipeline_model</span><span class="p">,</span>
+    <span class="n">generate_pipeline_partition</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">.schedule</span> <span class="kn">import</span> <span class="n">Schedule</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">()</span>
+
+
+<div class="viewcode-block" id="consolidate_model"><a class="viewcode-back" href="../../python_api/root.html#slapo.consolidate_model">[docs]</a><span class="k">def</span> <span class="nf">consolidate_model</span><span class="p">(</span>
+    <span class="n">sch</span><span class="p">:</span> <span class="n">Schedule</span><span class="p">,</span>
+    <span class="n">target</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">param_init_fn</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">],</span> <span class="kc">None</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Consolidate the model weights.</span>
+<span class="sd">    FIXME: When pipeline is enabled, this function only supports DeepSpeed</span>
+<span class="sd">    runtime because it relies on DeepSpeed topology. We should use dialects</span>
+<span class="sd">    in this function to make it general applicable.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">topology</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;topology&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">dist</span><span class="o">.</span><span class="n">is_initialized</span><span class="p">()</span> <span class="ow">and</span> <span class="n">dist</span><span class="o">.</span><span class="n">get_world_size</span><span class="p">()</span> <span class="o">&gt;</span> <span class="n">sch</span><span class="o">.</span><span class="n">world_size</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">topology</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;topology must be given when there are multiple &quot;</span>
+                <span class="s2">&quot;tensor paralel groups or pipeline parallelism is used&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">target</span> <span class="o">!=</span> <span class="s2">&quot;deepspeed&quot;</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Only deepspeed runtime is supported for now when there are multiple &quot;</span>
+                <span class="s2">&quot;tensor paralel groups or pipeline parallelism is used&quot;</span>
+            <span class="p">)</span>
+
+    <span class="n">cnt_meta</span><span class="p">,</span> <span class="n">cnt_materialized</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span>
+    <span class="c1"># Since some parameters are attached to non-leaf modules, we need to</span>
+    <span class="c1"># fix them layer-by-layer. See the following example:</span>
+    <span class="c1"># https://github.com/huggingface/transformers/blob/v4.25.1/src/transformers/models/bert/modeling_bert.py#L693</span>
+    <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">named_parameters</span><span class="p">(</span><span class="n">recurse</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">param</span><span class="o">.</span><span class="n">device</span> <span class="o">==</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s2">&quot;meta&quot;</span><span class="p">):</span>
+            <span class="n">cnt_meta</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">cnt_materialized</span> <span class="o">+=</span> <span class="mi">1</span>
+
+    <span class="n">stage_groups</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="c1"># local rank means the rank in a node</span>
+    <span class="n">local_rank</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">current_device</span><span class="p">()</span>
+    <span class="n">global_rank</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">global_ranks</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">cnt_meta</span> <span class="o">!=</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">cnt_materialized</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">dist</span><span class="o">.</span><span class="n">is_initialized</span><span class="p">():</span>
+            <span class="c1"># Tackle with pipeline modules.</span>
+            <span class="c1"># Even the model does not use meta device, we still need to broadcast</span>
+            <span class="c1"># the weights to ensure consistency</span>
+            <span class="n">global_rank</span> <span class="o">=</span> <span class="n">dist</span><span class="o">.</span><span class="n">get_rank</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">topology</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="c1"># 1st DP: devices in the same bracket are in the same TP group</span>
+                <span class="c1">#         vertical lines separate different PP stages</span>
+                <span class="c1"># [0, 1] |</span>
+                <span class="c1">#        | [4, 5]</span>
+                <span class="c1"># 2nd DP</span>
+                <span class="c1"># [2, 3] |</span>
+                <span class="c1">#        | [6, 7]</span>
+                <span class="c1"># &gt;&gt;&gt; topo = PipeModelDataParallelTopology(2, 2, 2)</span>
+                <span class="c1"># &gt;&gt;&gt; topo.get_axis_comm_lists(&quot;model&quot;)</span>
+                <span class="c1"># [[0, 1], [2, 3], [4, 5], [6, 7]]</span>
+                <span class="c1"># &gt;&gt;&gt; topo.get_axis_comm_lists(&quot;pipe&quot;)</span>
+                <span class="c1"># [[0, 4], [1, 5], [2, 6], [3, 7]]</span>
+                <span class="c1"># &gt;&gt;&gt; topo.get_axis_comm_lists(&quot;data&quot;)</span>
+                <span class="c1"># [[0, 2], [1, 3], [4, 6], [5, 7]]</span>
+                <span class="c1"># &gt;&gt;&gt; topo.filter_match(pipe=0)</span>
+                <span class="c1"># [0, 1, 2, 3]</span>
+                <span class="c1"># create dist group for broadcasting</span>
+                <span class="n">num_pp</span> <span class="o">=</span> <span class="n">topology</span><span class="o">.</span><span class="n">get_dim</span><span class="p">(</span><span class="s2">&quot;pipe&quot;</span><span class="p">)</span>
+                <span class="c1"># each group contains the devices on the same stage</span>
+                <span class="n">stage_groups</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_pp</span><span class="p">):</span>
+                    <span class="n">stage_groups</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                        <span class="n">dist</span><span class="o">.</span><span class="n">new_group</span><span class="p">(</span><span class="n">ranks</span><span class="o">=</span><span class="n">topology</span><span class="o">.</span><span class="n">filter_match</span><span class="p">(</span><span class="n">pipe</span><span class="o">=</span><span class="n">i</span><span class="p">))</span>
+                    <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">stage_groups</span> <span class="o">=</span> <span class="p">[</span><span class="n">dist</span><span class="o">.</span><span class="n">new_group</span><span class="p">()]</span>
+
+            <span class="n">global_ranks</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">dist</span><span class="o">.</span><span class="n">get_world_size</span><span class="p">()))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">sch</span>
+
+    <span class="k">def</span> <span class="nf">_init_module</span><span class="p">(</span><span class="n">sch</span><span class="p">:</span> <span class="n">Schedule</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">param_init_fn</span><span class="p">:</span>
+            <span class="n">param_init_fn</span><span class="p">(</span><span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="p">,</span> <span class="s2">&quot;_init_weights&quot;</span><span class="p">):</span>
+            <span class="c1"># `_init_weights` is a HF specific API, see</span>
+            <span class="c1"># https://github.com/huggingface/transformers/blob/v4.25.1/src/transformers/models/bert/modeling_bert.py#L748</span>
+            <span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">_init_weights</span><span class="p">(</span><span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="p">,</span> <span class="s2">&quot;reset_parameters&quot;</span><span class="p">):</span>
+            <span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">reset_parameters</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Module </span><span class="si">{</span><span class="n">sch</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> should have `reset_parameters` or &quot;</span>
+                <span class="s2">&quot;`_init_weights` method or param_init_fn=</span><span class="si">{param_init_fn}</span><span class="s2"> needs &quot;</span>
+                <span class="s2">&quot;to be provided in order to support delay initialization&quot;</span>
+            <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_consolidate_and_broadcast</span><span class="p">(</span><span class="n">sch</span><span class="p">:</span> <span class="n">Schedule</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">):</span>
+            <span class="c1"># Scripted module requires the parameters to be initialized in advance,</span>
+            <span class="c1"># so no need to consolidate</span>
+            <span class="k">return</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span>
+
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">sch</span><span class="p">,</span> <span class="s2">&quot;partition_idx&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">topology</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">curr_part_idx</span> <span class="o">=</span> <span class="n">sch</span><span class="o">.</span><span class="n">partition_idx</span>
+            <span class="c1"># topology stores the global ranks</span>
+            <span class="n">curr_stage_devices</span> <span class="o">=</span> <span class="n">topology</span><span class="o">.</span><span class="n">filter_match</span><span class="p">(</span><span class="n">pipe</span><span class="o">=</span><span class="n">curr_part_idx</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">curr_part_idx</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="n">curr_stage_devices</span> <span class="o">=</span> <span class="n">global_ranks</span>
+
+        <span class="k">if</span> <span class="n">global_rank</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">curr_stage_devices</span><span class="p">:</span>
+            <span class="c1"># do nothing if the target module is NOT on this device group</span>
+            <span class="k">return</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span>
+
+        <span class="c1"># Register parameters with the original shape (if sharded) for initialization.</span>
+        <span class="n">num_params</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">new_param_shapes</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">param_name</span><span class="p">,</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">named_parameters</span><span class="p">(</span><span class="n">recurse</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+            <span class="n">num_params</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="n">new_param_shapes</span><span class="p">[</span><span class="n">param_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">param</span><span class="o">.</span><span class="n">shape</span>
+            <span class="n">orig_shape</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">param</span><span class="o">.</span><span class="n">orig_shape</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;orig_shape&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="n">param</span><span class="o">.</span><span class="n">shape</span>
+            <span class="p">)</span>
+            <span class="n">new_param</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span>
+                <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">orig_shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">param</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">local_rank</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">register_parameter</span><span class="p">(</span>
+                <span class="n">param_name</span><span class="p">,</span>
+                <span class="n">new_param</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">transfor_param_tags</span><span class="p">(</span><span class="n">sch</span><span class="p">,</span> <span class="n">param</span><span class="p">,</span> <span class="n">new_param</span><span class="p">)</span>
+
+        <span class="c1"># Use original shape to initialize parameters.</span>
+        <span class="k">if</span> <span class="n">global_rank</span> <span class="o">==</span> <span class="n">curr_stage_devices</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">and</span> <span class="n">num_params</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># only the first device in the PP group needs to initialize the weights</span>
+            <span class="n">_init_module</span><span class="p">(</span><span class="n">sch</span><span class="p">)</span>
+
+        <span class="c1"># Broadcast complete params from rank 0 to make sure all the TP+DP ranks</span>
+        <span class="c1"># take the same params.</span>
+        <span class="k">if</span> <span class="n">dist</span><span class="o">.</span><span class="n">is_initialized</span><span class="p">():</span>
+            <span class="n">curr_stage_group</span> <span class="o">=</span> <span class="n">stage_groups</span><span class="p">[</span><span class="n">curr_part_idx</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">named_parameters</span><span class="p">(</span><span class="n">recurse</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+                <span class="n">dist</span><span class="o">.</span><span class="n">broadcast</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="n">src</span><span class="o">=</span><span class="n">curr_stage_devices</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">group</span><span class="o">=</span><span class="n">curr_stage_group</span><span class="p">)</span>
+
+        <span class="c1"># Only keep the partition for this device for sharded params.</span>
+        <span class="n">tp_rank</span> <span class="o">=</span> <span class="n">sch</span><span class="o">.</span><span class="n">rank</span>
+        <span class="n">cnt_shard</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">param_name</span><span class="p">,</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">named_parameters</span><span class="p">(</span><span class="n">recurse</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+            <span class="n">is_found</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">new_size</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">new_param_shapes</span><span class="p">[</span><span class="n">param_name</span><span class="p">]):</span>
+                <span class="k">if</span> <span class="n">new_size</span> <span class="o">!=</span> <span class="n">param</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="n">idx</span><span class="p">]:</span>
+                    <span class="k">assert</span> <span class="ow">not</span> <span class="n">is_found</span><span class="p">,</span> <span class="s2">&quot;Cannot have two sharded dimensions!&quot;</span>
+                    <span class="n">sharded_size</span> <span class="o">=</span> <span class="n">new_size</span>
+                    <span class="n">axis</span> <span class="o">=</span> <span class="n">idx</span>
+                    <span class="n">is_found</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="k">if</span> <span class="n">is_found</span><span class="p">:</span>
+                <span class="n">cnt_shard</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="n">sharded_param</span> <span class="o">=</span> <span class="n">param</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">sharded_size</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="n">axis</span><span class="p">)[</span><span class="n">tp_rank</span><span class="p">]</span>
+                <span class="n">sharded_param</span> <span class="o">=</span> <span class="n">sharded_param</span><span class="o">.</span><span class="n">contiguous</span><span class="p">()</span>
+                <span class="n">new_param</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">sharded_param</span><span class="p">)</span>
+                <span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">register_parameter</span><span class="p">(</span><span class="n">param_name</span><span class="p">,</span> <span class="n">new_param</span><span class="p">)</span>
+                <span class="n">transfor_param_tags</span><span class="p">(</span><span class="n">sch</span><span class="p">,</span> <span class="n">param</span><span class="p">,</span> <span class="n">new_param</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">subsch</span> <span class="ow">in</span> <span class="n">sch</span><span class="o">.</span><span class="n">child</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+            <span class="n">ret</span> <span class="o">=</span> <span class="n">_consolidate_and_broadcast</span><span class="p">(</span><span class="n">subsch</span><span class="p">)</span>
+            <span class="n">num_params</span> <span class="o">+=</span> <span class="n">ret</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">cnt_shard</span> <span class="o">+=</span> <span class="n">ret</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">num_params</span><span class="p">,</span> <span class="n">cnt_shard</span>
+
+    <span class="k">if</span> <span class="n">cnt_meta</span> <span class="o">!=</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">cnt_materialized</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">num_params</span><span class="p">,</span> <span class="n">cnt_shard</span> <span class="o">=</span> <span class="n">_consolidate_and_broadcast</span><span class="p">(</span><span class="n">sch</span><span class="p">)</span>
+
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+        <span class="s2">&quot;Finished consolidating </span><span class="si">%d</span><span class="s2"> parameter tensors with </span><span class="si">%d</span><span class="s2"> being sharded&quot;</span><span class="p">,</span>
+        <span class="n">num_params</span><span class="p">,</span>
+        <span class="n">cnt_shard</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">gc</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+    <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">empty_cache</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">sch</span></div>
+
+
+<div class="viewcode-block" id="init_target_engine"><a class="viewcode-back" href="../../python_api/root.html#slapo.init_target_engine">[docs]</a><span class="k">def</span> <span class="nf">init_target_engine</span><span class="p">(</span><span class="n">sch</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Initialize the runtime engine for a specific target framework.&quot;&quot;&quot;</span>
+    <span class="n">init_engine_fn</span> <span class="o">=</span> <span class="n">get_dialect_cls</span><span class="p">(</span><span class="s2">&quot;runtime_engine&quot;</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">allow_none</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">init_engine_fn</span><span class="p">(</span>
+        <span class="n">sch</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">build</span><span class="p">(</span>
+    <span class="n">sch</span><span class="p">:</span> <span class="n">Schedule</span><span class="p">,</span>
+    <span class="n">target</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">init_weights</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="n">Callable</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="k">if</span> <span class="n">sch</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">primitives</span><span class="p">[</span><span class="s2">&quot;cut_pipeline_stage&quot;</span><span class="p">]:</span>
+        <span class="c1"># pipeline stages will be wrapped into PipeStageWrapper</span>
+        <span class="n">sch</span> <span class="o">=</span> <span class="n">generate_pipeline_partition</span><span class="p">(</span><span class="n">sch</span><span class="p">)</span>
+        <span class="c1"># Re-analyzie tie weights before consolidation.</span>
+        <span class="n">sch</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">tie_weights</span> <span class="o">=</span> <span class="n">analyze_tie_weights</span><span class="p">(</span>
+            <span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="p">,</span> <span class="n">is_pipeline_partitioned</span><span class="o">=</span><span class="kc">True</span>
+        <span class="p">)</span>
+
+    <span class="c1"># delay initialization</span>
+    <span class="k">if</span> <span class="n">init_weights</span><span class="p">:</span>
+        <span class="n">init_weight_fn</span> <span class="o">=</span> <span class="n">init_weights</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">init_weights</span><span class="p">,</span> <span class="n">Callable</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="n">sch</span> <span class="o">=</span> <span class="n">consolidate_model</span><span class="p">(</span><span class="n">sch</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">init_weight_fn</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">sch</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">primitives</span><span class="p">[</span><span class="s2">&quot;cut_pipeline_stage&quot;</span><span class="p">]</span> <span class="ow">and</span> <span class="n">target</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># Generate pipeline modules for a particular target.</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">build_pipeline_model</span><span class="p">(</span>
+            <span class="n">sch</span><span class="p">,</span>
+            <span class="n">target</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">sch</span><span class="o">.</span><span class="n">mod</span>
+
+    <span class="k">return</span> <span class="n">init_target_engine</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+</pre></div>
+
+                </article>
+              
+
+              
+              
+                <footer class="bd-footer-article">
+                  <!-- Previous / next buttons -->
+<div class="prev-next-area">
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            <div class="bd-footer-content__inner">
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Amazon
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  <p class="copyright">
+    
+      © Copyright 2023, Amazon.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div></div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../../_static/scripts/bootstrap.js?digest=12da95d707ffb74b382d"></script>
+<script src="../../_static/scripts/pydata-sphinx-theme.js?digest=12da95d707ffb74b382d"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

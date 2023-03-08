@@ -1,35 +1,45 @@
 
+
 <!DOCTYPE html>
 
-<html>
+
+<html >
+
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>slapo &#8212; Slapo Documentation</title>
-    
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "light";
+  </script>
+  
   <!-- Loaded before other Sphinx assets -->
-  <link href="../_static/styles/theme.css?digest=1999514e3f237ded88cf" rel="stylesheet">
-<link href="../_static/styles/pydata-sphinx-theme.css?digest=1999514e3f237ded88cf" rel="stylesheet">
+  <link href="../_static/styles/theme.css?digest=12da95d707ffb74b382d" rel="stylesheet" />
+<link href="../_static/styles/bootstrap.css?digest=12da95d707ffb74b382d" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=12da95d707ffb74b382d" rel="stylesheet" />
 
-    
-  <link rel="stylesheet"
-    href="../_static/vendor/fontawesome/5.13.0/css/all.min.css">
-  <link rel="preload" as="font" type="font/woff2" crossorigin
-    href="../_static/vendor/fontawesome/5.13.0/webfonts/fa-solid-900.woff2">
-  <link rel="preload" as="font" type="font/woff2" crossorigin
-    href="../_static/vendor/fontawesome/5.13.0/webfonts/fa-brands-400.woff2">
+  
+  <link href="../_static/vendor/fontawesome/6.1.2/css/all.min.css?digest=12da95d707ffb74b382d" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.1.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.1.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.1.2/webfonts/fa-regular-400.woff2" />
 
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
-    <link rel="stylesheet" href="../_static/styles/sphinx-book-theme.css?digest=5115cc725059bd94278eecd172e13a965bf8f5a9" type="text/css" />
+    <link rel="stylesheet" href="../_static/styles/sphinx-book-theme.css?digest=14f4ca6b54d191a8c7657f6c759bf11a5fb86285" type="text/css" />
     <link rel="stylesheet" type="text/css" href="../_static/graphviz.css" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css" />
     <link rel="stylesheet" type="text/css" href="../_static/sg_gallery.css" />
     <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-binder.css" />
     <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-dataframe.css" />
     <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-rendered-html.css" />
-    
+  
   <!-- Pre-loaded scripts that we'll load fully later -->
-  <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=1999514e3f237ded88cf">
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=12da95d707ffb74b382d" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=12da95d707ffb74b382d" />
 
     <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
     <script src="../_static/jquery.js"></script>
@@ -37,371 +47,295 @@
     <script src="../_static/doctools.js"></script>
     <script src="../_static/clipboard.min.js"></script>
     <script src="../_static/copybutton.js"></script>
-    <script src="../_static/scripts/sphinx-book-theme.js?digest=9c920249402e914e316237a7dbc6769907cce411"></script>
+    <script src="../_static/scripts/sphinx-book-theme.js?digest=5a5c038af52cf7bc1a1ec88eea08e6366ee68824"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'python_api/root';</script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="slapo.schedule" href="schedule.html" />
     <link rel="prev" title="Python API" href="index.html" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="docsearch:language" content="None">
-    
-
-    <!-- Google Analytics -->
-    
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="None"/>
   </head>
-  <body data-spy="scroll" data-target="#bd-toc-nav" data-offset="60">
-<!-- Checkboxes to toggle the left sidebar -->
-<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle navigation sidebar">
-<label class="overlay overlay-navbar" for="__navigation">
-    <div class="visually-hidden">Toggle navigation sidebar</div>
-</label>
-<!-- Checkboxes to toggle the in-page toc -->
-<input type="checkbox" class="sidebar-toggle" name="__page-toc" id="__page-toc" aria-label="Toggle in-page Table of Contents">
-<label class="overlay overlay-pagetoc" for="__page-toc">
-    <div class="visually-hidden">Toggle in-page Table of Contents</div>
-</label>
-<!-- Headers at the top -->
-<div class="announcement header-item noprint"></div>
-<div class="header header-item noprint"></div>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
 
+  
+  
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__primary"
+          id="__primary"/>
+  <label class="overlay overlay-primary" for="__primary"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__secondary"
+          id="__secondary"/>
+  <label class="overlay overlay-secondary" for="__secondary"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+  
+    <nav class="bd-header navbar navbar-expand-lg bd-navbar">
+    </nav>
+  
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
     
-    <div class="container-fluid" id="banner"></div>
-
     
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+  
 
-    <div class="container-xl">
-      <div class="row">
-          
-<!-- Sidebar -->
-<div class="bd-sidebar noprint" id="site-navigation">
-    <div class="bd-sidebar__content">
-        <div class="bd-sidebar__top"><div class="navbar-brand-box">
-    <a class="navbar-brand text-wrap" href="../index.html">
-      
-      
-      
-    </a>
-</div><form class="bd-search d-flex align-items-center" action="../search.html" method="get">
-  <i class="icon fas fa-search"></i>
-  <input type="search" class="form-control" name="q" id="search-input" placeholder="Search the docs ..." aria-label="Search the docs ..." autocomplete="off" >
-</form><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
-    <div class="bd-toc-item active">
-        <p aria-level="2" class="caption" role="heading">
- <span class="caption-text">
-  Getting Started
- </span>
-</p>
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+    <p class="title logo__title">Slapo Documentation</p>
+  
+</a></div>
+        <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        <p aria-level="2" class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
 <ul class="nav bd-sidenav">
- <li class="toctree-l1">
-  <a class="reference internal" href="../setup/index.html">
-   Installation
-  </a>
- </li>
- <li class="toctree-l1">
-  <a class="reference internal" href="../gallery/quick-start.html">
-   Quick Start
-  </a>
- </li>
+<li class="toctree-l1"><a class="reference internal" href="../setup/index.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../gallery/quick-start.html">Quick Start</a></li>
 </ul>
-<p aria-level="2" class="caption" role="heading">
- <span class="caption-text">
-  Tutorials
- </span>
-</p>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Tutorials</span></p>
 <ul class="nav bd-sidenav">
- <li class="toctree-l1">
-  <a class="reference internal" href="../gallery/attention-single-gpu.html">
-   Optimize Attention Module on A Single Device
-  </a>
- </li>
- <li class="toctree-l1">
-  <a class="reference internal" href="../gallery/mlp-multi-gpu.html">
-   Optimize MLP Module on Multi-Device
-  </a>
- </li>
+<li class="toctree-l1"><a class="reference internal" href="../gallery/attention-single-gpu.html">Optimize Attention Module on A Single Device</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../gallery/mlp-multi-gpu.html">Optimize MLP Module on Multi-Device</a></li>
 </ul>
-<p aria-level="2" class="caption" role="heading">
- <span class="caption-text">
-  Reference
- </span>
-</p>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Reference</span></p>
 <ul class="current nav bd-sidenav">
- <li class="toctree-l1 current active has-children">
-  <a class="reference internal" href="index.html">
-   Python API
-  </a>
-  <input checked="" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/>
-  <label for="toctree-checkbox-1">
-   <i class="fas fa-chevron-down">
-   </i>
-  </label>
-  <ul class="current">
-   <li class="toctree-l2 current active">
-    <a class="current reference internal" href="#">
-     slapo
-    </a>
-   </li>
-   <li class="toctree-l2">
-    <a class="reference internal" href="schedule.html">
-     slapo.schedule
-    </a>
-   </li>
-   <li class="toctree-l2">
-    <a class="reference internal" href="initialization.html">
-     slapo.initialization
-    </a>
-   </li>
-   <li class="toctree-l2">
-    <a class="reference internal" href="pattern.html">
-     slapo.pattern
-    </a>
-   </li>
-   <li class="toctree-l2">
-    <a class="reference internal" href="pipeline.html">
-     slapo.pipeline
-    </a>
-   </li>
-   <li class="toctree-l2">
-    <a class="reference internal" href="tracer.html">
-     slapo.tracer
-    </a>
-   </li>
-   <li class="toctree-l2">
-    <a class="reference internal" href="random.html">
-     slapo.random
-    </a>
-   </li>
-   <li class="toctree-l2 has-children">
-    <a class="reference internal" href="framework_dialect/index.html">
-     slapo.framework_dialect
-    </a>
-    <input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/>
-    <label for="toctree-checkbox-2">
-     <i class="fas fa-chevron-down">
-     </i>
-    </label>
-    <ul>
-     <li class="toctree-l3">
-      <a class="reference internal" href="framework_dialect/registry.html">
-       slapo.framework_dialect.registry
-      </a>
-     </li>
-     <li class="toctree-l3 has-children">
-      <a class="reference internal" href="framework_dialect/deepspeed/index.html">
-       slapo.framework_dialect.deepspeed
-      </a>
-      <input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/>
-      <label for="toctree-checkbox-3">
-       <i class="fas fa-chevron-down">
-       </i>
-      </label>
-      <ul>
-       <li class="toctree-l4">
-        <a class="reference internal" href="framework_dialect/deepspeed/engine.html">
-         slapo.framework_dialect.deepspeed.engine
-        </a>
-       </li>
-       <li class="toctree-l4">
-        <a class="reference internal" href="framework_dialect/deepspeed/pipeline.html">
-         slapo.framework_dialect.deepspeed.pipeline
-        </a>
-       </li>
-      </ul>
-     </li>
-    </ul>
-   </li>
-   <li class="toctree-l2 has-children">
-    <a class="reference internal" href="op/index.html">
-     slapo.op
-    </a>
-    <input class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" type="checkbox"/>
-    <label for="toctree-checkbox-4">
-     <i class="fas fa-chevron-down">
-     </i>
-    </label>
-    <ul>
-     <li class="toctree-l3">
-      <a class="reference internal" href="op/attention.html">
-       slapo.op.attention
-      </a>
-     </li>
-     <li class="toctree-l3">
-      <a class="reference internal" href="op/bias_gelu.html">
-       slapo.op.bias_gelu
-      </a>
-     </li>
-     <li class="toctree-l3">
-      <a class="reference internal" href="op/cross_entropy.html">
-       slapo.op.cross_entropy
-      </a>
-     </li>
-     <li class="toctree-l3">
-      <a class="reference internal" href="op/dropout.html">
-       slapo.op.dropout
-      </a>
-     </li>
-     <li class="toctree-l3">
-      <a class="reference internal" href="op/linear.html">
-       slapo.op.linear
-      </a>
-     </li>
-     <li class="toctree-l3">
-      <a class="reference internal" href="op/mlp.html">
-       slapo.op.mlp
-      </a>
-     </li>
-    </ul>
-   </li>
-  </ul>
- </li>
- <li class="toctree-l1">
-  <a class="reference internal" href="../genindex.html">
-   Index
-  </a>
- </li>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="index.html">Python API</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-1"><i class="fa-solid fa-chevron-down"></i></label><ul class="current">
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">slapo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="schedule.html">slapo.schedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="initialization.html">slapo.initialization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pattern.html">slapo.pattern</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pipeline.html">slapo.pipeline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tracer.html">slapo.tracer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="random.html">slapo.random</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="framework_dialect/index.html">slapo.framework_dialect</a><input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-2"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="framework_dialect/registry.html">slapo.framework_dialect.registry</a></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="framework_dialect/deepspeed/index.html">slapo.framework_dialect.deepspeed</a><input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-3"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="framework_dialect/deepspeed/engine.html">slapo.framework_dialect.deepspeed.engine</a></li>
+<li class="toctree-l4"><a class="reference internal" href="framework_dialect/deepspeed/pipeline.html">slapo.framework_dialect.deepspeed.pipeline</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="model_schedule/index.html">slapo.model_schedule</a><input class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-4"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="model_schedule/api.html">slapo.model_schedule.api</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="op/index.html">slapo.op</a><input class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-5"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="op/attention.html">slapo.op.attention</a></li>
+<li class="toctree-l3"><a class="reference internal" href="op/cross_entropy.html">slapo.op.cross_entropy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="op/fused_bias.html">slapo.op.fused_bias</a></li>
+<li class="toctree-l3"><a class="reference internal" href="op/linear.html">slapo.op.linear</a></li>
+<li class="toctree-l3"><a class="reference internal" href="op/mlp.html">slapo.op.mlp</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../genindex.html">Index</a></li>
 </ul>
 
     </div>
 </nav></div>
-        <div class="bd-sidebar__bottom">
-             <!-- To handle the deprecated key -->
-            
-        </div>
     </div>
-    <div id="rtd-footer-container"></div>
-</div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
 
 
-          
+      </div>
+      
+      <main id="main-content" class="bd-main">
+        
+        
 
-
-          
-<!-- A tiny helper pixel to detect if we've scrolled -->
 <div class="sbt-scroll-pixel-helper"></div>
-<!-- Main content -->
-<div class="col py-0 content-container">
-    
-    <div class="header-article row sticky-top noprint">
-        
 
-
-
-<div class="col py-1 d-flex header-article-main">
-    <div class="header-article__left">
-        
-        <label for="__navigation"
-  class="headerbtn"
-  data-toggle="tooltip"
-data-placement="right"
-title="Toggle navigation"
->
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article">
+<div class="header-article-items header-article__inner">
   
-
-<span class="headerbtn__icon-container">
-  <i class="fas fa-bars"></i>
-  </span>
-
-</label>
-
-        
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><label class="sidebar-toggle primary-toggle btn btn-sm" for="__primary" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</label></div>
+      
     </div>
-    <div class="header-article__right">
-<button onclick="toggleFullScreen()"
-  class="headerbtn"
-  data-toggle="tooltip"
-data-placement="bottom"
-title="Fullscreen mode"
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+<a href="https://github.com/awslabs/slapo" target="_blank"
+   class="btn btn-sm btn-source-repository-button"
+   title="Source repository"
+   data-bs-placement="bottom" data-bs-toggle="tooltip"
 >
   
 
-<span class="headerbtn__icon-container">
-  <i class="fas fa-expand"></i>
-  </span>
-
-</button>
-<a href="https://github.com/awslabs/slapo"
-   class="headerbtn"
-   data-toggle="tooltip"
-data-placement="bottom"
-title="Source repository"
->
-  
-
-<span class="headerbtn__icon-container">
+<span class="btn__icon-container">
   <i class="fab fa-github"></i>
   </span>
 
 </a>
 
-<div class="menu-dropdown menu-dropdown-download-buttons">
-  <button class="headerbtn menu-dropdown__trigger"
-      aria-label="Download this page">
-      <i class="fas fa-download"></i>
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
   </button>
-  <div class="menu-dropdown__content">
-    <ul>
-      <li>
-        <a href="../_sources/python_api/root.rst.txt"
-   class="headerbtn"
-   data-toggle="tooltip"
-data-placement="left"
-title="Download source file"
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="../_sources/python_api/root.rst" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
 >
   
 
-<span class="headerbtn__icon-container">
+<span class="btn__icon-container">
   <i class="fas fa-file"></i>
   </span>
-<span class="headerbtn__text-container">.rst</span>
+<span class="btn__text-container">.rst</span>
 </a>
-
-      </li>
+</li>
+      
+      
+      
       
       <li>
-        
-<button onclick="printPdf(this)"
-  class="headerbtn"
-  data-toggle="tooltip"
-data-placement="left"
-title="Print to PDF"
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
 >
   
 
-<span class="headerbtn__icon-container">
+<span class="btn__icon-container">
   <i class="fas fa-file-pdf"></i>
   </span>
-<span class="headerbtn__text-container">.pdf</span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
 </button>
 
-      </li>
+
+<script>
+document.write(`
+  <button class="theme-switch-button btn btn-sm btn-outline-primary navbar-btn rounded-circle" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch" data-mode="light"><i class="fa-solid fa-sun"></i></span>
+    <span class="theme-switch" data-mode="dark"><i class="fa-solid fa-moon"></i></span>
+    <span class="theme-switch" data-mode="auto"><i class="fa-solid fa-circle-half-stroke"></i></span>
+  </button>
+`);
+</script>
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+  </button>
+`);
+</script>
+
+</div></div>
       
-    </ul>
-  </div>
+    </div>
+  
 </div>
+</div>
+              
+              
 
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>slapo</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+        </div>
     </div>
 </div>
 
-<!-- Table of contents -->
-<div class="col-md-3 bd-toc show noprint">
-</div>
-    </div>
-    <div class="article row">
-        <div class="col pl-md-3 pl-lg-5 content-container">
-            <!-- Table of contents that is only displayed when printing the page -->
-            <div id="jb-print-docs-body" class="onlyprint">
-                <h1>slapo</h1>
-                <!-- Table of contents -->
-                <div id="print-main-content">
-                    <div id="jb-print-toc">
-                        
-                    </div>
-                </div>
-            </div>
-            <main id="main-content" role="main">
+              
                 
-              <div>
-                
+<div id="searchbox"></div>
+                <article class="bd-article" role="main">
+                  
   <div class="section" id="module-slapo">
 <span id="slapo"></span><h1>slapo<a class="headerlink" href="#module-slapo" title="Permalink to this headline"><span>¶</span></a></h1>
 <p><strong>Classes:</strong></p>
@@ -420,14 +354,8 @@ title="Print to PDF"
 <tr class="row-odd"><td><p><a class="reference internal" href="#slapo.Symbol" title="slapo.Symbol"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Symbol</span></code></a>(name, vals)</p></td>
 <td><p>A tunable symbol.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#slapo.DictWithValidation" title="slapo.DictWithValidation"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DictWithValidation</span></code></a></p></td>
-<td><p></p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.FunctionType" title="slapo.FunctionType"><code class="xref py py-obj docutils literal notranslate"><span class="pre">FunctionType</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.FunctionType" title="slapo.FunctionType"><code class="xref py py-obj docutils literal notranslate"><span class="pre">FunctionType</span></code></a></p></td>
 <td><p>alias of <code class="xref py py-class docutils literal notranslate"><span class="pre">function</span></code></p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#slapo.LinearWithSeparateBias" title="slapo.LinearWithSeparateBias"><code class="xref py py-obj docutils literal notranslate"><span class="pre">LinearWithSeparateBias</span></code></a>(in_features, out_features)</p></td>
-<td><p>Implementation modified from <cite>nn.Linear</cite> Arguments are the same as the inputs of <cite>nn.Linear</cite></p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#slapo.ModulePattern" title="slapo.ModulePattern"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ModulePattern</span></code></a>(name)</p></td>
 <td><p></p></td>
@@ -438,8 +366,8 @@ title="Print to PDF"
 <tr class="row-odd"><td><p><a class="reference internal" href="#slapo.Pattern" title="slapo.Pattern"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Pattern</span></code></a>()</p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#slapo.ScheduleMetadata" title="slapo.ScheduleMetadata"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ScheduleMetadata</span></code></a>(shard, tie_weights, ...)</p></td>
-<td><p></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.ScheduleMetadata" title="slapo.ScheduleMetadata"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ScheduleMetadata</span></code></a>([tie_weights, param_tags, ...])</p></td>
+<td><p>The metadata of a schedule.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#slapo.partial" title="slapo.partial"><code class="xref py py-obj docutils literal notranslate"><span class="pre">partial</span></code></a></p></td>
 <td><p>partial(func, <a href="#id1"><span class="problematic" id="id2">*</span></a>args, <a href="#id3"><span class="problematic" id="id4">**</span></a>keywords) - new function with partial application of the given arguments and keywords.</p></td>
@@ -459,53 +387,35 @@ title="Print to PDF"
 <tr class="row-even"><td><p><a class="reference internal" href="#slapo.get_logger" title="slapo.get_logger"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_logger</span></code></a>([name, level])</p></td>
 <td><p>Attach to the default logger.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.set_random_seed" title="slapo.set_random_seed"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_random_seed</span></code></a>([seed, dp_rank, pp_rank, ...])</p></td>
-<td><p>Set random seed for reproducibility.</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.register_primitive" title="slapo.register_primitive"><code class="xref py py-obj docutils literal notranslate"><span class="pre">register_primitive</span></code></a>()</p></td>
+<td><p>Register a primitive to the schedule.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#slapo.all_gather_forward_output" title="slapo.all_gather_forward_output"><code class="xref py py-obj docutils literal notranslate"><span class="pre">all_gather_forward_output</span></code></a>(inp, dim, group[, ...])</p></td>
-<td><p>The custom sync op (F: all-gather, B: split or reduce-scatter) used for forward hook.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.analyze_tie_weights" title="slapo.analyze_tie_weights"><code class="xref py py-obj docutils literal notranslate"><span class="pre">analyze_tie_weights</span></code></a>(top_mod, ...)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.analyze_tie_weights" title="slapo.analyze_tie_weights"><code class="xref py py-obj docutils literal notranslate"><span class="pre">analyze_tie_weights</span></code></a>(top_mod, ...)</p></td>
 <td><p>Analyze if there is any tie weights (two weights in different module share the same memory) partitioned into different pipeline stages.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#slapo.checkpoint_module" title="slapo.checkpoint_module"><code class="xref py py-obj docutils literal notranslate"><span class="pre">checkpoint_module</span></code></a>(function, *args[, ...])</p></td>
-<td><p>Checkpoint a model or part of the model.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#slapo.consolidate_model" title="slapo.consolidate_model"><code class="xref py py-obj docutils literal notranslate"><span class="pre">consolidate_model</span></code></a>(sch, target[, param_init_fn])</p></td>
 <td><p>Consolidate the model weights.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#slapo.dataclass" title="slapo.dataclass"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataclass</span></code></a>([cls, init, repr, eq, order, ...])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.create_schedule" title="slapo.create_schedule"><code class="xref py py-obj docutils literal notranslate"><span class="pre">create_schedule</span></code></a>(root[, name, path, parent, ...])</p></td>
+<td><p>Create a schedule for the given module and preserve the module hierarchy.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.dataclass" title="slapo.dataclass"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataclass</span></code></a>([cls, init, repr, eq, order, ...])</p></td>
 <td><p>Returns the same class as was passed in, with dunder methods added based on the fields defined in the class.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.field" title="slapo.field"><code class="xref py py-obj docutils literal notranslate"><span class="pre">field</span></code></a>(*[, default, default_factory, init, ...])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.field" title="slapo.field"><code class="xref py py-obj docutils literal notranslate"><span class="pre">field</span></code></a>(*[, default, default_factory, init, ...])</p></td>
 <td><p>Return an object to identify dataclass fields.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#slapo.get_cuda_rng_tracker" title="slapo.get_cuda_rng_tracker"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_cuda_rng_tracker</span></code></a>()</p></td>
-<td><p>Get cuda rng tracker.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#slapo.get_dialect_cls" title="slapo.get_dialect_cls"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_dialect_cls</span></code></a>(cls_type, target[, allow_none])</p></td>
 <td><p>Get the framework dialect class.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#slapo.get_output_type_after_sharding" title="slapo.get_output_type_after_sharding"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_output_type_after_sharding</span></code></a>(module, ...)</p></td>
-<td><p>Get the output type (partition or partial) after sharding the module along the given axis.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.init_target_engine" title="slapo.init_target_engine"><code class="xref py py-obj docutils literal notranslate"><span class="pre">init_target_engine</span></code></a>(sch, target, **kwargs)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.init_target_engine" title="slapo.init_target_engine"><code class="xref py py-obj docutils literal notranslate"><span class="pre">init_target_engine</span></code></a>(sch, target, **kwargs)</p></td>
 <td><p>Initialize the runtime engine for a specific target framework.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#slapo.reduce_backward_grad" title="slapo.reduce_backward_grad"><code class="xref py py-obj docutils literal notranslate"><span class="pre">reduce_backward_grad</span></code></a>(inp, group)</p></td>
-<td><p>The custom sync op (F: no-op, B: all-reduce) used for forward hook.</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.list_primitives" title="slapo.list_primitives"><code class="xref py py-obj docutils literal notranslate"><span class="pre">list_primitives</span></code></a>([name_only])</p></td>
+<td><p>List all available schedule primitives.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.reduce_forward_output" title="slapo.reduce_forward_output"><code class="xref py py-obj docutils literal notranslate"><span class="pre">reduce_forward_output</span></code></a>(inp, group)</p></td>
-<td><p>The custom sync op sync op (F: all-reduce, B: no-op) used for forward hook.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#slapo.reduce_scatter_forward_output" title="slapo.reduce_scatter_forward_output"><code class="xref py py-obj docutils literal notranslate"><span class="pre">reduce_scatter_forward_output</span></code></a>(inp, dim, group)</p></td>
-<td><p>The custom sync op (F: reduce-scatter, B: all-gather) used for forward hook.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.register_primitive" title="slapo.register_primitive"><code class="xref py py-obj docutils literal notranslate"><span class="pre">register_primitive</span></code></a>([need_dist, finalize])</p></td>
-<td><p>Wrap a schedule primitive to annotate attributes:</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#slapo.scatter_forward_output" title="slapo.scatter_forward_output"><code class="xref py py-obj docutils literal notranslate"><span class="pre">scatter_forward_output</span></code></a>(inp, dim, group)</p></td>
-<td><p>The custom sync op (sync op (F: scatter, B: all-gather) used for forward hook.</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.set_random_seed" title="slapo.set_random_seed"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_random_seed</span></code></a>([seed, dp_rank, pp_rank, ...])</p></td>
+<td><p>Set random seed for reproducibility.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#slapo.trace" title="slapo.trace"><code class="xref py py-obj docutils literal notranslate"><span class="pre">trace</span></code></a>(model, **kwargs)</p></td>
 <td><p>Traces a model to a GraphModule.</p></td>
@@ -513,16 +423,13 @@ title="Print to PDF"
 <tr class="row-even"><td><p><a class="reference internal" href="#slapo.trace_module" title="slapo.trace_module"><code class="xref py py-obj docutils literal notranslate"><span class="pre">trace_module</span></code></a>(model, **kwargs)</p></td>
 <td><p>Traces a model to a GraphModule.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.transfer_hooks" title="slapo.transfer_hooks"><code class="xref py py-obj docutils literal notranslate"><span class="pre">transfer_hooks</span></code></a>(old_mod, new_mod[, hook_types])</p></td>
-<td><p>Transfer the hooks from old_mod to new_mod.</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.get_cuda_rng_tracker" title="slapo.get_cuda_rng_tracker"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_cuda_rng_tracker</span></code></a>()</p></td>
+<td><p>Get cuda rng tracker.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#slapo.transfer_hooks_for_fusion" title="slapo.transfer_hooks_for_fusion"><code class="xref py py-obj docutils literal notranslate"><span class="pre">transfer_hooks_for_fusion</span></code></a>(sch, subgraphs, ...)</p></td>
-<td><p>Transfer hooks of modules in the subgraph to be fused.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.is_random_seed_set" title="slapo.is_random_seed_set"><code class="xref py py-obj docutils literal notranslate"><span class="pre">is_random_seed_set</span></code></a>()</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.is_random_seed_set" title="slapo.is_random_seed_set"><code class="xref py py-obj docutils literal notranslate"><span class="pre">is_random_seed_set</span></code></a>()</p></td>
 <td><p>Check if random seed is set.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#slapo.checkpoint" title="slapo.checkpoint"><code class="xref py py-obj docutils literal notranslate"><span class="pre">checkpoint</span></code></a>(function, *args[, use_reentrant])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.checkpoint" title="slapo.checkpoint"><code class="xref py py-obj docutils literal notranslate"><span class="pre">checkpoint</span></code></a>(function, *args[, use_reentrant])</p></td>
 <td><p>Checkpoint a model or part of the model.</p></td>
 </tr>
 </tbody>
@@ -709,89 +616,15 @@ empty model. Useful when just initializing the model would blow the available RA
 </dd></dl>
 
 <dl class="py function">
-<dt class="sig sig-object py" id="slapo.set_random_seed">
-<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">set_random_seed</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2013</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dp_rank</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pp_rank</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tp_rank</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/random.html#set_random_seed"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.set_random_seed" title="Permalink to this definition"><span>¶</span></a></dt>
-<dd><p>Set random seed for reproducibility.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>seed</strong> (<em>int</em>) – Random seed. Default is 2013.</p></li>
-<li><p><strong>dp_rank</strong> (<em>Optional</em><em>[</em><em>int</em><em>]</em>) – Data parallel rank. Default is None means no data parallelism.</p></li>
-<li><p><strong>pp_rank</strong> (<em>Optional</em><em>[</em><em>int</em><em>]</em>) – Pipeline parallel rank. Default is None means no pipeline parallelism.</p></li>
-<li><p><strong>tp_rank</strong> (<em>Optional</em><em>[</em><em>int</em><em>]</em>) – Tensor model parallel rank. Default is None means no tensor parallelism.</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns</dt>
-<dd class="field-even"><p>Random seed of this rank.</p>
-</dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p>int</p>
-</dd>
-</dl>
+<dt class="sig sig-object py" id="slapo.register_primitive">
+<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">register_primitive</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/primitives/base.html#register_primitive"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.register_primitive" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Register a primitive to the schedule.</p>
 </dd></dl>
-
-<dl class="py class">
-<dt class="sig sig-object py" id="slapo.DictWithValidation">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">DictWithValidation</span></span><a class="reference internal" href="../_modules/slapo/schedule.html#DictWithValidation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.DictWithValidation" title="Permalink to this definition"><span>¶</span></a></dt>
-<dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="slapo.FunctionType">
 <span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">FunctionType</span></span><a class="headerlink" href="#slapo.FunctionType" title="Permalink to this definition"><span>¶</span></a></dt>
 <dd><p>alias of <code class="xref py py-class docutils literal notranslate"><span class="pre">function</span></code></p>
-</dd></dl>
-
-<dl class="py class">
-<dt class="sig sig-object py" id="slapo.LinearWithSeparateBias">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">LinearWithSeparateBias</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">in_features</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out_features</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bias</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/op/linear.html#LinearWithSeparateBias"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.LinearWithSeparateBias" title="Permalink to this definition"><span>¶</span></a></dt>
-<dd><p>Implementation modified from <cite>nn.Linear</cite>
-Arguments are the same as the inputs of <cite>nn.Linear</cite></p>
-<p><strong>Methods:</strong></p>
-<table class="autosummary longtable table autosummary">
-<colgroup>
-<col style="width: 10%" />
-<col style="width: 90%" />
-</colgroup>
-<tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.LinearWithSeparateBias.forward" title="slapo.LinearWithSeparateBias.forward"><code class="xref py py-obj docutils literal notranslate"><span class="pre">forward</span></code></a>(x)</p></td>
-<td><p>Defines the computation performed at every call.</p></td>
-</tr>
-</tbody>
-</table>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>in_features</strong> (<em>int</em>) – </p></li>
-<li><p><strong>out_features</strong> (<em>int</em>) – </p></li>
-<li><p><strong>bias</strong> (<em>bool</em>) – </p></li>
-</ul>
-</dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p>None</p>
-</dd>
-</dl>
-<dl class="py method">
-<dt class="sig sig-object py" id="slapo.LinearWithSeparateBias.forward">
-<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/op/linear.html#LinearWithSeparateBias.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.LinearWithSeparateBias.forward" title="Permalink to this definition"><span>¶</span></a></dt>
-<dd><p>Defines the computation performed at every call.</p>
-<p>Should be overridden by all subclasses.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Although the recipe for forward pass needs to be defined within
-this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
-instead of this since the former takes care of running the
-registered hooks while the latter silently ignores them.</p>
-</div>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>x</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.13)"><em>torch.Tensor</em></a>) – </p>
-</dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.13)">torch.Tensor</a></p>
-</dd>
-</dl>
-</dd></dl>
-
 </dd></dl>
 
 <dl class="py class">
@@ -978,42 +811,23 @@ registered hooks while the latter silently ignores them.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="slapo.ScheduleMetadata">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">ScheduleMetadata</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">shard:</span> <span class="pre">'dict[str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Any]'</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tie_weights:</span> <span class="pre">'dict[nn.Parameter</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nn.Parameter]'</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pipeline_cutting_paths:</span> <span class="pre">'dict[str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Any]'</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/schedule.html#ScheduleMetadata"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.ScheduleMetadata" title="Permalink to this definition"><span>¶</span></a></dt>
-<dd><dl class="field-list simple">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">ScheduleMetadata</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tie_weights=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">param_tags=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">primitives=&lt;factory&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/schedule.html#ScheduleMetadata"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.ScheduleMetadata" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>The metadata of a schedule. It is used to store the metadata of
+primitives and the top module mainly for 1) verification and
+2) applying framework dialects. Note that when replacing a module,
+the schedule metadata of the original module is NOT transferred to the
+new schedule, because the new module may not have the same structure
+as the original module.</p>
+<dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>shard</strong> (<em>dict</em><em>[</em><em>str</em><em>, </em><em>Any</em><em>]</em>) – </p></li>
 <li><p><strong>tie_weights</strong> (<em>dict</em><em>[</em><em>nn.Parameter</em><em>, </em><em>nn.Parameter</em><em>]</em>) – </p></li>
-<li><p><strong>pipeline_cutting_paths</strong> (<em>dict</em><em>[</em><em>str</em><em>, </em><em>Any</em><em>]</em>) – </p></li>
+<li><p><strong>param_tags</strong> (<em>set</em><em>[</em><em>str</em><em>]</em>) – </p></li>
+<li><p><strong>primitives</strong> (<em>dict</em><em>[</em><em>str</em><em>, </em><em>Any</em><em>]</em>) – </p></li>
 </ul>
 </dd>
 <dt class="field-even">Return type</dt>
 <dd class="field-even"><p>None</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="slapo.all_gather_forward_output">
-<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">all_gather_forward_output</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">inp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tensor_parallel_output_grad</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/sharding/sync_ops.html#all_gather_forward_output"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.all_gather_forward_output" title="Permalink to this definition"><span>¶</span></a></dt>
-<dd><p>The custom sync op (F: all-gather, B: split or reduce-scatter) used for
-forward hook.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>inp</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.13)"><em>torch.Tensor</em></a>) – The input tensor to all-gather.</p></li>
-<li><p><strong>dim</strong> (<em>int</em>) – The dimension to all-gather along.</p></li>
-<li><p><strong>group</strong> (<em>torch.distributed.ProcessGroup</em>) – The process group to all-gather.</p></li>
-<li><p><strong>tensor_parallel_output_grad</strong> (<em>bool</em>) – If the operator following the gather operation is sharded,
-output gradients need to be reduced and scattered; whereas
-if the operator is duplicated, output gradients only need to be scattered.</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns</dt>
-<dd class="field-even"><p>The gathered tensor.</p>
-</dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.13)">torch.Tensor</a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -1046,20 +860,8 @@ partitioned for pipeline.</p>
 </dd></dl>
 
 <dl class="py function">
-<dt class="sig sig-object py" id="slapo.checkpoint_module">
-<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">checkpoint_module</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">function</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_reentrant</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#slapo.checkpoint_module" title="Permalink to this definition"><span>¶</span></a></dt>
-<dd><p>Checkpoint a model or part of the model. See PyTorch checkpoint
-for details about behaviors and arguments. The only difference is
-when the random seed is set by Slapo, the checkpoint function will
-also track the random states and restore them properly.</p>
-<p>TODO: The implementation in Megatron-LM has a mode to distribute
-the saved activations across model parallel groups to further reduce
-the memory footprint. This is not implemented here yet.</p>
-</dd></dl>
-
-<dl class="py function">
 <dt class="sig sig-object py" id="slapo.consolidate_model">
-<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">consolidate_model</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sch</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">param_init_fn</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/schedule.html#consolidate_model"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.consolidate_model" title="Permalink to this definition"><span>¶</span></a></dt>
+<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">consolidate_model</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sch</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">param_init_fn</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/build.html#consolidate_model"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.consolidate_model" title="Permalink to this definition"><span>¶</span></a></dt>
 <dd><p>Consolidate the model weights.
 FIXME: When pipeline is enabled, this function only supports DeepSpeed
 runtime because it relies on DeepSpeed topology. We should use dialects
@@ -1071,6 +873,30 @@ in this function to make it general applicable.</p>
 <li><p><strong>target</strong> (<em>str</em>) – </p></li>
 <li><p><strong>param_init_fn</strong> (<em>Optional</em><em>[</em><em>Callable</em><em>[</em><em>[</em><em>nn.Module</em><em>]</em><em>, </em><em>None</em><em>]</em><em>]</em>) – </p></li>
 </ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="slapo.create_schedule">
+<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">create_schedule</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">root</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parent</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/schedule.html#create_schedule"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.create_schedule" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Create a schedule for the given module and preserve the module hierarchy.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>root</strong> (<em>nn.Module</em>) – The root module to create the schedule for.</p></li>
+<li><p><strong>name</strong> (<em>str</em>) – The name of the module.</p></li>
+<li><p><strong>path</strong> (<em>str</em>) – The path from the top module.</p></li>
+<li><p><strong>parent</strong> (<em>Optional</em><em>[</em><a class="reference internal" href="schedule.html#slapo.schedule.Schedule" title="slapo.schedule.Schedule"><em>Schedule</em></a><em>]</em>) – The parent schedule. None if the module is the top module.</p></li>
+<li><p><strong>group</strong> (<em>Optional</em><em>[</em><em>dist.ProcessGroup</em><em>]</em>) – The process group for the module. If None, use all available devices.</p></li>
+<li><p><strong>**kwargs</strong> – Additional arguments for the schedule.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>The schedule for the module.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="schedule.html#slapo.schedule.Schedule" title="slapo.schedule.Schedule">Schedule</a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -1104,45 +930,35 @@ mapping which is stored but not otherwise examined by dataclass.</p>
 </dd></dl>
 
 <dl class="py function">
-<dt class="sig sig-object py" id="slapo.get_cuda_rng_tracker">
-<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">get_cuda_rng_tracker</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/random.html#get_cuda_rng_tracker"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.get_cuda_rng_tracker" title="Permalink to this definition"><span>¶</span></a></dt>
-<dd><p>Get cuda rng tracker.</p>
-</dd></dl>
-
-<dl class="py function">
 <dt class="sig sig-object py" id="slapo.get_dialect_cls">
 <span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">get_dialect_cls</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cls_type</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allow_none</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/framework_dialect/registry.html#get_dialect_cls"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.get_dialect_cls" title="Permalink to this definition"><span>¶</span></a></dt>
 <dd><p>Get the framework dialect class.</p>
 </dd></dl>
 
 <dl class="py function">
-<dt class="sig sig-object py" id="slapo.get_output_type_after_sharding">
-<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">get_output_type_after_sharding</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">module</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sharded_size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">axis</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/sharding/infer_type.html#get_output_type_after_sharding"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.get_output_type_after_sharding" title="Permalink to this definition"><span>¶</span></a></dt>
-<dd><p>Get the output type (partition or partial) after sharding the module
-along the given axis.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>module</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch v1.13)"><em>torch.nn.Module</em></a>) – The module to shard.</p></li>
-<li><p><strong>sharded_size</strong> (<em>int</em>) – The size of the sharded dimension.</p></li>
-<li><p><strong>axis</strong> (<em>int</em>) – The axis to shard on.</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns</dt>
-<dd class="field-even"><p>The output type and the axis (if the output is partitioned).
-The output type will be None if the output inference function is not
-registered.</p>
-</dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p>tuple</p>
-</dd>
-</dl>
+<dt class="sig sig-object py" id="slapo.init_target_engine">
+<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">init_target_engine</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sch</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/build.html#init_target_engine"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.init_target_engine" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Initialize the runtime engine for a specific target framework.</p>
 </dd></dl>
 
 <dl class="py function">
-<dt class="sig sig-object py" id="slapo.init_target_engine">
-<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">init_target_engine</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sch</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/schedule.html#init_target_engine"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.init_target_engine" title="Permalink to this definition"><span>¶</span></a></dt>
-<dd><p>Initialize the runtime engine for a specific target framework.</p>
+<dt class="sig sig-object py" id="slapo.list_primitives">
+<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">list_primitives</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name_only</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/schedule.html#list_primitives"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.list_primitives" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>List all available schedule primitives.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>name_only</strong> (<em>bool</em>) – If True, only return the name of the primitives. Otherwise, return the
+primitive class.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>If name_only, return a list of all available schedule primitives;
+otherwise return a dictionary mapping the name of the primitive to the
+primitive class.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Union[list[str], dict[str, Primitive]]</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py class">
@@ -1189,90 +1005,27 @@ of the given arguments and keywords.</p>
 </dd></dl>
 
 <dl class="py function">
-<dt class="sig sig-object py" id="slapo.reduce_backward_grad">
-<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">reduce_backward_grad</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">inp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/sharding/sync_ops.html#reduce_backward_grad"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.reduce_backward_grad" title="Permalink to this definition"><span>¶</span></a></dt>
-<dd><p>The custom sync op (F: no-op, B: all-reduce) used for forward hook.
-:param inp: The input tensor.
-:type inp: torch.Tensor
-:param group: The process group to reduce.
-:type group: torch.distributed.ProcessGroup</p>
+<dt class="sig sig-object py" id="slapo.set_random_seed">
+<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">set_random_seed</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2013</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dp_rank</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pp_rank</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tp_rank</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">always_enable_tp_seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/random.html#set_random_seed"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.set_random_seed" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Set random seed for reproducibility.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
-<dd class="field-odd"><p>The original input tensor. However, its gradient will be reduced.</p>
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>seed</strong> (<em>int</em>) – Random seed. Default is 2013.</p></li>
+<li><p><strong>dp_rank</strong> (<em>Optional</em><em>[</em><em>int</em><em>]</em>) – Data parallel rank. Default is None means no data parallelism.</p></li>
+<li><p><strong>pp_rank</strong> (<em>Optional</em><em>[</em><em>int</em><em>]</em>) – Pipeline parallel rank. Default is None means no pipeline parallelism.</p></li>
+<li><p><strong>tp_rank</strong> (<em>Optional</em><em>[</em><em>int</em><em>]</em>) – Tensor model parallel rank. Default is None means no tensor parallelism.</p></li>
+<li><p><strong>always_enable_tp_seed</strong> (<em>bool</em>) – Always enable tensor model parallel seed. This is used when sequence
+parallelism is enabled and all dropouts should use different seeds
+even they are in the same TP group. Default is False, meaning that
+tensor model parallel seed is only enabled with get_cuda_rng_tracker().fork().</p></li>
+</ul>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.13)">torch.Tensor</a></p>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Random seed of this rank.</p>
 </dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="slapo.reduce_forward_output">
-<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">reduce_forward_output</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">inp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/sharding/sync_ops.html#reduce_forward_output"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.reduce_forward_output" title="Permalink to this definition"><span>¶</span></a></dt>
-<dd><p>The custom sync op sync op (F: all-reduce, B: no-op) used for forward hook.
-:param inp: The input tensor to reduce.
-:type inp: torch.Tensor
-:param group: The process group to reduce.
-:type group: torch.distributed.ProcessGroup</p>
-<dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
-<dd class="field-odd"><p>The reduced tensor.</p>
-</dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.13)">torch.Tensor</a></p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="slapo.reduce_scatter_forward_output">
-<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">reduce_scatter_forward_output</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">inp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/sharding/sync_ops.html#reduce_scatter_forward_output"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.reduce_scatter_forward_output" title="Permalink to this definition"><span>¶</span></a></dt>
-<dd><p>The custom sync op (F: reduce-scatter, B: all-gather) used for forward hook.
-:param inp: The input tensor to reduce-scatter.
-:type inp: torch.Tensor
-:param dim: The dimension to reduce-scatter along.
-:type dim: int
-:param group: The process group to reduce-scatter.
-:type group: torch.distributed.ProcessGroup</p>
-<dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
-<dd class="field-odd"><p>The reduced tensor.</p>
-</dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.13)">torch.Tensor</a></p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="slapo.register_primitive">
-<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">register_primitive</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">need_dist</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">finalize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/schedule.html#register_primitive"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.register_primitive" title="Permalink to this definition"><span>¶</span></a></dt>
-<dd><dl class="simple">
-<dt>Wrap a schedule primitive to annotate attributes:</dt><dd><p>finalize: Whether the primitive will finalize the schedule.
-doc: TODO</p>
-</dd>
-</dl>
-<p>TODO:
-1. Record invoked primitives to be a tape for later replay.
-2. Print primitive status.</p>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="slapo.scatter_forward_output">
-<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">scatter_forward_output</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">inp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/sharding/sync_ops.html#scatter_forward_output"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.scatter_forward_output" title="Permalink to this definition"><span>¶</span></a></dt>
-<dd><p>The custom sync op (sync op (F: scatter, B: all-gather) used for forward hook.
-:param inp: The input tensor to reduce-scatter.
-:type inp: torch.Tensor
-:param dim: The dimension to reduce-scatter along.
-:type dim: int
-:param group: The process group to reduce-scatter.
-:type group: torch.distributed.ProcessGroup</p>
-<dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
-<dd class="field-odd"><p>The scattered tensor.</p>
-</dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.13)">torch.Tensor</a></p>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>int</p>
 </dd>
 </dl>
 </dd></dl>
@@ -1306,37 +1059,9 @@ doc: TODO</p>
 </dd></dl>
 
 <dl class="py function">
-<dt class="sig sig-object py" id="slapo.transfer_hooks">
-<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">transfer_hooks</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">old_mod</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">new_mod</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hook_types</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/utils/common.html#transfer_hooks"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.transfer_hooks" title="Permalink to this definition"><span>¶</span></a></dt>
-<dd><p>Transfer the hooks from old_mod to new_mod.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>old_mod</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch v1.13)"><em>torch.nn.Module</em></a>) – The old module.</p></li>
-<li><p><strong>new_mod</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch v1.13)"><em>torch.nn.Module</em></a>) – The new module.</p></li>
-<li><p><strong>hook_types</strong> (<em>Optional</em><em>[</em><em>List</em><em>[</em><em>str</em><em>]</em><em>]</em>) – The types of hooks to transfer. If None, transfer all hooks.</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="slapo.transfer_hooks_for_fusion">
-<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">transfer_hooks_for_fusion</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sch</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subgraphs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">new_mod</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/utils/common.html#transfer_hooks_for_fusion"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.transfer_hooks_for_fusion" title="Permalink to this definition"><span>¶</span></a></dt>
-<dd><p>Transfer hooks of modules in the subgraph to be fused.
-For example, the fwd_pre hook of the first module in the subgraph will become
-the fwd_pre hook of the fused module.
-Note that if middle modules have hooks, we will throw errors because we cannot
-keep these hooks in the fused module.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>sch</strong> (<a class="reference internal" href="schedule.html#slapo.schedule.Schedule" title="slapo.schedule.Schedule"><em>Schedule</em></a>) – The parent schedule.</p></li>
-<li><p><strong>subgraphs</strong> (<em>List</em><em>[</em><em>List</em><em>[</em><em>Tuple</em><em>[</em><em>Node</em><em>, </em><em>Node</em><em>]</em><em>]</em><em>]</em>) – The fused subgraphs that need to be transferred hooks.</p></li>
-<li><p><strong>new_mod</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch v1.13)"><em>torch.nn.Module</em></a>) – The new module that will be created after fusion.</p></li>
-</ul>
-</dd>
-</dl>
+<dt class="sig sig-object py" id="slapo.get_cuda_rng_tracker">
+<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">get_cuda_rng_tracker</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/random.html#get_cuda_rng_tracker"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.get_cuda_rng_tracker" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Get cuda rng tracker.</p>
 </dd></dl>
 
 <dl class="py function">
@@ -1360,50 +1085,85 @@ the memory footprint. This is not implemented here yet.</p>
 </div>
 
 
-              </div>
+                </article>
               
-            </main>
-            <footer class="footer-article noprint">
-                
-    <!-- Previous / next buttons -->
-<div class='prev-next-area'>
-    <a class='left-prev' id="prev-link" href="index.html" title="previous page">
-        <i class="fas fa-angle-left"></i>
-        <div class="prev-next-info">
-            <p class="prev-next-subtitle">previous</p>
-            <p class="prev-next-title">Python API</p>
-        </div>
+
+              
+              
+                <footer class="bd-footer-article">
+                  <!-- Previous / next buttons -->
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="index.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Python API</p>
+      </div>
     </a>
-    <a class='right-next' id="next-link" href="schedule.html" title="next page">
-    <div class="prev-next-info">
+    <a class="right-next"
+       href="schedule.html"
+       title="next page">
+      <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
         <p class="prev-next-title">slapo.schedule</p>
-    </div>
-    <i class="fas fa-angle-right"></i>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
     </a>
 </div>
-            </footer>
-        </div>
-    </div>
-    <div class="footer-content row">
-        <footer class="col footer"><p>
+                </footer>
+              
+            </div>
+            
+            
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            <div class="bd-footer-content__inner">
+<div class="bd-footer-content__inner container">
   
-    By Amazon<br/>
-  
-      &copy; Copyright 2023, Amazon.<br/>
-</p>
-        </footer>
-    </div>
+  <div class="footer-item">
     
-</div>
+<p class="component-author">
+By Amazon
+</p>
 
+  </div>
+  
+  <div class="footer-item">
+    
+  <p class="copyright">
+    
+      © Copyright 2023, Amazon.
+      <br/>
+    
+  </p>
 
-      </div>
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div></div>
+          </footer>
+        
+
+      </main>
     </div>
+  </div>
   
   <!-- Scripts loaded after <body> so the DOM is not blocked -->
-  <script src="../_static/scripts/pydata-sphinx-theme.js?digest=1999514e3f237ded88cf"></script>
+  <script src="../_static/scripts/bootstrap.js?digest=12da95d707ffb74b382d"></script>
+<script src="../_static/scripts/pydata-sphinx-theme.js?digest=12da95d707ffb74b382d"></script>
 
-
+  <footer class="bd-footer">
+  </footer>
   </body>
 </html>

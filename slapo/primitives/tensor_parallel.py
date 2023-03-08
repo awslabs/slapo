@@ -7,8 +7,7 @@ import functools
 from collections import OrderedDict
 
 from ..random import get_cuda_rng_tracker
-from ..sharding import (apply_shard_method, apply_sync_method,
-                        new_or_get_tied_param)
+from ..sharding import apply_shard_method, apply_sync_method, new_or_get_tied_param
 from .base import Primitive, register_primitive
 
 
@@ -186,6 +185,6 @@ class ForkRNGPrimitive(Primitive):
                     return func(*args, **kwargs)
 
             return wrapper
-            
-        sch.mod.forward = decorator(sch.mod.forward)
 
+        sch.mod.forward = decorator(sch.mod.forward)
+        sch.mod.traceable = False

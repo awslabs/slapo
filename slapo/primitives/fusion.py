@@ -36,7 +36,7 @@ class FusePrimitive(Primitive):
         ), "Only support TorchScript as the backend compiler for now"
         assert (
             len(subgraph) == 1 and len(subgraph[0]) > 1
-        ), "Only vertical fusion is supported"
+        ), f"Only vertical fusion is supported. Got subgraph: {subgraph}"
         new_gm = sch._construct_fx_graph(subgraph[0])
         new_mod = torch.jit.script(new_gm)
         sch.replace(new_mod, subgraph, name)

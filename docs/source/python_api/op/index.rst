@@ -8,8 +8,7 @@ slapo.op
   :caption: Submodules
 
   attention
-  bias_gelu
   cross_entropy
-  dropout
+  fused_bias
   linear
   mlp

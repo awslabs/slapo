@@ -1,9 +1,10 @@
 sphinx==4.5.0
 sphinx-gallery
 sphinx-copybutton
+Pygments==2.13.0
 autodocsumm
 sphinx-book-theme
 matplotlib
 sphinxcontrib-googleanalytics
 sphinx_rtd_theme
-transformers  # Needed for gallery scripts
+transformers==4.25.1  # Needed for gallery scripts

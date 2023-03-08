@@ -6,6 +6,11 @@
 This folder includes some examples of using model schedule. 
 Before running examples, you need to install the following Python packages:
 
+- transformers:
+```
+pip3 install transformers
+```
+
 - megatron-lm:
 ```
 git clone https://github.com/NVIDIA/Megatron-LM --recursive
@@ -44,7 +49,7 @@ git checkout 3676bd2
 pip3 install -e ".[dev]"
 ```
 
-- epoi:
+- epoi: Currently used for T5 model
 ```
 git clone https://github.com/comaniac/epoi --recursive
 cd epoi
@@ -59,9 +64,14 @@ cd slapo
 pip3 install -e ".[dev]"
 ```
 
-You can run these examples using Megatron-LM framework (referring to `../benchmark/bench_single_node.py`).
-Meanwhile, if you attempt to run the scheduled model on other frameworks, you can invoke
-the scheduled model as follows:
+You can run these examples using Megatron-LM framework.
+Please refer to `../benchmark/bench_single_node.py`, and make sure you have installed the following packages before running this script.
+
+```
+pip3 install matplotlib tabulate datasets networkx triton
+```
+
+Meanwhile, if you attempt to run the scheduled model on other frameworks, you can invoke the scheduled model as follows:
 
 ```python
 # my_script.py
@@ -73,15 +83,15 @@ model_name = "bert-large-uncased"
 config = AutoConfig.from_pretrained(model_name)
 model = BertLMHeadModel(config)
 
-model.bert = get_scheduled_bert(
-    model_name,
-    padded_vocab_size=None,
-    binary_head=False,
-    add_pooling_layer=True,
-    disable_flash_attn=False,
-    fp16=True,
-    ckpt_ratio=0.0,
-)
+def apply_and_build_schedule(model, config):
+    from slapo.model_schedule import apply_schedule
 
+    sch = apply_schedule(
+        model, "bert", model_config=config, prefix="bert", fp16=True, ckpt_ratio=0
+    )
+    opt_model, _ = slapo.build(sch, init_weights=model._init_weights)
+    return opt_model
+
+opt_model = apply_and_build_schedule(model, config)
 # ... training logic
 ```

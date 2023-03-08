@@ -311,14 +311,7 @@ document.write(`
 
 
 <span class="k">def</span> <span class="nf">is_fx_tracable</span><span class="p">(</span><span class="n">mod</span><span class="p">):</span>
-    <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="n">mod</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span>
-        <span class="s2">&quot;LinearWithSyncFunc&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;LinearWithAct&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;LinearWithDropout&quot;</span><span class="p">,</span>
-    <span class="p">]</span>
-    <span class="c1"># return not (</span>
-    <span class="c1">#     mod.__module__.startswith(&quot;slapo.op&quot;)</span>
-    <span class="c1"># )</span>
+    <span class="k">return</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">mod</span><span class="p">,</span> <span class="s2">&quot;traceable&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">mod</span><span class="o">.</span><span class="n">traceable</span>
 
 
 <span class="k">def</span> <span class="nf">fix_hf_module</span><span class="p">(</span>
@@ -339,7 +332,9 @@ document.write(`
         <span class="c1"># Fix SelfAttention naming</span>
         <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">op</span> <span class="o">==</span> <span class="s2">&quot;call_module&quot;</span> <span class="ow">and</span> <span class="s2">&quot;self&quot;</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">target</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                <span class="s2">&quot;`self` in </span><span class="si">{root.__class__.__name__}</span><span class="s2"> is a Python keyword, please rename it to avoid possible conflicts.&quot;</span>
+                <span class="s2">&quot;`self` in </span><span class="si">%s</span><span class="s2"> is a Python keyword, &quot;</span>
+                <span class="s2">&quot;please rename it to avoid possible conflicts.&quot;</span><span class="p">,</span>
+                <span class="n">root</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
             <span class="p">)</span>
     <span class="c1"># Fix arguments</span>
     <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">root_graph</span><span class="o">.</span><span class="n">nodes</span><span class="p">:</span>

@@ -34,6 +34,7 @@ class CheckpointPrimitive(Primitive):
         class CheckPointWrapper(nn.Module):
             def __init__(self, mod) -> None:
                 super().__init__()
+                self.traceable = False
                 self.mod = mod
 
             def forward(self, *args, **kwargs):

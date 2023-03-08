@@ -99,6 +99,7 @@ class LinearWithSyncFunc(nn.Linear):
         sync_fn=None,
     ):
         super().__init__(in_features, out_features, bias, device, dtype)
+        self.traceable = False
         self.sync_fn = sync_fn
 
     def forward(self, x):

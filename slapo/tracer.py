@@ -22,14 +22,7 @@ logger = get_logger()
 
 
 def is_fx_tracable(mod):
-    return type(mod).__name__ not in [
-        "LinearWithSyncFunc",
-        "LinearWithAct",
-        "LinearWithDropout",
-    ]
-    # return not (
-    #     mod.__module__.startswith("slapo.op")
-    # )
+    return not hasattr(mod, "traceable") or mod.traceable
 
 
 def fix_hf_module(
@@ -50,7 +43,9 @@ def fix_hf_module(
         # Fix SelfAttention naming
         if node.op == "call_module" and "self" in node.target:
             logger.warning(
-                "`self` in {root.__class__.__name__} is a Python keyword, please rename it to avoid possible conflicts."
+                "`self` in %s is a Python keyword, "
+                "please rename it to avoid possible conflicts.",
+                root.__class__.__name__,
             )
     # Fix arguments
     for node in root_graph.nodes:

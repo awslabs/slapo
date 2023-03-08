@@ -3,12 +3,12 @@
 """Tensor parallel primitives."""
 # pylint: disable=arguments-differ
 
+import functools
 from collections import OrderedDict
 
-from torch import nn
-
 from ..random import get_cuda_rng_tracker
-from ..sharding import apply_shard_method, apply_sync_method, new_or_get_tied_param
+from ..sharding import (apply_shard_method, apply_sync_method,
+                        new_or_get_tied_param)
 from .base import Primitive, register_primitive
 
 
@@ -179,13 +179,13 @@ class ForkRNGPrimitive(Primitive):
 
     @staticmethod
     def apply(sch):
-        class ModuleWithForkedRNG(nn.Module):
-            def __init__(self, mod):
-                super().__init__()
-                self.mod = mod
-
-            def forward(self, *args, **kwargs):
+        def decorator(func):
+            @functools.wraps(func)
+            def wrapper(*args, **kwargs):
                 with get_cuda_rng_tracker().fork():
-                    return self.mod(*args, **kwargs)
+                    return func(*args, **kwargs)
 
-        sch.replace(ModuleWithForkedRNG(sch.mod))
+            return wrapper
+            
+        sch.mod.forward = decorator(sch.mod.forward)
+

@@ -10,7 +10,7 @@
     .. note::
         :class: sphx-glr-download-link-note
 
-        Click :ref:`here <sphx_glr_download_gallery_quick-start.py>`
+        :ref:`Go to the end <sphx_glr_download_gallery_quick-start.py>`
         to download the full example code
 
 .. rst-class:: sphx-glr-example-title
@@ -70,7 +70,7 @@ We load a BERT model implemented in PyTorch from HuggingFace Hub.
 
  .. code-block:: none
 
-    Downloading (…)lve/main/config.json:   0%|          | 0.00/571 [00:00<?, ?B/s]    Downloading (…)lve/main/config.json: 100%|##########| 571/571 [00:00<00:00, 152kB/s]
+    Downloading (…)lve/main/config.json:   0%|          | 0.00/571 [00:00<?, ?B/s]    Downloading (…)lve/main/config.json: 100%|##########| 571/571 [00:00<00:00, 78.7kB/s]
     BertLMHeadModel(
       (bert): BertModel(
         (embeddings): BertEmbeddings(
@@ -749,7 +749,7 @@ PyTorch training loop as usual.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** ( 0 minutes  6.805 seconds)
+   **Total running time of the script:** ( 0 minutes  10.180 seconds)
 
 
 .. _sphx_glr_download_gallery_quick-start.py:
@@ -757,6 +757,8 @@ PyTorch training loop as usual.
 .. only:: html
 
   .. container:: sphx-glr-footer sphx-glr-footer-example
+
+
 
 
     .. container:: sphx-glr-download sphx-glr-download-python

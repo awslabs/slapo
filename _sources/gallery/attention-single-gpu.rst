@@ -10,7 +10,7 @@
     .. note::
         :class: sphx-glr-download-link-note
 
-        Click :ref:`here <sphx_glr_download_gallery_attention-single-gpu.py>`
+        :ref:`Go to the end <sphx_glr_download_gallery_attention-single-gpu.py>`
         to download the full example code
 
 .. rst-class:: sphx-glr-example-title
@@ -863,7 +863,7 @@ keep the module hierarchy, which greatly enhances the readability and debuggabil
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** ( 0 minutes  0.121 seconds)
+   **Total running time of the script:** ( 0 minutes  0.164 seconds)
 
 
 .. _sphx_glr_download_gallery_attention-single-gpu.py:
@@ -871,6 +871,8 @@ keep the module hierarchy, which greatly enhances the readability and debuggabil
 .. only:: html
 
   .. container:: sphx-glr-footer sphx-glr-footer-example
+
+
 
 
     .. container:: sphx-glr-download sphx-glr-download-python

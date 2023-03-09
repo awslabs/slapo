@@ -10,7 +10,7 @@
     .. note::
         :class: sphx-glr-download-link-note
 
-        Click :ref:`here <sphx_glr_download_gallery_mlp-multi-gpu.py>`
+        :ref:`Go to the end <sphx_glr_download_gallery_mlp-multi-gpu.py>`
         to download the full example code
 
 .. rst-class:: sphx-glr-example-title
@@ -403,7 +403,7 @@ Finally, we can build the optimized model by calling ``.build()``.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** ( 0 minutes  0.078 seconds)
+   **Total running time of the script:** ( 0 minutes  0.103 seconds)
 
 
 .. _sphx_glr_download_gallery_mlp-multi-gpu.py:
@@ -411,6 +411,8 @@ Finally, we can build the optimized model by calling ``.build()``.
 .. only:: html
 
   .. container:: sphx-glr-footer sphx-glr-footer-example
+
+
 
 
     .. container:: sphx-glr-download sphx-glr-download-python

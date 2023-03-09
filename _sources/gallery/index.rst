@@ -14,12 +14,12 @@ Gallery
 
 .. raw:: html
 
-    <div class="sphx-glr-thumbcontainer" tooltip="This guide walks through the key functionality of Slapo. We will use the BERT model in `Hugging...">
+    <div class="sphx-glr-thumbcontainer" tooltip="This guide walks through the key functionality of Slapo. We will use the BERT model in HuggingF...">
 
 .. only:: html
 
   .. image:: /gallery/images/thumb/sphx_glr_quick-start_thumb.png
-    :alt: Quick Start
+    :alt:
 
   :ref:`sphx_glr_gallery_quick-start.py`
 
@@ -36,7 +36,7 @@ Gallery
 .. only:: html
 
   .. image:: /gallery/images/thumb/sphx_glr_mlp-multi-gpu_thumb.png
-    :alt: Optimize MLP Module on Multi-Device
+    :alt:
 
   :ref:`sphx_glr_gallery_mlp-multi-gpu.py`
 
@@ -48,12 +48,12 @@ Gallery
 
 .. raw:: html
 
-    <div class="sphx-glr-thumbcontainer" tooltip="This guide uses the `Attention &lt;https://arxiv.org/abs/1706.03762&gt;`_ module, the core and most t...">
+    <div class="sphx-glr-thumbcontainer" tooltip="This guide uses the Attention module, the core and most time-consuming module in Transformer-ba...">
 
 .. only:: html
 
   .. image:: /gallery/images/thumb/sphx_glr_attention-single-gpu_thumb.png
-    :alt: Optimize Attention Module on A Single Device
+    :alt:
 
   :ref:`sphx_glr_gallery_attention-single-gpu.py`
 
@@ -74,7 +74,6 @@ Gallery
    /gallery/quick-start
    /gallery/mlp-multi-gpu
    /gallery/attention-single-gpu
-
 
 
 .. only:: html

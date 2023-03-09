@@ -408,7 +408,7 @@ def annotate_layernorm_and_bias(sch):
         if isinstance(sub_sch.mod, nn.LayerNorm):
             for name, _ in sub_sch.mod.named_parameters(recurse=False):
                 sub_sch.annotate(name, "replicated_param", True)
-        if isinstance(sub_sch.mod, LinearWithSyncFunc):
+        if issubclass(sub_sch.mod.__class__, LinearWithSyncFunc):
             sub_sch.annotate("bias", "replicated_param", True)
         annotate_layernorm_and_bias(sub_sch)
 

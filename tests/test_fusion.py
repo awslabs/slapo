@@ -78,6 +78,43 @@ def test_vertical_fusion():
     torch.testing.assert_close(out, out_ref)
 
 
+def test_fallback_fusion():
+    class Model(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.conv = nn.Conv2d(3, 32, 3)
+            self.relu = nn.ReLU()
+
+        def forward(self, x):
+            x = self.conv(x)
+            x = self.relu(x)
+            x = x + 1
+            return x
+
+    mod = Model().cuda()
+    sch = slapo.create_schedule(copy.deepcopy(mod))
+
+    def pattern(x: torch.Tensor):
+        x = call_module("conv", x)
+        x = F.relu(x)
+        return x
+
+    subgraph = sch.find(pattern)
+    assert len(subgraph[0]) == 2
+    sch.fuse(subgraph, name="FusedConvReLU")
+    assert sch.mod.FusedConvReLU_0.__class__.__name__ == "FusedConvReLU"
+    assert isinstance(getattr(sch.mod.FusedConvReLU_0, "0"), nn.Conv2d)
+    assert isinstance(getattr(sch.mod.FusedConvReLU_0, "1"), nn.ReLU)
+
+    sch_model, _ = slapo.build(sch, init_weights=False)
+    print(sch_model)
+
+    inp = torch.randn((1, 3, 32, 32), requires_grad=True).cuda()
+    out = sch_model(inp)
+    out_ref = mod(inp)
+    torch.testing.assert_close(out, out_ref)
+
+
 def test_bias_gelu():
     class Model(nn.Module):
         def __init__(self):

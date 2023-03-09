@@ -3,6 +3,7 @@
 """Fusion related primitives."""
 # pylint: disable=arguments-differ
 
+import types
 import torch
 from torch import nn
 
@@ -19,7 +20,7 @@ class FusePrimitive(Primitive):
     ----------
     subgraph : List[List[torch.fx.Node]]
         The subgraph to be fused.
-    compiler : str
+    compiler : Union[None, str]
         The backend compiler to be used. Currently only support "TorchScript".
     name : str
         The name of the fused module.
@@ -30,16 +31,25 @@ class FusePrimitive(Primitive):
         return "fuse"
 
     @staticmethod
-    def apply(sch, subgraph, compiler="TorchScript", name="FusedModule"):
-        assert (
-            compiler == "TorchScript"
-        ), "Only support TorchScript as the backend compiler for now"
+    def apply(sch, subgraph, compiler=None, name="FusedModule"):
         assert (
             len(subgraph) == 1 and len(subgraph[0]) > 1
         ), f"Only vertical fusion is supported. Got subgraph: {subgraph}"
-        new_gm = sch._construct_fx_graph(subgraph[0])
-        new_mod = torch.jit.script(new_gm)
-        sch.replace(new_mod, subgraph, name)
+        if compiler is None:
+            mod_list = []
+            for _, node in subgraph[0]:
+                mod_list.append(sch.get_module(node.target))
+            fused_class = types.new_class(name, (nn.Sequential,))
+            fused_mod = fused_class(*mod_list)
+            sch.replace(fused_mod, subgraph, name)
+        elif compiler == "TorchScript":
+            new_gm = sch._construct_fx_graph(subgraph[0])
+            new_mod = torch.jit.script(new_gm)
+            sch.replace(new_mod, subgraph, name)
+        else:
+            raise ValueError(
+                f"Unsupported compiler: {compiler}. Only support TorchScript as the backend compiler for now"
+            )
 
 
 @register_primitive()

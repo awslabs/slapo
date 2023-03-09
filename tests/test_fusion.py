@@ -101,7 +101,7 @@ def test_fallback_fusion():
 
     subgraph = sch.find(pattern)
     assert len(subgraph[0]) == 2
-    sch.fuse(subgraph, name="FusedConvReLU")
+    sch.fuse(subgraph, compiler=None, name="FusedConvReLU")
     assert sch.mod.FusedConvReLU_0.__class__.__name__ == "FusedConvReLU"
     assert isinstance(getattr(sch.mod.FusedConvReLU_0, "0"), nn.Conv2d)
     assert isinstance(getattr(sch.mod.FusedConvReLU_0, "1"), nn.ReLU)

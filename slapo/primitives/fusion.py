@@ -31,21 +31,21 @@ class FusePrimitive(Primitive):
         return "fuse"
 
     @staticmethod
-    def apply(sch, subgraph, compiler=None, name="FusedModule"):
+    def apply(sch, subgraph, compiler="TorchScript", name="FusedModule"):
         assert (
             len(subgraph) == 1 and len(subgraph[0]) > 1
         ), f"Only vertical fusion is supported. Got subgraph: {subgraph}"
-        if compiler is None:
+        if compiler == "TorchScript":
+            new_gm = sch._construct_fx_graph(subgraph[0])
+            new_mod = torch.jit.script(new_gm)
+            sch.replace(new_mod, subgraph, name)
+        elif compiler is None:
             mod_list = []
             for _, node in subgraph[0]:
                 mod_list.append(sch.get_module(node.target))
             fused_class = types.new_class(name, (nn.Sequential,))
             fused_mod = fused_class(*mod_list)
             sch.replace(fused_mod, subgraph, name)
-        elif compiler == "TorchScript":
-            new_gm = sch._construct_fx_graph(subgraph[0])
-            new_mod = torch.jit.script(new_gm)
-            sch.replace(new_mod, subgraph, name)
         else:
             raise ValueError(
                 f"Unsupported compiler: {compiler}. Only support TorchScript as the backend compiler for now"

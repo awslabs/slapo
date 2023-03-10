@@ -176,20 +176,19 @@ def train(args):
     report_memory(msg="After building model")
 
     def getitem_fn(entry):
-        input_ids = torch.tensor(entry["input_ids"], dtype=torch.long)
         ret = [
-            input_ids,
-            torch.tensor(entry["attention_mask"], dtype=torch.float16),
+            entry["input_ids"],
+            entry["attention_mask"],
             # token_type_ids
-            torch.ones_like(input_ids, dtype=torch.long),
-            torch.tensor(entry["labels"], dtype=torch.long),
+            torch.ones_like(torch.tensor(entry["input_ids"]), dtype=torch.long),
+            entry["labels"],
         ]
         return ret
 
     def collate_fn(batch, enable_pipeline=False):
         input_ids = torch.tensor([x[0] for x in batch], dtype=torch.long)
         attention_mask = torch.tensor([x[1] for x in batch], dtype=torch.float16)
-        token_type_ids = torch.tensor([x[2] for x in batch], dtype=torch.long)
+        token_type_ids = torch.stack([x[2] for x in batch])
         labels = torch.tensor([x[3] for x in batch], dtype=torch.long)
 
         ret = [input_ids, attention_mask, token_type_ids, labels]

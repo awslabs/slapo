@@ -36,7 +36,12 @@ def get_dataloader(
         dataset_name.split("-")[0], dataset_name, cache_dir=cache_dir
     )
 
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    if "bert" in model_name:
+        tokenizer = AutoTokenizer.from_pretrained("bert-large-uncased")
+    if "gpt" in model_name:
+        tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-neo-1.3B")
+    else:
+        tokenizer = AutoTokenizer.from_pretrained(model_name)
 
     train, val = preprocessing_datasets(
         raw_dataset, tokenizer, model_name, max_seq_length

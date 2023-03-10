@@ -31,7 +31,7 @@ def parse_log(impl, log_file):
     ("wideresnet-250M", "slapo-megatron", "1", "48", "512", "0.34"),
     ("wideresnet-250M", "slapo-deepspeed", "4", "256", "512", "0.67"),
     ("bert-large-uncased", "slapo-megatron", "2", "10", "512", "0"),
-    ("bert-large-uncased", "slapo-deepspeed", "2", "24", "512", "0"),
+    ("bert-large-uncased", "slapo-deepspeed", "2", "12", "512", "0"),
     ("EleutherAI/gpt-neo-125M", "slapo-megatron", "2", "1", "512", "1.0"),
     ("t5-base", "slapo-megatron", "4", "8", "1024", "0.67"),
 ])

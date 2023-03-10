@@ -149,8 +149,13 @@ def train(args):
         lm_loss = lm_loss.contiguous().mean()
         return lm_loss
 
+    # After scheduling, we check again whether the pipeline is really enabled.
+    # If users specified to enable pipeline but the number of pipeline stage is 1,
+    # then we set enable_pipeline=False for the rest process to propertly setup
+    # DeepSpeed config and runtime engine.
+    enable_pipeline = enable_pipeline and pipeline_cuts
+
     if enable_pipeline:
-        # FIXME: is mbs=1 correct?
         batch_size = 16 if batch_size is None else batch_size
         micro_batch_size = 4 if micro_batch_size is None else micro_batch_size
         zero_opt_stage = 0
@@ -208,12 +213,38 @@ def train(args):
         always_enable_tp_seed=args.sequence_parallel,
     )
 
-    # for now always use seq_length 1024
-    # TODO: make the dataloader generic to different sequence length
+    def getitem_fn(entry):
+        ret = [
+            entry["input_ids"],
+            entry["attention_mask"],
+            # position_ids
+            torch.arange(len(entry["input_ids"])),
+            entry["labels"],
+        ]
+        return ret
+
+    def collate_fn(batch, enable_pipeline=True):
+        input_ids = torch.tensor([x[0] for x in batch], dtype=torch.long)
+        attention_mask = torch.tensor([x[1] for x in batch], dtype=torch.float16)
+        position_ids = torch.stack([x[2] for x in batch])
+        labels = torch.tensor([x[3] for x in batch], dtype=torch.long)
+
+        ret = [input_ids, attention_mask, position_ids, labels]
+        if not enable_pipeline:
+            # insert None in second and fourth position
+            ret.insert(1, None)  # past_key_values
+            ret.insert(3, None)  # token_type_ids
+
+        # group first inputs
+        return [ret[:-1], ret[-1]]
+
     train_loader, _ = get_dataloader(
         args.model_name,
+        "wikitext-103-v1",
         micro_batch_size,
         enable_pipeline,
+        collate_fn=collate_fn,
+        getitem_fn=getitem_fn,
         mpu=model.mpu,
         max_seq_length=args.seq_len,
     )

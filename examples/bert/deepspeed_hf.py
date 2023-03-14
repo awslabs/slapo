@@ -22,6 +22,7 @@ from examples.utils import (
     create_dist_group_for_pipeline,
     generate_pipeline_cuts,
 )
+from examples.data_util import get_dataloader
 
 SINGLE_DEVICE_FOR_DEBUG = False
 
@@ -58,8 +59,9 @@ def train(args):
         deepspeed.init_distributed(dist_backend="nccl")
         logger.info("Use deepspeed to initialize", ranks=0)
         if enable_pipeline:
-            num_pp, num_mp = 4, 2  # For single node testing.
-            # num_pp, num_mp = 2, 8
+            # num_pp, num_mp = 4, 2 # For single node testing.
+            num_pp = args.pmp
+            num_mp = args.tmp
         else:
             logger.info("Pipeline disabled", ranks=0)
         topology, group = create_dist_group_for_pipeline(num_pp, num_mp)
@@ -106,6 +108,8 @@ def train(args):
             attn_op_name=args.attn_op_name,
             ckpt_ratio=args.checkpoint,
             bcast_input=True,
+            fp16=args.fp16,
+            bf16=args.bf16,
             group=group,
             pipeline_cuts=pipeline_cuts,
             delay_init=enable_pipeline,
@@ -114,21 +118,28 @@ def train(args):
         slapo.build(sch, init_weights=model._init_weights)
         assert False
 
+    loss_fct = ParallelCrossEntropy(group=group)
+
+    def loss_fn(outputs, labels):
+        prediction_scores = outputs
+        shifted_prediction_scores = prediction_scores[..., :-1, :].contiguous()
+        labels = labels[..., 1:].contiguous()
+        lm_loss = loss_fct(shifted_prediction_scores, labels)
+        lm_loss = lm_loss.contiguous().mean()
+        return lm_loss
+
     if enable_pipeline:
         batch_size = 32 if batch_size is None else batch_size
         micro_batch_size = 8 if micro_batch_size is None else micro_batch_size
+        zero_opt_stage = 0
         ds_config_dict = get_ds_config(
-            batch_size, micro_batch_size, True, 0, "Pipeline"
+            batch_size,
+            micro_batch_size,
+            args.fp16,
+            zero_opt_stage,
+            "Pipeline",
+            args.bf16,
         )
-        loss_fct = ParallelCrossEntropy(group=group)
-
-        def loss_fn(outputs, labels):
-            prediction_scores = outputs
-            shifted_prediction_scores = prediction_scores[:, :-1, :].contiguous()
-            labels = labels[:, 1:].contiguous()
-            lm_loss = loss_fct(shifted_prediction_scores, labels)
-            lm_loss = lm_loss.contiguous().mean()
-            return lm_loss
 
         model, _ = slapo.build(
             sch,
@@ -144,8 +155,16 @@ def train(args):
         if batch_size is None and micro_batch_size is not None:
             batch_size = micro_batch_size * args.world_size
 
+        zero_opt_stage = 3 if args.tmp == 1 else 0
         logger.info(f"BS={batch_size}, MBS={micro_batch_size}", ranks=0)
-        ds_config_dict = get_ds_config(batch_size, micro_batch_size, True, 3, "ZeRO-3")
+        ds_config_dict = get_ds_config(
+            batch_size,
+            micro_batch_size,
+            args.fp16,
+            zero_opt_stage,
+            f"ZeRO-{zero_opt_stage}",
+            args.bf16,
+        )
         model, _ = slapo.build(
             sch,
             topology=topology,
@@ -156,56 +175,53 @@ def train(args):
         model = model.to(device)
     report_memory(msg="After building model")
 
-    seq_length = args.seq_len
-    input_ids = torch.ones(
-        micro_batch_size, seq_length, dtype=torch.long, device=device
-    )
-    logger.info(f"mbs={micro_batch_size}", ranks=[0])
-    bert_input_dict = {
-        "input_ids": input_ids,
-        "attention_mask": torch.ones(
-            micro_batch_size,
-            seq_length,
-            dtype=torch.float16,
-            device=device,
-            requires_grad=False,
-        ),
-        "token_type_ids": torch.ones(
-            micro_batch_size, seq_length, dtype=torch.long, device=device
-        ),
-        "labels": input_ids,
-    }
-
-    loader = RepeatingLoader(
-        [
-            # First batch
-            # (inputs, labels)
-            (
-                (
-                    bert_input_dict["input_ids"],
-                    bert_input_dict["attention_mask"],
-                    bert_input_dict["token_type_ids"],
-                ),
-                bert_input_dict["labels"],
-            ),
-            # Rest of the batches
-            # ...
+    def getitem_fn(entry):
+        ret = [
+            entry["input_ids"],
+            entry["attention_mask"],
+            # token_type_ids
+            torch.ones_like(torch.tensor(entry["input_ids"]), dtype=torch.long),
+            entry["labels"],
         ]
+        return ret
+
+    def collate_fn(batch, enable_pipeline=False):
+        input_ids = torch.tensor([x[0] for x in batch], dtype=torch.long)
+        attention_mask = torch.tensor([x[1] for x in batch], dtype=torch.float16)
+        token_type_ids = torch.stack([x[2] for x in batch])
+        labels = torch.tensor([x[3] for x in batch], dtype=torch.long)
+
+        ret = [input_ids, attention_mask, token_type_ids, labels]
+
+        # group first inputs
+        return [ret[:-1], ret[-1]]
+
+    train_loader, _ = get_dataloader(
+        args.model_name,
+        "wikitext-103-v1",
+        micro_batch_size,
+        enable_pipeline,
+        collate_fn=collate_fn,
+        getitem_fn=getitem_fn,
+        mpu=model.mpu,
+        max_seq_length=args.seq_len,
     )
+
+    loader = RepeatingLoader(train_loader)
 
     num_iters = args.iter_nums
     if enable_pipeline:
         data_iter = iter(loader)
-        for idx in range(num_iters):
-            logger.info(f"start iter {idx}", ranks=0)
+        for _ in range(num_iters):
             model.train_batch(data_iter=data_iter)
-            logger.info(f"end iter {idx}", ranks=0)
-
     else:
+        # use the Parallel Loss
+        loss_fn = None if args.tmp == 1 else loss_fn
         train_with_deepspeed_engine(
             model,
             loader,
             steps=num_iters,
+            loss_fn=loss_fn,
         )
 
 
@@ -284,6 +300,20 @@ if __name__ == "__main__":
     parser.add_argument(
         "--num-attn-heads", type=int, default=-1, help="number of attention heads"
     )
+    parser.add_argument(
+        "--pmp", type=int, default=2, help="Pipeline model parallel size"
+    )
+    parser.add_argument(
+        "--fp16",
+        action="store_true",
+        help="fp16 is enabled. fp16 is enabled by default",
+    )
+    parser.add_argument(
+        "--bf16",
+        action="store_true",
+        help="bf16 is enabled",
+    )
+    parser.add_argument("--tmp", type=int, default=8, help="Tensor parallel size")
     args = parser.parse_args()
     if os.environ.get("LOCAL_RANK"):
         args.local_rank = int(os.environ["LOCAL_RANK"])

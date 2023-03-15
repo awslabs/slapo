@@ -18,6 +18,9 @@ the sub-module during runtime.
 To solve this problem, we provide a custom module ``Print`` in Slapo. This module
 is marked as a leaf in our tracer, which means it will be preserved in the traced
 graph and can be evaluated in runtime.
+
+In this turorial, we will show how to use ``Print`` to print the intermediate
+values of a sub-module.
 """
 # %%
 # We first import the Slapo package. Make sure you have already installed PyTorch.
@@ -27,7 +30,7 @@ import torch.nn as nn
 import slapo
 
 # %%
-# We first define a MLP module that consists of two linear layers and a GELU activation
+# We define a MLP module that consists of two linear layers and a GELU activation
 # as an example in this tutorial. You can notice that we add a ``Print`` module
 # to print the intermediate output of the first Linear layer.
 
@@ -52,14 +55,13 @@ class MLPWithPrint(nn.Module):
 # has to return a tensor, and the returned tensor has to be consumed by the
 # next operator/module, making it a part of the dataflow graph; otherwise
 # `self.print` will be removed by the tracer because it is dead code.
-# Due to this reason, the first argument of `self.print` is an identical tensor.
 # From a dataflow's point of view, you can treat `out = self.print(out, ...)` as
-# an identical assignment (i.e., `out = out`).
+# a statement of identical assignment (i.e., `out = out`).
 
 # Starting from the second argument are the arguments of normal Python `print`.
 # However, you have to make sure the values you printed are evaluated lazily.
 # Specifically, in this example, we specify `out` in the 3rd argument instead of
-# a part of the 2nd argument, so that it will be evaluated in runtime.
+# a part of the string in 2nd argument, so that it will be evaluated in runtime.
 # We will show some incorrect usages of `self.print` in the end of this tutorial.
 
 # %%
@@ -83,7 +85,7 @@ model(data)
 # %%
 # On the other hand, as we have mentioned above, the print won't work properly
 # if the values you want to print are evaluated when tracing. Here is an example
-# that shows the incorrect usage of `self.print`.
+# that shows incorrect usages of `self.print`.
 
 
 class MLPWithWrongPrint(nn.Module):

@@ -19,6 +19,7 @@ from torch.nn import functional as F
 
 import slapo
 from slapo import op
+from slapo.model_schedule.gpt2 import gen_embedding_hooks
 
 from .utils import reset_random_seeds
 
@@ -446,6 +447,54 @@ def test_conv(init_dist):
 
         torch.testing.assert_close(out, out_ref)
         torch.testing.assert_allclose(data_grad, data.grad)
+        verify_grads(model, path_and_grads)
+
+
+def test_word_embedding(init_dist):
+    """Test whether sharding embedding using custom hooks is numerically correct."""
+    vocab_size = 100
+
+    class Model(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.embedding = nn.Embedding(vocab_size, 10)  # vocab_size, hidden_size
+
+        def forward(self, x):
+            return self.embedding(x)
+
+    rank = dist.get_rank()
+    local_rank = int(os.environ["LOCAL_RANK"])
+    torch.cuda.set_device(local_rank)
+    model = Model()
+
+    sch = slapo.create_schedule(copy.deepcopy(model))
+    sch["embedding"].shard("weight", axis=0)
+    fwd_pre_hook, fwd_post_hook = gen_embedding_hooks(sch, vocab_size)
+    sch["embedding"].sync(mode="fwd_pre", sync_op_or_fn=fwd_pre_hook)
+    sch["embedding"].sync(mode="fwd_post", sync_op_or_fn=fwd_post_hook)
+    sch_model, _ = slapo.build(sch, init_weights=False)
+
+    sch_model.cuda(local_rank)
+    data = torch.randint(1, vocab_size - 1, (1, 10)).cuda(local_rank)
+    dist.broadcast(data, src=0)
+    reset_random_seeds()
+    out = sch_model(data)
+    out.mean().backward()
+
+    param_path_and_gather_axis = {
+        "embedding.weight": 0,
+    }
+    path_and_grads = gather_grad(sch_model, param_path_and_gather_axis)
+
+    gather_and_copy_model(sch_model, model, param_path_and_gather_axis)
+
+    reset_random_seeds()
+    if rank == 0:
+        model.cuda(local_rank)
+        out_ref = model(data)
+        out_ref.mean().backward()
+
+        torch.testing.assert_close(out, out_ref)
         verify_grads(model, path_and_grads)
 
 

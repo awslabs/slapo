@@ -348,9 +348,8 @@ def gen_embedding_hooks(sch, vocab_size):
         return masked_input
 
     def fwd_post_hook(_module, _input, output):
-        # Mask the output embedding
-        input_mask = (_input[0] < vocab_start_index) | (_input[0] >= vocab_end_index)
-        output[input_mask, :] = 0.0
+        # Mask the output embedding. Note that the input is already masked.
+        output[_input[0] == 0, :] = 0.0
         # Reduce across all the model parallel GPUs
         output = reduce_forward_output(output, sch.group)
         return output

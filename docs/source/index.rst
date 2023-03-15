@@ -38,6 +38,7 @@ Slapo is a schedule language for progressive optimization of large model trainin
 
    gallery/attention-single-gpu
    gallery/mlp-multi-gpu
+   gallery/debug-print
 
 .. toctree::
    :maxdepth: 1

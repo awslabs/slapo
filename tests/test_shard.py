@@ -478,8 +478,6 @@ def test_word_embedding(init_dist):
     data = torch.randint(1, vocab_size - 1, (1, 10)).cuda(local_rank)
     dist.broadcast(data, src=0)
     reset_random_seeds()
-    if rank == 0:
-        print(f"data {data}")
     out = sch_model(data)
     out.mean().backward()
 

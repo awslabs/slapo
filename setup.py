@@ -67,18 +67,18 @@ def get_version():
             cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=ROOT_DIR
         )
         (out, _) = proc.communicate()
+        msg = py_str(out)
         retcode = proc.returncode
     except Exception as err:
-        out = str(err)
+        msg = str(err)
         retcode = -1
 
     if retcode != 0:
-        msg = py_str(out)
         if msg.find("not a git repository") != -1:
             return curr_version, curr_version
         print("WARNING: git describe: %s, use %s", msg, curr_version)
         return curr_version, curr_version
-    describe = py_str(out).strip()
+    describe = msg.strip()
     arr_info = describe.split("-")
 
     # Remove the v prefix, mainly to be robust

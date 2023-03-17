@@ -62,12 +62,17 @@ def get_version():
         "--match",
         "v[0-9]*.[0-9]*.dev[0-9]*",
     ]
-    proc = subprocess.Popen(
-        cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=ROOT_DIR
-    )
-    (out, _) = proc.communicate()
+    try:
+        proc = subprocess.Popen(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=ROOT_DIR
+        )
+        (out, _) = proc.communicate()
+        retcode = proc.returncode
+    except Exception as err:
+        out = str(err)
+        retcode = -1
 
-    if proc.returncode != 0:
+    if retcode != 0:
         msg = py_str(out)
         if msg.find("not a git repository") != -1:
             return curr_version, curr_version

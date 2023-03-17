@@ -212,11 +212,11 @@ def test_print(capfd):
     class Model(torch.nn.Module):
         def __init__(self):
             super().__init__()
-            self.lienar = torch.nn.Linear(5, 5)
+            self.linear = torch.nn.Linear(5, 5)
             self.print = op.Print()
 
         def forward(self, x):
-            out = self.lienar(x) + x
+            out = self.linear(x) + x
             out = self.print(out, f"{out}")  # print "Proxy(out)"
             out = self.print(out, "out-shape", out.shape)  # print output shape
             return out

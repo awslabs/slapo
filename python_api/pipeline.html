@@ -359,7 +359,7 @@ share the same memory) partitioned into different pipeline stages.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>top_mod</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch v1.13)"><em>torch.nn.Module</em></a>) – The top-level module. This should be a top pipeline module, so
+<li><p><strong>top_mod</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch v2.0)"><em>torch.nn.Module</em></a>) – The top-level module. This should be a top pipeline module, so
 1) it should already be traced and partitioned, and
 2) it should have a number of submodules that matches pipeline stages.</p></li>
 <li><p><strong>is_pipeline_partitioned</strong> (<em>bool</em>) – Whether the module is partitioned for pipeline or not. If not,

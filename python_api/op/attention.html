@@ -398,16 +398,16 @@ Source: <a class="github reference external" href="https://github.com/jfc4050/fl
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>q</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.13)"><em>torch.Tensor</em></a>) – Shape: (batch_size, seqlen_q, nheads, head_dim)</p></li>
-<li><p><strong>k</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.13)"><em>torch.Tensor</em></a>) – Shape: (batch_size, seqlen_k, nheads, head_dim)</p></li>
-<li><p><strong>v</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.13)"><em>torch.Tensor</em></a>) – Shape: (batch_size, seqlen_k, nheads, head_dim)</p></li>
-<li><p><strong>bias</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.13)"><em>torch.Tensor</em></a><em>]</em>) – Shape: (batch_size, nheads, seqlen_q, seqlen_k)</p></li>
+<li><p><strong>q</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>torch.Tensor</em></a>) – Shape: (batch_size, seqlen_q, nheads, head_dim)</p></li>
+<li><p><strong>k</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>torch.Tensor</em></a>) – Shape: (batch_size, seqlen_k, nheads, head_dim)</p></li>
+<li><p><strong>v</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>torch.Tensor</em></a>) – Shape: (batch_size, seqlen_k, nheads, head_dim)</p></li>
+<li><p><strong>bias</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>torch.Tensor</em></a><em>]</em>) – Shape: (batch_size, nheads, seqlen_q, seqlen_k)</p></li>
 <li><p><strong>causal</strong> (<em>bool</em>) – Whether to apply lower triangular causal mask.</p></li>
 <li><p><strong>dropout_p</strong> (<em>float</em>) – The dropout probability.</p></li>
 <li><p><strong>softmax_scale</strong> (<em>Optional</em><em>[</em><em>float</em><em>]</em>) – The softmax scale. If None, use 1 / sqrt(d).</p></li>
-<li><p><strong>query_padding_mask</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.13)"><em>torch.Tensor</em></a><em>]</em>) – Shape: (batch_size, seqlen_q)</p></li>
-<li><p><strong>key_padding_mask</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.13)"><em>torch.Tensor</em></a><em>]</em>) – (batch_size, seqlen_k)</p></li>
-<li><p><strong>dropout_mask</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.13)"><em>torch.Tensor</em></a><em>]</em>) – The dropout mask. Shape: (batch_size, nheads, seqlen_q, seqlen_k)</p></li>
+<li><p><strong>query_padding_mask</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>torch.Tensor</em></a><em>]</em>) – Shape: (batch_size, seqlen_q)</p></li>
+<li><p><strong>key_padding_mask</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>torch.Tensor</em></a><em>]</em>) – (batch_size, seqlen_k)</p></li>
+<li><p><strong>dropout_mask</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>torch.Tensor</em></a><em>]</em>) – The dropout mask. Shape: (batch_size, nheads, seqlen_q, seqlen_k)</p></li>
 <li><p><strong>upcast</strong> (<em>bool</em>) – Whether to cast all inputs to fp32, do all computation in fp32, then cast
 output back to fp16/bf16.</p></li>
 <li><p><strong>reorder_ops</strong> (<em>bool</em>) – whether to change the order of operations (scaling k instead of scaling k, etc.)
@@ -419,7 +419,7 @@ operation reordering.</p></li>
 <dd class="field-even"><p>Shape: (batch_size, seqlen_q, nheads, head_dim)</p>
 </dd>
 <dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.13)">torch.Tensor</a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)">torch.Tensor</a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -433,10 +433,10 @@ of the xformers implementation.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>q</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.13)"><em>torch.Tensor</em></a>) – Shape: (batch_size, seqlen_q, nheads, head_dim)</p></li>
-<li><p><strong>k</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.13)"><em>torch.Tensor</em></a>) – Shape: (batch_size, seqlen_k, nheads, head_dim)</p></li>
-<li><p><strong>v</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.13)"><em>torch.Tensor</em></a>) – Shape: (batch_size, seqlen_k, nheads, head_dim)</p></li>
-<li><p><strong>attn_bias</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.13)"><em>torch.Tensor</em></a><em>]</em>) – Shape: (batch_size, nheads, seqlen_q, seqlen_k)</p></li>
+<li><p><strong>q</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>torch.Tensor</em></a>) – Shape: (batch_size, seqlen_q, nheads, head_dim)</p></li>
+<li><p><strong>k</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>torch.Tensor</em></a>) – Shape: (batch_size, seqlen_k, nheads, head_dim)</p></li>
+<li><p><strong>v</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>torch.Tensor</em></a>) – Shape: (batch_size, seqlen_k, nheads, head_dim)</p></li>
+<li><p><strong>attn_bias</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>torch.Tensor</em></a><em>]</em>) – Shape: (batch_size, nheads, seqlen_q, seqlen_k)</p></li>
 <li><p><strong>p</strong> (<em>float</em>) – The dropout probability.</p></li>
 <li><p><strong>scale</strong> (<em>Optional</em><em>[</em><em>float</em><em>]</em>) – The softmax scale. If None, use 1 / sqrt(d).</p></li>
 </ul>
@@ -445,7 +445,7 @@ of the xformers implementation.</p>
 <dd class="field-even"><p>Shape: (batch_size, seqlen_q, nheads, head_dim)</p>
 </dd>
 <dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.13)">torch.Tensor</a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)">torch.Tensor</a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -571,7 +571,7 @@ documetned as follows:</p>
 <dd><p>Copy from transpose_for_scores but without the transpose</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>x</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.13)"><em>torch.Tensor</em></a>) – </p>
+<dd class="field-odd"><p><strong>x</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>torch.Tensor</em></a>) – </p>
 </dd>
 </dl>
 </dd></dl>
@@ -593,16 +593,16 @@ registered hooks while the latter silently ignores them.</p>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>hidden_states</strong> (<em>Optional</em><em>[</em><em>tuple</em><em>[</em><em>torch.FloatTensor</em><em>]</em><em>]</em>) – </p></li>
 <li><p><strong>attention_mask</strong> (<em>Optional</em><em>[</em><em>torch.FloatTensor</em><em>]</em>) – </p></li>
-<li><p><strong>layer_past</strong> (<em>Optional</em><em>[</em><em>tuple</em><em>[</em><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.13)"><em>torch.Tensor</em></a><em>]</em><em>]</em>) – </p></li>
+<li><p><strong>layer_past</strong> (<em>Optional</em><em>[</em><em>tuple</em><em>[</em><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>torch.Tensor</em></a><em>]</em><em>]</em>) – </p></li>
 <li><p><strong>head_mask</strong> (<em>Optional</em><em>[</em><em>torch.FloatTensor</em><em>]</em>) – </p></li>
-<li><p><strong>encoder_hidden_states</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.13)"><em>torch.Tensor</em></a><em>]</em>) – </p></li>
+<li><p><strong>encoder_hidden_states</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>torch.Tensor</em></a><em>]</em>) – </p></li>
 <li><p><strong>encoder_attention_mask</strong> (<em>Optional</em><em>[</em><em>torch.FloatTensor</em><em>]</em>) – </p></li>
 <li><p><strong>use_cache</strong> (<em>Optional</em><em>[</em><em>bool</em><em>]</em>) – </p></li>
 <li><p><strong>output_attentions</strong> (<em>Optional</em><em>[</em><em>bool</em><em>]</em>) – </p></li>
 </ul>
 </dd>
 <dt class="field-even">Return type</dt>
-<dd class="field-even"><p>tuple[<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v1.13)">torch.Tensor</a>]</p>
+<dd class="field-even"><p>tuple[<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)">torch.Tensor</a>]</p>
 </dd>
 </dl>
 </dd></dl>

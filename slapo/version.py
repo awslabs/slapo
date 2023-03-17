@@ -6,4 +6,4 @@ This file should not be changed manually. The steps of bumping a version are:
 2. Run git fetch --tags to fetch the new tag.
 3. Run python update_version.py to update the version information in this file.
 """
-__version__ = "0.0.1.dev0"
+__version__ = "0.0.2.dev0"

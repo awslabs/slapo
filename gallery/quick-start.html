@@ -138,6 +138,7 @@
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="attention-single-gpu.html">Optimize Attention Module on A Single Device</a></li>
 <li class="toctree-l1"><a class="reference internal" href="mlp-multi-gpu.html">Optimize MLP Module on Multi-Device</a></li>
+<li class="toctree-l1"><a class="reference internal" href="debug-print.html">Debugging with Print</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Reference</span></p>
 <ul class="nav bd-sidenav">
@@ -371,7 +372,7 @@ We will use the BERT model in <a class="reference external" href="https://github
 </pre></div>
 </div>
 <div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Downloading (…)lve/main/config.json:   0%|          | 0.00/571 [00:00&lt;?, ?B/s]
-Downloading (…)lve/main/config.json: 100%|##########| 571/571 [00:00&lt;00:00, 108kB/s]
+Downloading (…)lve/main/config.json: 100%|##########| 571/571 [00:00&lt;00:00, 113kB/s]
 BertLMHeadModel(
   (bert): BertModel(
     (embeddings): BertEmbeddings(
@@ -1014,7 +1015,7 @@ PyTorch training loop as usual.</p>
             <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;step </span><span class="si">{</span><span class="n">step</span><span class="si">}</span><span class="s2"> loss: </span><span class="si">{</span><span class="n">loss</span><span class="o">.</span><span class="n">item</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
-<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> ( 0 minutes  9.774 seconds)</p>
+<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> ( 0 minutes  8.868 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-gallery-quick-start-py">
 <div class="sphx-glr-download sphx-glr-download-python docutils container">
 <p><a class="reference download internal" download="" href="../_downloads/02a1305de2ffa9a1ed991794ae6d8504/quick-start.py"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Python</span> <span class="pre">source</span> <span class="pre">code:</span> <span class="pre">quick-start.py</span></code></a></p>

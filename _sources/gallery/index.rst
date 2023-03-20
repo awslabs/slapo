@@ -48,6 +48,23 @@ Gallery
 
 .. raw:: html
 
+    <div class="sphx-glr-thumbcontainer" tooltip="Although Slapo only traces a sub-module when we have to schedule its computational graph, it is...">
+
+.. only:: html
+
+  .. image:: /gallery/images/thumb/sphx_glr_debug-print_thumb.png
+    :alt:
+
+  :ref:`sphx_glr_gallery_debug-print.py`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Debugging with Print</div>
+    </div>
+
+
+.. raw:: html
+
     <div class="sphx-glr-thumbcontainer" tooltip="This guide uses the Attention module, the core and most time-consuming module in Transformer-ba...">
 
 .. only:: html
@@ -73,6 +90,7 @@ Gallery
 
    /gallery/quick-start
    /gallery/mlp-multi-gpu
+   /gallery/debug-print
    /gallery/attention-single-gpu
 
 

@@ -7,6 +7,7 @@ some custom ops are for tensor parallelism.
 import pytest
 import torch
 
+import slapo
 from slapo import op
 
 from .utils import reset_random_seeds
@@ -205,6 +206,33 @@ def test_fused_mlp(act_fn, shape):
 
     torch.testing.assert_close(out, out_ref, atol=5e-2, rtol=5e-2)
     torch.testing.assert_close(grad, grad_ref, atol=5e-2, rtol=5e-2)
+
+
+def test_print(capfd):
+    class Model(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.linear = torch.nn.Linear(5, 5)
+            self.print = op.Print()
+
+        def forward(self, x):
+            out = self.linear(x) + x
+            out = self.print(out, f"{out}")  # print "Proxy(out)"
+            out = self.print(out, "out-shape", out.shape)  # print output shape
+            return out
+
+    model = Model()
+    sch = slapo.create_schedule(model)
+    sch.trace()
+    assert "self.print" in str(sch.mod.code)
+
+    model, _ = slapo.build(sch, init_weights=False)
+    model = model.cuda()
+    data = torch.randn((5, 5), device="cuda")
+    model(data)
+    out, _ = capfd.readouterr()
+    assert "Proxy(add)" in out
+    assert "torch.Size" in out
 
 
 if __name__ == "__main__":

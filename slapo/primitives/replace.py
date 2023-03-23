@@ -280,3 +280,30 @@ class ReplacePrimitive(Primitive):
                         sch,
                         sch.group,
                     )
+
+
+@register_primitive()
+class ReplaceAllPrimitive(Primitive):
+    """Replace all the specified submodules with the new module.
+
+    Parameters
+    ----------
+    sch : Schedule
+        The schedule with the module/function to be replaced.
+    target_mod_type : Type
+        A target nn.Module type to be replaced.
+    new_mod : nn.Module
+        The new module to replace the target module.
+    """
+
+    @staticmethod
+    def name():
+        return "replace_all"
+
+    @staticmethod
+    def apply(sch, target_mod_type, new_mod):
+        module_names = dict(sch.mod.named_modules()).keys()
+        for name in module_names:
+            subsch = sch[name]
+            if isinstance(subsch.mod, target_mod_type):
+                subsch.replace(new_mod)

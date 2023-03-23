@@ -292,8 +292,8 @@ class ReplaceAllPrimitive(Primitive):
         The schedule with the module/function to be replaced.
     target_mod_type : Type
         A target nn.Module type to be replaced.
-    new_mod : nn.Module
-        The new module to replace the target module.
+    make_mod_fn : FunctionType
+        A function that takes the original module and generate a new module.
     """
 
     @staticmethod
@@ -301,9 +301,10 @@ class ReplaceAllPrimitive(Primitive):
         return "replace_all"
 
     @staticmethod
-    def apply(sch, target_mod_type, new_mod):
+    def apply(sch, target_mod_type, make_mod_fn):
         module_names = dict(sch.mod.named_modules()).keys()
         for name in module_names:
             subsch = sch[name]
             if isinstance(subsch.mod, target_mod_type):
+                new_mod = make_mod_fn(name, subsch.mod)
                 subsch.replace(new_mod)

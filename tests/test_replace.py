@@ -64,11 +64,29 @@ def test_replace_all_module():
 
     model = Model()
     sch = slapo.create_schedule(model)
-    new_act = nn.GELU()
-    sch.replace_all(nn.ReLU, new_act)
+
+    def make_gelu(name, mod):
+        return nn.GELU()
+
+    sch.replace_all(nn.ReLU, make_gelu)
     assert isinstance(sch["act1"].mod, nn.GELU)
     assert isinstance(sch["act2"].mod, nn.GELU)
     assert isinstance(sch["submod.activation"].mod, nn.GELU)
+
+    # test giving different shape of parameters
+    def make_linear(name, mod):
+        if name == "fc1":
+            in_feat, out_feat = 1024, 1025
+        elif name == "fc2":
+            in_feat, out_feat = 1025, 1026
+        else:
+            in_feat, out_feat = 1026, 1027
+        return nn.Linear(in_feat, out_feat)
+
+    sch.replace_all(nn.Linear, make_linear)
+    assert sch["fc1"].mod.out_features == 1025
+    assert sch["fc2"].mod.out_features == 1026
+    assert sch["submod.linear"].mod.out_features == 1027
 
 
 def test_vertical_replacement():

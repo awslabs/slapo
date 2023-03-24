@@ -170,6 +170,16 @@ class Schedule:
     def get_module(self, name):
         return dict(self.mod.named_modules())[name]
 
+    def named_schedules(self, prefix: str = ""):
+        r"""Returns an iterator over all subschedules in the current schedule, yielding
+        both the name of the subschedule as well as the subschedule itself.
+        """
+        yield prefix, self
+        for name, subsch in self.child.items():
+            subsch_prefix = prefix + ("." if prefix else "") + name
+            for m in subsch.named_schedules(subsch_prefix):
+                yield m
+
     def _construct_fx_graph(self, subgraph):
         """Construct a new fx.Graph based on the subgraph extracted from the
         original graph. This function should NOT be called directly.

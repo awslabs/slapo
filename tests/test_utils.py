@@ -40,7 +40,7 @@ def test_submodule():
     mod = Model()
     sch = slapo.create_schedule(mod)
     subschs = dict(sch.named_schedules())
-    for name in [
+    for name in {
         "fc1",
         "act1",
         "fc2",
@@ -48,7 +48,7 @@ def test_submodule():
         "submod",
         "submod.linear",
         "submod.activation",
-    ]:
+    }:
         assert name in subschs
 
 

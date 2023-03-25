@@ -16,11 +16,12 @@ PRIMITIVES_NAMES = [cls.__name__ for cls in PRIMITIVES.values()]
 
 
 class verify(ContextDecorator):
-    def __init__(self, example_inputs):
+    def __init__(self, example_inputs, device="cuda"):
         self.example_inputs = example_inputs
         self.original_trace = None
         self.original_mod = None
         self.sch = None
+        self.device = device
 
     def __enter__(self):
         self.original_trace = sys.gettrace()
@@ -52,7 +53,9 @@ class verify(ContextDecorator):
         # Verification
         if self.original_mod is not None:
             assert self.sch is not None
-            new_mod = self.sch.mod
+            new_mod = self.sch.mod.to(self.device)
+            self.example_inputs = [x.to(self.device) for x in self.example_inputs]
+            self.original_mod = self.original_mod.to(self.device)
             original_output = self.original_mod(*self.example_inputs)
             new_output = new_mod(*self.example_inputs)
             torch.testing.assert_close(original_output, new_output)

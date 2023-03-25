@@ -7,6 +7,13 @@ from contextlib import ContextDecorator
 
 import torch
 
+from .logger import get_logger
+from .primitives import PRIMITIVES
+
+
+logger = get_logger()
+PRIMITIVES_NAMES = [cls.__name__ for cls in PRIMITIVES.values()]
+
 
 class verify(ContextDecorator):
     def __init__(self, example_inputs):
@@ -26,17 +33,14 @@ class verify(ContextDecorator):
 
                 if function_name == "apply":
                     for _, value in frame.f_globals.items():
-                        if getattr(value, "__name__", None) == "ReplacePrimitive":
+                        cls_name = getattr(value, "__name__", None)
+                        if cls_name in ("FusePrimitive",):
+                            # TODO: Currently we only support a limited subset of primitives
+                            # for verification, later it will be changed to `PRIMITIVES_NAMES`
                             assert local_sch is not None
                             self.sch = local_sch
                             self.original_mod = copy.deepcopy(self.sch.mod)
-                            print(self.original_mod)
-                            break
-                        if getattr(value, "__name__", None) == "FusePrimitive":
-                            assert local_sch is not None
-                            self.sch = local_sch
-                            self.original_mod = copy.deepcopy(self.sch.mod)
-                            print("Fuse", self.original_mod)
+                            logger.info(f"Verifying {cls_name}...", ranks=0)
                             break
 
             return trace_calls
@@ -49,11 +53,8 @@ class verify(ContextDecorator):
         if self.original_mod is not None:
             assert self.sch is not None
             new_mod = self.sch.mod
-            print("new_mod", new_mod)
-            # original_mod.load_state_dict(new_mod.state_dict())
-            # print("Loaded state dict")
             original_output = self.original_mod(*self.example_inputs)
             new_output = new_mod(*self.example_inputs)
             torch.testing.assert_close(original_output, new_output)
-            print("Passed verification")
+            logger.info("Passed verification!", ranks=0)
         sys.settrace(self.original_trace)

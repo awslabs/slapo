@@ -17,6 +17,8 @@ PRIMITIVES_NAMES = [cls.__name__ for cls in PRIMITIVES.values()]
 
 class verify(ContextDecorator):
     def __init__(self, example_inputs, device="cuda"):
+        if not isinstance(example_inputs, list):
+            example_inputs = [example_inputs]
         self.example_inputs = example_inputs
         self.original_trace = None
         self.original_mod = None

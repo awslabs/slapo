@@ -85,7 +85,38 @@ def test_vertical_fusion():
         sch.fuse(subgraph, compiler="TorchScript", name="FusedReLU")
 
 
+def test_bias_gelu():
+    class Model(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.linear = nn.Linear(1024, 1024)
+            self.gelu = nn.GELU()
+
+        def forward(self, x):
+            x = self.linear(x)
+            x = self.gelu(x)
+            return x
+
+    mod = Model().cuda()
+    sch = slapo.create_schedule(mod)
+
+    sch["linear"].decompose()
+    sch.trace(flatten=True)
+
+    def pattern(x, bias):
+        x = F.gelu(bias + x)
+        return x
+
+    subgraph = sch.find(pattern)
+    assert len(subgraph[0]) == 2
+    inp = torch.randn((1, 16, 1024, 1024), requires_grad=True)
+    with slapo.verify(inp):
+        sch.fuse(subgraph, compiler="TorchScript", name="BiasGeLU")
+    assert isinstance(sch["BiasGeLU_0"].mod, torch.jit.ScriptModule)
+
+
 if __name__ == "__main__":
     # test_verify_replace()
     test_vertical_fusion()
+    test_bias_gelu()
     # pytest.main([__file__])

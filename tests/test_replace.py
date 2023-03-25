@@ -89,6 +89,36 @@ def test_replace_all_module():
     assert sch["submod.linear"].mod.out_features == 1027
 
 
+def test_replace_all_module_list():
+    class Model(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.mod = nn.ModuleList(
+                [nn.Linear(1024, 1024), nn.ReLU(), nn.Linear(1024, 1024), nn.ReLU()]
+            )
+            self.seq = nn.Sequential(
+                nn.Linear(1024, 1024), nn.ReLU(), nn.Linear(1024, 1024), nn.ReLU()
+            )
+
+        def forward(self, x):
+            for mod in self.mod:
+                x = mod(x)
+            x = self.seq(x)
+            return x
+
+    model = Model()
+    sch = slapo.create_schedule(model)
+
+    def make_linear(name, mod):
+        return nn.Linear(512, 512)
+
+    sch.replace_all(nn.Linear, make_linear)
+    assert sch["mod.0"].mod.out_features == 512
+    assert sch["mod.2"].mod.out_features == 512
+    assert sch["seq.0"].mod.out_features == 512
+    assert sch["seq.2"].mod.out_features == 512
+
+
 def test_vertical_replacement():
     class Model(nn.Module):
         def __init__(self):

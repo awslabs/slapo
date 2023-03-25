@@ -460,6 +460,16 @@ document.write(`
     <span class="k">def</span> <span class="nf">get_module</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
         <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">named_modules</span><span class="p">())[</span><span class="n">name</span><span class="p">]</span>
 
+<div class="viewcode-block" id="Schedule.named_schedules"><a class="viewcode-back" href="../../python_api/schedule.html#slapo.Schedule.named_schedules">[docs]</a>    <span class="k">def</span> <span class="nf">named_schedules</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">prefix</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">):</span>
+        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Returns an iterator over all subschedules in the current schedule, yielding</span>
+<span class="sd">        both the name of the subschedule as well as the subschedule itself.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">yield</span> <span class="n">prefix</span><span class="p">,</span> <span class="bp">self</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">subsch</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">child</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">subsch_prefix</span> <span class="o">=</span> <span class="n">prefix</span> <span class="o">+</span> <span class="p">(</span><span class="s2">&quot;.&quot;</span> <span class="k">if</span> <span class="n">prefix</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span><span class="p">)</span> <span class="o">+</span> <span class="n">name</span>
+            <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">subsch</span><span class="o">.</span><span class="n">named_schedules</span><span class="p">(</span><span class="n">subsch_prefix</span><span class="p">):</span>
+                <span class="k">yield</span> <span class="n">m</span></div>
+
     <span class="k">def</span> <span class="nf">_construct_fx_graph</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subgraph</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Construct a new fx.Graph based on the subgraph extracted from the</span>
 <span class="sd">        original graph. This function should NOT be called directly.</span>

@@ -482,6 +482,18 @@ registered hooks while the latter silently ignores them.</p>
 </dd>
 </dl>
 <dl class="py method">
+<dt class="sig sig-object py" id="slapo.schedule.Schedule.named_schedules">
+<span class="sig-name descname"><span class="pre">named_schedules</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">prefix</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/schedule.html#Schedule.named_schedules"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.schedule.Schedule.named_schedules" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Returns an iterator over all subschedules in the current schedule, yielding
+both the name of the subschedule as well as the subschedule itself.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>prefix</strong> (<em>str</em>) – </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="slapo.schedule.Schedule.find_node">
 <span class="sig-name descname"><span class="pre">find_node</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">regex_or_pattern_fn</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/schedule.html#Schedule.find_node"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.schedule.Schedule.find_node" title="Permalink to this definition"><span>¶</span></a></dt>
 <dd><p>Find a node in a static dataflow graph</p>

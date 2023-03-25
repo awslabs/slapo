@@ -3,54 +3,57 @@
 
 import sys
 import copy
-from contextlib import contextmanager
+from contextlib import ContextDecorator
 
 import torch
 
 
-@contextmanager
-def verify(example_inputs):
-    original_trace = sys.gettrace()
-    original_mod = None
-    sch = None
+class verify(ContextDecorator):
+    def __init__(self, example_inputs):
+        self.example_inputs = example_inputs
+        self.original_trace = None
+        self.original_mod = None
+        self.sch = None
 
-    def trace_calls(frame, event, arg):
-        nonlocal sch, original_mod
-        if event == "call":
-            code = frame.f_code
-            function_name = code.co_name
-            local_sch = frame.f_locals.get("sch")
+    def __enter__(self):
+        self.original_trace = sys.gettrace()
 
-            if function_name == "apply":
-                for _, value in frame.f_globals.items():
-                    if getattr(value, "__name__", None) == "ReplacePrimitive":
-                        assert local_sch is not None
-                        sch = local_sch
-                        original_mod = copy.deepcopy(sch.mod)
-                        print(original_mod)
-                        break
-                    if getattr(value, "__name__", None) == "FusePrimitive":
-                        assert local_sch is not None
-                        sch = local_sch
-                        original_mod = copy.deepcopy(sch.mod)
-                        print("Fuse", original_mod)
-                        break
+        def trace_calls(frame, event, arg):
+            if event == "call":
+                code = frame.f_code
+                function_name = code.co_name
+                local_sch = frame.f_locals.get("sch")
 
-        return trace_calls
+                if function_name == "apply":
+                    for _, value in frame.f_globals.items():
+                        if getattr(value, "__name__", None) == "ReplacePrimitive":
+                            assert local_sch is not None
+                            self.sch = local_sch
+                            self.original_mod = copy.deepcopy(self.sch.mod)
+                            print(self.original_mod)
+                            break
+                        if getattr(value, "__name__", None) == "FusePrimitive":
+                            assert local_sch is not None
+                            self.sch = local_sch
+                            self.original_mod = copy.deepcopy(self.sch.mod)
+                            print("Fuse", self.original_mod)
+                            break
 
-    sys.settrace(trace_calls)
-    try:
-        yield
-    finally:
+            return trace_calls
+
+        sys.settrace(trace_calls)
+        return self
+
+    def __exit__(self, *exc):
         # Verification
-        if original_mod is not None:
-            assert sch is not None
-            new_mod = sch.mod
+        if self.original_mod is not None:
+            assert self.sch is not None
+            new_mod = self.sch.mod
             print("new_mod", new_mod)
             # original_mod.load_state_dict(new_mod.state_dict())
             # print("Loaded state dict")
-            original_output = original_mod(*example_inputs)
-            new_output = new_mod(*example_inputs)
+            original_output = self.original_mod(*self.example_inputs)
+            new_output = new_mod(*self.example_inputs)
             torch.testing.assert_close(original_output, new_output)
             print("Passed verification")
-        sys.settrace(original_trace)
+        sys.settrace(self.original_trace)

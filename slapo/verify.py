@@ -29,6 +29,12 @@ def verify(example_inputs):
                         original_mod = copy.deepcopy(sch.mod)
                         print(original_mod)
                         break
+                    if getattr(value, "__name__", None) == "FusePrimitive":
+                        assert local_sch is not None
+                        sch = local_sch
+                        original_mod = copy.deepcopy(sch.mod)
+                        print("Fuse", original_mod)
+                        break
 
         return trace_calls
 
@@ -40,8 +46,9 @@ def verify(example_inputs):
         if original_mod is not None:
             assert sch is not None
             new_mod = sch.mod
-            original_mod.load_state_dict(new_mod.state_dict())
-            print("Loaded state dict")
+            print("new_mod", new_mod)
+            # original_mod.load_state_dict(new_mod.state_dict())
+            # print("Loaded state dict")
             original_output = original_mod(*example_inputs)
             new_output = new_mod(*example_inputs)
             torch.testing.assert_close(original_output, new_output)

@@ -5,8 +5,11 @@
 import pytest
 
 import slapo
+from slapo.pattern import call_module
+
 import torch
 from torch import nn
+import torch.nn.functional as F
 
 
 def test_verify_replace():
@@ -41,11 +44,48 @@ def test_verify_replace():
     model = Model()
     sch = slapo.create_schedule(model)
 
+    def pattern(x):
+        x = call_module("fc1", x)
+        x = F.relu(x)
+        return x
+
+    subgraph = sch.find(pattern)
+    print("Subgraph:", subgraph)
     example_inputs = [torch.randn(1, 1024)]
     with slapo.verify(example_inputs=example_inputs):
-        sch["fc1"].replace(nn.Linear(1024, 1024))
+        new_mod = SubMod()
+        sch.replace(new_mod, subgraph)
+
+
+def test_vertical_fusion():
+    class Model(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.conv = nn.Conv2d(3, 32, 3)
+
+        def forward(self, x):
+            x = self.conv(x)
+            x = F.relu(x)
+            x = x + 1
+            return x
+
+    mod = Model().cuda()
+    sch = slapo.create_schedule(mod)
+
+    def pattern(x: torch.Tensor):
+        x = call_module("conv", x)
+        x = F.relu(x)
+        x = x + 1
+        return x
+
+    subgraph = sch.find(pattern)
+    assert len(subgraph[0]) == 3
+    inp = torch.randn((1, 3, 32, 32), requires_grad=True).cuda()
+    with slapo.verify(inp):
+        sch.fuse(subgraph, compiler="TorchScript", name="FusedReLU")
 
 
 if __name__ == "__main__":
-    test_verify_replace()
+    # test_verify_replace()
+    test_vertical_fusion()
     # pytest.main([__file__])

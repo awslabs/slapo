@@ -16,13 +16,13 @@ PRIMITIVES_NAMES = [cls.__name__ for cls in PRIMITIVES.values()]
 
 
 class verify(ContextDecorator):
-    def __init__(self, example_inputs, device="cuda"):
+    def __init__(self, sch, example_inputs, device="cuda"):
         if not isinstance(example_inputs, list):
             example_inputs = [example_inputs]
         self.example_inputs = example_inputs
         self.original_trace = None
-        self.original_mod = None
-        self.sch = None
+        self.sch = sch
+        self.original_mod = copy.deepcopy(self.sch.mod)
         self.device = device
 
     def __enter__(self):
@@ -32,7 +32,7 @@ class verify(ContextDecorator):
             if event == "call":
                 code = frame.f_code
                 function_name = code.co_name
-                local_sch = frame.f_locals.get("sch")
+                # local_sch = frame.f_locals.get("sch")
 
                 if function_name == "apply":
                     for _, value in frame.f_globals.items():
@@ -40,8 +40,6 @@ class verify(ContextDecorator):
                         if cls_name in ("FusePrimitive",):
                             # TODO: Currently we only support a limited subset of primitives
                             # for verification, later it will be changed to `PRIMITIVES_NAMES`
-                            assert local_sch is not None
-                            self.sch = local_sch
                             self.original_mod = copy.deepcopy(self.sch.mod)
                             logger.info(f"Verifying {cls_name}...", ranks=0)
                             break
@@ -53,6 +51,7 @@ class verify(ContextDecorator):
 
     def __exit__(self, *exc):
         # Verification
+        # TODO: Support backward
         if self.original_mod is not None:
             assert self.sch is not None
             new_mod = self.sch.mod.to(self.device)
@@ -62,4 +61,5 @@ class verify(ContextDecorator):
             new_output = new_mod(*self.example_inputs)
             torch.testing.assert_close(original_output, new_output)
             logger.info("Passed verification!", ranks=0)
+            del self.original_mod
         sys.settrace(self.original_trace)

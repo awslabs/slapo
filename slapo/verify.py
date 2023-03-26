@@ -35,12 +35,13 @@ class verify(ContextDecorator):
                 # local_sch = frame.f_locals.get("sch")
 
                 if function_name == "apply":
+                    # This part is useful only when we need to get the model from the schedule
+                    # (the schedule is not passed in as an argument)
                     for _, value in frame.f_globals.items():
                         cls_name = getattr(value, "__name__", None)
                         if cls_name in ("FusePrimitive",):
                             # TODO: Currently we only support a limited subset of primitives
                             # for verification, later it will be changed to `PRIMITIVES_NAMES`
-                            self.original_mod = copy.deepcopy(self.sch.mod)
                             logger.info(f"Verifying {cls_name}...", ranks=0)
                             break
 
@@ -51,7 +52,7 @@ class verify(ContextDecorator):
 
     def __exit__(self, *exc):
         # Verification
-        # TODO: Support backward
+        # TODO: Support backward verification
         if self.original_mod is not None:
             assert self.sch is not None
             new_mod = self.sch.mod.to(self.device)

@@ -4,57 +4,14 @@
 
 import pytest
 
+import os
+import copy
 import slapo
 from slapo.pattern import call_module
 
 import torch
 from torch import nn
 import torch.nn.functional as F
-
-
-def test_verify_replace():
-    class SubMod(nn.Module):
-        def __init__(self):
-            super().__init__()
-            self.linear = nn.Linear(1024, 1024)
-            self.activation = nn.ReLU()
-
-        def forward(self, x):
-            x = self.linear(x)
-            x = self.activation(x)
-            return x
-
-    class Model(nn.Module):
-        def __init__(self):
-            super().__init__()
-            self.fc1 = nn.Linear(1024, 1024)
-            self.act1 = nn.ReLU()
-            self.fc2 = nn.Linear(1024, 1024)
-            self.act2 = nn.ReLU()
-            self.submod = SubMod()
-
-        def forward(self, x):
-            x = self.fc1(x)
-            x = self.act1(x)
-            x = self.fc2(x)
-            x = self.act2(x)
-            x = self.submod(x)
-            return x
-
-    model = Model()
-    sch = slapo.create_schedule(model)
-
-    def pattern(x):
-        x = call_module("fc1", x)
-        x = F.relu(x)
-        return x
-
-    subgraph = sch.find(pattern)
-    print("Subgraph:", subgraph)
-    example_inputs = [torch.randn(1, 1024)]
-    with slapo.verify(example_inputs=example_inputs):
-        new_mod = SubMod()
-        sch.replace(new_mod, subgraph)
 
 
 def test_vertical_fusion():
@@ -81,7 +38,7 @@ def test_vertical_fusion():
     subgraph = sch.find(pattern)
     assert len(subgraph[0]) == 3
     inp = torch.randn((1, 3, 32, 32), requires_grad=True).cuda()
-    with slapo.verify(inp):
+    with slapo.verify(sch, inp):
         sch.fuse(subgraph, compiler="TorchScript", name="FusedReLU")
 
 
@@ -110,13 +67,43 @@ def test_bias_gelu():
     subgraph = sch.find(pattern)
     assert len(subgraph[0]) == 2
     inp = torch.randn((1, 16, 1024, 1024), requires_grad=True)
-    with slapo.verify(inp):
+    with slapo.verify(sch, inp):
         sch.fuse(subgraph, compiler="TorchScript", name="BiasGeLU")
     assert isinstance(sch["BiasGeLU_0"].mod, torch.jit.ScriptModule)
 
 
+def test_linear(init_dist):
+    class Model(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.linear1 = torch.nn.Linear(20, 30)
+            self.linear2 = torch.nn.Linear(30, 40)
+
+        def forward(self, data):
+            out = self.linear1(data)
+            out = self.linear2(out)
+            return out
+
+    local_rank = int(os.environ["LOCAL_RANK"])
+    torch.cuda.set_device(local_rank)
+    model = Model()
+
+    sch = slapo.create_schedule(copy.deepcopy(model))
+    with slapo.verify(sch, [torch.randn(10, 20)], device=f"cuda:{local_rank}"):
+        sch["linear1"].shard("weight", axis=0)
+        sch["linear1"].shard("bias", axis=0)
+        sch["linear1"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
+        sch["linear2"].shard("weight", axis=1)
+        sch["linear2"].sync(mode="fwd_post", sync_op_or_fn="all_reduce")
+
+    sch = slapo.create_schedule(copy.deepcopy(model))
+    with pytest.raises(Exception):
+        with slapo.verify(sch, [torch.randn(10, 20)], device=f"cuda:{local_rank}"):
+            sch["linear1"].shard("weight", axis=0)
+            sch["linear1"].shard("bias", axis=0)
+            sch["linear1"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
+            sch["linear2"].shard("weight", axis=1)
+
+
 if __name__ == "__main__":
-    # test_verify_replace()
-    test_vertical_fusion()
-    test_bias_gelu()
-    # pytest.main([__file__])
+    pytest.main([__file__])

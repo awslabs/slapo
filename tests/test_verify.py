@@ -1,17 +1,18 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 """Test verification."""
-
-import pytest
+# pylint: disable=unused-argument
 
 import os
 import copy
-import slapo
-from slapo.pattern import call_module
+import pytest
 
 import torch
 from torch import nn
 import torch.nn.functional as F
+
+import slapo
+from slapo.pattern import call_module
 
 
 def test_vertical_fusion():

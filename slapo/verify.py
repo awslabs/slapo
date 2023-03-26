@@ -28,6 +28,7 @@ class verify(ContextDecorator):
     def __enter__(self):
         self.original_trace = sys.gettrace()
 
+        # pylint: disable=unused-argument
         def trace_calls(frame, event, arg):
             if event == "call":
                 code = frame.f_code
@@ -39,10 +40,14 @@ class verify(ContextDecorator):
                     # (the schedule is not passed in as an argument)
                     for _, value in frame.f_globals.items():
                         cls_name = getattr(value, "__name__", None)
-                        if cls_name in ("FusePrimitive",):
+                        if cls_name in {
+                            "FusePrimitive",
+                            "ShardPrimitive",
+                            "SyncPrimitive",
+                        }:
                             # TODO: Currently we only support a limited subset of primitives
                             # for verification, later it will be changed to `PRIMITIVES_NAMES`
-                            logger.info(f"Verifying {cls_name}...", ranks=0)
+                            logger.info("Verifying %s...", cls_name, ranks=0)
                             break
 
             return trace_calls

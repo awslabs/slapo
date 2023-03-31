@@ -381,5 +381,4 @@ def test_transfer_hook():
 
 
 if __name__ == "__main__":
-    test_replace_all_with_seq()
-    # pytest.main([__file__])
+    pytest.main([__file__])

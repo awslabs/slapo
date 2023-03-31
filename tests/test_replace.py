@@ -89,6 +89,37 @@ def test_replace_all_module():
     assert sch["submod.linear"].mod.out_features == 1027
 
 
+def test_replace_all_with_seq():
+    class Model(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.fc1 = nn.Linear(1024, 1024)
+            self.fc2 = nn.Linear(1024, 1024)
+
+        def forward(self, x):
+            x = self.fc1(x)
+            x = self.fc2(x)
+            return x
+
+    model = Model()
+    sch = slapo.create_schedule(model)
+
+    # Test if Slapo can
+    # 1. avoid recursive replacement
+    # 2. accept a kwarg
+    def make_seq(name, mod, is_relu=False):
+        if is_relu:
+            seq = nn.Sequential(mod, nn.ReLU())
+        else:
+            raise NotImplementedError
+        return seq
+
+    sch.replace_all(nn.Linear, make_seq, is_relu=True)
+    assert getattr(sch["fc1"].mod, "0").out_features == 1024
+    assert isinstance(getattr(sch["fc1"].mod, "1"), nn.ReLU)
+    assert getattr(sch["fc2"].mod, "0").out_features == 1024
+
+
 def test_replace_all_module_list():
     class Model(nn.Module):
         def __init__(self):
@@ -350,4 +381,5 @@ def test_transfer_hook():
 
 
 if __name__ == "__main__":
-    pytest.main([__file__])
+    test_replace_all_with_seq()
+    # pytest.main([__file__])

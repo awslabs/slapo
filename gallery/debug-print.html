@@ -18,12 +18,12 @@
   </script>
   
   <!-- Loaded before other Sphinx assets -->
-  <link href="../_static/styles/theme.css?digest=12da95d707ffb74b382d" rel="stylesheet" />
-<link href="../_static/styles/bootstrap.css?digest=12da95d707ffb74b382d" rel="stylesheet" />
-<link href="../_static/styles/pydata-sphinx-theme.css?digest=12da95d707ffb74b382d" rel="stylesheet" />
+  <link href="../_static/styles/theme.css?digest=e353d410970836974a52" rel="stylesheet" />
+<link href="../_static/styles/bootstrap.css?digest=e353d410970836974a52" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=e353d410970836974a52" rel="stylesheet" />
 
   
-  <link href="../_static/vendor/fontawesome/6.1.2/css/all.min.css?digest=12da95d707ffb74b382d" rel="stylesheet" />
+  <link href="../_static/vendor/fontawesome/6.1.2/css/all.min.css?digest=e353d410970836974a52" rel="stylesheet" />
   <link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.1.2/webfonts/fa-solid-900.woff2" />
 <link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.1.2/webfonts/fa-brands-400.woff2" />
 <link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.1.2/webfonts/fa-regular-400.woff2" />
@@ -38,8 +38,8 @@
     <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-rendered-html.css" />
   
   <!-- Pre-loaded scripts that we'll load fully later -->
-  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=12da95d707ffb74b382d" />
-<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=12da95d707ffb74b382d" />
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=e353d410970836974a52" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=e353d410970836974a52" />
 
     <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
     <script src="../_static/jquery.js"></script>
@@ -423,17 +423,17 @@ to print the intermediate output of the first Linear layer.</p>
 linear1 shape
  torch.Size([2, 2, 4])
 value
- tensor([[[-2.1282, -1.7084,  1.3946, -1.5452],
-         [-0.6863, -0.5630,  0.4103, -1.2083]],
+ tensor([[[-0.4114, -0.7968,  0.4456, -0.8227],
+         [ 0.9780, -0.7985,  0.7343,  0.2569]],
 
-        [[-0.6436, -0.2308,  0.2450, -0.5270],
-         [-0.0116, -0.9200, -0.0883, -0.2568]]], grad_fn=&lt;ViewBackward0&gt;)
+        [[-0.3149,  0.4833, -0.0308,  0.0084],
+         [-0.5293,  0.2887, -0.1509, -0.5631]]], grad_fn=&lt;ViewBackward0&gt;)
 
-tensor([[[-0.0590, -0.1431,  0.3500, -0.7923],
-         [-0.1216, -0.4239,  0.2250, -0.3780]],
+tensor([[[ 0.1819, -0.1932, -0.1047, -0.2713],
+         [ 0.6470, -0.1669, -0.0566, -0.0517]],
 
-        [[-0.1751, -0.4325,  0.2217, -0.3137],
-         [-0.1772, -0.4177,  0.2184, -0.1882]]], grad_fn=&lt;ViewBackward0&gt;)
+        [[ 0.3251, -0.1621, -0.2501, -0.1463],
+         [ 0.1758, -0.2147, -0.1180, -0.1694]]], grad_fn=&lt;ViewBackward0&gt;)
 </pre></div>
 </div>
 <p>On the other hand, as we have mentioned above, the print won’t work properly
@@ -487,14 +487,14 @@ that shows incorrect usages of <cite>self.print</cite>.</p>
 print1: Proxy(linear1)
 print2: Proxy(print_1)
 
-tensor([[[-0.1932,  0.3185, -0.2294,  0.6194],
-         [-0.2199,  0.1069, -0.3370,  0.4043]],
+tensor([[[-0.0540, -0.0631,  0.2623, -0.5367],
+         [ 0.0921,  0.1833,  0.5263, -0.7404]],
 
-        [[-0.2420,  0.4439,  0.1130,  0.6394],
-         [-0.3355,  0.1845, -0.2705,  0.4883]]], grad_fn=&lt;ViewBackward0&gt;)
+        [[ 0.0592,  0.0309,  0.4046, -0.5464],
+         [ 0.0834,  0.2650,  0.7201, -0.6175]]], grad_fn=&lt;ViewBackward0&gt;)
 </pre></div>
 </div>
-<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> ( 0 minutes  0.015 seconds)</p>
+<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> ( 0 minutes  0.014 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-gallery-debug-print-py">
 <div class="sphx-glr-download sphx-glr-download-python docutils container">
 <p><a class="reference download internal" download="" href="../_downloads/5c4d5ade8f4a3520d5bdb6d05cdb343e/debug-print.py"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Python</span> <span class="pre">source</span> <span class="pre">code:</span> <span class="pre">debug-print.py</span></code></a></p>
@@ -513,7 +513,10 @@ tensor([[[-0.1932,  0.3185, -0.2294,  0.6194],
               
               
                 <footer class="bd-footer-article">
-                  <!-- Previous / next buttons -->
+                  
+<div class="footer-article-items footer-article__inner">
+  
+    <div class="footer-article-item"><!-- Previous / next buttons -->
 <div class="prev-next-area">
     <a class="left-prev"
        href="mlp-multi-gpu.html"
@@ -533,7 +536,10 @@ tensor([[[-0.1932,  0.3185, -0.2294,  0.6194],
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
+</div></div>
+  
 </div>
+
                 </footer>
               
             </div>
@@ -543,7 +549,7 @@ tensor([[[-0.1932,  0.3185, -0.2294,  0.6194],
             
           </div>
           <footer class="bd-footer-content">
-            <div class="bd-footer-content__inner">
+            
 <div class="bd-footer-content__inner container">
   
   <div class="footer-item">
@@ -573,7 +579,7 @@ By Amazon
     
   </div>
   
-</div></div>
+</div>
           </footer>
         
 
@@ -582,8 +588,8 @@ By Amazon
   </div>
   
   <!-- Scripts loaded after <body> so the DOM is not blocked -->
-  <script src="../_static/scripts/bootstrap.js?digest=12da95d707ffb74b382d"></script>
-<script src="../_static/scripts/pydata-sphinx-theme.js?digest=12da95d707ffb74b382d"></script>
+  <script src="../_static/scripts/bootstrap.js?digest=e353d410970836974a52"></script>
+<script src="../_static/scripts/pydata-sphinx-theme.js?digest=e353d410970836974a52"></script>
 
   <footer class="bd-footer">
   </footer>

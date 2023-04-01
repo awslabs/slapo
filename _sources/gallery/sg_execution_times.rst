@@ -6,14 +6,14 @@
 
 Computation times
 =================
-**00:07.633** total execution time for **gallery** files:
+**00:07.507** total execution time for **gallery** files:
 
 +-------------------------------------------------------------------------------+-----------+--------+
-| :ref:`sphx_glr_gallery_quick-start.py` (``quick-start.py``)                   | 00:07.418 | 0.0 MB |
+| :ref:`sphx_glr_gallery_quick-start.py` (``quick-start.py``)                   | 00:07.296 | 0.0 MB |
 +-------------------------------------------------------------------------------+-----------+--------+
-| :ref:`sphx_glr_gallery_attention-single-gpu.py` (``attention-single-gpu.py``) | 00:00.122 | 0.0 MB |
+| :ref:`sphx_glr_gallery_attention-single-gpu.py` (``attention-single-gpu.py``) | 00:00.121 | 0.0 MB |
 +-------------------------------------------------------------------------------+-----------+--------+
-| :ref:`sphx_glr_gallery_mlp-multi-gpu.py` (``mlp-multi-gpu.py``)               | 00:00.078 | 0.0 MB |
+| :ref:`sphx_glr_gallery_mlp-multi-gpu.py` (``mlp-multi-gpu.py``)               | 00:00.076 | 0.0 MB |
 +-------------------------------------------------------------------------------+-----------+--------+
-| :ref:`sphx_glr_gallery_debug-print.py` (``debug-print.py``)                   | 00:00.015 | 0.0 MB |
+| :ref:`sphx_glr_gallery_debug-print.py` (``debug-print.py``)                   | 00:00.014 | 0.0 MB |
 +-------------------------------------------------------------------------------+-----------+--------+

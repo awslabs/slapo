@@ -294,6 +294,8 @@ class ReplaceAllPrimitive(Primitive):
         A target nn.Module type to be replaced.
     make_mod_fn : FunctionType
         A function that takes the path of the original module and the module itself and generate a new module.
+    kwargs : Dict[str, Any]
+        The keyword arguments for make_mod_fn.
     """
 
     @staticmethod
@@ -301,8 +303,8 @@ class ReplaceAllPrimitive(Primitive):
         return "replace_all"
 
     @staticmethod
-    def apply(sch, target_mod_type, make_mod_fn):
-        for name, subsch in sch.named_schedules():
+    def apply(sch, target_mod_type, make_mod_fn, **kwargs):
+        for name, subsch in dict(sch.named_schedules()).items():
             if isinstance(subsch.mod, target_mod_type):
-                new_mod = make_mod_fn(name, subsch.mod)
+                new_mod = make_mod_fn(name, subsch.mod, **kwargs)
                 subsch.replace(new_mod)

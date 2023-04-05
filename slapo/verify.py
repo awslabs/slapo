@@ -87,8 +87,11 @@ class verify(ContextDecorator):
 
         new_mod, _ = build(new_sch, init_weights=init_weights)
         # 4. Get the example inputs
-        # (users should guarantee the inputs are the same across different devices)
         self.example_inputs = [x.to(self.device) for x in self.example_inputs]
+        #   Broadcast the example inputs from rank 0 to other ranks
+        if dist.is_initialized():
+            for inp in self.example_inputs:
+                dist.broadcast(inp, src=0, group=self.sch.group)
         # 5. Run the original model and the new model
         original_output = original_mod(*self.example_inputs)
         new_output = new_mod(*self.example_inputs)

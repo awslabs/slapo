@@ -100,13 +100,13 @@ def test_linear(init_dist):
         sch["linear2"].shard("weight", axis=1)
         sch["linear2"].sync(mode="fwd_post", sync_op_or_fn="all_reduce")
 
-    # sch = slapo.create_schedule(copy.deepcopy(model))
-    # with pytest.raises(Exception):
-    #     with slapo.verify(sch, [torch.rand(10, 20)], device=f"cuda:{local_rank}"):
-    #         sch["linear1"].shard("weight", axis=0)
-    #         sch["linear1"].shard("bias", axis=0)
-    #         sch["linear1"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
-    #         sch["linear2"].shard("weight", axis=1)
+    sch = slapo.create_schedule(copy.deepcopy(model))
+    with pytest.raises(Exception):
+        with slapo.verify(sch, [torch.rand(10, 20)], device=f"cuda:{local_rank}"):
+            sch["linear1"].shard("weight", axis=0)
+            sch["linear1"].shard("bias", axis=0)
+            sch["linear1"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
+            sch["linear2"].shard("weight", axis=1)
 
 
 # def test_meta_distributed():

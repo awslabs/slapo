@@ -63,11 +63,15 @@ class verify(ContextDecorator):
         TODO: Support backward verification
         """
         # 1. Build the original model with random weights
-        #    TODO: Need to make sure all the devices have the same parameters
         named_params = self.original_sch.mod.named_parameters()
         is_initialized = named_params.__next__()[1].device != torch.device("meta")
         original_mod, _ = build(self.original_sch, init_weights=not is_initialized)
-        self.original_mod = original_mod.to(self.device)
+        original_mod = original_mod.to(self.device)
+        #    Broadcast the original model from rank 0 to other ranks
+        original_state_dict = original_mod.state_dict()
+        if dist.is_initialized():
+            for param_name in original_state_dict:
+                dist.broadcast(original_state_dict[param_name], src=0, group=self.sch.group)
         # 2. Get the transformed model from the schedule
         #    Copy it and build a new schedule to prevent the original schedule from being modified
         #    FIXME: Deepcopy sch.mod
@@ -75,7 +79,6 @@ class verify(ContextDecorator):
         # 3. Use original weights to initialize the new model
         #    Notice init_weights is called before actual sharding, so we only need to
         #    assign the original weights to the corresponding modules
-        original_state_dict = original_mod.state_dict()
 
         def init_weights(mod, path):
             if hasattr(mod, "weight") and mod.weight is not None:
@@ -96,9 +99,8 @@ class verify(ContextDecorator):
         original_output = original_mod(*self.example_inputs)
         new_output = new_mod(*self.example_inputs)
         # 6. Compare the outputs
-        if not dist.is_initialized() or dist.get_rank() == 0:
-            torch.testing.assert_close(original_output, new_output)
-            logger.info("Passed verification!", ranks=0)
+        torch.testing.assert_close(original_output, new_output)
+        logger.info("Passed verification!", ranks=0)
         del original_mod
         del new_mod
         sys.settrace(self.original_trace)

@@ -6,7 +6,7 @@ import copy
 from contextlib import ContextDecorator
 
 import torch
-import torch.nn as nn
+from torch import nn
 import torch.distributed as dist
 
 from .schedule import create_schedule

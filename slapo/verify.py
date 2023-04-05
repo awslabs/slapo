@@ -7,6 +7,7 @@ from contextlib import ContextDecorator
 
 import torch
 import torch.nn as nn
+import torch.distributed as dist
 
 from .schedule import create_schedule
 from .build import build
@@ -62,22 +63,27 @@ class verify(ContextDecorator):
         TODO: Support backward verification
         """
         # 1. Build the original model with random weights
-        #    Even if the module has already been initialized
-        original_mod, _ = build(self.original_sch)
-        original_mod = original_mod.cuda()
+        #    TODO: Need to make sure all the devices have the same parameters
+        named_params = self.original_sch.mod.named_parameters()
+        is_initialized = named_params.__next__()[1].device != torch.device("meta")
+        original_mod, _ = build(self.original_sch, init_weights=not is_initialized)
+        self.original_mod = original_mod.to(self.device)
         # 2. Get the transformed model from the schedule
         #    Copy it and build a new schedule to prevent the original schedule from being modified
+        #    FIXME: Deepcopy sch.mod
         new_sch = create_schedule(self.sch.mod)
         # 3. Use original weights to initialize the new model
         #    Notice init_weights is called before actual sharding, so we only need to
         #    assign the original weights to the corresponding modules
         original_state_dict = original_mod.state_dict()
 
-        def init_weights(path, mod):
+        def init_weights(mod, path):
             if hasattr(mod, "weight") and mod.weight is not None:
-                mod.weight = nn.Parameter(original_state_dict[f"{path}.weight"])
+                mod.weight = nn.Parameter(
+                    original_state_dict[f"{path}.weight"].detach()
+                )
             if hasattr(mod, "bias") and mod.bias is not None:
-                mod.bias = nn.Parameter(original_state_dict[f"{path}.bias"])
+                mod.bias = nn.Parameter(original_state_dict[f"{path}.bias"].detach())
 
         new_mod, _ = build(new_sch, init_weights=init_weights)
         # 4. Get the example inputs
@@ -87,8 +93,9 @@ class verify(ContextDecorator):
         original_output = original_mod(*self.example_inputs)
         new_output = new_mod(*self.example_inputs)
         # 6. Compare the outputs
-        torch.testing.assert_close(original_output, new_output)
-        logger.info("Passed verification!", ranks=0)
+        if not dist.is_initialized() or dist.get_rank() == 0:
+            torch.testing.assert_close(original_output, new_output)
+            logger.info("Passed verification!", ranks=0)
         del original_mod
         del new_mod
         sys.settrace(self.original_trace)

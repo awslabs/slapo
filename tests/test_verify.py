@@ -73,9 +73,6 @@ def test_bias_gelu():
     assert isinstance(sch["BiasGeLU_0"].mod, torch.jit.ScriptModule)
 
 
-# def test_linear():
-#     import torch.distributed as dist
-#     dist.init_process_group(backend="nccl")
 def test_linear(init_dist):
     class Model(torch.nn.Module):
         def __init__(self):
@@ -109,9 +106,6 @@ def test_linear(init_dist):
             sch["linear2"].shard("weight", axis=1)
 
 
-# def test_meta_distributed():
-#     import torch.distributed as dist
-#     dist.init_process_group(backend="nccl")
 def test_meta_distributed(init_dist):
     class Model(torch.nn.Module):
         def __init__(self):

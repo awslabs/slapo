@@ -71,11 +71,17 @@ class verify(ContextDecorator):
         original_state_dict = original_mod.state_dict()
         if dist.is_initialized():
             for param_name in original_state_dict:
-                dist.broadcast(original_state_dict[param_name], src=0, group=self.sch.group)
+                dist.broadcast(
+                    original_state_dict[param_name], src=0, group=self.sch.group
+                )
         # 2. Get the transformed model from the schedule
         #    Copy it and build a new schedule to prevent the original schedule from being modified
-        #    FIXME: Deepcopy sch.mod
-        new_sch = create_schedule(self.sch.mod)
+        copied_mod = copy.deepcopy(self.sch.mod)
+        # copy original attributes
+        for param_name, param in self.sch.mod.named_parameters():
+            if hasattr(param, "orig_shape"):
+                copied_mod.get_parameter(param_name).orig_shape = param.orig_shape
+        new_sch = create_schedule(copied_mod)
         # 3. Use original weights to initialize the new model
         #    Notice init_weights is called before actual sharding, so we only need to
         #    assign the original weights to the corresponding modules
@@ -100,7 +106,7 @@ class verify(ContextDecorator):
         new_output = new_mod(*self.example_inputs)
         # 6. Compare the outputs
         torch.testing.assert_close(original_output, new_output)
-        logger.info("Passed verification!", ranks=0)
+        logger.info("Passed verification!")
         del original_mod
         del new_mod
         sys.settrace(self.original_trace)

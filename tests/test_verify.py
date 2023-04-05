@@ -106,5 +106,35 @@ def test_linear(init_dist):
             sch["linear2"].shard("weight", axis=1)
 
 
+# def test_meta(init_dist):
+def test_meta_distributed():
+    import torch.distributed as dist
+    dist.init_process_group(backend="nccl")
+    class Model(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.linear1 = torch.nn.Linear(20, 30)
+            self.linear2 = torch.nn.Linear(30, 40)
+
+        def forward(self, data):
+            out = self.linear1(data)
+            out = self.linear2(out)
+            return out
+
+    local_rank = int(os.environ["LOCAL_RANK"])
+    torch.cuda.set_device(local_rank)
+    with slapo.init_empty_weights():
+        model = Model()
+
+    sch = slapo.create_schedule(copy.deepcopy(model))
+    with slapo.verify(sch, [torch.ones((10, 20))], device=f"cuda:{local_rank}"):
+        sch["linear1"].shard("weight", axis=0)
+        sch["linear1"].shard("bias", axis=0)
+        sch["linear1"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
+        sch["linear2"].shard("weight", axis=1)
+        sch["linear2"].sync(mode="fwd_post", sync_op_or_fn="all_reduce")
+
+
 if __name__ == "__main__":
-    pytest.main([__file__])
+    # pytest.main([__file__])
+    test_meta_distributed()

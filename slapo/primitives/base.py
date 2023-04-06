@@ -38,6 +38,11 @@ class Primitive:
         raise NotImplementedError
 
     @staticmethod
+    def is_verifiable():
+        """Is the primitive verifiable."""
+        return False
+
+    @staticmethod
     def init_metadata():
         """(Optional) Initialize the metadata of the primitive."""
         return None

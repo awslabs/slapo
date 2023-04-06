@@ -43,13 +43,7 @@ class verify(ContextDecorator):
                     # (the schedule is not passed in as an argument)
                     for _, value in frame.f_globals.items():
                         cls_name = getattr(value, "__name__", None)
-                        if cls_name in {
-                            "FusePrimitive",
-                            "ShardPrimitive",
-                            "SyncPrimitive",
-                        }:
-                            # TODO: Currently we only support a limited subset of primitives
-                            # for verification, later it will be changed to `PRIMITIVES_NAMES`
+                        if cls_name in PRIMITIVES_NAMES and value.is_verifiable():
                             logger.info("Verifying %s...", cls_name, ranks=0)
                             break
 

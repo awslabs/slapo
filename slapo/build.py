@@ -104,6 +104,8 @@ def consolidate_model(
 
     def _init_module(sch: Schedule):
         if param_init_fn:
+            # count number of arguments in the given function to determine whether
+            # we should pass in the path of the module or not
             args = inspect.signature(param_init_fn).parameters
             num_params = (
                 len(args) - 1 if args.get("self", None) is not None else len(args)

@@ -12,10 +12,9 @@ import torch.distributed as dist
 from .schedule import create_schedule
 from .build import build
 from .logger import get_logger
-from .primitives import PRIMITIVES
+from .primitives.base import Primitive
 
 logger = get_logger()
-PRIMITIVES_NAMES = [cls.__name__ for cls in PRIMITIVES.values()]
 
 
 class Verify(ContextDecorator):
@@ -36,14 +35,13 @@ class Verify(ContextDecorator):
             if event == "call":
                 code = frame.f_code
                 function_name = code.co_name
-                # local_sch = frame.f_locals.get("sch")
 
                 if function_name == "apply":
                     # This part is useful only when we need to get the model from the schedule
                     # (the schedule is not passed in as an argument)
                     for _, value in frame.f_globals.items():
-                        cls_name = getattr(value, "__name__", None)
-                        if cls_name in PRIMITIVES_NAMES and value.is_verifiable():
+                        if isinstance(value, Primitive) and value.is_verifiable():
+                            cls_name = getattr(value, "__name__", None)
                             logger.info("Verifying %s...", cls_name, ranks=0)
                             break
 
@@ -63,7 +61,7 @@ class Verify(ContextDecorator):
         original_mod = original_mod.to(self.device)
         #    Broadcast the original model from rank 0 to other ranks
         original_state_dict = original_mod.state_dict()
-        if dist.is_initialized():
+        if self.sch.world_size > 1:
             for param_name in original_state_dict:
                 dist.broadcast(
                     original_state_dict[param_name], src=0, group=self.sch.group
@@ -72,6 +70,7 @@ class Verify(ContextDecorator):
         #    Copy it and build a new schedule to prevent the original schedule from being modified
         copied_mod = copy.deepcopy(self.sch.mod)
         # copy original attributes
+        # TODO: find a better way to copy attributes
         for param_name, param in self.sch.mod.named_parameters():
             if hasattr(param, "orig_shape"):
                 copied_mod.get_parameter(param_name).orig_shape = param.orig_shape
@@ -81,18 +80,18 @@ class Verify(ContextDecorator):
         #    assign the original weights to the corresponding modules
 
         def init_weights(mod, path):
-            if hasattr(mod, "weight") and mod.weight is not None:
-                mod.weight = nn.Parameter(
-                    original_state_dict[f"{path}.weight"].detach()
+            for name, _ in mod.named_parameters():
+                setattr(
+                    mod,
+                    name,
+                    nn.Parameter(original_state_dict[f"{path}.{name}"].detach()),
                 )
-            if hasattr(mod, "bias") and mod.bias is not None:
-                mod.bias = nn.Parameter(original_state_dict[f"{path}.bias"].detach())
 
         new_mod, _ = build(new_sch, init_weights=init_weights)
         # 4. Get the example inputs
         self.example_inputs = [x.to(self.device) for x in self.example_inputs]
         #   Broadcast the example inputs from rank 0 to other ranks
-        if dist.is_initialized():
+        if self.sch.world_size > 1:
             for inp in self.example_inputs:
                 dist.broadcast(inp, src=0, group=self.sch.group)
         # 5. Run the original model and the new model

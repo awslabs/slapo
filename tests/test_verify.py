@@ -39,7 +39,7 @@ def test_vertical_fusion():
     subgraph = sch.find(pattern)
     assert len(subgraph[0]) == 3
     inp = torch.randn((1, 3, 32, 32), requires_grad=True).cuda()
-    with slapo.verify(sch, inp):
+    with slapo.Verify(sch, inp):
         sch.fuse(subgraph, compiler="TorchScript", name="FusedReLU")
 
 
@@ -68,7 +68,7 @@ def test_bias_gelu():
     subgraph = sch.find(pattern)
     assert len(subgraph[0]) == 2
     inp = torch.randn((1, 16, 1024, 1024), requires_grad=True)
-    with slapo.verify(sch, inp):
+    with slapo.Verify(sch, inp):
         sch.fuse(subgraph, compiler="TorchScript", name="BiasGeLU")
     assert isinstance(sch["BiasGeLU_0"].mod, torch.jit.ScriptModule)
 
@@ -90,7 +90,7 @@ def test_linear(init_dist):
     model = Model()
 
     sch = slapo.create_schedule(copy.deepcopy(model))
-    with slapo.verify(sch, [torch.rand(10, 20)], device=f"cuda:{local_rank}"):
+    with slapo.Verify(sch, [torch.rand(10, 20)], device=f"cuda:{local_rank}"):
         sch["linear1"].shard("weight", axis=0)
         sch["linear1"].shard("bias", axis=0)
         sch["linear1"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
@@ -99,7 +99,7 @@ def test_linear(init_dist):
 
     sch = slapo.create_schedule(copy.deepcopy(model))
     with pytest.raises(Exception):
-        with slapo.verify(sch, [torch.rand(10, 20)], device=f"cuda:{local_rank}"):
+        with slapo.Verify(sch, [torch.rand(10, 20)], device=f"cuda:{local_rank}"):
             sch["linear1"].shard("weight", axis=0)
             sch["linear1"].shard("bias", axis=0)
             sch["linear1"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")
@@ -124,7 +124,7 @@ def test_meta_distributed(init_dist):
         model = Model()
 
     sch = slapo.create_schedule(copy.deepcopy(model))
-    with slapo.verify(sch, [torch.rand((10, 20))], device=f"cuda:{local_rank}"):
+    with slapo.Verify(sch, [torch.rand((10, 20))], device=f"cuda:{local_rank}"):
         sch["linear1"].shard("weight", axis=0)
         sch["linear1"].shard("bias", axis=0)
         sch["linear1"].sync(mode="bwd_post", sync_op_or_fn="all_reduce")

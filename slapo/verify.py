@@ -18,7 +18,7 @@ logger = get_logger()
 PRIMITIVES_NAMES = [cls.__name__ for cls in PRIMITIVES.values()]
 
 
-class verify(ContextDecorator):
+class Verify(ContextDecorator):
     def __init__(self, sch, example_inputs, device="cuda"):
         if not isinstance(example_inputs, list):
             example_inputs = [example_inputs]

@@ -106,6 +106,14 @@ print(sch.mod)
 # only holds half of the weight.
 
 # %%
+# To further verify the end-to-end numerical correctness, Slapo also provides
+# a ``.Verify()`` context that can be used to execute the forward function and
+# compare the results with the original module. For example, users can leverage this context
+# ``with slapo.Verify(sch, example_inputs=[torch.randn(2, 512, 1024)])``
+# to encapsulate those ``.shard()`` and ``.sync()`` primitives.
+# If no errors are reported, the numerical correctness is guaranteed.
+
+# %%
 # Operator Fusion
 # ---------------
 #

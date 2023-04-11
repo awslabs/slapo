@@ -51,6 +51,10 @@ class FusePrimitive(Primitive):
                 f"Unsupported compiler: {compiler}. Only support TorchScript as the backend compiler for now"
             )
 
+    @staticmethod
+    def is_verifiable():
+        return True
+
 
 @register_primitive()
 class DecomposePrimitive(Primitive):

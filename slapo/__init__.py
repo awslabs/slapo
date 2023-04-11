@@ -13,3 +13,4 @@ from .utils import *
 from .version import __version__
 from .random import set_random_seed, get_cuda_rng_tracker, is_random_seed_set
 from .checkpoint import checkpoint
+from .verify import Verify

@@ -78,6 +78,10 @@ class ShardPrimitive(Primitive):
     def init_metadata():
         return OrderedDict()
 
+    @staticmethod
+    def is_verifiable():
+        return True
+
 
 @register_primitive()
 class SyncPrimitive(Primitive):

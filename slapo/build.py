@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import gc
+import inspect
 from collections.abc import Callable
 from typing import Optional, Union
 
@@ -103,7 +104,16 @@ def consolidate_model(
 
     def _init_module(sch: Schedule):
         if param_init_fn:
-            param_init_fn(sch.mod)
+            # count number of arguments in the given function to determine whether
+            # we should pass in the path of the module or not
+            args = inspect.signature(param_init_fn).parameters
+            num_params = (
+                len(args) - 1 if args.get("self", None) is not None else len(args)
+            )
+            if num_params == 1:
+                param_init_fn(sch.mod)
+            else:
+                param_init_fn(sch.mod, sch.path)
         elif hasattr(sch.mod, "_init_weights"):
             # `_init_weights` is a HF specific API, see
             # https://github.com/huggingface/transformers/blob/v4.25.1/src/transformers/models/bert/modeling_bert.py#L748

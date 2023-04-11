@@ -212,7 +212,16 @@ of the linear layers are correctly sharded, where the output dimension of
 the first linear layer becomes half of the original one, and each device
 only holds half of the weight.
 
-.. GENERATED FROM PYTHON SOURCE LINES 109-117
+.. GENERATED FROM PYTHON SOURCE LINES 109-115
+
+To further verify the end-to-end numerical correctness, Slapo also provides
+a ``.Verify()`` context that can be used to execute the forward function and
+compare the results with the original module. For example, users can leverage this context
+``with slapo.Verify(sch, example_inputs=[torch.randn(2, 512, 1024)])``
+to encapsulate those ``.shard()`` and ``.sync()`` primitives.
+If no errors are reported, the numerical correctness is guaranteed.
+
+.. GENERATED FROM PYTHON SOURCE LINES 117-125
 
 Operator Fusion
 ---------------
@@ -223,7 +232,7 @@ a matrix multiplication and a bias addition. As shown in the output below,
 the ``nn.Linear`` layer is replaced with the predefined ``LinearWithSeparateBias``
 module.
 
-.. GENERATED FROM PYTHON SOURCE LINES 117-121
+.. GENERATED FROM PYTHON SOURCE LINES 125-129
 
 .. code-block:: default
 
@@ -248,14 +257,14 @@ module.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 122-126
+.. GENERATED FROM PYTHON SOURCE LINES 130-134
 
 To enable operator fusion, we need a static dataflow graph. Here, we explicitly
 call ``.trace()`` to trace the module and break the linear layer into two separate
 multiply and add operators. Users can easily determine whether they want their
 dataflow graph to be flattened or not by just passing in a flag.
 
-.. GENERATED FROM PYTHON SOURCE LINES 126-130
+.. GENERATED FROM PYTHON SOURCE LINES 134-138
 
 .. code-block:: default
 
@@ -293,14 +302,14 @@ dataflow graph to be flattened or not by just passing in a flag.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 131-135
+.. GENERATED FROM PYTHON SOURCE LINES 139-143
 
 Later, we define a pattern for matching the bias addition and GELU activation.
 Notice Slapo supports different types of patterns, including subgraphs with multiple
 inputs and fuzzy matching, which provides users enough flexibility to express
 their subgraphs.
 
-.. GENERATED FROM PYTHON SOURCE LINES 135-145
+.. GENERATED FROM PYTHON SOURCE LINES 143-153
 
 .. code-block:: default
 
@@ -327,14 +336,14 @@ their subgraphs.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 146-150
+.. GENERATED FROM PYTHON SOURCE LINES 154-158
 
 As expected, the subgraph consists of two nodes, one for the bias addition and
 the other for the GELU activation. We can then fuse the subgraph into a single
 node by calling ``.fuse()``. By default, Slapo will use TorchScript with nvFuser
 as the backend compiler.
 
-.. GENERATED FROM PYTHON SOURCE LINES 150-154
+.. GENERATED FROM PYTHON SOURCE LINES 158-162
 
 .. code-block:: default
 
@@ -376,7 +385,7 @@ as the backend compiler.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 155-163
+.. GENERATED FROM PYTHON SOURCE LINES 163-171
 
 Build the Optimized Model
 -------------------------
@@ -387,7 +396,7 @@ corresponding dataflow graph.
 
 Finally, we can build the optimized model by calling ``.build()``.
 
-.. GENERATED FROM PYTHON SOURCE LINES 163-165
+.. GENERATED FROM PYTHON SOURCE LINES 171-173
 
 .. code-block:: default
 
@@ -403,7 +412,7 @@ Finally, we can build the optimized model by calling ``.build()``.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** ( 0 minutes  0.076 seconds)
+   **Total running time of the script:** ( 0 minutes  0.081 seconds)
 
 
 .. _sphx_glr_download_gallery_mlp-multi-gpu.py:

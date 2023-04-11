@@ -70,7 +70,7 @@ We load a BERT model implemented in PyTorch from HuggingFace Hub.
 
  .. code-block:: none
 
-    Downloading (…)lve/main/config.json:   0%|          | 0.00/571 [00:00<?, ?B/s]    Downloading (…)lve/main/config.json: 100%|##########| 571/571 [00:00<00:00, 170kB/s]
+    Downloading (…)lve/main/config.json:   0%|          | 0.00/571 [00:00<?, ?B/s]    Downloading (…)lve/main/config.json: 100%|##########| 571/571 [00:00<00:00, 112kB/s]
     BertLMHeadModel(
       (bert): BertModel(
         (embeddings): BertEmbeddings(
@@ -749,7 +749,7 @@ PyTorch training loop as usual.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** ( 0 minutes  7.296 seconds)
+   **Total running time of the script:** ( 0 minutes  7.167 seconds)
 
 
 .. _sphx_glr_download_gallery_quick-start.py:

@@ -461,6 +461,12 @@ the low-level implementation details.</p>
 of the linear layers are correctly sharded, where the output dimension of
 the first linear layer becomes half of the original one, and each device
 only holds half of the weight.</p>
+<p>To further verify the end-to-end numerical correctness, Slapo also provides
+a <code class="docutils literal notranslate"><span class="pre">.Verify()</span></code> context that can be used to execute the forward function and
+compare the results with the original module. For example, users can leverage this context
+<code class="docutils literal notranslate"><span class="pre">with</span> <span class="pre">slapo.Verify(sch,</span> <span class="pre">example_inputs=[torch.randn(2,</span> <span class="pre">512,</span> <span class="pre">1024)])</span></code>
+to encapsulate those <code class="docutils literal notranslate"><span class="pre">.shard()</span></code> and <code class="docutils literal notranslate"><span class="pre">.sync()</span></code> primitives.
+If no errors are reported, the numerical correctness is guaranteed.</p>
 </div>
 <div class="section" id="operator-fusion">
 <h2>Operator Fusion<a class="headerlink" href="#operator-fusion" title="Permalink to this headline"><span>¶</span></a></h2>
@@ -566,7 +572,7 @@ corresponding dataflow graph.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">opt_model</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">slapo</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="n">sch</span><span class="p">,</span> <span class="n">init_weights</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 </pre></div>
 </div>
-<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> ( 0 minutes  0.076 seconds)</p>
+<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> ( 0 minutes  0.081 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-gallery-mlp-multi-gpu-py">
 <div class="sphx-glr-download sphx-glr-download-python docutils container">
 <p><a class="reference download internal" download="" href="../_downloads/3f543fc069f615fa6b9b1314f0b64121/mlp-multi-gpu.py"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Python</span> <span class="pre">source</span> <span class="pre">code:</span> <span class="pre">mlp-multi-gpu.py</span></code></a></p>

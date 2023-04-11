@@ -373,6 +373,9 @@ document.write(`
 <tr class="row-odd"><td><p><a class="reference internal" href="#slapo.partial" title="slapo.partial"><code class="xref py py-obj docutils literal notranslate"><span class="pre">partial</span></code></a></p></td>
 <td><p>partial(func, <a href="#id1"><span class="problematic" id="id2">*</span></a>args, <a href="#id3"><span class="problematic" id="id4">**</span></a>keywords) - new function with partial application of the given arguments and keywords.</p></td>
 </tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.Verify" title="slapo.Verify"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Verify</span></code></a>(sch, example_inputs[, device])</p></td>
+<td><p></p></td>
+</tr>
 </tbody>
 </table>
 <p><strong>Functions:</strong></p>
@@ -391,20 +394,26 @@ document.write(`
 <tr class="row-odd"><td><p><a class="reference internal" href="#slapo.register_primitive" title="slapo.register_primitive"><code class="xref py py-obj docutils literal notranslate"><span class="pre">register_primitive</span></code></a>()</p></td>
 <td><p>Register a primitive to the schedule.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#slapo.analyze_tie_weights" title="slapo.analyze_tie_weights"><code class="xref py py-obj docutils literal notranslate"><span class="pre">analyze_tie_weights</span></code></a>(top_mod, ...)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.set_random_seed" title="slapo.set_random_seed"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_random_seed</span></code></a>([seed, dp_rank, pp_rank, ...])</p></td>
+<td><p>Set random seed for reproducibility.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.analyze_tie_weights" title="slapo.analyze_tie_weights"><code class="xref py py-obj docutils literal notranslate"><span class="pre">analyze_tie_weights</span></code></a>(top_mod, ...)</p></td>
 <td><p>Analyze if there is any tie weights (two weights in different module share the same memory) partitioned into different pipeline stages.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.consolidate_model" title="slapo.consolidate_model"><code class="xref py py-obj docutils literal notranslate"><span class="pre">consolidate_model</span></code></a>(sch, target[, param_init_fn])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.consolidate_model" title="slapo.consolidate_model"><code class="xref py py-obj docutils literal notranslate"><span class="pre">consolidate_model</span></code></a>(sch, target[, param_init_fn])</p></td>
 <td><p>Consolidate the model weights.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#slapo.create_schedule" title="slapo.create_schedule"><code class="xref py py-obj docutils literal notranslate"><span class="pre">create_schedule</span></code></a>(root[, name, path, parent, ...])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.create_schedule" title="slapo.create_schedule"><code class="xref py py-obj docutils literal notranslate"><span class="pre">create_schedule</span></code></a>(root[, name, path, parent, ...])</p></td>
 <td><p>Create a schedule for the given module and preserve the module hierarchy.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.dataclass" title="slapo.dataclass"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataclass</span></code></a>([cls, init, repr, eq, order, ...])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.dataclass" title="slapo.dataclass"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataclass</span></code></a>([cls, init, repr, eq, order, ...])</p></td>
 <td><p>Returns the same class as was passed in, with dunder methods added based on the fields defined in the class.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#slapo.field" title="slapo.field"><code class="xref py py-obj docutils literal notranslate"><span class="pre">field</span></code></a>(*[, default, default_factory, init, ...])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.field" title="slapo.field"><code class="xref py py-obj docutils literal notranslate"><span class="pre">field</span></code></a>(*[, default, default_factory, init, ...])</p></td>
 <td><p>Return an object to identify dataclass fields.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.get_cuda_rng_tracker" title="slapo.get_cuda_rng_tracker"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_cuda_rng_tracker</span></code></a>()</p></td>
+<td><p>Get cuda rng tracker.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#slapo.get_dialect_cls" title="slapo.get_dialect_cls"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_dialect_cls</span></code></a>(cls_type, target[, allow_none])</p></td>
 <td><p>Get the framework dialect class.</p></td>
@@ -415,17 +424,11 @@ document.write(`
 <tr class="row-odd"><td><p><a class="reference internal" href="#slapo.list_primitives" title="slapo.list_primitives"><code class="xref py py-obj docutils literal notranslate"><span class="pre">list_primitives</span></code></a>([name_only])</p></td>
 <td><p>List all available schedule primitives.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#slapo.set_random_seed" title="slapo.set_random_seed"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_random_seed</span></code></a>([seed, dp_rank, pp_rank, ...])</p></td>
-<td><p>Set random seed for reproducibility.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.trace" title="slapo.trace"><code class="xref py py-obj docutils literal notranslate"><span class="pre">trace</span></code></a>(model, **kwargs)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.trace" title="slapo.trace"><code class="xref py py-obj docutils literal notranslate"><span class="pre">trace</span></code></a>(model, **kwargs)</p></td>
 <td><p>Traces a model to a GraphModule.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#slapo.trace_module" title="slapo.trace_module"><code class="xref py py-obj docutils literal notranslate"><span class="pre">trace_module</span></code></a>(model, **kwargs)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.trace_module" title="slapo.trace_module"><code class="xref py py-obj docutils literal notranslate"><span class="pre">trace_module</span></code></a>(model, **kwargs)</p></td>
 <td><p>Traces a model to a GraphModule.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.get_cuda_rng_tracker" title="slapo.get_cuda_rng_tracker"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_cuda_rng_tracker</span></code></a>()</p></td>
-<td><p>Get cuda rng tracker.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#slapo.is_random_seed_set" title="slapo.is_random_seed_set"><code class="xref py py-obj docutils literal notranslate"><span class="pre">is_random_seed_set</span></code></a>()</p></td>
 <td><p>Check if random seed is set.</p></td>
@@ -620,6 +623,32 @@ empty model. Useful when just initializing the model would blow the available RA
 <dt class="sig sig-object py" id="slapo.register_primitive">
 <span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">register_primitive</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/primitives/base.html#register_primitive"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.register_primitive" title="Permalink to this definition"><span>¶</span></a></dt>
 <dd><p>Register a primitive to the schedule.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="slapo.set_random_seed">
+<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">set_random_seed</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2013</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dp_rank</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pp_rank</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tp_rank</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">always_enable_tp_seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/random.html#set_random_seed"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.set_random_seed" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Set random seed for reproducibility.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>seed</strong> (<em>int</em>) – Random seed. Default is 2013.</p></li>
+<li><p><strong>dp_rank</strong> (<em>Optional</em><em>[</em><em>int</em><em>]</em>) – Data parallel rank. Default is None means no data parallelism.</p></li>
+<li><p><strong>pp_rank</strong> (<em>Optional</em><em>[</em><em>int</em><em>]</em>) – Pipeline parallel rank. Default is None means no pipeline parallelism.</p></li>
+<li><p><strong>tp_rank</strong> (<em>Optional</em><em>[</em><em>int</em><em>]</em>) – Tensor model parallel rank. Default is None means no tensor parallelism.</p></li>
+<li><p><strong>always_enable_tp_seed</strong> (<em>bool</em>) – Always enable tensor model parallel seed. This is used when sequence
+parallelism is enabled and all dropouts should use different seeds
+even they are in the same TP group. Default is False, meaning that
+tensor model parallel seed is only enabled with get_cuda_rng_tracker().fork().</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Random seed of this rank.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py attribute">
@@ -931,6 +960,12 @@ mapping which is stored but not otherwise examined by dataclass.</p>
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="slapo.get_cuda_rng_tracker">
+<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">get_cuda_rng_tracker</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/random.html#get_cuda_rng_tracker"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.get_cuda_rng_tracker" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>Get cuda rng tracker.</p>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="slapo.get_dialect_cls">
 <span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">get_dialect_cls</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cls_type</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allow_none</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/framework_dialect/registry.html#get_dialect_cls"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.get_dialect_cls" title="Permalink to this definition"><span>¶</span></a></dt>
 <dd><p>Get the framework dialect class.</p>
@@ -1006,32 +1041,6 @@ of the given arguments and keywords.</p>
 </dd></dl>
 
 <dl class="py function">
-<dt class="sig sig-object py" id="slapo.set_random_seed">
-<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">set_random_seed</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2013</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dp_rank</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pp_rank</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tp_rank</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">always_enable_tp_seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/random.html#set_random_seed"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.set_random_seed" title="Permalink to this definition"><span>¶</span></a></dt>
-<dd><p>Set random seed for reproducibility.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>seed</strong> (<em>int</em>) – Random seed. Default is 2013.</p></li>
-<li><p><strong>dp_rank</strong> (<em>Optional</em><em>[</em><em>int</em><em>]</em>) – Data parallel rank. Default is None means no data parallelism.</p></li>
-<li><p><strong>pp_rank</strong> (<em>Optional</em><em>[</em><em>int</em><em>]</em>) – Pipeline parallel rank. Default is None means no pipeline parallelism.</p></li>
-<li><p><strong>tp_rank</strong> (<em>Optional</em><em>[</em><em>int</em><em>]</em>) – Tensor model parallel rank. Default is None means no tensor parallelism.</p></li>
-<li><p><strong>always_enable_tp_seed</strong> (<em>bool</em>) – Always enable tensor model parallel seed. This is used when sequence
-parallelism is enabled and all dropouts should use different seeds
-even they are in the same TP group. Default is False, meaning that
-tensor model parallel seed is only enabled with get_cuda_rng_tracker().fork().</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns</dt>
-<dd class="field-even"><p>Random seed of this rank.</p>
-</dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p>int</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
 <dt class="sig sig-object py" id="slapo.trace">
 <span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">trace</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/tracer.html#trace"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.trace" title="Permalink to this definition"><span>¶</span></a></dt>
 <dd><p>Traces a model to a GraphModule.</p>
@@ -1060,12 +1069,6 @@ tensor model parallel seed is only enabled with get_cuda_rng_tracker().fork().</
 </dd></dl>
 
 <dl class="py function">
-<dt class="sig sig-object py" id="slapo.get_cuda_rng_tracker">
-<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">get_cuda_rng_tracker</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/random.html#get_cuda_rng_tracker"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.get_cuda_rng_tracker" title="Permalink to this definition"><span>¶</span></a></dt>
-<dd><p>Get cuda rng tracker.</p>
-</dd></dl>
-
-<dl class="py function">
 <dt class="sig sig-object py" id="slapo.is_random_seed_set">
 <span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">is_random_seed_set</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/random.html#is_random_seed_set"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.is_random_seed_set" title="Permalink to this definition"><span>¶</span></a></dt>
 <dd><p>Check if random seed is set.</p>
@@ -1082,6 +1085,11 @@ also track the random states and restore them properly.</p>
 the saved activations across model parallel groups to further reduce
 the memory footprint. This is not implemented here yet.</p>
 </dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="slapo.Verify">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">Verify</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sch</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">example_inputs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'cuda'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/verify.html#Verify"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.Verify" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd></dd></dl>
 
 </div>
 

@@ -494,7 +494,7 @@ class SubgraphWrapper(nn.Module):
             "either due to the incorrect tracer/concrete args, or the limtation "
             "in torch.fx.",
             self.path,
-            failed_msg,
+            "Check the above error messages" if failed_msg is None else failed_msg,
             self.path,
             self.path,
         )

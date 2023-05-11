@@ -182,16 +182,16 @@ def trace_submodule(
                 root, concrete_args=concrete_args, dummy_inputs=dummy_inputs
             )
         except Exception as err:
-            logger.debug(traceback.format_exc())
-            logger.debug("Cannot trace module %s: %s", root.__class__.__name__, err)
+            logger.warning(traceback.format_exc())
+            logger.warning("Cannot trace module %s: %s", root.__class__.__name__, err)
             return root
     else:
         concrete_args = kwargs.get("concrete_args", {})
         try:
             root_graph = tracer.trace(root, concrete_args=concrete_args)
         except Exception as err:
-            logger.debug(traceback.format_exc())
-            logger.debug("Cannot trace module %s: %s", root.__class__.__name__, err)
+            logger.warning(traceback.format_exc())
+            logger.warning("Cannot trace module %s: %s", root.__class__.__name__, err)
             return root
     call_arg_map = {}
     for node in root_graph.nodes:

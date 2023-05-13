@@ -345,10 +345,10 @@ class Schedule:
             #  z = x + 1
             # The implication here is that the generated pattern graph should follows **the same
             # topological order** of the original graph. Otherwise, the current implementation
-            # will not be able to match the pattern graph. In general, subgraph isophorphism
-            # is a NP-complete problem, and the current implementation is a greedy algorithm
-            # that leverages the sequential representation of the computaional graph.
-            # 
+            # will not be able to match the pattern graph. In general, subgraph isomorphism
+            # is an NP-complete problem, and the current implementation is a greedy algorithm
+            # that leverages the property of sequential representation of the computation graph.
+            #
             # The successor of the last operation of the fx graph is binded to the root node,
             # so when ptr.op == "root", it means it reaches the end of the graph.
             while ptr.op != "root":

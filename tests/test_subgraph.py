@@ -284,7 +284,7 @@ def test_pattern_call_module_class():
 def test_qkv():
     from transformers import BertLMHeadModel, AutoConfig
     import inspect
-    import torch.fx as fx
+    from torch import fx
 
     config = AutoConfig.from_pretrained("bert-large-uncased")
     model = BertLMHeadModel(config)
@@ -300,8 +300,6 @@ def test_qkv():
         recursive=False, flatten=True, tracer="pytorch", concrete_args=concrete_args
     )
     assert isinstance(subsch.mod, fx.GraphModule)
-
-    from slapo.pattern import call_module
 
     def pattern(x):
         x = call_module(r"self\.(query|key|value)", x)
@@ -339,7 +337,8 @@ def test_diamond():
             b1 = a * 5  # useless op
             c = a * 3
             d = b + c
-            return d
+            e = b1 + d  # useless op
+            return e
 
     sch = slapo.create_schedule(Diamond())
 

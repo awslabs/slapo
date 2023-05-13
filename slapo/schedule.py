@@ -329,6 +329,25 @@ class Schedule:
                 subgraphs.append((parent_name, curr))
             ptr = curr.next
             found = False
+            # This loop is supposed to tackle the following case that the
+            # user of the current node is not the immediate successor, which requires
+            # iteratively traverse the graph until it finds the user or reaches the
+            # end of the graph. An example is shown below:
+            # original graph:
+            #  x = a + b
+            #  y = c + d (totally independent from x)
+            #  z = x + 1
+            # pattern graph:
+            #  m = p + q
+            #  n = m + 1
+            # should match:
+            #  x = a + b
+            #  z = x + 1
+            # The implication here is that the generated pattern graph should follows the same
+            # topological order of the original graph. Otherwise, the current implementation
+            # will not be able to match the pattern graph. In general, subgraph isophorphism
+            # is a NP-complete problem, and the current implementation is a greedy algorithm
+            # that leverages the sequential representation of the computaional graph.
             while ptr.op != "root":
                 if find_match_subgraphs(ptr, target.next, subgraphs):
                     found = True

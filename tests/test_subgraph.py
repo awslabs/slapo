@@ -318,5 +318,45 @@ def test_qkv():
     assert qkv_subgraphs[2][0][1].target == "self.value"
 
 
+def test_diamond():
+    class Diamond(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.fc1 = nn.Linear(10, 10)
+            self.fc2 = nn.Linear(10, 10)
+
+        def forward(self, x, y):
+            # \ /
+            #  A
+            # / \
+            # B C
+            # \ /
+            #  D
+            x = self.fc1(x)
+            y = self.fc2(y)
+            a = x + y
+            b = a * 2
+            b1 = a * 5  # useless op
+            c = a * 3
+            d = b + c
+            return d
+
+    sch = slapo.create_schedule(Diamond())
+
+    def pattern(m, n):
+        # Intermediate `a` node is required to ensure `b` and `c` are connected to the same `a`,
+        # otherwise the pattern will not be matched, since it will create two different nodes
+        # for (m + n) and generate different subgraphs
+        a = m + n
+        return a * 2 + a * 3
+
+    subgraph = sch.find(pattern)[0]
+    assert len(subgraph) == 4
+    assert subgraph[0][1].target == operator.add
+    assert subgraph[1][1].target == operator.mul
+    assert subgraph[2][1].target == operator.mul
+    assert subgraph[3][1].target == operator.add
+
+
 if __name__ == "__main__":
     pytest.main([__file__])

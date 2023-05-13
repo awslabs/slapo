@@ -327,12 +327,14 @@ class Schedule:
             if (parent_name, curr) not in subgraphs:
                 # New matched.
                 subgraphs.append((parent_name, curr))
-            matched = True
-            if curr.next != curr and target.next != target:
-                matched = matched and find_match_subgraphs(
-                    curr.next, target.next, subgraphs
-                )
-            return matched
+            ptr = curr.next
+            found = False
+            while ptr.op != "root":
+                if find_match_subgraphs(ptr, target.next, subgraphs):
+                    found = True
+                    break
+                ptr = ptr.next
+            return found
 
         self.trace()
 
@@ -349,7 +351,8 @@ class Schedule:
                 closure_vars = inspect.getclosurevars(pattern_fn)
                 closure_code = ""
                 for key, value in closure_vars.nonlocals.items():
-                    closure_code += f"{key} = {value}\n"
+                    if not callable(value):
+                        closure_code += f"{key} = {value}\n"
                 formatted_code = ""
                 indent = ""
                 for line in src_code:

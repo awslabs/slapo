@@ -548,7 +548,7 @@ class ShardConv1D(ShardMethod):
     and returns the output type (partial or partition) after sharding.
     """
 
-    class Conv1DWithSyncFunc(Conv1D):
+    class Conv1DWithSyncFunc(Conv1D if Conv1D is not None else nn.Module):
         """Implementation modified from `Conv1D` but with a sync function
         that will be invoked before the bias addition.
         Arguments are the same as the inputs of `Conv1D`

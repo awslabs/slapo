@@ -126,15 +126,7 @@ python3 tune_single_node.py
 
 ## Benchmarking
 We provide scripts to reproduce our results on a single AWS EC2 p3.16xlarge node with 8 * V100 GPUs.
-
-```bash
-cd benchmark
-# Download datasets
-bash download_benchmark_dataset.sh
-# Run benchmarking
-# Megatron-LM and Deepspeed are required for executing the experiments
-bash run_all_single_node.sh config/single_node_v100.cfg
-```
+Please refer to [benchmark](benchmark/README.md) for more details.
 
 
 ## Publication

@@ -20,7 +20,7 @@ pip3 install torch torchvision transformers datasets matplotlib tabulate network
 We leverage the [Flash Attention](https://arxiv.org/abs/2205.14135) kernel in [xformers](https://github.com/facebookresearch/xformers) library to accelerate the attention computation. Please follow the instructions below to install.
 
 - xformers:
-```
+```bash
 git clone https://github.com/facebookresearch/xformers.git
 cd xformers
 git checkout 48a77cc
@@ -30,7 +30,7 @@ pip3 install -e ".[dev]"
 ```
 
 Note currently we need to apply the following patch to the `xformers` library:
-```
+```bash
 XFORMER_PATH=`python3 -c "import xformers, pathlib; print(pathlib.Path(xformers.__path__[0]).parent)"`
 cp scripts/xformers_patch $XFORMER_PATH
 pushd $XFORMER_PATH
@@ -42,7 +42,7 @@ popd
 ```
 
 - flash-attention:
-```
+```bash
 git clone https://github.com/jfc4050/flash-attention.git
 cd flash-attention
 git checkout 3676bd2
@@ -50,7 +50,7 @@ pip3 install -e ".[dev]"
 ```
 
 - epoi: Currently used for T5 model
-```
+```bash
 git clone https://github.com/comaniac/epoi --recursive
 cd epoi
 git checkout fa90fa7
@@ -69,11 +69,17 @@ git checkout 0bb597b
 export PYTHONPATH=`pwd`:$PYTHONPATH
 ```
 
-- DeepSpeed:
+You will need to apply the following patch to the `Megatron-LM` library if you are using PyTorch 2.0:
+
 ```bash
-git clone https://github.com/microsoft/DeepSpeed.git
-cd DeepSpeed
-pip install -e ".[dev]"
+MEGATRON_PATH=`python3 -c "import megatron, pathlib; print(pathlib.Path(megatron.__path__[0]).parent)"`
+cp scripts/megatron_patch $MEGATRON_PATH
+pushd $MEGATRON_PATH
+git config --global --add safe.directory $MEGATRON_PATH
+git reset --hard
+git apply scripts/megatron_patch
+git --no-pager diff
+popd
 ```
 
 - Apex (required by Megatron-LM)
@@ -81,6 +87,13 @@ pip install -e ".[dev]"
 git clone https://github.com/NVIDIA/apex
 cd apex
 pip install -v --disable-pip-version-check --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" ./
+```
+
+- DeepSpeed:
+```bash
+git clone https://github.com/microsoft/DeepSpeed.git
+cd DeepSpeed
+pip install -e ".[dev]"
 ```
 
 You can run those [examples](../examples/) using either Megatron-LM or DeepSpeed framework.

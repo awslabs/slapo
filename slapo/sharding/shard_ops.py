@@ -555,6 +555,10 @@ class ShardConv1D(ShardMethod):
         """
 
         def __init__(self, nf, nx, sync_fn=None):
+            if Conv1D is None:
+                raise ValueError(
+                    "Cannot use Conv1DWithSyncFunc when Conv1D is not available. Please install HuggingFace transformers in advance."
+                )
             super().__init__(nf, nx)
             self.sync_fn = sync_fn
 

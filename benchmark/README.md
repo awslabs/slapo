@@ -9,10 +9,14 @@ This is a suite including several benchmarks with a set of models on [Megatron-L
 
 ### Install Dependencies
 
-Please use the following command to install the dependencies. By default, [PyTorch](https://pytorch.org/) 2.0 is installed for better performance.
+Please use the following command to install the dependencies. We recommend installing [PyTorch](https://pytorch.org/) 2.0 for better performance.
 
 ```bash
-pip3 install torch torchvision transformers datasets matplotlib tabulate networkx triton pybind11
+# Install PyTorch
+# Please refer to https://pytorch.org/ for correct OS and CUDA version
+pip3 install torch torchvision
+# Install other dependencies
+pip3 install transformers datasets matplotlib tabulate networkx triton pybind11
 ```
 
 ### Install Efficient Kernels

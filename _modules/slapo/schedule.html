@@ -617,12 +617,36 @@ document.write(`
             <span class="k">if</span> <span class="p">(</span><span class="n">parent_name</span><span class="p">,</span> <span class="n">curr</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">subgraphs</span><span class="p">:</span>
                 <span class="c1"># New matched.</span>
                 <span class="n">subgraphs</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">parent_name</span><span class="p">,</span> <span class="n">curr</span><span class="p">))</span>
-            <span class="n">matched</span> <span class="o">=</span> <span class="kc">True</span>
-            <span class="k">if</span> <span class="n">curr</span><span class="o">.</span><span class="n">next</span> <span class="o">!=</span> <span class="n">curr</span> <span class="ow">and</span> <span class="n">target</span><span class="o">.</span><span class="n">next</span> <span class="o">!=</span> <span class="n">target</span><span class="p">:</span>
-                <span class="n">matched</span> <span class="o">=</span> <span class="n">matched</span> <span class="ow">and</span> <span class="n">find_match_subgraphs</span><span class="p">(</span>
-                    <span class="n">curr</span><span class="o">.</span><span class="n">next</span><span class="p">,</span> <span class="n">target</span><span class="o">.</span><span class="n">next</span><span class="p">,</span> <span class="n">subgraphs</span>
-                <span class="p">)</span>
-            <span class="k">return</span> <span class="n">matched</span>
+            <span class="n">ptr</span> <span class="o">=</span> <span class="n">curr</span><span class="o">.</span><span class="n">next</span>
+            <span class="n">found</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="c1"># This loop is supposed to tackle the following case that the</span>
+            <span class="c1"># user of the current node is not the immediate successor, which requires</span>
+            <span class="c1"># iteratively traverse the graph until it finds the user or reaches the</span>
+            <span class="c1"># end of the graph. An example is shown below:</span>
+            <span class="c1"># original graph:</span>
+            <span class="c1">#  x = a + b</span>
+            <span class="c1">#  y = c + d (totally independent from x)</span>
+            <span class="c1">#  z = x + 1</span>
+            <span class="c1"># pattern graph:</span>
+            <span class="c1">#  m = p + q</span>
+            <span class="c1">#  n = m + 1</span>
+            <span class="c1"># should match:</span>
+            <span class="c1">#  x = a + b</span>
+            <span class="c1">#  z = x + 1</span>
+            <span class="c1"># The implication here is that the generated pattern graph should follows **the same</span>
+            <span class="c1"># topological order** of the original graph. Otherwise, the current implementation</span>
+            <span class="c1"># will not be able to match the pattern graph. In general, subgraph isomorphism</span>
+            <span class="c1"># is an NP-complete problem, and the current implementation is a greedy algorithm</span>
+            <span class="c1"># that leverages the property of sequential representation of the computation graph.</span>
+            <span class="c1">#</span>
+            <span class="c1"># The successor of the last operation of the fx graph is binded to the root node,</span>
+            <span class="c1"># so when ptr.op == &quot;root&quot;, it means it reaches the end of the graph.</span>
+            <span class="k">while</span> <span class="n">ptr</span><span class="o">.</span><span class="n">op</span> <span class="o">!=</span> <span class="s2">&quot;root&quot;</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">find_match_subgraphs</span><span class="p">(</span><span class="n">ptr</span><span class="p">,</span> <span class="n">target</span><span class="o">.</span><span class="n">next</span><span class="p">,</span> <span class="n">subgraphs</span><span class="p">):</span>
+                    <span class="n">found</span> <span class="o">=</span> <span class="kc">True</span>
+                    <span class="k">break</span>
+                <span class="n">ptr</span> <span class="o">=</span> <span class="n">ptr</span><span class="o">.</span><span class="n">next</span>
+            <span class="k">return</span> <span class="n">found</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">trace</span><span class="p">()</span>
 
@@ -639,7 +663,8 @@ document.write(`
                 <span class="n">closure_vars</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">getclosurevars</span><span class="p">(</span><span class="n">pattern_fn</span><span class="p">)</span>
                 <span class="n">closure_code</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
                 <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">closure_vars</span><span class="o">.</span><span class="n">nonlocals</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-                    <span class="n">closure_code</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2"> = </span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="n">callable</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
+                        <span class="n">closure_code</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2"> = </span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
                 <span class="n">formatted_code</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
                 <span class="n">indent</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
                 <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">src_code</span><span class="p">:</span>

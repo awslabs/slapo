@@ -327,12 +327,36 @@ class Schedule:
             if (parent_name, curr) not in subgraphs:
                 # New matched.
                 subgraphs.append((parent_name, curr))
-            matched = True
-            if curr.next != curr and target.next != target:
-                matched = matched and find_match_subgraphs(
-                    curr.next, target.next, subgraphs
-                )
-            return matched
+            ptr = curr.next
+            found = False
+            # This loop is supposed to tackle the following case that the
+            # user of the current node is not the immediate successor, which requires
+            # iteratively traverse the graph until it finds the user or reaches the
+            # end of the graph. An example is shown below:
+            # original graph:
+            #  x = a + b
+            #  y = c + d (totally independent from x)
+            #  z = x + 1
+            # pattern graph:
+            #  m = p + q
+            #  n = m + 1
+            # should match:
+            #  x = a + b
+            #  z = x + 1
+            # The implication here is that the generated pattern graph should follows **the same
+            # topological order** of the original graph. Otherwise, the current implementation
+            # will not be able to match the pattern graph. In general, subgraph isomorphism
+            # is an NP-complete problem, and the current implementation is a greedy algorithm
+            # that leverages the property of sequential representation of the computation graph.
+            #
+            # The successor of the last operation of the fx graph is binded to the root node,
+            # so when ptr.op == "root", it means it reaches the end of the graph.
+            while ptr.op != "root":
+                if find_match_subgraphs(ptr, target.next, subgraphs):
+                    found = True
+                    break
+                ptr = ptr.next
+            return found
 
         self.trace()
 
@@ -349,7 +373,8 @@ class Schedule:
                 closure_vars = inspect.getclosurevars(pattern_fn)
                 closure_code = ""
                 for key, value in closure_vars.nonlocals.items():
-                    closure_code += f"{key} = {value}\n"
+                    if not callable(value):
+                        closure_code += f"{key} = {value}\n"
                 formatted_code = ""
                 indent = ""
                 for line in src_code:

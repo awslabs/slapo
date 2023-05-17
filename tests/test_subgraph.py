@@ -281,5 +281,81 @@ def test_pattern_call_module_class():
         assert isinstance(sch.get_module(subgraph[i][1][1].target), nn.ReLU)
 
 
+def test_qkv():
+    from transformers import BertLMHeadModel, AutoConfig
+    import inspect
+    from torch import fx
+
+    config = AutoConfig.from_pretrained("bert-large-uncased")
+    model = BertLMHeadModel(config)
+
+    sch = slapo.create_schedule(model)
+    input_names = ["hidden_states"]
+    subsch = sch["bert.encoder.layer.0.attention"]
+    sig = inspect.signature(subsch.mod.forward)
+    concrete_args = {
+        p.name: p.default for p in sig.parameters.values() if p.name not in input_names
+    }
+    subsch.trace(
+        recursive=False, flatten=True, tracer="pytorch", concrete_args=concrete_args
+    )
+    assert isinstance(subsch.mod, fx.GraphModule)
+
+    def pattern(x):
+        x = call_module(r"self\.(query|key|value)", x)
+        new_shape = x.size()[:-1] + (16, -1)
+        x = x.view(new_shape)
+        return x.permute(0, 2, 1, 3)
+
+    qkv_subgraphs = subsch.find(pattern)
+    assert len(qkv_subgraphs) == 3
+    for subgraph in qkv_subgraphs:
+        assert len(subgraph) == 6
+    assert qkv_subgraphs[0][0][1].target == "self.query"
+    assert qkv_subgraphs[1][0][1].target == "self.key"
+    assert qkv_subgraphs[2][0][1].target == "self.value"
+
+
+def test_diamond():
+    class Diamond(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.fc1 = nn.Linear(10, 10)
+            self.fc2 = nn.Linear(10, 10)
+
+        def forward(self, x, y):
+            # \ /
+            #  A
+            # / \
+            # B C
+            # \ /
+            #  D
+            x = self.fc1(x)
+            y = self.fc2(y)
+            a = x + y
+            b = a * 2
+            b1 = a * 5  # useless op
+            c = a * 3
+            d = b + c
+            e = b1 + d  # useless op
+            return e
+
+    sch = slapo.create_schedule(Diamond())
+
+    def pattern(m, n):
+        # Intermediate `a` node is required to ensure `b` and `c` are connected to the same `a`,
+        # otherwise the pattern will not be matched, since it will create two different nodes
+        # for (m + n) and generate different subgraphs
+        a = m + n
+        return a * 2 + a * 3
+
+    subgraph = sch.find(pattern)[0]
+    assert len(subgraph) == 4
+    assert subgraph[0][1].target == operator.add
+    assert subgraph[1][1].target == operator.mul
+    assert subgraph[2][1].target == operator.mul
+    assert subgraph[3][1].target == operator.add
+
+
 if __name__ == "__main__":
     pytest.main([__file__])

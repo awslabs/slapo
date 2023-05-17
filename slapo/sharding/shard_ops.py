@@ -548,13 +548,17 @@ class ShardConv1D(ShardMethod):
     and returns the output type (partial or partition) after sharding.
     """
 
-    class Conv1DWithSyncFunc(Conv1D):
+    class Conv1DWithSyncFunc(Conv1D if Conv1D is not None else nn.Module):
         """Implementation modified from `Conv1D` but with a sync function
         that will be invoked before the bias addition.
         Arguments are the same as the inputs of `Conv1D`
         """
 
         def __init__(self, nf, nx, sync_fn=None):
+            if Conv1D is None:
+                raise ValueError(
+                    "Cannot use Conv1DWithSyncFunc when Conv1D is not available. Please install HuggingFace transformers in advance."
+                )
             super().__init__(nf, nx)
             self.sync_fn = sync_fn
 

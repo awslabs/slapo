@@ -11,6 +11,7 @@ import torch.distributed as dist
 
 from .schedule import create_schedule
 from .build import build
+from .random import set_random_seed
 from .logger import get_logger
 from .primitives.base import Primitive
 
@@ -95,7 +96,10 @@ class Verify(ContextDecorator):
             for inp in self.example_inputs:
                 dist.broadcast(inp, src=0, group=self.sch.group)
         # 5. Run the original model and the new model
+        #    make sure the random seeds are the same, which may affect the output of dropout
+        set_random_seed(2023)
         original_output = original_mod(*self.example_inputs)
+        set_random_seed(2023)
         new_output = new_mod(*self.example_inputs)
         # 6. Compare the outputs
         torch.testing.assert_close(original_output, new_output)

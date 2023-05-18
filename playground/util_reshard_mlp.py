@@ -1,10 +1,10 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-'''
+"""
 Implementation of different resharding schemes on MLP. 
 Verified by different combinations of resharding schemes. 
-'''
+"""
 
 import copy
 import time
@@ -18,11 +18,12 @@ import logging
 import sys
 import argparse
 
+
 class MLP(nn.Module):
     def __init__(self):
         super().__init__()
-        self.fc1 = nn.Linear(D, 4*D)
-        self.fc2 = nn.Linear(4*D, D)
+        self.fc1 = nn.Linear(D, 4 * D)
+        self.fc2 = nn.Linear(4 * D, D)
 
     def forward(self, x):
         x = self.fc1(x)
@@ -30,15 +31,17 @@ class MLP(nn.Module):
         x = self.fc2(x)
         return x
 
-def reshard_RS_to_SR_post(_module, _input, output):
-    """Reshard from RS to SR
-    """
 
-    in_tensor = output
+def reshard_RS_to_SR(in_tensor):
     in_shape = in_tensor.shape
-    chunk_shape = list(in_shape[:-2]) + [in_shape[-2] // dist.get_world_size(), in_shape[-1]] # [8, 256, 2048]
+    chunk_shape = list(in_shape[:-2]) + [
+        in_shape[-2] // dist.get_world_size(),
+        in_shape[-1],
+    ]
 
-    splitted_tensor = torch.split(in_tensor, in_shape[-2] // dist.get_world_size(), dim=-2)
+    splitted_tensor = torch.split(
+        in_tensor, in_shape[-2] // dist.get_world_size(), dim=-2
+    )
 
     for i in range(dist.get_world_size()):
         send_tensor = splitted_tensor[i].contiguous()
@@ -55,16 +58,26 @@ def reshard_RS_to_SR_post(_module, _input, output):
 
     ret = torch.cat(gather_list, dim=-1)
     return ret
+
+
+def reshard_RS_to_SR_post(_module, _input, output):
+    return reshard_RS_to_SR(output)
+
 
 def reshard_RS_to_SR_pre(_module, input):
-    """Reshard from RS to SR
-    """
+    return reshard_RS_to_SR(input[0])
 
-    in_tensor = input[0]
-    in_shape = in_tensor.shape
-    chunk_shape = list(in_shape[:-2]) + [in_shape[-2] // dist.get_world_size(), in_shape[-1]] # [8, 256, 2048]
 
-    splitted_tensor = torch.split(in_tensor, in_shape[-2] // dist.get_world_size(), dim=-2)
+def reshard_SR_to_RS(in_tensor):
+    in_shape = in_tensor.shape  # [8, 256, 4096]
+    # chunk shape = [8, 256, 4096 // p]
+    chunk_shape = list(in_shape[:-1]) + [
+        in_shape[-1] // dist.get_world_size()
+    ]  # [8, 256, 2048]
+
+    splitted_tensor = torch.split(
+        in_tensor, in_shape[-1] // dist.get_world_size(), dim=-1
+    )  # [8, 256, 2048]
 
     for i in range(dist.get_world_size()):
         send_tensor = splitted_tensor[i].contiguous()
@@ -76,141 +89,64 @@ def reshard_RS_to_SR_pre(_module, input):
                 torch.empty(chunk_shape, dtype=in_tensor.dtype, device=in_tensor.device)
                 for _ in range(dist.get_world_size())
             ]
-            handle = dist.gather(send_tensor, gather_list, dst=i, async_op=True)  # recv
+            handle = dist.gather(send_tensor, gather_list, dst=i, async_op=True)
     handle.wait()
 
-    ret = torch.cat(gather_list, dim=-1)
+    ret = torch.cat(gather_list, dim=-2)  # [8, 512, 2048]
     return ret
+
 
 def reshard_SR_to_RS_post(_module, _input, output):
-    """Reshard from SR to RS
-    """
-    in_tensor = output
-    in_shape = in_tensor.shape # [8, 256, 4096]
-    # chunk shape = [8, 256, 4096 // p]
-    chunk_shape = list(in_shape[:-1]) + [in_shape[-1] // dist.get_world_size()] # [8, 256, 2048]
-    
-    splitted_tensor = torch.split(in_tensor, in_shape[-1] // dist.get_world_size(), dim=-1) # [8, 256, 2048]
-    
-    for i in range(dist.get_world_size()):
-        send_tensor = splitted_tensor[i].contiguous()
+    return reshard_SR_to_RS(output)
 
-        if dist.get_rank() != i:
-            dist.gather(send_tensor, dst=i, async_op=True)  # send
-        else:
-            gather_list = [
-                torch.empty(chunk_shape, dtype=in_tensor.dtype, device=in_tensor.device)
-                for _ in range(dist.get_world_size())
-            ]
-            handle = dist.gather(send_tensor, gather_list, dst=i, async_op=True)
-    handle.wait()
-
-    ret = torch.cat(gather_list, dim=-2) # [8, 512, 2048]
-    return ret
 
 def reshard_SR_to_RS_pre(_module, input):
-    """Reshard from SR to RS
-    """
-    in_tensor = input[0]
-    in_shape = in_tensor.shape # [8, 256, 4096]
-    # chunk shape = [8, 256, 4096 // p]
-    chunk_shape = list(in_shape[:-1]) + [in_shape[-1] // dist.get_world_size()] # [8, 256, 2048]
-    
-    splitted_tensor = torch.split(in_tensor, in_shape[-1] // dist.get_world_size(), dim=-1) # [8, 256, 2048]
-    
-    for i in range(dist.get_world_size()):
-        send_tensor = splitted_tensor[i].contiguous()
+    return reshard_SR_to_RS(input[0])
 
-        if dist.get_rank() != i:
-            dist.gather(send_tensor, dst=i, async_op=True)  # send
-        else:
-            gather_list = [
-                torch.empty(chunk_shape, dtype=in_tensor.dtype, device=in_tensor.device)
-                for _ in range(dist.get_world_size())
-            ]
-            handle = dist.gather(send_tensor, gather_list, dst=i, async_op=True)
-    handle.wait()
 
-    ret = torch.cat(gather_list, dim=-2) # [8, 512, 2048]
+def reshard_SR_to_RR(in_tensor):
+    temp = in_tensor.transpose(0, -2)  # [256, 8, 1024]
+    temp = temp.contiguous()
+    gather_shape = list(temp.shape)  # [256, 8, 1024]
+
+    gather_shape[0] = dist.get_world_size() * gather_shape[0]  # [512, 8, 1024]
+
+    ret = torch.empty(gather_shape, dtype=temp.dtype, device=in_tensor.device)
+    dist.all_gather_into_tensor(ret, temp)  # [512, 8, 1024]
+
+    ret = ret.transpose(0, -2).contiguous()  # [8, 512 1024]
     return ret
-
-
-def reshard_RS_to_SR_to_RS_post(_module, _input, output):
-    in_tensor = output
-    sr_tensor = reshard_RS_to_SR_post(_, _, in_tensor)
-    rs_tensor = reshard_SR_to_RS_post(_, _, sr_tensor)
-    return rs_tensor
 
 
 def reshard_SR_to_RR_post(_module, _input, output):
-    """Reshard from SR to RR
-    """
-    in_tensor = output # [8, 256, 1024]
+    return reshard_SR_to_RR(output)
 
-    temp = in_tensor.transpose(0, -2) # [256, 8, 1024]
-    temp = temp.contiguous()
-    gather_shape = list(temp.shape) # [256, 8, 1024]
-
-    gather_shape[0] = dist.get_world_size() * gather_shape[0] # [512, 8, 1024]
-
-    ret = torch.empty(gather_shape, dtype=temp.dtype, device=in_tensor.device)
-    dist.all_gather_into_tensor(ret, temp) # [512, 8, 1024]
-
-    ret = ret.transpose(0, -2).contiguous() # [8, 512 1024]
-    return ret
 
 def reshard_SR_to_RR_pre(_module, input):
-    """Reshard from SR to RR
-    """
-    in_tensor = input[0]
+    return reshard_SR_to_RR(input[0])
 
-    temp = in_tensor.transpose(0, -2) # [256, 8, 1024]
-    temp = temp.contiguous()
-    gather_shape = list(temp.shape) # [256, 8, 1024]
 
-    gather_shape[0] = dist.get_world_size() * gather_shape[0] # [512, 8, 1024]
+def reshard_RS_to_RR(in_tensor):
+    temp = in_tensor.transpose(0, -1).contiguous()  # [1024, 512, 8]
+    gather_shape = list(temp.shape)
+
+    gather_shape[0] = dist.get_world_size() * gather_shape[0]  # [2048, 512, 8]
 
     ret = torch.empty(gather_shape, dtype=temp.dtype, device=in_tensor.device)
-    dist.all_gather_into_tensor(ret, temp) # [512, 8, 1024]
-
-    ret = ret.transpose(0, -2).contiguous() # [8, 512 1024]
+    dist.all_gather_into_tensor(ret, temp)  # [2048, 512, 8]
+    ret = ret.transpose(0, -1).contiguous()  # [8, 512, 2048]
     return ret
+
 
 def reshard_RS_to_RR_post(_module, _input, output):
-    """Reshard from RS to RR
-    """
-    # [8, 512, 1024] -> [8, 512, 2048]
-    in_tensor = output
-    temp = in_tensor.transpose(0, -1).contiguous() # [1024, 512, 8]
-    gather_shape = list(temp.shape)
-    
-    gather_shape[0] = dist.get_world_size() * gather_shape[0] # [2048, 512, 8]
+    return reshard_RS_to_RR(output)
 
-    ret = torch.empty(gather_shape, dtype=temp.dtype, device=in_tensor.device)
-    dist.all_gather_into_tensor(ret, temp) # [2048, 512, 8]
-    ret = ret.transpose(0, -1).contiguous() # [8, 512, 2048]
-    return ret
 
 def reshard_RS_to_RR_pre(_module, input):
-    """Reshard from RS to RR
-    """
-    # [8, 512, 1024] -> [8, 512, 2048]
-    in_tensor = input[0]
-    temp = in_tensor.transpose(0, -1).contiguous() # [1024, 512, 8]
-    gather_shape = list(temp.shape)
-    
-    gather_shape[0] = dist.get_world_size() * gather_shape[0] # [2048, 512, 8]
+    return reshard_RS_to_RR(input[0])
 
-    ret = torch.empty(gather_shape, dtype=temp.dtype, device=in_tensor.device)
-    dist.all_gather_into_tensor(ret, temp) # [2048, 512, 8]
-    ret = ret.transpose(0, -1).contiguous() # [8, 512, 2048]
-    return ret
 
-def reshard_RR_to_RS_post(_module, _input, output):
-    """Reshard from RR to RS
-    """
-    # [8, 512, 2048] -> [8, 512, 1024]
-    in_tensor = output
+def reshard_RR_to_RS(in_tensor):
     # get the current rank's tensor. Slice across the last dimension
     shard_dim_size = in_tensor.shape[-1] // dist.get_world_size()
     start_idx = (int)(dist.get_rank() * shard_dim_size)
@@ -223,18 +159,23 @@ def reshard_RR_to_RS_post(_module, _input, output):
     ret = in_tensor[slices]
     return ret
 
+
+def reshard_RR_to_RS_post(_module, _input, output):
+    return reshard_RR_to_RS(output)
+
+
 def reshard_RR_to_RS_pre(_module, input):
-    """Reshard from RR to RS
-    """
-    # [8, 512, 2048] -> [8, 512, 1024]
-    in_tensor = input[0]
-    # get the current rank's tensor. Slice across the last dimension
-    shard_dim_size = in_tensor.shape[-1] // dist.get_world_size()
+    return reshard_RR_to_RS(input[0])
+
+
+def reshard_RR_to_SR(in_tensor):
+    # get the current rank's tensor. Slice across the 2nd last dimension
+    shard_dim_size = in_tensor.shape[-2] // dist.get_world_size()
     start_idx = (int)(dist.get_rank() * shard_dim_size)
     end_idx = (int)((dist.get_rank() + 1) * shard_dim_size)
 
     slices = [slice(None)] * len(in_tensor.shape)
-    slices[-1] = slice(start_idx, end_idx)
+    slices[-2] = slice(start_idx, end_idx)
 
     # Slice the tensor
     ret = in_tensor[slices]
@@ -242,50 +183,24 @@ def reshard_RR_to_RS_pre(_module, input):
 
 
 def reshard_RR_to_SR_post(_module, _input, output):
-    """Reshard from RR to SR
-    """
-    # [8, 512, 2048] -> [8, 256, 2048]
-    in_tensor = output
-    # get the current rank's tensor. Slice across the 2nd last dimension
-    shard_dim_size = in_tensor.shape[-2] // dist.get_world_size()
-    start_idx = (int)(dist.get_rank() * shard_dim_size)
-    end_idx = (int)((dist.get_rank() + 1) * shard_dim_size)
+    return reshard_RR_to_SR(output)
 
-    slices = [slice(None)] * len(in_tensor.shape)
-    slices[-2] = slice(start_idx, end_idx)
-
-    # Slice the tensor
-    ret = in_tensor[slices]
-    return ret
 
 def reshard_RR_to_SR_pre(_module, input):
-    """Reshard from RR to SR
-    """
-    # [8, 512, 2048] -> [8, 256, 2048]
-    in_tensor = input[0]
-    # get the current rank's tensor. Slice across the 2nd last dimension
-    shard_dim_size = in_tensor.shape[-2] // dist.get_world_size()
-    start_idx = (int)(dist.get_rank() * shard_dim_size)
-    end_idx = (int)((dist.get_rank() + 1) * shard_dim_size)
-
-    slices = [slice(None)] * len(in_tensor.shape)
-    slices[-2] = slice(start_idx, end_idx)
-
-    # Slice the tensor
-    ret = in_tensor[slices]
-    return ret
+    return reshard_RR_to_SR(input[0])
 
 
 if __name__ == "__main__":
-
     # Create parser
     parser = argparse.ArgumentParser(description="Resharding schemes on MLP")
     # Add arguments
-    parser.add_argument('--times', type=int, required=True, help='Number of times to run the model')
-    parser.add_argument('--bs', type=int, required=True, help='Batch size')
-    parser.add_argument('--seq', type=int, help='Sequence length', default=1024)
-    parser.add_argument('--d', type=int, help='Model size', default=2048)
-    parser.add_argument('--p', type=int, help='Number of processes', default=4)
+    parser.add_argument(
+        "--times", type=int, required=True, help="Number of times to run the model"
+    )
+    parser.add_argument("--bs", type=int, required=True, help="Batch size")
+    parser.add_argument("--seq", type=int, help="Sequence length", default=1024)
+    parser.add_argument("--d", type=int, help="Model size", default=2048)
+    parser.add_argument("--p", type=int, help="Number of processes", default=4)
     # Parse the arguments
     args = parser.parse_args()
 
@@ -307,7 +222,7 @@ if __name__ == "__main__":
         logger.setLevel(logging.INFO)
 
         # Create a file handler
-        handler = logging.FileHandler("profile_reshard.log", mode='w')
+        handler = logging.FileHandler("profile_reshard.log", mode="w")
         handler.setLevel(logging.INFO)
 
         # Add the handler to the logger
@@ -323,13 +238,11 @@ if __name__ == "__main__":
     torch.cuda.set_device(dist.get_rank())
     device = f"cuda:{dist.get_rank()}"
 
-
     # ========== Verification =========
 
     input_tensor_verf = torch.randn(8, SEQ, D).to(device=device)
 
     mlp = MLP()
-
 
     # 1. Naive. RR * RR -> RR; RR * RR -> RR
     if dist.get_rank() == 0:
@@ -340,7 +253,6 @@ if __name__ == "__main__":
         # do nothing
         pass
     mod_1, _ = slapo.build(sch)
-
 
     # input_tensor = torch.randn(BS, SEQ, D).to(device=device)
 
@@ -355,8 +267,6 @@ if __name__ == "__main__":
     #     sort_by="self_cuda_time_total", row_limit=10))
     # logger.info(prof.key_averages().table(
     #     sort_by="self_cpu_time_total", row_limit=10))
-
-
 
     # sys.exit(0)
 
@@ -442,16 +352,13 @@ if __name__ == "__main__":
         sch["fc2"].sync("fwd_post", sync_op_or_fn=reshard_SR_to_RR_post)
     mod_8, _ = slapo.build(sch)
 
-
-
     # =============== Performance ==============
     # Create cuda events
     start_event = torch.cuda.Event(enable_timing=True)
     end_event = torch.cuda.Event(enable_timing=True)
 
     def perf_model(mod, input_tensor, times=TIMES):
-        """Measure the performance of a mod with certain resharding schemes
-        """
+        """Measure the performance of a mod with certain resharding schemes"""
         start_event.record()
         for _ in range(times):
             mod(input_tensor)
@@ -462,7 +369,9 @@ if __name__ == "__main__":
 
     if dist.get_rank() == 0:
         print("\n===== Setting ======")
-        print(f"Number of GPUs: {dist.get_world_size()}; BS: {BS}, SEQ: {SEQ}, D: {D}, TIMES: {TIMES}\n")
+        print(
+            f"Number of GPUs: {dist.get_world_size()}; BS: {BS}, SEQ: {SEQ}, D: {D}, TIMES: {TIMES}\n"
+        )
 
     input_tensor = torch.randn(BS, SEQ, D, device=device)
 
@@ -471,7 +380,6 @@ if __name__ == "__main__":
 
     for mod in mods:
         perf_model(mod, input_tensor)
-
 
 
 # # Mod 2: Ours
@@ -531,4 +439,3 @@ if __name__ == "__main__":
 # end = time.time()
 # if dist.get_rank() == 0:
 #     print("Mod 7: ", end - start)
-

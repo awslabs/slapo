@@ -19,7 +19,9 @@ logger = get_logger()
 
 
 class Verify(ContextDecorator):
-    def __init__(self, sch, example_inputs, device="cuda", enable=True):
+    def __init__(
+        self, sch, example_inputs, device="cuda", eval_mode=False, enable=True
+    ):
         if not isinstance(example_inputs, list):
             example_inputs = [example_inputs]
         self.example_inputs = example_inputs
@@ -28,6 +30,7 @@ class Verify(ContextDecorator):
         self.original_sch = create_schedule(copy.deepcopy(self.sch.mod))
         self.device = device
         self.enable = enable
+        self.eval_mode = eval_mode
 
     def __enter__(self):
         self.original_trace = sys.gettrace()
@@ -63,6 +66,8 @@ class Verify(ContextDecorator):
         is_initialized = named_params.__next__()[1].device != torch.device("meta")
         original_mod, _ = build(self.original_sch, init_weights=not is_initialized)
         #    make sure all the buffers are on the right device
+        if self.eval_mode:
+            original_mod.eval()
         original_mod = original_mod.to(self.device)
         # 2. Get the example inputs
         self.example_inputs = [x.to(self.device) for x in self.example_inputs]
@@ -112,6 +117,8 @@ class Verify(ContextDecorator):
         set_random_seed(2023)
         #    make sure all the buffers are on the right device
         new_mod.to(self.device)
+        if self.eval_mode:
+            new_mod.eval()
         new_output = new_mod(*self.example_inputs)
         # 9. Compare the outputs
         torch.testing.assert_close(original_output, new_output)

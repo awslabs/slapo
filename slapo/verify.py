@@ -20,7 +20,7 @@ logger = get_logger()
 
 class Verify(ContextDecorator):
     def __init__(
-        self, sch, example_inputs, device="cuda", eval_mode=False, enable=True
+        self, sch, example_inputs, device="cuda", eval_mode=True, enable=True
     ):
         if not isinstance(example_inputs, list):
             example_inputs = [example_inputs]

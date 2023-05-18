@@ -132,5 +132,73 @@ def test_meta_distributed(init_dist):
         sch["linear2"].sync(mode="fwd_post", sync_op_or_fn="all_reduce")
 
 
+def test_bert(init_dist):
+    from transformers import BertLMHeadModel, AutoConfig
+    import inspect
+
+    local_rank = int(os.environ["LOCAL_RANK"])
+    torch.cuda.set_device(local_rank)
+
+    config = AutoConfig.from_pretrained("bert-large-uncased")
+    with slapo.init_empty_weights():
+        model = BertLMHeadModel(config)
+
+    sch = slapo.create_schedule(model)
+
+    def fix_attention_mask_shape(sch):
+        input_names = ["hidden_states"]
+        sig = inspect.signature(sch.mod.forward)
+        concrete_args = {
+            p.name: p.default
+            for p in sig.parameters.values()
+            if p.name not in input_names
+        }
+        sch.trace(
+            recursive=False, flatten=True, tracer="pytorch", concrete_args=concrete_args
+        )
+        ops = sch.find_node(
+            lambda node: node.op == "call_method" and node.target == "view"
+        )
+        assert len(ops) == 4  # q,k,v,context_layer
+
+        def new_view(tensor, args):
+            if len(args) == 4:  # q,k,v
+                new_shape = (args[0], args[1], args[2] // sch.world_size, -1)
+            else:  # context_layer
+                new_shape = (args[0], args[1], args[2] // sch.world_size)
+            out = tensor.view(new_shape)
+            return out
+
+        for op in ops:
+            sch.replace(new_view, op)
+
+    bs = 2
+    seq = 512
+    input_ids = torch.ones(bs, seq, dtype=torch.long, device=sch.rank)
+    with slapo.Verify(sch, [input_ids], eval_mode=True):
+        for i in range(config.num_hidden_layers):
+            # shard attention
+            subsch = sch[f"bert.encoder.layer.{i}.attention.self"]
+            subsch["query"].shard("weight", axis=0)
+            subsch["query"].shard("bias", axis=0)
+            subsch["key"].shard("weight", axis=0)
+            subsch["key"].shard("bias", axis=0)
+            subsch["value"].shard("weight", axis=0)
+            subsch["value"].shard("bias", axis=0)
+            fix_attention_mask_shape(subsch)
+            subsch = sch[f"bert.encoder.layer.{i}.attention.output"]
+            subsch["dense"].shard("weight", axis=1)
+            subsch["dense"].sync("fwd_post", sync_op_or_fn="all_reduce")
+            # shard MLP
+            subsch = sch[f"bert.encoder.layer.{i}"]
+            with slapo.Verify(
+                subsch, [torch.randn(bs, seq, config.hidden_size)], enable=False
+            ):
+                subsch["intermediate.dense"].shard("weight", axis=0)
+                subsch["intermediate.dense"].shard("bias", axis=0)
+                subsch["output.dense"].shard("weight", axis=1)
+                subsch["output.dense"].sync("fwd_post", sync_op_or_fn="all_reduce")
+
+
 if __name__ == "__main__":
     pytest.main([__file__])

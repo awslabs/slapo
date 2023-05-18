@@ -59,15 +59,28 @@ class Verify(ContextDecorator):
         named_params = self.original_sch.mod.named_parameters()
         is_initialized = named_params.__next__()[1].device != torch.device("meta")
         original_mod, _ = build(self.original_sch, init_weights=not is_initialized)
+        #    make sure all the buffers are on the right device
         original_mod = original_mod.to(self.device)
-        #    Broadcast the original model from rank 0 to other ranks
+        # 2. Get the example inputs
+        self.example_inputs = [x.to(self.device) for x in self.example_inputs]
+        #   Broadcast the example inputs from rank 0 to other ranks
+        if self.sch.world_size > 1:
+            for inp in self.example_inputs:
+                dist.broadcast(inp, src=0, group=self.sch.group)
+        # 3. Run the original model
+        #    make sure the random seeds are the same, which may affect the output of dropout
+        set_random_seed(2023)
+        original_output = original_mod(*self.example_inputs)
+        # 4. Broadcast the original model from rank 0 to other ranks
         original_state_dict = original_mod.state_dict()
         if self.sch.world_size > 1:
             for param_name in original_state_dict:
                 dist.broadcast(
                     original_state_dict[param_name], src=0, group=self.sch.group
                 )
-        # 2. Get the transformed model from the schedule
+        # 5. Delete the original model to avoid excessive memory usage
+        del original_mod
+        # 6. Get the transformed model from the schedule
         #    Copy it and build a new schedule to prevent the original schedule from being modified
         copied_mod = copy.deepcopy(self.sch.mod)
         # copy original attributes
@@ -76,7 +89,7 @@ class Verify(ContextDecorator):
             if hasattr(param, "orig_shape"):
                 copied_mod.get_parameter(param_name).orig_shape = param.orig_shape
         new_sch = create_schedule(copied_mod)
-        # 3. Use original weights to initialize the new model
+        # 7. Use original weights to initialize the new model
         #    Notice init_weights is called before actual sharding, so we only need to
         #    assign the original weights to the corresponding modules
 
@@ -91,24 +104,14 @@ class Verify(ContextDecorator):
                 )
 
         new_mod, _ = build(new_sch, init_weights=init_weights)
-        # 4. Get the example inputs
-        self.example_inputs = [x.to(self.device) for x in self.example_inputs]
-        #   Broadcast the example inputs from rank 0 to other ranks
-        if self.sch.world_size > 1:
-            for inp in self.example_inputs:
-                dist.broadcast(inp, src=0, group=self.sch.group)
-        # 5. Run the original model and the new model
+        # 8. Run the new model
         #    make sure the random seeds are the same, which may affect the output of dropout
         set_random_seed(2023)
         #    make sure all the buffers are on the right device
-        original_mod.to(self.device)
-        original_output = original_mod(*self.example_inputs)
-        set_random_seed(2023)
         new_mod.to(self.device)
         new_output = new_mod(*self.example_inputs)
-        # 6. Compare the outputs
+        # 9. Compare the outputs
         torch.testing.assert_close(original_output, new_output)
         logger.info("Passed verification!")
-        del original_mod
         del new_mod
         sys.settrace(self.original_trace)

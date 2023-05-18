@@ -66,8 +66,6 @@ class Verify(ContextDecorator):
         is_initialized = named_params.__next__()[1].device != torch.device("meta")
         original_mod, _ = build(self.original_sch, init_weights=not is_initialized)
         #    make sure all the buffers are on the right device
-        if self.eval_mode:
-            original_mod.eval()
         original_mod = original_mod.to(self.device)
         # 2. Get the example inputs
         self.example_inputs = [x.to(self.device) for x in self.example_inputs]
@@ -77,6 +75,8 @@ class Verify(ContextDecorator):
                 dist.broadcast(inp, src=0, group=self.sch.group)
         # 3. Run the original model
         #    make sure the random seeds are the same, which may affect the output of dropout
+        if self.eval_mode:
+            original_mod.eval()
         set_random_seed(2023)
         original_output = original_mod(*self.example_inputs)
         # 4. Broadcast the original model from rank 0 to other ranks
@@ -113,12 +113,12 @@ class Verify(ContextDecorator):
 
         new_mod, _ = build(new_sch, init_weights=init_weights)
         # 8. Run the new model
-        #    make sure the random seeds are the same, which may affect the output of dropout
-        set_random_seed(2023)
         #    make sure all the buffers are on the right device
         new_mod.to(self.device)
         if self.eval_mode:
             new_mod.eval()
+        #    make sure the random seeds are the same, which may affect the output of dropout
+        set_random_seed(2023)
         new_output = new_mod(*self.example_inputs)
         # 9. Compare the outputs
         torch.testing.assert_close(original_output, new_output)

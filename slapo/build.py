@@ -173,7 +173,7 @@ def consolidate_model(
                 # https://github.com/huggingface/transformers/blob/main/src/transformers/models/bert/modeling_bert.py#L693
                 # They can be initialized even without `reset_parameters` method,
                 # but we need to warn user about this case.
-                # However, if users provide the `param_init_fn`, we assume they
+                # However, if users provide `param_init_fn`, we assume
                 # those parameters can be handled within that function.
                 for param_name, param in sch.mod.named_parameters(recurse=False):
                     logger.info(

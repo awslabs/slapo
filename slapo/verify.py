@@ -19,7 +19,7 @@ logger = get_logger()
 
 
 class Verify(ContextDecorator):
-    def __init__(self, sch, example_inputs, device="cuda"):
+    def __init__(self, sch, example_inputs, device="cuda", enable=True):
         if not isinstance(example_inputs, list):
             example_inputs = [example_inputs]
         self.example_inputs = example_inputs
@@ -27,6 +27,7 @@ class Verify(ContextDecorator):
         self.sch = sch
         self.original_sch = create_schedule(copy.deepcopy(self.sch.mod))
         self.device = device
+        self.enable = enable
 
     def __enter__(self):
         self.original_trace = sys.gettrace()
@@ -55,6 +56,8 @@ class Verify(ContextDecorator):
         """Verify the correctness of the schedule.
         TODO: Support backward verification
         """
+        if not self.enable:
+            return
         # 1. Build the original model with random weights
         named_params = self.original_sch.mod.named_parameters()
         is_initialized = named_params.__next__()[1].device != torch.device("meta")

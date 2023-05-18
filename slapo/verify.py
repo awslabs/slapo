@@ -81,11 +81,13 @@ class Verify(ContextDecorator):
         #    assign the original weights to the corresponding modules
 
         def init_weights(mod, path):
-            for name, _ in mod.named_parameters():
+            for name, _ in mod.named_parameters(recurse=False):
                 setattr(
                     mod,
                     name,
-                    nn.Parameter(original_state_dict[f"{path}.{name}"].detach()),
+                    nn.Parameter(
+                        original_state_dict[f"{path}.{name}"].detach().to(self.device)
+                    ),
                 )
 
         new_mod, _ = build(new_sch, init_weights=init_weights)
@@ -98,8 +100,11 @@ class Verify(ContextDecorator):
         # 5. Run the original model and the new model
         #    make sure the random seeds are the same, which may affect the output of dropout
         set_random_seed(2023)
+        #    make sure all the buffers are on the right device
+        original_mod.to(self.device)
         original_output = original_mod(*self.example_inputs)
         set_random_seed(2023)
+        new_mod.to(self.device)
         new_output = new_mod(*self.example_inputs)
         # 6. Compare the outputs
         torch.testing.assert_close(original_output, new_output)

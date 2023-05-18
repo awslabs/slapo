@@ -177,7 +177,10 @@ def consolidate_model(
                 # those parameters can be handled within that function.
                 for param_name, param in sch.mod.named_parameters(recurse=False):
                     logger.info(
-                        f"Param {param_name} in Module {sch.path}.{sch.name} is initialized as all zeros"
+                        "Param %s in Module %s.%s is initialized as all zeros",
+                        param_name,
+                        sch.path,
+                        sch.name,
                     )
 
         # Broadcast complete params from rank 0 to make sure all the TP+DP ranks

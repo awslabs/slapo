@@ -1,5 +1,6 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
+# pylint: disable=anomalous-backslash-in-string
 """
 Implementation of different resharding schemes.
 
@@ -26,24 +27,23 @@ import torch.distributed as dist
 def parse_reshard(scheme, group):
     if scheme == "RR->RR":
         return identity
-    elif scheme == "RR->RS":
+    if scheme == "RR->RS":
         return partial(reshard_RR_to_RS, group=group)
-    elif scheme == "RR->SR":
+    if scheme == "RR->SR":
         return partial(reshard_RR_to_SR, group=group)
-    elif scheme == "RS->RR":
+    if scheme == "RS->RR":
         return partial(reshard_RS_to_RR, group=group)
-    elif scheme == "RS->RS":
+    if scheme == "RS->RS":
         return identity
-    elif scheme == "RS->SR":
+    if scheme == "RS->SR":
         return partial(reshard_RS_to_SR, group=group)
-    elif scheme == "SR->RR":
+    if scheme == "SR->RR":
         return partial(reshard_SR_to_RR, group=group)
-    elif scheme == "SR->RS":
+    if scheme == "SR->RS":
         return partial(reshard_SR_to_RS, group=group)
-    elif scheme == "SR->SR":
+    if scheme == "SR->SR":
         return identity
-    else:
-        raise ValueError(f"Unknown resharding scheme: {scheme}")
+    raise ValueError(f"Unknown resharding scheme: {scheme}")
 
 
 def identity(in_tensor):

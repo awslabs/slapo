@@ -1,5 +1,6 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
+# pylint: disable=unused-argument
 """
 Test different resharding schemes on MLP. 
 Verified by different combinations of resharding schemes. 
@@ -7,11 +8,13 @@ Verified by different combinations of resharding schemes.
 
 import os
 import copy
+
 import torch
-import torch.nn as nn
+from torch import nn
 import torch.nn.functional as F
-import slapo
 import torch.distributed as dist
+
+import slapo
 from slapo.logger import get_logger
 
 logger = get_logger(__name__)
@@ -22,10 +25,10 @@ hidden_size = 1024
 
 
 class MLP(nn.Module):
-    def __init__(self, hidden_size):
+    def __init__(self, dim):
         super().__init__()
-        self.fc1 = nn.Linear(hidden_size, 4 * hidden_size)
-        self.fc2 = nn.Linear(4 * hidden_size, hidden_size)
+        self.fc1 = nn.Linear(dim, 4 * dim)
+        self.fc2 = nn.Linear(4 * dim, dim)
 
     def forward(self, x):
         x = self.fc1(x)
@@ -49,14 +52,17 @@ def perf_model(mod, input_tensor, idx):
     end_event.record()
     torch.cuda.synchronize()
     logger.info(
-        f"Scheme {idx}: {start_event.elapsed_time(end_event) / times:.3f} ms", ranks=0
+        "Scheme %d: %.3f ms",
+        idx + 1,
+        start_event.elapsed_time(end_event) / times,
+        ranks=0,
     )
 
 
 def test_schemes(init_dist):
     # check how many GPUs are available
     num_gpus = torch.cuda.device_count()
-    logger.info(f"Available GPUs: {num_gpus}", ranks=0)
+    logger.info("Available GPUs: %d", num_gpus, ranks=0)
 
     torch.cuda.set_device(dist.get_rank())
     device = f"cuda:{dist.get_rank()}"
@@ -160,13 +166,13 @@ if __name__ == "__main__":
     # =============== Profiling ===============
 
     logger.info(
-        f"Number of GPUs: {dist.get_world_size()}, bs={bs}, seq_len={seq_len}, hidden_size={hidden_size}\n"
+        "Number of GPUs: %d, bs=%d, seq_len=%d, hidden_size=%d",
+        dist.get_world_size(),
+        bs,
+        seq_len,
+        hidden_size,
     )
-
-    device = f"cuda:{dist.get_rank()}"
-    input_tensor = torch.randn(bs, seq_len, hidden_size, device=device)
-
+    inp = torch.randn(bs, seq_len, hidden_size, device=f"cuda:{dist.get_rank()}")
     mods = test_schemes(None)
-
-    for i, mod in enumerate(mods):
-        perf_model(mod, input_tensor, i)
+    for i, model in enumerate(mods):
+        perf_model(model, inp, i)

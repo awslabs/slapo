@@ -105,34 +105,31 @@ def reshard_RS_to_RR(in_tensor, group):
 
 # 6. RS -> SR
 def reshard_RS_to_SR(in_tensor, group):
-    # TODO: Need a more efficient implementation
+    # (8, [seq]1024R, [hs]1024/4S) => (8, [hs]1024/4S, [seq]1024R)
+    dims = list(range(len(in_tensor.shape)))
+    dims = [-2] + dims[:-2] + [-1]
+    # ([seq]1024R, 8, [hs]1024/4S)
+    in_tensor = in_tensor.permute(dims).contiguous()
     in_shape = in_tensor.shape
-    chunk_shape = list(in_shape[:-2]) + [
-        in_shape[-2] // dist.get_world_size(group),
-        in_shape[-1],
-    ]
-
-    splitted_tensor = torch.split(
-        in_tensor, in_shape[-2] // dist.get_world_size(group), dim=-2
+    output = torch.empty(in_shape, dtype=in_tensor.dtype, device=in_tensor.device)
+    # ([seq]4*1024/4S, 8, [hs]1024/4S)
+    dist.all_to_all_single(output, in_tensor, group=group)
+    dims = list(range(1, len(in_tensor.shape) - 1)) + [0, -1]
+    # (8, [seq]4*1024/4S, [hs]1024/4S)
+    output = output.permute(dims)
+    # (8, 4, [seq]1024/4S, [hs]1024/4S])
+    out_shape = list(output.shape)
+    world_size = dist.get_world_size(group)
+    output = output.reshape(
+        out_shape[:-2] + [world_size, out_shape[-2] // world_size, out_shape[-1]]
     )
-
-    for i in range(dist.get_world_size(group)):
-        send_tensor = splitted_tensor[i].contiguous()
-
-        if dist.get_rank() != i:
-            dist.gather(send_tensor, dst=i, async_op=True, group=group)  # send
-        else:
-            gather_list = [
-                torch.empty(chunk_shape, dtype=in_tensor.dtype, device=in_tensor.device)
-                for _ in range(dist.get_world_size(group))
-            ]
-            handle = dist.gather(
-                send_tensor, gather_list, dst=i, async_op=True, group=group
-            )  # recv
-    handle.wait()
-
-    ret = torch.cat(gather_list, dim=-1)
-    return ret
+    dims = list(range(len(output.shape)))[:-3] + [-2, -3, -1]
+    # (8, [seq]1024/4S, 4, [hs]1024/4S)
+    output = output.permute(dims)
+    out_shape = list(output.shape)
+    out_shape = list(out_shape[:-2] + [-1])
+    output = output.reshape(out_shape)
+    return output
 
 
 # ==================== src: SR ====================

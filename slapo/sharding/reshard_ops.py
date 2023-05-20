@@ -105,30 +105,32 @@ def reshard_RS_to_RR(in_tensor, group):
 
 # 6. RS -> SR
 def reshard_RS_to_SR(in_tensor, group):
-    # (8, [seq]1024R, [hs]1024/4S) => (8, [hs]1024/4S, [seq]1024R)
+    # (bs, seq, hs/p) => (bs, seq/p, hs)
+    # Since all_to_all can only chunk the 0th dimension, we need to permute the tensor
+    # to make the 0th dimension the one we want to send data.
     dims = list(range(len(in_tensor.shape)))
     dims = [-2] + dims[:-2] + [-1]
-    # ([seq]1024R, 8, [hs]1024/4S)
+    # (seq, bs, hs/p)
     in_tensor = in_tensor.permute(dims).contiguous()
     in_shape = in_tensor.shape
     output = torch.empty(in_shape, dtype=in_tensor.dtype, device=in_tensor.device)
-    # ([seq]4*1024/4S, 8, [hs]1024/4S)
+    # (p*seq/p, bs, hs/p)
     dist.all_to_all_single(output, in_tensor, group=group)
     dims = list(range(1, len(in_tensor.shape) - 1)) + [0, -1]
-    # (8, [seq]4*1024/4S, [hs]1024/4S)
-    output = output.permute(dims)
-    # (8, 4, [seq]1024/4S, [hs]1024/4S])
+    # Permute back to the original layout
+    # (bs, p*seq/p, hs/p)
+    output = output.permute(dims).contiguous()
+    # (bs, p, seq/p, hs/p)
     out_shape = list(output.shape)
     world_size = dist.get_world_size(group)
-    output = output.reshape(
-        out_shape[:-2] + [world_size, out_shape[-2] // world_size, out_shape[-1]]
-    )
+    output = output.view(out_shape[:-2] + [world_size, out_shape[-2] // world_size, out_shape[-1]])
     dims = list(range(len(output.shape)))[:-3] + [-2, -3, -1]
-    # (8, [seq]1024/4S, 4, [hs]1024/4S)
+    # (bs, seq/p, p, hs/p)
     output = output.permute(dims)
     out_shape = list(output.shape)
     out_shape = list(out_shape[:-2] + [-1])
-    output = output.reshape(out_shape)
+    # (bs, seq/p, hs)
+    output = output.view(out_shape)
     return output
 
 

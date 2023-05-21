@@ -237,7 +237,6 @@ class MatmulOp(FxOp):
             else node.meta["tensor_meta"][0].shape
         )
         self.lhs_size = self.lhs_shape[-2] * self.lhs_shape[-1]
-        print(self.name, self.lhs_shape, self.rhs_shape, self.out_shape)
         if is_linear:
             # weight is transposed
             assert self.lhs_shape[-1] == self.rhs_shape[-1]
@@ -302,11 +301,26 @@ class MatmulOp(FxOp):
         return result
 
 
+fx_op_map = {
+    nn.Linear: MatmulOp,
+    nn.LayerNorm: LayerNormOp,
+    nn.Dropout: DropoutOp,
+    torch.matmul: MatmulOp,
+    F.relu: ElementwiseOp,
+    F.gelu: ElementwiseOp,
+    F.softmax: ElementwiseOp,
+    torch._C._nn.gelu: ElementwiseOp,
+    operator.truediv: ElementwiseOp,
+    operator.add: BinaryOp,
+}
+
+
 class Solver:
     def __init__(self, gm, p) -> None:
         assert isinstance(gm, fx.GraphModule), "gm must be a GraphModule"
         self.gm = gm
         self.gm.graph.eliminate_dead_code()
+        logger.debug(self.gm.graph, ranks=0)
         self.named_modules = dict(self.gm.named_modules())
         self.z3_graph = {}  # {node_name: FxOp}
         self.goal = []
@@ -334,9 +348,20 @@ class Solver:
                 else:
                     lst = [node.meta["tensor_meta"]]
                 for data in lst:
+                    if node.op == "call_module":
+                        target = type(self.named_modules[node.target])
+                    else:
+                        target = node.target
                     res.append(
-                        [node.name, node.op, node.target, list(data.shape), data.dtype]
+                        [node.name, node.op, target, list(data.shape), data.dtype]
                     )
+                    if node.op == "call_module":
+                        for name, param in self.named_modules[
+                            node.target
+                        ].named_parameters():
+                            res.append(
+                                ["|-" + name, "", "", list(param.shape), param.dtype]
+                            )
         logger.info(
             "\n" + tabulate(res, headers=["name", "op", "target", "shape", "dtype"]),
             ranks=0,
@@ -357,9 +382,10 @@ class Solver:
         return result
 
     def construct_z3_graph(self):
-        print(self.gm.graph)
         for node in self.gm.graph.nodes:
-            if "tensor_meta" not in node.meta:
+            if (
+                "tensor_meta" not in node.meta
+            ):  # not an activation tensor, no need to care
                 continue
             if node.op == "placeholder":  # input
                 new_op = PlaceholderOp(node)
@@ -376,18 +402,9 @@ class Solver:
                 else:
                     raise RuntimeError(f"Unsupported module: {node.target}")
             elif node.op == "call_function":
-                if node.target == torch.matmul:
-                    new_op = MatmulOp(node)
-                elif node.target in [
-                    F.relu,
-                    F.gelu,
-                    F.softmax,
-                    torch._C._nn.gelu,
-                    operator.truediv,
-                ]:
-                    new_op = ElementwiseOp(node)
-                elif node.target in [operator.add]:
-                    new_op = BinaryOp(node)
+                if node.target in fx_op_map:
+                    new_cls = fx_op_map[node.target]
+                    new_op = new_cls(node)
                 else:
                     raise RuntimeError(f"Unsupported function: {node.target}")
             elif node.op == "call_method":
@@ -453,7 +470,6 @@ class Solver:
     def solve(self, inputs, max_iter=100):
         self.inference_shape(inputs)
         self.dump_node()
-        sys.exit()
         self.construct_z3_graph()
         self.construct_z3_problem()
         sol = z3.Solver()

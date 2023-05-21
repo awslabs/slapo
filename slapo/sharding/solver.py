@@ -339,7 +339,7 @@ class Solver:
         inputs = [inp.to(device) for inp in inputs]
         sp.propagate(*inputs)
 
-    def dump_node(self):
+    def dump_fx_node(self):
         res = []
         for node in self.gm.graph.nodes:
             if "tensor_meta" in node.meta:
@@ -428,7 +428,27 @@ class Solver:
                     new_op.add_arg(self.z3_graph[arg.name])
                     self.z3_graph[arg.name].add_user(new_op)
             self.z3_graph[node.name] = new_op
-        print(self.z3_graph)
+
+    def dump_z3_graph(self, dot_file="z3_graph.dot"):
+        """
+        Dump the z3 graph in dot format
+        """
+        res = "digraph z3_graph {\n"
+        # add nodes
+        for op in self.z3_graph.values():
+            attr = f'label="{op.name}"'
+            if isinstance(op, PlaceholderOp):
+                attr += ",shape=box"
+            elif isinstance(op, MatmulOp):
+                attr += ",style=filled,fillcolor=yellow"
+            res += f"  {op.name} [{attr}];\n"
+        # add edges
+        for op in self.z3_graph.values():
+            for arg in op.args:
+                res += f"  {arg.name} -> {op.name};\n"
+        res += "}"
+        with open(dot_file, "w") as f:
+            f.write(res)
 
     def construct_z3_problem(self):
         bitvecs = {}
@@ -469,8 +489,10 @@ class Solver:
 
     def solve(self, inputs, max_iter=100):
         self.inference_shape(inputs)
-        self.dump_node()
+        self.dump_fx_node()
         self.construct_z3_graph()
+        self.dump_z3_graph()
+        sys.exit()
         self.construct_z3_problem()
         sol = z3.Solver()
         sol.add(self.goal)

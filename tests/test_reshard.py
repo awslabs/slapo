@@ -8,6 +8,7 @@ Verified by different combinations of resharding schemes.
 
 import os
 import copy
+import argparse
 
 import torch
 from torch import nn
@@ -19,6 +20,7 @@ from slapo.logger import get_logger
 
 logger = get_logger(__name__)
 
+# Config for verification
 bs = 8
 seq_len = 1024
 hidden_size = 1024
@@ -76,85 +78,90 @@ def test_schemes(init_dist):
 
     # 1. Naive. RR * RR -> RR; RR * RR -> RR
     logger.info("===== 1. Naive RR =====", ranks=0)
-    sch = slapo.create_schedule(copy.deepcopy(mlp))
-    with slapo.Verify(sch, [input_tensor_verf]):
+    sch_1 = slapo.create_schedule(copy.deepcopy(mlp))
+    with slapo.Verify(sch_1, [input_tensor_verf]):
         # do nothing
         pass
-    mod_1, _ = slapo.build(sch)
 
     # 2. RR * RS -> RS; RS -> SR (reshard); SR * RR -> SR; SR -> RR (reshard)
     logger.info("===== 2. RS -> SR =====", ranks=0)
-    sch = slapo.create_schedule(copy.deepcopy(mlp))
-    with slapo.Verify(sch, [input_tensor_verf]):
-        sch["fc1"].shard("weight", axis=0)
-        sch["fc1"].shard("bias", axis=0)
-        sch["fc1"].sync("fwd_post", sync_op_or_fn="RS->SR")
-        sch["fc2"].sync("fwd_post", sync_op_or_fn="SR->RR")
-    mod_2, _ = slapo.build(sch)
+    sch_2 = slapo.create_schedule(copy.deepcopy(mlp))
+    with slapo.Verify(sch_2, [input_tensor_verf]):
+        sch_2["fc1"].shard("weight", axis=0)
+        sch_2["fc1"].shard("bias", axis=0)
+        sch_2["fc1"].sync("fwd_post", sync_op_or_fn="RS->SR")
+        sch_2["fc2"].sync("fwd_post", sync_op_or_fn="SR->RR")
 
     # 3. RR * RS -> RS; RS -> SR (reshard); SR -> RS (reshard); RS * SR -> RR (with all reduce)
     logger.info("===== 3. SR -> RS =====", ranks=0)
-    sch = slapo.create_schedule(copy.deepcopy(mlp))
-    with slapo.Verify(sch, [input_tensor_verf]):
-        sch["fc1"].shard("weight", axis=0)
-        sch["fc1"].shard("bias", axis=0)
-        sch["fc1"].sync("fwd_post", sync_op_or_fn="RS->SR")
-        sch["fc1"].sync("fwd_post", sync_op_or_fn="SR->RS")
-        sch["fc2"].shard("weight", axis=1)
-        sch["fc2"].sync("fwd_post", sync_op_or_fn="all_reduce")
-    mod_3, _ = slapo.build(sch)
+    sch_3 = slapo.create_schedule(copy.deepcopy(mlp))
+    with slapo.Verify(sch_3, [input_tensor_verf]):
+        sch_3["fc1"].shard("weight", axis=0)
+        sch_3["fc1"].shard("bias", axis=0)
+        sch_3["fc1"].sync("fwd_post", sync_op_or_fn="RS->SR")
+        sch_3["fc1"].sync("fwd_post", sync_op_or_fn="SR->RS")
+        sch_3["fc2"].shard("weight", axis=1)
+        sch_3["fc2"].sync("fwd_post", sync_op_or_fn="all_reduce")
 
     # 4. Megatron. RR * RS -> RS; RS * SR -> RR (with all reduce)
     logger.info("===== 4. Megatron =====", ranks=0)
-    sch = slapo.create_schedule(copy.deepcopy(mlp))
-    with slapo.Verify(sch, [input_tensor_verf]):
-        sch["fc1"].shard("weight", axis=0)
-        sch["fc1"].shard("bias", axis=0)
-        sch["fc2"].shard("weight", axis=1)
-        sch["fc2"].sync("fwd_post", sync_op_or_fn="all_reduce")
-    mod_4, _ = slapo.build(sch)
+    sch_4 = slapo.create_schedule(copy.deepcopy(mlp))
+    with slapo.Verify(sch_4, [input_tensor_verf]):
+        sch_4["fc1"].shard("weight", axis=0)
+        sch_4["fc1"].shard("bias", axis=0)
+        sch_4["fc2"].shard("weight", axis=1)
+        sch_4["fc2"].sync("fwd_post", sync_op_or_fn="all_reduce")
 
     # 5. RR * RS -> RS; RS -> RR (reshard); RR * RS -> RS; RS -> RR (reshard)
     logger.info("===== 5. RR * RS -> RS =====", ranks=0)
-    sch = slapo.create_schedule(copy.deepcopy(mlp))
-    with slapo.Verify(sch, [input_tensor_verf]):
-        sch["fc1"].shard("weight", axis=0)
-        sch["fc1"].shard("bias", axis=0)
-        sch["fc1"].sync("fwd_post", sync_op_or_fn="RS->RR")
-        sch["fc2"].shard("weight", axis=0)
-        sch["fc2"].shard("bias", axis=0)
-        sch["fc2"].sync("fwd_post", sync_op_or_fn="RS->RR")
-    mod_5, _ = slapo.build(sch)
+    sch_5 = slapo.create_schedule(copy.deepcopy(mlp))
+    with slapo.Verify(sch_5, [input_tensor_verf]):
+        sch_5["fc1"].shard("weight", axis=0)
+        sch_5["fc1"].shard("bias", axis=0)
+        sch_5["fc1"].sync("fwd_post", sync_op_or_fn="RS->RR")
+        sch_5["fc2"].shard("weight", axis=0)
+        sch_5["fc2"].shard("bias", axis=0)
+        sch_5["fc2"].sync("fwd_post", sync_op_or_fn="RS->RR")
 
     # 6. RR * RR -> RR; RR -> RS (reshard); RS * SR -> RR (with all reduce)
     logger.info("===== 6. RR -> RS =====", ranks=0)
-    sch = slapo.create_schedule(copy.deepcopy(mlp))
-    with slapo.Verify(sch, [input_tensor_verf]):
-        sch["fc1"].sync("fwd_post", sync_op_or_fn="RR->RS")
-        sch["fc2"].shard("weight", axis=1)
-        sch["fc2"].sync("fwd_post", sync_op_or_fn="all_reduce")
-    mod_6, _ = slapo.build(sch)
+    sch_6 = slapo.create_schedule(copy.deepcopy(mlp))
+    with slapo.Verify(sch_6, [input_tensor_verf]):
+        sch_6["fc1"].sync("fwd_post", sync_op_or_fn="RR->RS")
+        sch_6["fc2"].shard("weight", axis=1)
+        sch_6["fc2"].sync("fwd_post", sync_op_or_fn="all_reduce")
 
     # 7. RR * RR -> RR; RR -> SR (reshard); SR * RR -> SR; SR -> RR (reshard)
     logger.info("===== 7. RR -> SR =====", ranks=0)
-    sch = slapo.create_schedule(copy.deepcopy(mlp))
-    with slapo.Verify(sch, [input_tensor_verf]):
-        sch["fc1"].sync("fwd_post", sync_op_or_fn="RR->SR")
-        sch["fc2"].sync("fwd_post", sync_op_or_fn="SR->RR")
-    mod_7, _ = slapo.build(sch)
+    sch_7 = slapo.create_schedule(copy.deepcopy(mlp))
+    with slapo.Verify(sch_7, [input_tensor_verf]):
+        sch_7["fc1"].sync("fwd_post", sync_op_or_fn="RR->SR")
+        sch_7["fc2"].sync("fwd_post", sync_op_or_fn="SR->RR")
 
     # 8. RR -> SR (reshard); SR * RR -> SR; SR * RR -> SR; SR -> RR (reshard)
     logger.info("===== 8. RR -> RS =====", ranks=0)
-    sch = slapo.create_schedule(copy.deepcopy(mlp))
-    with slapo.Verify(sch, [input_tensor_verf]):
-        sch["fc1"].sync("fwd_pre", sync_op_or_fn="RR->SR")
-        sch["fc2"].sync("fwd_post", sync_op_or_fn="SR->RR")
-    mod_8, _ = slapo.build(sch)
-    return [mod_1, mod_2, mod_3, mod_4, mod_5, mod_6, mod_7, mod_8]
+    sch_8 = slapo.create_schedule(copy.deepcopy(mlp))
+    with slapo.Verify(sch_8, [input_tensor_verf]):
+        sch_8["fc1"].sync("fwd_pre", sync_op_or_fn="RR->SR")
+        sch_8["fc2"].sync("fwd_post", sync_op_or_fn="SR->RR")
+    return [sch_1, sch_2, sch_3, sch_4, sch_5, sch_6, sch_7, sch_8]
 
 
 if __name__ == "__main__":
     dist.init_process_group("nccl", world_size=int(os.environ["WORLD_SIZE"]))
+
+    # Create parser
+    parser = argparse.ArgumentParser(description="Resharding schemes on MLP")
+    # Add arguments
+    parser.add_argument("--bs", type=int, help="Batch size", default=1)
+    parser.add_argument("--seq", type=int, help="Sequence length", default=4096)
+    parser.add_argument("--d", type=int, help="Hidden size", default=14336)
+    # Parse the arguments
+    args = parser.parse_args()
+
+    bs = args.bs
+    seq_len = args.seq
+    hidden_size = args.d
 
     # =============== Profiling ===============
 
@@ -166,7 +173,9 @@ if __name__ == "__main__":
         hidden_size,
     )
     inp = torch.randn(bs, seq_len, hidden_size, device=f"cuda:{dist.get_rank()}")
-    mods = test_schemes(None)
-    for i, model in enumerate(mods):
+    schs = test_schemes(None)
+    for i, sch in enumerate(schs):
+        model, _ = slapo.build(sch)
         perf_model(model, inp, i)
         del model
+        torch.cuda.empty_cache()

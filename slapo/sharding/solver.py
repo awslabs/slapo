@@ -8,6 +8,11 @@ from torch import fx
 import torch.nn.functional as F
 from torch.fx.passes.shape_prop import ShapeProp
 import z3
+from tabulate import tabulate
+
+from ..logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class ShardSpec:
@@ -299,6 +304,7 @@ class MatmulOp(FxOp):
 
 class Solver:
     def __init__(self, gm, p) -> None:
+        assert isinstance(gm, fx.GraphModule), "gm must be a GraphModule"
         self.gm = gm
         self.gm.graph.eliminate_dead_code()
         self.named_modules = dict(self.gm.named_modules())
@@ -314,7 +320,13 @@ class Solver:
 
     def inference_shape(self, inputs):
         sp = ShapeProp(self.gm)
+        # Tackle the case of meta device
+        device = self.gm.named_parameters().__next__()[1].device
+        inputs = [inp.to(device) for inp in inputs]
         sp.propagate(*inputs)
+
+    def dump_node(self):
+        res = []
         for node in self.gm.graph.nodes:
             if "tensor_meta" in node.meta:
                 if isinstance(node.meta["tensor_meta"], list):
@@ -322,7 +334,13 @@ class Solver:
                 else:
                     lst = [node.meta["tensor_meta"]]
                 for data in lst:
-                    print(node.name, data)
+                    res.append(
+                        [node.name, node.op, node.target, list(data.shape), data.dtype]
+                    )
+        logger.info(
+            "\n" + tabulate(res, headers=["name", "op", "target", "shape", "dtype"]),
+            ranks=0,
+        )
 
     def calculate_reshard_cost(self, prev, curr, shape):
         return int(
@@ -434,6 +452,8 @@ class Solver:
 
     def solve(self, inputs, max_iter=100):
         self.inference_shape(inputs)
+        self.dump_node()
+        sys.exit()
         self.construct_z3_graph()
         self.construct_z3_problem()
         sol = z3.Solver()

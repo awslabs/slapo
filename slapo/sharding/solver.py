@@ -326,6 +326,8 @@ class Solver:
                         target = type(self.named_modules[node.target])
                     else:
                         target = node.target
+                    if isinstance(data, tuple):
+                        continue
                     res.append(
                         [node.name, node.op, target, list(data.shape), data.dtype]
                     )
@@ -389,7 +391,7 @@ class Solver:
                 elif node.target == "transpose":
                     new_op = TransposeOp(node, self.z3_graph)
                 elif node.target == "contiguous":
-                    continue
+                    new_op = ElementwiseOp(node)
                 else:
                     raise RuntimeError(f"Unsupported method: {node.target}")
             else:  # output
@@ -401,6 +403,10 @@ class Solver:
                         continue
                     new_op.add_arg(self.z3_graph[arg.name])
                     self.z3_graph[arg.name].add_user(new_op)
+            else:
+                arg = node.args[0]
+                new_op.add_arg(self.z3_graph[arg.name])
+                self.z3_graph[arg.name].add_user(new_op)
             self.z3_graph[node.name] = new_op
 
     def dump_z3_graph(self, dot_file="z3_graph.dot"):
@@ -410,7 +416,7 @@ class Solver:
         res = "digraph z3_graph {\n"
         # add nodes
         for op in self.z3_graph.values():
-            attr = f'label="{op.name}"'
+            attr = f'label="{op.name}\\n({op.__class__.__name__})"'
             if isinstance(op, PlaceholderOp):
                 attr += ",shape=box"
             elif isinstance(op, MatmulOp):

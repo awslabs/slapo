@@ -40,17 +40,12 @@ class FxOp:
         self.out_shape = node.meta["tensor_meta"].shape
         self.out_size = self.out_shape[-2] * self.out_shape[-1]
         self.z3_inputs = []
-        self.input_v = []
 
     def add_arg(self, arg):
         self.args.append(arg)
 
     def add_user(self, user):
         self.users.append(user)
-
-    def set_concrete_values(self, inputs):
-        assert isinstance(inputs, list)
-        self.input_v = inputs
 
     def generate_input_z3(self):
         raise NotImplementedError
@@ -65,8 +60,12 @@ class FxOp:
     def generate_output_z3(self):
         raise NotImplementedError
 
-    def calculate_comm_cost(self):
-        raise NotImplementedError
+    def calculate_comm_cost(self, mod):
+        cost = self.calculate_comm_cost_z3()
+        if isinstance(cost, int):
+            return cost
+        else:
+            return mod.evaluate(cost).as_long()
 
     def calculate_comm_cost_z3(self):
         raise NotImplementedError
@@ -80,9 +79,6 @@ class PlaceholderOp(FxOp):
     def generate_output_z3(self):
         return ShardSpec("RR").id
 
-    def calculate_comm_cost(self):
-        return 0
-
     def calculate_comm_cost_z3(self):
         return 0
 
@@ -93,9 +89,6 @@ class ElementwiseOp(FxOp):
 
     def generate_output_z3(self):
         return self.args[0].generate_output_z3()
-
-    def calculate_comm_cost(self):
-        return 0
 
     def calculate_comm_cost_z3(self):
         return 0
@@ -115,9 +108,6 @@ class BinaryOp(FxOp):
 
     def generate_output_z3(self):
         return self.z3_inputs[0]
-
-    def calculate_comm_cost(self):
-        return 0
 
     def calculate_comm_cost_z3(self):
         # output remains the same spec as the inputs
@@ -140,9 +130,6 @@ class ViewOp(FxOp):
 
     def generate_output_z3(self):
         return self.z3_inputs[0]
-
-    def calculate_comm_cost(self):
-        return 0
 
     def calculate_comm_cost_z3(self):
         # output remains the same spec as the inputs
@@ -170,9 +157,6 @@ class PermuteOp(FxOp):
             )
         return result
 
-    def calculate_comm_cost(self):
-        return 0
-
     def calculate_comm_cost_z3(self):
         # output remains the same spec as the inputs
         return 0
@@ -198,9 +182,6 @@ class TransposeOp(FxOp):
                 result,
             )
         return result
-
-    def calculate_comm_cost(self):
-        return 0
 
     def calculate_comm_cost_z3(self):
         # output remains the same spec as the inputs
@@ -281,9 +262,6 @@ class MatmulOp(FxOp):
             )
         return result
 
-    def calculate_comm_cost(self):
-        return self.comm_cost_map[ShardSpec(self.input_v[0]).spec]
-
     def calculate_comm_cost_z3(self):
         result = 1e12  # invalid
         for inp, cost in self.comm_cost_map.items():
@@ -353,14 +331,14 @@ class Solver:
                                 ["|-" + name, "", "", list(param.shape), param.dtype]
                             )
         logger.info(
-            "\n" + tabulate(res, headers=["name", "op", "target", "shape", "dtype"]),
+            "\n"
+            + tabulate(res, headers=["name", "op", "target", "shape", "dtype"])
+            + "\n",
             ranks=0,
         )
 
-    def calculate_reshard_cost(self, prev, curr, shape):
-        return int(
-            self.reshard_cost_map[ShardSpec(prev).spec][ShardSpec(curr).spec] * shape
-        )
+    def calculate_reshard_cost(self, mod, prev, curr, shape):
+        return mod.evaluate(self.calculate_reshard_cost_z3(prev, curr, shape))
 
     def calculate_reshard_cost_z3(self, prev, curr, shape):
         result = 1e12  # invalid
@@ -486,9 +464,8 @@ class Solver:
                 inputs.append(results[f"{name}_0"])
             if f"{name}_1" in results:
                 inputs.append(results[f"{name}_1"])
-            op.set_concrete_values(inputs)
             output = op.generate_output(mod)
-            comm_cost = op.calculate_comm_cost()
+            comm_cost = op.calculate_comm_cost(mod)
             max_cost += comm_cost
             if len(inputs) == 1:
                 table.append(
@@ -512,7 +489,9 @@ class Solver:
                     continue
                 curr = results[arg_name]
                 prev = arg.generate_output(mod)
-                reshard_cost = self.calculate_reshard_cost(prev, curr, arg.out_size)
+                reshard_cost = self.calculate_reshard_cost(
+                    mod, prev, curr, arg.out_size
+                )
                 max_cost += reshard_cost
                 table.append(
                     [f"|-{arg.name}", ShardSpec(prev), ShardSpec(curr), reshard_cost]
@@ -521,15 +500,18 @@ class Solver:
             if len(op.users) == 0:
                 next_inp = ShardSpec("RR").id
                 reshard_cost = self.calculate_reshard_cost(
-                    output, next_inp, op.out_size
+                    mod, output, next_inp, op.out_size
                 )
                 max_cost += reshard_cost
                 table.append(
                     ["output", ShardSpec(output), ShardSpec(next_inp), reshard_cost]
                 )
+        max_cost = z3.simplify(max_cost).as_long()
         table.append(["Total", "", "", max_cost])
         logger.info(
-            "\n" + tabulate(table, headers=["Name", "InSpec", "OutSpec", "Cost"]),
+            "\n"
+            + tabulate(table, headers=["Name", "InSpec", "OutSpec", "Cost"])
+            + "\n",
             ranks=0,
         )
         return max_cost
@@ -603,12 +585,13 @@ class Solver:
                 logger.info("Cannot find better solutions", ranks=0)
                 break
             mod = sol.model()
-            logger.info(f"new_cost: {mod.evaluate(self.cost)}", ranks=0)
+            total_cost = mod.evaluate(self.cost)
             logger.info(mod, ranks=0)
             # Get the results
             results = {d.name(): mod[d] for d in mod.decls()}
             # 7. Calculate new cost from the results
             max_cost = self.calculate_new_cost(mod, results)
+            assert max_cost == total_cost.as_long()
             sol.pop()
         # 8. Generate sharding sequence
         self.generate_schedule_sequence(mod, results)

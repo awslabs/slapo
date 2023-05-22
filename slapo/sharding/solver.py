@@ -584,6 +584,26 @@ class Solver:
                     print(
                         f'sch["{op.node.target}"].sync(mode="fwd_post", sync_op_or_fn="all_reduce")'
                     )
+        # reshard
+        for name, op in self.z3_graph.items():
+            for i, arg in enumerate(op.args):
+                arg_name = f"{op.name}_{i}"
+                if arg_name not in results:
+                    continue
+                curr = results[arg_name]
+                prev = arg.generate_output()
+                if int(str(curr)) != prev:
+                    print(
+                        f'sch["{op.name}"].sync(mode="fwd_pre", sync_op_or_fn="{ShardSpec(prev)}->{ShardSpec(curr)}")'
+                    )
+            # final output should not be sharded
+            if len(op.users) == 0:
+                next_inp = ShardSpec("RR").id
+                output = op.generate_output()
+                if output != next_inp:
+                    print(
+                        f'sch["{op.name}"].sync(mode="fwd_post", sync_op_or_fn="{ShardSpec(output)}->{ShardSpec(next_inp)}")'
+                    )
 
     def solve(self, inputs, max_iter=100):
         # 1. Shape propagation

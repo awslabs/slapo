@@ -55,8 +55,12 @@ class FxOp:
     def generate_input_z3(self):
         raise NotImplementedError
 
-    def generate_output(self):
-        raise NotImplementedError
+    def generate_output(self, mod):
+        output = self.generate_output_z3()
+        if isinstance(output, int):
+            return output
+        else:
+            return mod.evaluate(output).as_long()
 
     def generate_output_z3(self):
         raise NotImplementedError
@@ -73,9 +77,6 @@ class PlaceholderOp(FxOp):
         # input should not be sharded
         return [], []
 
-    def generate_output(self):
-        return ShardSpec("RR").id
-
     def generate_output_z3(self):
         return ShardSpec("RR").id
 
@@ -89,9 +90,6 @@ class PlaceholderOp(FxOp):
 class ElementwiseOp(FxOp):
     def generate_input_z3(self):
         return [], []
-
-    def generate_output(self):
-        return self.args[0].generate_output()
 
     def generate_output_z3(self):
         return self.args[0].generate_output_z3()
@@ -114,9 +112,6 @@ class BinaryOp(FxOp):
         ]
         constraints = compute_constraints + format_constraints
         return self.z3_inputs, constraints
-
-    def generate_output(self):
-        return self.input_v[0]
 
     def generate_output_z3(self):
         return self.z3_inputs[0]
@@ -143,9 +138,6 @@ class ViewOp(FxOp):
         format_constraints = [z3.ULE(self.z3_inputs[0], 3)]
         return self.z3_inputs, format_constraints
 
-    def generate_output(self):
-        return self.input_v[0]
-
     def generate_output_z3(self):
         return self.z3_inputs[0]
 
@@ -167,11 +159,6 @@ class PermuteOp(FxOp):
 
     def generate_input_z3(self):
         return [], []
-
-    def generate_output(self):
-        return ShardSpec(
-            self.output_map[ShardSpec(self.prev_op.generate_output()).spec]
-        ).id
 
     def generate_output_z3(self):
         result = 3  # invalid
@@ -201,16 +188,6 @@ class TransposeOp(FxOp):
 
     def generate_input_z3(self):
         return [], []
-        # self.input = z3.BitVec(f"{self.name}_0", 2)
-        # compute_constraints = []
-        # format_constraints = [z3.ULE(self.input, 3)]
-        # constraints = compute_constraints + format_constraints
-        # return [self.input], constraints
-
-    def generate_output(self):
-        return ShardSpec(
-            self.output_map[ShardSpec(self.prev_op.generate_output()).spec]
-        ).id
 
     def generate_output_z3(self):
         result = 3  # invalid
@@ -295,9 +272,6 @@ class MatmulOp(FxOp):
         # force to shard
         # constraints += [self.z3_inputs[0] != ShardSpec("RR").id, self.z3_inputs[1] != ShardSpec("RR").id]
         return self.z3_inputs, constraints
-
-    def generate_output(self):
-        return ShardSpec(self.output_map[ShardSpec(self.input_v[0]).spec]).id
 
     def generate_output_z3(self):
         result = 3  # invalid
@@ -502,7 +476,7 @@ class Solver:
         self.cost = sum(comm_costs) + sum(reshard_costs)
         self.goal += input_constraints
 
-    def calculate_new_cost(self, results):
+    def calculate_new_cost(self, mod, results):
         max_cost = 0
         table = []
         for name, op in self.z3_graph.items():
@@ -513,7 +487,7 @@ class Solver:
             if f"{name}_1" in results:
                 inputs.append(results[f"{name}_1"])
             op.set_concrete_values(inputs)
-            output = op.generate_output()
+            output = op.generate_output(mod)
             comm_cost = op.calculate_comm_cost()
             max_cost += comm_cost
             if len(inputs) == 1:
@@ -537,7 +511,7 @@ class Solver:
                 if arg_name not in results:
                     continue
                 curr = results[arg_name]
-                prev = arg.generate_output()
+                prev = arg.generate_output(mod)
                 reshard_cost = self.calculate_reshard_cost(prev, curr, arg.out_size)
                 max_cost += reshard_cost
                 table.append(
@@ -560,7 +534,7 @@ class Solver:
         )
         return max_cost
 
-    def generate_schedule_sequence(self, results):
+    def generate_schedule_sequence(self, mod, results):
         print()
         print("Best solution:")
         for name, op in self.z3_graph.items():
@@ -590,16 +564,16 @@ class Solver:
                 arg_name = f"{op.name}_{i}"
                 if arg_name not in results:
                     continue
-                curr = results[arg_name]
-                prev = arg.generate_output()
-                if int(str(curr)) != prev:
+                curr = results[arg_name].as_long()
+                prev = arg.generate_output(mod)
+                if curr != prev:
                     print(
                         f'sch["{op.name}"].sync(mode="fwd_pre", sync_op_or_fn="{ShardSpec(prev)}->{ShardSpec(curr)}")'
                     )
             # final output should not be sharded
             if len(op.users) == 0:
                 next_inp = ShardSpec("RR").id
-                output = op.generate_output()
+                output = op.generate_output(mod)
                 if output != next_inp:
                     print(
                         f'sch["{op.name}"].sync(mode="fwd_post", sync_op_or_fn="{ShardSpec(output)}->{ShardSpec(next_inp)}")'
@@ -634,7 +608,7 @@ class Solver:
             # Get the results
             results = {d.name(): mod[d] for d in mod.decls()}
             # 7. Calculate new cost from the results
-            max_cost = self.calculate_new_cost(results)
+            max_cost = self.calculate_new_cost(mod, results)
             sol.pop()
         # 8. Generate sharding sequence
-        self.generate_schedule_sequence(results)
+        self.generate_schedule_sequence(mod, results)

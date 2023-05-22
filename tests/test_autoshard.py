@@ -1,6 +1,5 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
-# pylint: disable=unused-argument
 """
 Test different resharding schemes on MLP. 
 Verified by different combinations of resharding schemes. 

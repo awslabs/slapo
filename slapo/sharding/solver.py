@@ -62,8 +62,7 @@ class FxOp:
         output = self.generate_output_z3()
         if isinstance(output, int):
             return output
-        else:
-            return mod.evaluate(output).as_long()
+        return mod.evaluate(output).as_long()
 
     def generate_output_z3(self):
         raise NotImplementedError
@@ -72,8 +71,7 @@ class FxOp:
         cost = self.calculate_comm_cost_z3()
         if isinstance(cost, int):
             return cost
-        else:
-            return mod.evaluate(cost).as_long()
+        return mod.evaluate(cost).as_long()
 
     def calculate_comm_cost_z3(self):
         raise NotImplementedError
@@ -122,12 +120,13 @@ class BinaryOp(FxOp):
         return 0
 
 
-class LayerNormOp(FxOp):
-    pass
+# TODO: support more ops
+# class LayerNormOp(FxOp):
+#     pass
 
 
-class SoftmaxOp(FxOp):
-    pass
+# class SoftmaxOp(FxOp):
+#     pass
 
 
 class ViewOp(FxOp):
@@ -196,8 +195,8 @@ class TransposeOp(FxOp):
         return 0
 
 
-class DropoutOp(FxOp):
-    pass
+# class DropoutOp(FxOp):
+#     pass
 
 
 class MatmulOp(FxOp):
@@ -279,8 +278,8 @@ class MatmulOp(FxOp):
 
 fx_op_map = {
     nn.Linear: MatmulOp,
-    nn.LayerNorm: LayerNormOp,
-    nn.Dropout: DropoutOp,
+    # nn.LayerNorm: LayerNormOp,
+    # nn.Dropout: DropoutOp,
     torch.matmul: MatmulOp,
     F.relu: ElementwiseOp,
     F.gelu: ElementwiseOp,
@@ -310,7 +309,7 @@ class Solver:
     def inference_shape(self, inputs):
         sp = ShapeProp(self.gm)
         # Tackle the case of meta device
-        device = self.gm.named_parameters().__next__()[1].device
+        device = next(self.gm.named_parameters())[1].device
         inputs = [inp.to(device) for inp in inputs]
         sp.propagate(*inputs)
 
@@ -338,9 +337,8 @@ class Solver:
                                 ["|-" + name, "", "", list(param.shape), param.dtype]
                             )
         logger.info(
-            "\n"
-            + tabulate(res, headers=["name", "op", "target", "shape", "dtype"])
-            + "\n",
+            "\n %s \n",
+            tabulate(res, headers=["name", "op", "target", "shape", "dtype"]),
             ranks=0,
         )
 
@@ -383,6 +381,7 @@ class Solver:
                 else:
                     raise RuntimeError(f"Unsupported function: {node.target}")
             elif node.op == "call_method":
+                # pylint: disable=redefined-variable-type
                 if node.target == "view":
                     new_op = ViewOp(node)
                 elif node.target == "permute":
@@ -422,7 +421,7 @@ class Solver:
             for arg in op.args:
                 res += f"  {arg.name} -> {op.name};\n"
         res += "}"
-        with open(dot_file, "w") as f:
+        with open(dot_file, "w", encoding="utf-8") as f:
             f.write(res)
 
     def construct_z3_problem(self):
@@ -516,9 +515,8 @@ class Solver:
         max_cost = z3.simplify(max_cost).as_long()
         table.append(["Total", "", "", max_cost])
         logger.info(
-            "\n"
-            + tabulate(table, headers=["Name", "InSpec", "OutSpec", "Cost"])
-            + "\n",
+            "\n %s \n",
+            tabulate(table, headers=["Name", "InSpec", "OutSpec", "Cost"]),
             ranks=0,
         )
         return max_cost
@@ -580,9 +578,9 @@ class Solver:
         # 4. Construct the z3 solver
         sol = z3.Solver()
         sol.add(self.goal)
-        max_cost = 1e12
+        max_cost = int(1e12)
         for it in range(max_iter):
-            logger.info(f"=================== Iter {it} ===================", ranks=0)
+            logger.info("=================== Iter %d ===================", it, ranks=0)
             sol.push()
             # 5. Update cost constraint
             sol.add(self.cost < max_cost)

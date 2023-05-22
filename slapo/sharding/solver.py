@@ -1,5 +1,9 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
+"""
+Auto-parallelism solver that finds the optimal sharding scheme for a given model.
+It models the problem as a program synthesis problem and uses Z3 to solve it.
+"""
 
 import operator
 import torch
@@ -17,6 +21,10 @@ logger = get_logger(__name__)
 
 class ShardSpec:
     def __init__(self, spec):
+        """
+        R: replicated
+        S: sharded
+        """
         self.map = {"RR": 0, "RS": 1, "SR": 2}
         if isinstance(spec, str):
             self.spec = spec
@@ -277,7 +285,6 @@ fx_op_map = {
     F.relu: ElementwiseOp,
     F.gelu: ElementwiseOp,
     F.softmax: ElementwiseOp,
-    torch._C._nn.gelu: ElementwiseOp,
     operator.truediv: ElementwiseOp,
     operator.add: BinaryOp,
 }
@@ -595,3 +602,4 @@ class Solver:
             sol.pop()
         # 8. Generate sharding sequence
         self.generate_schedule_sequence(mod, results)
+        return results, max_cost

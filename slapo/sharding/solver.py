@@ -379,7 +379,11 @@ class Solver:
         for in_spec, target_map in self.reshard_cost_map.items():
             tmp = 1e12  # invalid
             for out_spec, val in target_map.items():
-                tmp = z3.If(curr == ShardSpec(out_spec).id, int(val * shape), tmp)
+                if in_spec == "RR" and out_spec in ["RS", "SR"]:
+                    cost = 1  # add penalty for splitting cost
+                else:
+                    cost = int(val * shape)
+                tmp = z3.If(curr == ShardSpec(out_spec).id, cost, tmp)
             result = z3.If(prev == ShardSpec(in_spec).id, tmp, result)
         return result
 

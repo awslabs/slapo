@@ -81,7 +81,8 @@ def test_attn():
     logger.info(subsch.mod.graph, ranks=0)
 
     sol = Solver(subsch.mod, p=p)
-    results, max_cost = sol.solve([torch.randn(bs, seq_len, hidden_size)])
+    _, max_cost = sol.solve([torch.randn(bs, seq_len, hidden_size)])
+    assert max_cost == 3 * (bs * seq_len * hidden_size / p) + 2
 
 
 if __name__ == "__main__":

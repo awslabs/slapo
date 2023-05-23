@@ -589,9 +589,9 @@ class Solver:
             else:
                 continue
             if op.node.op == "call_module":
-                print(f'sch["{op.node.target}"].shard("weight", dim={dim})')
+                print(f'sch["{op.node.target}"].shard("weight", axis={dim})')
                 if dim == 0:
-                    print(f'sch["{op.node.target}"].shard("bias", dim={dim})')
+                    print(f'sch["{op.node.target}"].shard("bias", axis={dim})')
                 if (
                     results[f"{name}_0"] == ShardSpec("RS").id
                     and results[f"{name}_1"] == ShardSpec("SR").id

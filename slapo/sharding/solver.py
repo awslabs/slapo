@@ -46,7 +46,7 @@ class FxOp:
         self.args = []
         self.users = []
         self.out_shape = node.meta["tensor_meta"].shape
-        self.out_size = self.out_shape[-2] * self.out_shape[-1]
+        self.out_size = int(torch.prod(torch.tensor(self.out_shape)))
         self.z3_inputs = []
 
     def add_arg(self, arg):
@@ -229,27 +229,6 @@ class TransposeOp(FxOp):
 class MatmulOp(FxOp):
     def __init__(self, node, mod=None, is_linear=False):
         super().__init__(node)
-        self.lhs_shape = node.args[0].meta["tensor_meta"].shape
-        self.rhs_shape = (
-            node.args[1].meta["tensor_meta"].shape
-            if not is_linear
-            else mod.weight.shape
-        )
-        self.out_shape = (
-            node.meta["tensor_meta"].shape
-            if not isinstance(node.meta["tensor_meta"], list)
-            else node.meta["tensor_meta"][0].shape
-        )
-        self.lhs_size = self.lhs_shape[-2] * self.lhs_shape[-1]
-        if is_linear:
-            # weight is transposed
-            assert self.lhs_shape[-1] == self.rhs_shape[-1]
-            self.rhs_size = self.rhs_shape[-1] * self.rhs_shape[-2]
-            self.out_size = self.lhs_shape[-2] * self.rhs_shape[-2]
-        else:
-            assert self.lhs_shape[-1] == self.rhs_shape[-2]
-            self.rhs_size = self.rhs_shape[-2] * self.rhs_shape[-1]
-            self.out_size = self.lhs_shape[-2] * self.rhs_shape[-1]
         self.output_map = {"RR": "RS", "RS": "RR", "SR": "SR"}
         self.comm_cost_map = {  # map from input spec to comm cost
             "RR": 0,

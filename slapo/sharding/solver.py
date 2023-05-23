@@ -120,16 +120,42 @@ class BinaryOp(FxOp):
         return 0
 
 
-# TODO: support more ops
-# class LayerNormOp(FxOp):
-#     pass
+class LayerNormOp(FxOp):
+    def generate_input_z3(self):
+        self.z3_inputs.append(z3.BitVec(f"{self.name}_0", 2))
+        format_constraints = [z3.ULE(self.z3_inputs[0], 3)]
+        # Reduction across the last dimension, so `RS` is prohibited.
+        format_constraints += [self.z3_inputs[0] != 1]
+        return self.z3_inputs, format_constraints
+
+    def generate_output_z3(self):
+        # The same spec as the input
+        return self.z3_inputs[0]
+
+    def calculate_comm_cost_z3(self):
+        # No communication cost
+        return 0
 
 
-# class SoftmaxOp(FxOp):
-#     pass
+class SoftmaxOp(FxOp):
+    def generate_input_z3(self):
+        self.z3_inputs.append(z3.BitVec(f"{self.name}_0", 2))
+        format_constraints = [z3.ULE(self.z3_inputs[0], 3)]
+        # Reduction across the last dimension, so `RS` is prohibited.
+        format_constraints += [self.z3_inputs[0] != 1]
+        return self.z3_inputs, format_constraints
+
+    def generate_output_z3(self):
+        # The same spec as the input
+        return self.z3_inputs[0]
+
+    def calculate_comm_cost_z3(self):
+        # No communication cost
+        return 0
 
 
 class ViewOp(FxOp):
+    # TODO: verify the behavior of general view function
     def generate_input_z3(self):
         self.z3_inputs.append(z3.BitVec(f"{self.name}_0", 2))
         format_constraints = [z3.ULE(self.z3_inputs[0], 3)]
@@ -139,16 +165,21 @@ class ViewOp(FxOp):
         return self.z3_inputs[0]
 
     def calculate_comm_cost_z3(self):
-        # output remains the same spec as the inputs
+        # `view` can redistribute the dimensions, thus can be used to
+        # convert to any spec without communication
         return 0
 
 
 class PermuteOp(FxOp):
     def __init__(self, node, z3_graph):
-        # FIXME: Suppose permute is always (0, 2, 1, 3)
         super().__init__(node)
         self.z3_graph = z3_graph
-        self.output_map = {"RR": "RR", "RS": "RS", "SR": "RR"}
+        permute_idx = list(node.args[1:])
+        self.output_map = {}
+        for in_spec in ["RR", "RS", "SR"]:
+            spec = "R" * (len(permute_idx) - 2) + in_spec
+            out_spec = spec[-2:]
+            self.output_map[in_spec] = out_spec
         self.prev_op = self.z3_graph[self.node.args[0].name]
 
     def generate_input_z3(self):
@@ -165,7 +196,7 @@ class PermuteOp(FxOp):
         return result
 
     def calculate_comm_cost_z3(self):
-        # output remains the same spec as the inputs
+        # permutation does not involve communication
         return 0
 
 
@@ -193,10 +224,6 @@ class TransposeOp(FxOp):
     def calculate_comm_cost_z3(self):
         # output remains the same spec as the inputs
         return 0
-
-
-# class DropoutOp(FxOp):
-#     pass
 
 
 class MatmulOp(FxOp):
@@ -278,12 +305,12 @@ class MatmulOp(FxOp):
 
 fx_op_map = {
     nn.Linear: MatmulOp,
-    # nn.LayerNorm: LayerNormOp,
-    # nn.Dropout: DropoutOp,
+    nn.LayerNorm: LayerNormOp,
+    F.softmax: SoftmaxOp,
+    nn.Dropout: ElementwiseOp,
     torch.matmul: MatmulOp,
     F.relu: ElementwiseOp,
     F.gelu: ElementwiseOp,
-    F.softmax: ElementwiseOp,
     operator.truediv: ElementwiseOp,
     operator.add: BinaryOp,
 }
@@ -372,8 +399,8 @@ class Solver:
                         mod=mod,
                         is_linear=True,
                     )
-                elif isinstance(mod, (nn.LayerNorm, nn.Dropout)):
-                    new_op = ElementwiseOp(node)
+                elif type(mod) in fx_op_map:
+                    new_op = fx_op_map[type(mod)](node)
                 else:
                     raise RuntimeError(f"Unsupported module: {node.target}")
             elif node.op == "call_function":

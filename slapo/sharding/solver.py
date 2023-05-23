@@ -419,10 +419,14 @@ class Solver:
                 self.z3_graph[arg.name].add_user(new_op)
             self.z3_graph[node.name] = new_op
 
-    def dump_z3_graph(self, dot_file="z3_graph.dot"):
+    def dump_z3_graph(self, mod=None, dot_file="z3_graph.dot"):
         """
         Dump the z3 graph in dot format
         """
+        if mod is None:
+            results = None
+        else:
+            results = {d.name(): mod[d] for d in mod.decls()}
         res = "digraph z3_graph {\n"
         # add nodes
         for op in self.z3_graph.values():
@@ -430,12 +434,28 @@ class Solver:
             if isinstance(op, PlaceholderOp):
                 attr += ",shape=box"
             elif isinstance(op, MatmulOp):
-                attr += ",style=filled,fillcolor=yellow"
+                if results is None:
+                    attr += ",style=filled,fillcolor=yellow"
+                else:
+                    weight_spec = results[op.name + "_1"]
+                    if weight_spec == ShardSpec("RR").id:
+                        attr += ",style=filled,fillcolor=yellow"
+                    elif weight_spec == ShardSpec("RS").id:
+                        attr += ',shape=box,style=striped,fillcolor="#FF5733:#FFBD33"'
+                    else:  # weight_spec == ShardSpec("SR").id
+                        attr += ',shape=box,style=wedged,fillcolor="#FF5733:#FFBD33"'
             res += f"  {op.name} [{attr}];\n"
         # add edges
         for op in self.z3_graph.values():
-            for arg in op.args:
-                res += f"  {arg.name} -> {op.name};\n"
+            for i, arg in enumerate(op.args):
+                if results is None:
+                    label = ""
+                else:
+                    if op.name + "_" + str(i) not in results:
+                        label = ""
+                    else:
+                        label = f' [label="{ShardSpec(arg.generate_output(mod))}->{ShardSpec(results[op.name+"_"+str(i)])}"]'
+                res += f"  {arg.name} -> {op.name}{label};\n"
         res += "}"
         with open(dot_file, "w", encoding="utf-8") as f:
             f.write(res)
@@ -476,7 +496,8 @@ class Solver:
         self.cost = sum(comm_costs) + sum(reshard_costs)
         self.goal += input_constraints
 
-    def calculate_new_cost(self, mod, results):
+    def calculate_new_cost(self, mod):
+        results = {d.name(): mod[d] for d in mod.decls()}
         max_cost = 0
         table = []
         for name, op in self.z3_graph.items():
@@ -537,9 +558,10 @@ class Solver:
         )
         return max_cost
 
-    def generate_schedule_sequence(self, mod, results):
+    def generate_schedule_sequence(self, mod):
         print()
         print("Best solution:")
+        results = {d.name(): mod[d] for d in mod.decls()}
         for name, op in self.z3_graph.items():
             if not isinstance(op, MatmulOp):
                 continue
@@ -608,12 +630,12 @@ class Solver:
             mod = sol.model()
             total_cost = mod.evaluate(self.cost)
             logger.info(mod, ranks=0)
-            # Get the results
-            results = {d.name(): mod[d] for d in mod.decls()}
             # 7. Calculate new cost from the results
-            max_cost = self.calculate_new_cost(mod, results)
+            max_cost = self.calculate_new_cost(mod)
             assert max_cost == total_cost.as_long()
             sol.pop()
         # 8. Generate sharding sequence
-        self.generate_schedule_sequence(mod, results)
+        self.generate_schedule_sequence(mod)
+        self.dump_z3_graph(mod, "z3_graph_sharded.dot")
+        results = {d.name(): mod[d] for d in mod.decls()}
         return results, max_cost

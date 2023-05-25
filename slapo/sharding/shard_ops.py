@@ -21,6 +21,7 @@ from .sync_ops import (
 )
 from ..initialization import init_empty_weights
 from ..op import LinearWithSyncFunc
+from .reshard_ops import parse_reshard
 
 SHARD_METHODS = {}
 
@@ -175,6 +176,8 @@ def _gen_sync_func_from_str(sch, mode, sync_op, **kwargs):
         elif sync_op == "all_reduce":
             _validate_sync(sch, mode, sync_op)
             sync_fn = partial(reduce_forward_output, group=sch.group)
+        elif "->" in sync_op:
+            sync_fn = parse_reshard(sync_op, group=sch.group)
         else:
             raise ValueError(
                 f"Invalid sync_op_or_fn {sync_op} for mode {mode} " "in {sch.path}."
@@ -192,9 +195,11 @@ def _gen_sync_func_from_str(sch, mode, sync_op, **kwargs):
                 group=sch.group,
                 tensor_parallel_output_grad=tensor_parallel_output_grad,
             )
+        elif "->" in sync_op:
+            sync_fn = parse_reshard(sync_op, group=sch.group)
         else:
             raise ValueError(
-                f"Invalid sync_op_or_fn {sync_op} for mode {mode} " "in {sch.path}."
+                f"Invalid sync_op_or_fn {sync_op} for mode {mode} in {sch.path}."
             )
     elif mode == "bwd_post":
         # We register this hook to forward pre hook, and

@@ -397,10 +397,10 @@ document.write(`
             <span class="c1"># count number of arguments in the given function to determine whether</span>
             <span class="c1"># we should pass in the path of the module or not</span>
             <span class="n">args</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">signature</span><span class="p">(</span><span class="n">param_init_fn</span><span class="p">)</span><span class="o">.</span><span class="n">parameters</span>
-            <span class="n">num_params</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">num_args</span> <span class="o">=</span> <span class="p">(</span>
                 <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;self&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
             <span class="p">)</span>
-            <span class="k">if</span> <span class="n">num_params</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">num_args</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
                 <span class="n">param_init_fn</span><span class="p">(</span><span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">param_init_fn</span><span class="p">(</span><span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="p">,</span> <span class="n">sch</span><span class="o">.</span><span class="n">path</span><span class="p">)</span>
@@ -412,8 +412,8 @@ document.write(`
             <span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">reset_parameters</span><span class="p">()</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Module </span><span class="si">{</span><span class="n">sch</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> should have `reset_parameters` or &quot;</span>
-                <span class="s2">&quot;`_init_weights` method or param_init_fn=</span><span class="si">{param_init_fn}</span><span class="s2"> needs &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Module </span><span class="si">{</span><span class="n">sch</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="p">)</span><span class="si">}</span><span class="s2">) should have `reset_parameters` or &quot;</span>
+                <span class="s2">&quot;`_init_weights` method or `param_init_fn` argument needs &quot;</span>
                 <span class="s2">&quot;to be provided in order to support delay initialization&quot;</span>
             <span class="p">)</span>
 
@@ -445,7 +445,7 @@ document.write(`
                 <span class="n">param</span><span class="o">.</span><span class="n">orig_shape</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;orig_shape&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="n">param</span><span class="o">.</span><span class="n">shape</span>
             <span class="p">)</span>
             <span class="n">new_param</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span>
-                <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">orig_shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">param</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">local_rank</span><span class="p">)</span>
+                <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">orig_shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">param</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">local_rank</span><span class="p">)</span>
             <span class="p">)</span>
             <span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">register_parameter</span><span class="p">(</span>
                 <span class="n">param_name</span><span class="p">,</span>
@@ -456,7 +456,22 @@ document.write(`
         <span class="c1"># Use original shape to initialize parameters.</span>
         <span class="k">if</span> <span class="n">global_rank</span> <span class="o">==</span> <span class="n">curr_stage_devices</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">and</span> <span class="n">num_params</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
             <span class="c1"># only the first device in the PP group needs to initialize the weights</span>
-            <span class="n">_init_module</span><span class="p">(</span><span class="n">sch</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">sch</span><span class="o">.</span><span class="n">child</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">callable</span><span class="p">(</span><span class="n">param_init_fn</span><span class="p">):</span>  <span class="c1"># leaf module</span>
+                <span class="n">_init_module</span><span class="p">(</span><span class="n">sch</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Some parameters are directly written in the module, e.g.,</span>
+                <span class="c1"># https://github.com/huggingface/transformers/blob/main/src/transformers/models/bert/modeling_bert.py#L693</span>
+                <span class="c1"># They can be initialized even without `reset_parameters` method,</span>
+                <span class="c1"># but we need to warn user about this case.</span>
+                <span class="c1"># However, if users provide `param_init_fn`, we assume</span>
+                <span class="c1"># those parameters can be handled within that function.</span>
+                <span class="k">for</span> <span class="n">param_name</span><span class="p">,</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">named_parameters</span><span class="p">(</span><span class="n">recurse</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                        <span class="s2">&quot;Param </span><span class="si">%s</span><span class="s2"> in Module </span><span class="si">%s</span><span class="s2">.</span><span class="si">%s</span><span class="s2"> is initialized as all zeros&quot;</span><span class="p">,</span>
+                        <span class="n">param_name</span><span class="p">,</span>
+                        <span class="n">sch</span><span class="o">.</span><span class="n">path</span><span class="p">,</span>
+                        <span class="n">sch</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                    <span class="p">)</span>
 
         <span class="c1"># Broadcast complete params from rank 0 to make sure all the TP+DP ranks</span>
         <span class="c1"># take the same params.</span>

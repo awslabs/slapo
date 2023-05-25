@@ -423,17 +423,17 @@ to print the intermediate output of the first Linear layer.</p>
 linear1 shape
  torch.Size([2, 2, 4])
 value
- tensor([[[-0.5080, -0.0799,  0.2108,  0.2658],
-         [-1.8848, -0.6675, -0.9922,  1.6436]],
+ tensor([[[ 1.0815,  0.7067, -0.3402,  0.0875],
+         [ 0.6270,  1.0880,  0.1008,  0.4835]],
 
-        [[-0.3748, -0.1069,  1.0580,  0.2357],
-         [ 0.0690, -0.5098, -0.2417,  0.0064]]], grad_fn=&lt;ViewBackward0&gt;)
+        [[ 0.7160, -0.2733,  0.0016,  0.1912],
+         [-0.3737, -0.5868,  0.1515,  0.3626]]], grad_fn=&lt;ViewBackward0&gt;)
 
-tensor([[[-0.3676,  0.1934,  0.4278, -0.2827],
-         [-0.9365,  0.6794, -0.0037, -0.5021]],
+tensor([[[ 0.4611,  0.9166, -0.4195,  0.2577],
+         [ 0.7033,  0.9336, -0.3211, -0.0783]],
 
-        [[-0.0293,  0.5467,  0.5680, -0.2643],
-         [-0.4899,  0.0178,  0.4681, -0.3435]]], grad_fn=&lt;ViewBackward0&gt;)
+        [[ 0.3715,  0.4318, -0.4844,  0.4040],
+         [ 0.4920,  0.0932, -0.3303,  0.1992]]], grad_fn=&lt;ViewBackward0&gt;)
 </pre></div>
 </div>
 <p>On the other hand, as we have mentioned above, the print won’t work properly
@@ -487,14 +487,15 @@ that shows incorrect usages of <cite>self.print</cite>.</p>
 print1: Proxy(linear1)
 print2: Proxy(print_1)
 
-tensor([[[-0.2534, -0.3875,  0.3296,  0.1623],
-         [ 0.4856, -0.4088,  0.4194,  0.4941]],
+tensor([[[-4.1271e-01,  9.4012e-02,  5.8861e-01,  5.4126e-01],
+         [-3.6040e-01,  6.9736e-02,  4.4582e-01,  5.1241e-01]],
 
-        [[-0.1112, -0.3545, -0.0350,  0.3380],
-         [ 0.3857, -0.4663,  0.5647,  0.3396]]], grad_fn=&lt;ViewBackward0&gt;)
+        [[-2.2435e-01,  9.9549e-02,  3.5772e-01,  4.5001e-01],
+         [-2.0519e-01,  4.5782e-04,  3.3757e-01,  4.5877e-01]]],
+       grad_fn=&lt;ViewBackward0&gt;)
 </pre></div>
 </div>
-<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> ( 0 minutes  0.023 seconds)</p>
+<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> ( 0 minutes  0.016 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-gallery-debug-print-py">
 <div class="sphx-glr-download sphx-glr-download-python docutils container">
 <p><a class="reference download internal" download="" href="../_downloads/5c4d5ade8f4a3520d5bdb6d05cdb343e/debug-print.py"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Python</span> <span class="pre">source</span> <span class="pre">code:</span> <span class="pre">debug-print.py</span></code></a></p>

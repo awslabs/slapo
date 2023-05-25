@@ -301,6 +301,7 @@ document.write(`
 
 <span class="kn">from</span> <span class="nn">.schedule</span> <span class="kn">import</span> <span class="n">create_schedule</span>
 <span class="kn">from</span> <span class="nn">.build</span> <span class="kn">import</span> <span class="n">build</span>
+<span class="kn">from</span> <span class="nn">.random</span> <span class="kn">import</span> <span class="n">set_random_seed</span>
 <span class="kn">from</span> <span class="nn">.logger</span> <span class="kn">import</span> <span class="n">get_logger</span>
 <span class="kn">from</span> <span class="nn">.primitives.base</span> <span class="kn">import</span> <span class="n">Primitive</span>
 
@@ -308,7 +309,7 @@ document.write(`
 
 
 <div class="viewcode-block" id="Verify"><a class="viewcode-back" href="../../python_api/root.html#slapo.Verify">[docs]</a><span class="k">class</span> <span class="nc">Verify</span><span class="p">(</span><span class="n">ContextDecorator</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sch</span><span class="p">,</span> <span class="n">example_inputs</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s2">&quot;cuda&quot;</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sch</span><span class="p">,</span> <span class="n">example_inputs</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s2">&quot;cuda&quot;</span><span class="p">,</span> <span class="n">eval_mode</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">enable</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">example_inputs</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
             <span class="n">example_inputs</span> <span class="o">=</span> <span class="p">[</span><span class="n">example_inputs</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">example_inputs</span> <span class="o">=</span> <span class="n">example_inputs</span>
@@ -316,6 +317,8 @@ document.write(`
         <span class="bp">self</span><span class="o">.</span><span class="n">sch</span> <span class="o">=</span> <span class="n">sch</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">original_sch</span> <span class="o">=</span> <span class="n">create_schedule</span><span class="p">(</span><span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="p">))</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">device</span> <span class="o">=</span> <span class="n">device</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">enable</span> <span class="o">=</span> <span class="n">enable</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">eval_mode</span> <span class="o">=</span> <span class="n">eval_mode</span>
 
     <span class="k">def</span> <span class="fm">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">original_trace</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">gettrace</span><span class="p">()</span>
@@ -344,19 +347,36 @@ document.write(`
         <span class="sd">&quot;&quot;&quot;Verify the correctness of the schedule.</span>
 <span class="sd">        TODO: Support backward verification</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">enable</span><span class="p">:</span>
+            <span class="k">return</span>
         <span class="c1"># 1. Build the original model with random weights</span>
         <span class="n">named_params</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">original_sch</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">named_parameters</span><span class="p">()</span>
         <span class="n">is_initialized</span> <span class="o">=</span> <span class="n">named_params</span><span class="o">.</span><span class="fm">__next__</span><span class="p">()[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">device</span> <span class="o">!=</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s2">&quot;meta&quot;</span><span class="p">)</span>
         <span class="n">original_mod</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">build</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">original_sch</span><span class="p">,</span> <span class="n">init_weights</span><span class="o">=</span><span class="ow">not</span> <span class="n">is_initialized</span><span class="p">)</span>
+        <span class="c1">#    make sure all the buffers are on the right device</span>
         <span class="n">original_mod</span> <span class="o">=</span> <span class="n">original_mod</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
-        <span class="c1">#    Broadcast the original model from rank 0 to other ranks</span>
+        <span class="c1"># 2. Get the example inputs</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">example_inputs</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">example_inputs</span><span class="p">]</span>
+        <span class="c1">#   Broadcast the example inputs from rank 0 to other ranks</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">sch</span><span class="o">.</span><span class="n">world_size</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">inp</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">example_inputs</span><span class="p">:</span>
+                <span class="n">dist</span><span class="o">.</span><span class="n">broadcast</span><span class="p">(</span><span class="n">inp</span><span class="p">,</span> <span class="n">src</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">group</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">sch</span><span class="o">.</span><span class="n">group</span><span class="p">)</span>
+        <span class="c1"># 3. Run the original model</span>
+        <span class="c1">#    make sure the random seeds are the same, which may affect the output of dropout</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">eval_mode</span><span class="p">:</span>
+            <span class="n">original_mod</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+        <span class="n">set_random_seed</span><span class="p">(</span><span class="mi">2023</span><span class="p">)</span>
+        <span class="n">original_output</span> <span class="o">=</span> <span class="n">original_mod</span><span class="p">(</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">example_inputs</span><span class="p">)</span>
+        <span class="c1"># 4. Broadcast the original model from rank 0 to other ranks</span>
         <span class="n">original_state_dict</span> <span class="o">=</span> <span class="n">original_mod</span><span class="o">.</span><span class="n">state_dict</span><span class="p">()</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">sch</span><span class="o">.</span><span class="n">world_size</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
             <span class="k">for</span> <span class="n">param_name</span> <span class="ow">in</span> <span class="n">original_state_dict</span><span class="p">:</span>
                 <span class="n">dist</span><span class="o">.</span><span class="n">broadcast</span><span class="p">(</span>
                     <span class="n">original_state_dict</span><span class="p">[</span><span class="n">param_name</span><span class="p">],</span> <span class="n">src</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">group</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">sch</span><span class="o">.</span><span class="n">group</span>
                 <span class="p">)</span>
-        <span class="c1"># 2. Get the transformed model from the schedule</span>
+        <span class="c1"># 5. Delete the original model to avoid excessive memory usage</span>
+        <span class="k">del</span> <span class="n">original_mod</span>
+        <span class="c1"># 6. Get the transformed model from the schedule</span>
         <span class="c1">#    Copy it and build a new schedule to prevent the original schedule from being modified</span>
         <span class="n">copied_mod</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="p">)</span>
         <span class="c1"># copy original attributes</span>
@@ -365,32 +385,32 @@ document.write(`
             <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;orig_shape&quot;</span><span class="p">):</span>
                 <span class="n">copied_mod</span><span class="o">.</span><span class="n">get_parameter</span><span class="p">(</span><span class="n">param_name</span><span class="p">)</span><span class="o">.</span><span class="n">orig_shape</span> <span class="o">=</span> <span class="n">param</span><span class="o">.</span><span class="n">orig_shape</span>
         <span class="n">new_sch</span> <span class="o">=</span> <span class="n">create_schedule</span><span class="p">(</span><span class="n">copied_mod</span><span class="p">)</span>
-        <span class="c1"># 3. Use original weights to initialize the new model</span>
+        <span class="c1"># 7. Use original weights to initialize the new model</span>
         <span class="c1">#    Notice init_weights is called before actual sharding, so we only need to</span>
         <span class="c1">#    assign the original weights to the corresponding modules</span>
 
         <span class="k">def</span> <span class="nf">init_weights</span><span class="p">(</span><span class="n">mod</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
-            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">mod</span><span class="o">.</span><span class="n">named_parameters</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">mod</span><span class="o">.</span><span class="n">named_parameters</span><span class="p">(</span><span class="n">recurse</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
                 <span class="nb">setattr</span><span class="p">(</span>
                     <span class="n">mod</span><span class="p">,</span>
                     <span class="n">name</span><span class="p">,</span>
-                    <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">original_state_dict</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">detach</span><span class="p">()),</span>
+                    <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span>
+                        <span class="n">original_state_dict</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+                    <span class="p">),</span>
                 <span class="p">)</span>
 
         <span class="n">new_mod</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">build</span><span class="p">(</span><span class="n">new_sch</span><span class="p">,</span> <span class="n">init_weights</span><span class="o">=</span><span class="n">init_weights</span><span class="p">)</span>
-        <span class="c1"># 4. Get the example inputs</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">example_inputs</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">example_inputs</span><span class="p">]</span>
-        <span class="c1">#   Broadcast the example inputs from rank 0 to other ranks</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">sch</span><span class="o">.</span><span class="n">world_size</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">inp</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">example_inputs</span><span class="p">:</span>
-                <span class="n">dist</span><span class="o">.</span><span class="n">broadcast</span><span class="p">(</span><span class="n">inp</span><span class="p">,</span> <span class="n">src</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">group</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">sch</span><span class="o">.</span><span class="n">group</span><span class="p">)</span>
-        <span class="c1"># 5. Run the original model and the new model</span>
-        <span class="n">original_output</span> <span class="o">=</span> <span class="n">original_mod</span><span class="p">(</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">example_inputs</span><span class="p">)</span>
+        <span class="c1"># 8. Run the new model</span>
+        <span class="c1">#    make sure all the buffers are on the right device</span>
+        <span class="n">new_mod</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">eval_mode</span><span class="p">:</span>
+            <span class="n">new_mod</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+        <span class="c1">#    make sure the random seeds are the same, which may affect the output of dropout</span>
+        <span class="n">set_random_seed</span><span class="p">(</span><span class="mi">2023</span><span class="p">)</span>
         <span class="n">new_output</span> <span class="o">=</span> <span class="n">new_mod</span><span class="p">(</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">example_inputs</span><span class="p">)</span>
-        <span class="c1"># 6. Compare the outputs</span>
+        <span class="c1"># 9. Compare the outputs</span>
         <span class="n">torch</span><span class="o">.</span><span class="n">testing</span><span class="o">.</span><span class="n">assert_close</span><span class="p">(</span><span class="n">original_output</span><span class="p">,</span> <span class="n">new_output</span><span class="p">)</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Passed verification!&quot;</span><span class="p">)</span>
-        <span class="k">del</span> <span class="n">original_mod</span>
         <span class="k">del</span> <span class="n">new_mod</span>
         <span class="n">sys</span><span class="o">.</span><span class="n">settrace</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">original_trace</span><span class="p">)</span></div>
 </pre></div>

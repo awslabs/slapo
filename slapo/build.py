@@ -107,10 +107,10 @@ def consolidate_model(
             # count number of arguments in the given function to determine whether
             # we should pass in the path of the module or not
             args = inspect.signature(param_init_fn).parameters
-            num_params = (
+            num_args = (
                 len(args) - 1 if args.get("self", None) is not None else len(args)
             )
-            if num_params == 1:
+            if num_args == 1:
                 param_init_fn(sch.mod)
             else:
                 param_init_fn(sch.mod, sch.path)
@@ -122,8 +122,8 @@ def consolidate_model(
             sch.mod.reset_parameters()
         else:
             raise RuntimeError(
-                f"Module {sch.name} should have `reset_parameters` or "
-                "`_init_weights` method or param_init_fn={param_init_fn} needs "
+                f"Module {sch.name} ({type(sch.mod)}) should have `reset_parameters` or "
+                "`_init_weights` method or `param_init_fn` argument needs "
                 "to be provided in order to support delay initialization"
             )
 
@@ -155,7 +155,7 @@ def consolidate_model(
                 param.orig_shape if hasattr(param, "orig_shape") else param.shape
             )
             new_param = nn.Parameter(
-                torch.empty(orig_shape, dtype=param.dtype, device=local_rank)
+                torch.zeros(orig_shape, dtype=param.dtype, device=local_rank)
             )
             sch.mod.register_parameter(
                 param_name,
@@ -166,7 +166,22 @@ def consolidate_model(
         # Use original shape to initialize parameters.
         if global_rank == curr_stage_devices[0] and num_params > 0:
             # only the first device in the PP group needs to initialize the weights
-            _init_module(sch)
+            if len(sch.child) == 0 or callable(param_init_fn):  # leaf module
+                _init_module(sch)
+            else:
+                # Some parameters are directly written in the module, e.g.,
+                # https://github.com/huggingface/transformers/blob/main/src/transformers/models/bert/modeling_bert.py#L693
+                # They can be initialized even without `reset_parameters` method,
+                # but we need to warn user about this case.
+                # However, if users provide `param_init_fn`, we assume
+                # those parameters can be handled within that function.
+                for param_name, param in sch.mod.named_parameters(recurse=False):
+                    logger.info(
+                        "Param %s in Module %s.%s is initialized as all zeros",
+                        param_name,
+                        sch.path,
+                        sch.name,
+                    )
 
         # Broadcast complete params from rank 0 to make sure all the TP+DP ranks
         # take the same params.

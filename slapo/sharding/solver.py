@@ -155,8 +155,40 @@ class SoftmaxOp(FxOp):
 
 
 class ViewOp(FxOp):
+    """
     # TODO: verify the behavior of general view function
-    # (bs,seq,d) -> (bs,seq,h,d//h)
+    Only certain view functions can be sharded without communication.
+    Currently only reshaping the *last* dimension is supported.
+
+    Consider the view function in Transformer:
+    (bs,seq,d) -> (bs,seq,h,d//h)
+
+    We have the following communication matrix:
+    (The src spec only considers the last dimension)
+    src\dst  RR  RS  SR
+    R        0   0   0
+    S        1/p 1/p 0
+
+    S->RR requires an all-gather to retrieve all the data.
+    S->RS also requires an all-gather before the view function to ensure the data
+    is correct. To illustrate this case, consider h=2, p=2, d=8, d//h=4, and
+    the original data is [0 1 2 3 4 5 6 7], and the expected result is
+    [[0 1 2 3], [4 5 6 7]]. If we want to shard it into RS spec on two devices,
+    the data should be as follows:
+    Device 1  |  Device 2
+    0 1       |  2 3
+    4 5       |  6 7
+    But if we directly view from the source sharded spec shown below,
+    Device 1  |  Device 2
+    0 1 2 3   |  4 5 6 7
+    and reshape it to (h,d//h//p), we get
+    Device 1  |  Device 2
+    0 1       |  4 5
+    2 3       |  6 7
+    Thus, the data is incorrect.
+    To avoid this, we need to all-gather the data first, and then reshape it.
+    """
+
     def __init__(self, node, z3_graph, p):
         super().__init__(node)
         self.z3_graph = z3_graph
@@ -172,16 +204,20 @@ class ViewOp(FxOp):
         return self.z3_inputs[0]
 
     def calculate_comm_cost_z3(self):
-        # `view` can redistribute the dimensions, thus can be used to
-        # convert to most of the specs without communication,
-        # but be careful about RS->RR, which requires an all-gather
         result = z3.If(
             z3.And(
                 self.prev_op.generate_output_z3() == ShardSpec("RS").id,
                 self.z3_inputs[0] == ShardSpec("RR").id,
             ),
             self.out_size * 1 / self.num_devices,
-            0,
+            z3.If(
+                z3.And(
+                    self.prev_op.generate_output_z3() == ShardSpec("RS").id,
+                    self.z3_inputs[0] == ShardSpec("RS").id,
+                ),
+                self.out_size * 1 / self.num_devices,
+                0,
+            ),
         )
         return result
 

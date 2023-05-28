@@ -82,7 +82,7 @@ def test_attn():
 
     sol = Solver(subsch.mod, p=p)
     _, max_cost = sol.solve([torch.randn(bs, seq_len, hidden_size)])
-    assert max_cost == 3 * (bs * seq_len * hidden_size / p) + 2
+    assert max_cost == 3 * (bs * seq_len * hidden_size / p) + 4
 
 
 if __name__ == "__main__":

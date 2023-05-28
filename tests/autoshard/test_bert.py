@@ -24,19 +24,20 @@ seq_len = 512
 def perf_model(mod, input_tensor):
     """Measure the performance of a mod with certain resharding schemes"""
     # warmup
-    for _ in range(5):
+    for _ in range(10):
         mod(input_tensor)
 
     start_event = torch.cuda.Event(enable_timing=True)
     end_event = torch.cuda.Event(enable_timing=True)
 
     start_event.record()
-    for _ in range(10):
+    iters = 40
+    for _ in range(iters):
         mod(input_tensor)
     end_event.record()
     torch.cuda.synchronize()
     if dist.get_rank() == 0:
-        print(f"{start_event.elapsed_time(end_event) / 10:.3f} ms")
+        print(f"{start_event.elapsed_time(end_event) / iters:.3f} ms")
 
 
 def trace_and_find_view(sch):
@@ -98,15 +99,9 @@ def scheme_sequence_parallel(model, input_ids, config):
     sch = slapo.create_schedule(model)
 
     from slapo.sharding.reshard_ops import (
-        reshard_RR_to_SR,
         reshard_SR_to_RR,
         reshard_RS_to_RR,
     )
-
-    def reshard_and_add(dropout, hidden_states):
-        """Replace the add operator with reshard_and_add"""
-        reshard_hidden_states = reshard_RR_to_SR(hidden_states, sch.group)
-        return dropout + reshard_hidden_states
 
     def new_matmul(lhs, rhs):
         return torch.matmul(lhs, reshard_RS_to_RR(rhs, sch.group))
@@ -115,12 +110,9 @@ def scheme_sequence_parallel(model, input_ids, config):
         return torch.matmul(lhs, reshard_SR_to_RR(rhs, sch.group))
 
     with slapo.Verify(sch, [input_ids], eval_mode=True, enable=True):
+        sch["bert.embeddings.LayerNorm"].sync(mode="fwd_post", sync_op_or_fn="RR->SR")
         for i in range(config.num_hidden_layers):
-            # attention
             subsch = sch[f"bert.encoder.layer.{i}.attention.self"]
-            subsch["query"].sync(mode="fwd_pre", sync_op_or_fn="RR->SR")
-            subsch["key"].sync(mode="fwd_pre", sync_op_or_fn="RR->SR")
-            subsch["value"].sync(mode="fwd_pre", sync_op_or_fn="RR->SR")
             trace_and_find_view(subsch)
             ops = subsch.find_node(
                 lambda node: node.op == "call_function" and node.target == torch.matmul
@@ -128,18 +120,9 @@ def scheme_sequence_parallel(model, input_ids, config):
             assert len(ops) == 2
             subsch.replace(new_matmul, ops[0])
             subsch.replace(new_matmul_1, ops[1])
-            # residual add
-            subsch = sch[f"bert.encoder.layer.{i}.attention.output"]
-            subsch.trace(recursive=False, flatten=False, tracer="pytorch")
-            ops = subsch.find_node(
-                lambda node: node.op == "call_function" and node.target == operator.add
-            )
-            assert len(ops) == 1
-            subsch.replace(reshard_and_add, ops[0])
-            # MLP
-            sch[f"bert.encoder.layer.{i}.output.LayerNorm"].sync(
-                mode="fwd_post", sync_op_or_fn="SR->RR"
-            )
+        sch[f"bert.encoder.layer.{config.num_hidden_layers - 1}.output.LayerNorm"].sync(
+            mode="fwd_post", sync_op_or_fn="SR->RR"
+        )
 
     return sch
 
@@ -243,7 +226,7 @@ if __name__ == "__main__":
     # Create parser
     parser = argparse.ArgumentParser(description="Resharding schemes on BERT")
     # Add arguments
-    parser.add_argument("--bs", type=int, help="Batch size", default=1)
+    parser.add_argument("--bs", type=int, help="Batch size", default=8)
     parser.add_argument("--seq", type=int, help="Sequence length", default=512)
     # Parse the arguments
     args = parser.parse_args()
@@ -269,6 +252,6 @@ if __name__ == "__main__":
     for i, sch in enumerate(schs):
         mod, _ = slapo.build(sch, init_weights=sch.mod._init_weights)
         mod.to(f"cuda:{dist.get_rank()}")
+        torch.cuda.empty_cache()
         perf_model(mod, input_ids)
         del mod
-        torch.cuda.empty_cache()

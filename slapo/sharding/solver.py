@@ -197,6 +197,13 @@ class ViewOp(FxOp):
 
     def generate_input_z3(self):
         self.z3_inputs.append(z3.BitVec(f"{self.name}_0", 2))
+        # TODO: Need to consider when we support higher dimensions
+        # compute_constraints = [
+        #     z3.Implies(
+        #         self.prev_op.generate_output_z3() == ShardSpec("SR").id,
+        #         self.z3_inputs[0] == ShardSpec("RR").id,
+        #     ),
+        # ]
         format_constraints = [z3.ULE(self.z3_inputs[0], 3)]
         return self.z3_inputs, format_constraints
 

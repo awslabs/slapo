@@ -19,7 +19,7 @@ logger = get_logger(__name__)
 # Config for verification
 p = 8
 bs = 8
-seq_len = 1024
+seq_len = 512
 hidden_size = 1024
 
 

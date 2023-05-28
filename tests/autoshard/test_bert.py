@@ -94,7 +94,7 @@ def scheme_megatron(model, input_ids, config):
     return sch
 
 
-def scheme_weight_stationary(model, input_ids, config):
+def scheme_sequence_parallel(model, input_ids, config):
     sch = slapo.create_schedule(model)
 
     from slapo.sharding.reshard_ops import (
@@ -103,36 +103,25 @@ def scheme_weight_stationary(model, input_ids, config):
         reshard_RS_to_RR,
     )
 
-    def fix_attention_mask_shape(sch):
-        ops = trace_and_find_view(sch)
-
-        def new_view_kv(tensor, args):
-            return tensor.view(args[0], args[1], args[2], args[3] // sch.world_size)
-
-        sch.replace(new_view_kv, ops[0])  # key
-        sch.replace(new_view_kv, ops[1])  # value
-
     def reshard_and_add(dropout, hidden_states):
         """Replace the add operator with reshard_and_add"""
         reshard_hidden_states = reshard_RR_to_SR(hidden_states, sch.group)
         return dropout + reshard_hidden_states
 
     def new_matmul(lhs, rhs):
-        return torch.matmul(lhs, reshard_SR_to_RR(rhs, sch.group))
-
-    def new_matmul_1(lhs, rhs):
         return torch.matmul(lhs, reshard_RS_to_RR(rhs, sch.group))
 
-    with slapo.Verify(sch, [input_ids], enable=False):
+    def new_matmul_1(lhs, rhs):
+        return torch.matmul(lhs, reshard_SR_to_RR(rhs, sch.group))
+
+    with slapo.Verify(sch, [input_ids], eval_mode=True, enable=True):
         for i in range(config.num_hidden_layers):
             # attention
             subsch = sch[f"bert.encoder.layer.{i}.attention.self"]
-            subsch["key"].shard("weight", axis=0)
-            subsch["key"].shard("bias", axis=0)
-            subsch["value"].shard("weight", axis=0)
-            subsch["value"].shard("bias", axis=0)
             subsch["query"].sync(mode="fwd_pre", sync_op_or_fn="RR->SR")
-            fix_attention_mask_shape(subsch)
+            subsch["key"].sync(mode="fwd_pre", sync_op_or_fn="RR->SR")
+            subsch["value"].sync(mode="fwd_pre", sync_op_or_fn="RR->SR")
+            trace_and_find_view(subsch)
             ops = subsch.find_node(
                 lambda node: node.op == "call_function" and node.target == torch.matmul
             )
@@ -145,6 +134,7 @@ def scheme_weight_stationary(model, input_ids, config):
             ops = subsch.find_node(
                 lambda node: node.op == "call_function" and node.target == operator.add
             )
+            assert len(ops) == 1
             subsch.replace(reshard_and_add, ops[0])
             # MLP
             sch[f"bert.encoder.layer.{i}.output.LayerNorm"].sync(
@@ -238,9 +228,9 @@ def test_schemes(init_dist):
     # 1. Slapo-Megatron
     # RR x RS = RS, RS x SR = RR
     schs.append(scheme_megatron(copy.deepcopy(model), input_ids, config))
-    # 2. Weight-Stationary
+    # 2. Sequence-Parallel
     # RR->RS x RR = RS, RS x RR = RS->RR
-    schs.append(scheme_weight_stationary(copy.deepcopy(model), input_ids, config))
+    schs.append(scheme_sequence_parallel(copy.deepcopy(model), input_ids, config))
     # 3. Activation-Stationary
     # RR x RS = RS
     schs.append(scheme_activation_stationary(copy.deepcopy(model), input_ids, config))

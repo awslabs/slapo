@@ -10,7 +10,7 @@ import torch
 from torch import nn
 from torch import fx
 import torch.nn.functional as F
-from torch.fx.passes.shape_prop import ShapeProp
+from torch.fx.passes.shape_prop import ShapeProp, TensorMetadata
 import z3
 from tabulate import tabulate
 
@@ -392,7 +392,7 @@ class Solver:
                         target = type(self.named_modules[node.target])
                     else:
                         target = node.target
-                    if isinstance(data, tuple):
+                    if not isinstance(data, TensorMetadata):
                         continue
                     res.append(
                         [node.name, node.op, target, list(data.shape), data.dtype]

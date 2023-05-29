@@ -220,14 +220,7 @@ def test_dynamo():
 
     def pattern(x):
         x = call_module(r"self_(query|key|value)", x)
-        x = x.view(
-            (
-                bs,
-                seq_length,
-                config.num_attention_heads,
-                config.hidden_size // config.num_attention_heads,
-            )
-        )
+        x = x.view((8, 512, 16, 64))
         return x.permute(0, 2, 1, 3)
 
     qkv_subgraphs = subsch.find(pattern)

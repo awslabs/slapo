@@ -375,7 +375,8 @@ class Solver:
         sp = ShapeProp(self.gm)
         # Tackle the case of meta device
         device = next(self.gm.named_parameters())[1].device
-        inputs = [inp.to(device) for inp in inputs]
+        inputs = [inp.to("meta") for inp in inputs]
+        self.gm = self.gm.to(device)
         sp.propagate(*inputs)
 
     def dump_fx_node(self):

@@ -349,8 +349,14 @@ fx_op_map = {
     torch.matmul: MatmulOp,
     F.relu: ElementwiseOp,
     F.gelu: ElementwiseOp,
+    torch.tensor: PlaceholderOp,
+    torch.where: ElementwiseOp,
+    torch.pow: ElementwiseOp,
+    torch.tanh: ElementwiseOp,
     operator.truediv: ElementwiseOp,
+    operator.getitem: ElementwiseOp,
     operator.add: BinaryOp,
+    operator.mul: BinaryOp,
 }
 
 
@@ -456,16 +462,18 @@ class Solver:
                     new_op = PermuteOp(node, self.z3_graph)
                 elif node.target == "transpose":
                     new_op = TransposeOp(node, self.z3_graph)
-                elif node.target == "contiguous":
+                elif node.target in ["contiguous", "to"]:
                     new_op = ElementwiseOp(node)
                 else:
                     raise RuntimeError(f"Unsupported method: {node.target}")
+            elif node.op == "get_attr":  # extra buffers
+                new_op = PlaceholderOp(node)
             else:  # output
                 continue
             # construct edges
             if not (node.op == "call_method" and node.target == "view"):
                 for arg in node.args:
-                    if not isinstance(arg, fx.Node):
+                    if not isinstance(arg, fx.Node) or arg.name not in self.z3_graph:
                         continue
                     new_op.add_arg(self.z3_graph[arg.name])
                     self.z3_graph[arg.name].add_user(new_op)

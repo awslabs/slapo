@@ -640,6 +640,24 @@ def trace(model: nn.Module, **kwargs: dict[str, Any]):
 
             top_gm = trace_submodule(model, TracerWrapper, **kwargs)
 
+        elif tracer_cls_name == "dynamo":
+            from torch import _dynamo as dynamo
+
+            assert (
+                "concrete_args" in kwargs
+            ), "Please provide concrete_args for dynamo tracer"
+            device = next(model.named_parameters())[1].device
+            concrete_args = kwargs.pop("concrete_args")
+            args = []
+            for arg in concrete_args.values():
+                if isinstance(arg, torch.Tensor):
+                    args.append(arg.to(device))
+                else:
+                    args.append(arg)
+            kwargs.pop("tracer")
+            kwargs.pop("recursive")
+            kwargs.pop("flatten")
+            top_gm, _ = dynamo.export(model, *args, **kwargs)
         else:
             raise ValueError(f"Unknown tracer: {tracer_cls_name}")
 

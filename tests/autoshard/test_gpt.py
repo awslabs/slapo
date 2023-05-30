@@ -8,6 +8,7 @@ import operator
 import argparse
 
 import torch
+from torch import nn
 from torch import fx
 import torch.distributed as dist
 from transformers import GPTNeoModel, AutoConfig
@@ -88,7 +89,8 @@ def fix_attention_mask_shape_megatron(sch, config):
 def scheme_megatron(model, input_ids, config):
     sch = slapo.create_schedule(model)
 
-    with slapo.Verify(sch, [input_ids], enable=True):
+    enable = True if input_ids.shape[0] == 1 else False
+    with slapo.Verify(sch, [input_ids], enable=enable):
         for i in range(config.num_hidden_layers):
             # shard attention
             subsch = sch[f"h.{i}.attn.attention"]
@@ -123,20 +125,42 @@ def scheme_sequence_parallel(model, input_ids, config):
     def new_matmul_1(lhs, rhs):
         return torch.matmul(lhs, reshard_SR_to_RR(rhs, sch.group))
 
-    with slapo.Verify(sch, [input_ids], eval_mode=True, enable=True):
-        sch["bert.embeddings.LayerNorm"].sync(mode="fwd_post", sync_op_or_fn="RR->SR")
+    class NewMask(nn.Module):
+        def forward(self, query, key, bias):
+            query_length, key_length = (
+                query.size(-2) * sch.world_size,
+                key.size(-2) * sch.world_size,
+            )
+            size_per_chunk = query_length // sch.world_size
+            start_idx = key_length - query_length + size_per_chunk * sch.rank
+            end_idx = start_idx + size_per_chunk
+            causal_mask = bias[:, :, start_idx:end_idx, :key_length]
+            return causal_mask
+
+    enable = True if input_ids.shape[0] == 1 else False
+    with slapo.Verify(sch, [input_ids], eval_mode=True, enable=enable):
+        sch["drop"].sync(mode="fwd_post", sync_op_or_fn="RR->SR")
         for i in range(config.num_hidden_layers):
-            subsch = sch[f"bert.encoder.layer.{i}.attention.self"]
-            trace_and_find_view(subsch)
+            subsch = sch[f"h.{i}.attn.attention"]
+            trace_and_find_view(subsch, config)
             ops = subsch.find_node(
                 lambda node: node.op == "call_function" and node.target == torch.matmul
             )
             assert len(ops) == 2
             subsch.replace(new_matmul, ops[0])
             subsch.replace(new_matmul_1, ops[1])
-        sch[f"bert.encoder.layer.{config.num_hidden_layers - 1}.output.LayerNorm"].sync(
-            mode="fwd_post", sync_op_or_fn="SR->RR"
-        )
+
+            # Need to shard the tril matrix (causal mask)
+            def pattern(query, key, bias):
+                query_length, key_length = query.size(-2), key.size(-2)
+                causal_mask = bias[
+                    :, :, key_length - query_length : key_length, :key_length
+                ]
+                return causal_mask
+
+            ops = subsch.find(pattern)
+            subsch.replace(NewMask(), target_ops=[ops[-1]])
+        sch[f"ln_f"].sync(mode="fwd_post", sync_op_or_fn="SR->RR")
 
     return sch
 
@@ -226,15 +250,14 @@ def test_schemes(init_dist):
     # 1. Slapo-Megatron
     # RR x RS = RS, RS x SR = RR
     schs.append(scheme_megatron(copy.deepcopy(model), input_ids, config))
-    sys.exit()
     # 2. Sequence-Parallel
     # RR->RS x RR = RS, RS x RR = RS->RR
     schs.append(scheme_sequence_parallel(copy.deepcopy(model), input_ids, config))
     # 3. Activation-Stationary
     # RR x RS = RS
-    schs.append(scheme_activation_stationary(copy.deepcopy(model), input_ids, config))
-    # 4. Activation Sharding. SR x RR = SR
-    schs.append(scheme_activation_sharding(copy.deepcopy(model), input_ids, config))
+    # schs.append(scheme_activation_stationary(copy.deepcopy(model), input_ids, config))
+    # # 4. Activation Sharding. SR x RR = SR
+    # schs.append(scheme_activation_sharding(copy.deepcopy(model), input_ids, config))
     return schs
 
 
@@ -242,7 +265,7 @@ if __name__ == "__main__":
     # Create parser
     parser = argparse.ArgumentParser(description="Resharding schemes on GPTNeo")
     # Add arguments
-    parser.add_argument("--bs", type=int, help="Batch size", default=2)
+    parser.add_argument("--bs", type=int, help="Batch size", default=4)
     parser.add_argument("--seq", type=int, help="Sequence length", default=1024)
     # Parse the arguments
     args = parser.parse_args()

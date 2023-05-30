@@ -55,7 +55,7 @@ def test_mlp():
     assert max_cost == (bs * seq_len * hidden_size / p + 1)
 
 
-def test_attn():
+def test_bert_attn():
     from transformers import BertLMHeadModel, AutoConfig
     import inspect
 
@@ -80,11 +80,46 @@ def test_attn():
     )
     logger.info(subsch.mod.graph, ranks=0)
 
+    seq_len = 512
     sol = Solver(subsch.mod, p=p)
-    _, max_cost = sol.solve([torch.randn(bs, seq_len, hidden_size)])
-    assert max_cost == 3 * (bs * seq_len * hidden_size / p) + 4
+    _, max_cost = sol.solve([torch.randn(bs, seq_len, config.hidden_size)])
+    assert max_cost == 3 * (bs * seq_len * config.hidden_size / p) + 4
+
+
+def test_gpt_attn():
+    from transformers import GPTNeoModel, AutoConfig
+    import inspect
+
+    config = AutoConfig.from_pretrained("EleutherAI/gpt-neo-1.3B")
+    # config.use_cache = False
+    with slapo.init_empty_weights():
+        model = GPTNeoModel(config)
+    logger.info(config, ranks=0)
+
+    sch = slapo.create_schedule(model)
+    input_names = ["hidden_states"]
+    i = 0
+    subsch = sch[f"h.{i}"]
+    sig = inspect.signature(subsch.mod.forward)
+    concrete_args = {
+        p.name: p.default for p in sig.parameters.values() if p.name not in input_names
+    }
+    subsch.trace(
+        recursive=False,
+        flatten=True,
+        tracer="huggingface",
+        concrete_args=concrete_args,
+        config=config,
+    )
+    logger.info(subsch.mod.graph, ranks=0)
+
+    seq_len = 1024
+    sol = Solver(subsch.mod, p=p)
+    _, max_cost = sol.solve([torch.randn(bs, seq_len, config.hidden_size)])
+    assert max_cost == 3 * (bs * seq_len * config.hidden_size // p) + 3
 
 
 if __name__ == "__main__":
     test_mlp()
-    test_attn()
+    test_bert_attn()
+    test_gpt_attn()

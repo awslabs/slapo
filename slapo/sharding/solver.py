@@ -156,7 +156,8 @@ class SoftmaxOp(FxOp):
 
 class ViewOp(FxOp):
     """
-    # TODO: verify the behavior of general view function
+    # TODO: 1. Verify the behavior of general view function
+    #       2. Support merging two dimensions
     Only certain view functions can be sharded without communication.
     Currently only reshaping the *last* dimension is supported.
 
@@ -350,6 +351,7 @@ fx_op_map = {
     F.relu: ElementwiseOp,
     F.gelu: ElementwiseOp,
     torch.tensor: PlaceholderOp,
+    # FIXME: three operands, need to ensure specs are the same
     torch.where: ElementwiseOp,
     torch.pow: ElementwiseOp,
     torch.tanh: ElementwiseOp,

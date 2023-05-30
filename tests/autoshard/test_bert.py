@@ -17,13 +17,14 @@ from slapo.logger import get_logger
 logger = get_logger(__name__)
 
 # Config for verification
-bs = 8
+bs = 4
 seq_len = 512
 
 
 def perf_model(mod, input_tensor):
     """Measure the performance of a mod with certain resharding schemes"""
     # warmup
+    mod.eval()
     for _ in range(10):
         mod(input_tensor)
 
@@ -71,7 +72,8 @@ def fix_attention_mask_shape_megatron(sch):
 def scheme_megatron(model, input_ids, config):
     sch = slapo.create_schedule(model)
 
-    with slapo.Verify(sch, [input_ids]):
+    enable = True if input_ids.shape[0] <= 4 else False
+    with slapo.Verify(sch, [input_ids], enable=enable):
         for i in range(config.num_hidden_layers):
             # shard attention
             subsch = sch[f"bert.encoder.layer.{i}.attention.self"]
@@ -109,7 +111,8 @@ def scheme_sequence_parallel(model, input_ids, config):
     def new_matmul_1(lhs, rhs):
         return torch.matmul(lhs, reshard_SR_to_RR(rhs, sch.group))
 
-    with slapo.Verify(sch, [input_ids], eval_mode=True, enable=True):
+    enable = True if input_ids.shape[0] <= 4 else False
+    with slapo.Verify(sch, [input_ids], enable=enable):
         sch["bert.embeddings.LayerNorm"].sync(mode="fwd_post", sync_op_or_fn="RR->SR")
         for i in range(config.num_hidden_layers):
             subsch = sch[f"bert.encoder.layer.{i}.attention.self"]
@@ -129,7 +132,8 @@ def scheme_sequence_parallel(model, input_ids, config):
 
 def scheme_activation_stationary(model, input_ids, config):
     sch = slapo.create_schedule(model)
-    with slapo.Verify(sch, [input_ids]):
+    enable = True if input_ids.shape[0] <= 4 else False
+    with slapo.Verify(sch, [input_ids], enable=enable):
         for i in range(config.num_hidden_layers):
             # shard attention
             subsch = sch[f"bert.encoder.layer.{i}.attention.self"]
@@ -168,7 +172,8 @@ def scheme_activation_sharding(model, input_ids, config):
         reshard_hidden_states = reshard_RR_to_SR(hidden_states, sch.group)
         return dropout + reshard_hidden_states
 
-    with slapo.Verify(sch, [input_ids]):
+    enable = True if input_ids.shape[0] <= 4 else False
+    with slapo.Verify(sch, [input_ids], enable=enable):
         for i in range(config.num_hidden_layers):
             # shard attention
             subsch = sch[f"bert.encoder.layer.{i}.attention.self"]

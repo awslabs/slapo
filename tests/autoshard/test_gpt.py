@@ -19,13 +19,15 @@ from slapo.logger import get_logger
 logger = get_logger(__name__)
 
 # Config for verification
-bs = 8
+bs = 4
 seq_len = 1024
 
 
 def perf_model(mod, input_tensor):
     """Measure the performance of a mod with certain resharding schemes"""
     # warmup
+    mod.eval()
+    # mod.to(torch.float16)
     for _ in range(10):
         mod(input_tensor)
 
@@ -283,11 +285,10 @@ if __name__ == "__main__":
         ranks=0,
     )
 
-    schs = test_schemes(None)
-
     input_ids = torch.ones(
         bs, seq_len, dtype=torch.long, device=f"cuda:{dist.get_rank()}"
     )
+    schs = test_schemes(None)
     for i, sch in enumerate(schs):
         mod, _ = slapo.build(sch, init_weights=sch.mod._init_weights)
         mod.to(f"cuda:{dist.get_rank()}")

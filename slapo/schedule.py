@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 from __future__ import annotations
 
-import inspect
 import re
 from collections import OrderedDict
 from collections.abc import Callable
@@ -15,9 +14,6 @@ import torch
 import torch.distributed as dist
 from torch import fx, nn
 
-# pylint: disable=unused-import
-import torch.nn.functional as F
-
 from .logger import get_logger
 from .primitives import PRIMITIVES
 from .pipeline import analyze_tie_weights
@@ -25,16 +21,9 @@ from .pipeline import analyze_tie_weights
 from .tracer import trace as trace_module
 from .utils.common import is_lambda_function, is_module_list
 from .utils.mapping import MAPPING_FROM_FUNCTIONAL_TO_MODULE
-from .pattern import Pattern, ModulePattern, call_module
+from .pattern import Pattern, ModulePattern
 
 logger = get_logger()
-
-# Wrap call_module as a leaf.
-# This is a limitation of torch.fx
-# Currently the leaf function wrapper can only be registered in the same module
-# Otherwise, the wrapper cannot work properly.
-# See https://github.com/pytorch/pytorch/blob/v1.13.1/torch/fx/_symbolic_trace.py#L1011-L1012
-fx.wrap(call_module)
 
 
 @dataclass
@@ -301,7 +290,7 @@ class Schedule:
                 or (  # use pattern language to match
                     curr.op == "call_module"
                     and target.op == "call_function"
-                    and target.target == call_module
+                    and target.target.__name__ == "call_module"
                     and re.match(target.args[0], curr.target)
                 )
                 or (  # use pattern class for matching
@@ -361,55 +350,20 @@ class Schedule:
         self.trace()
 
         if pattern_fn is not None:
-            # pylint: disable=exec-used
             if isinstance(pattern_fn, Pattern):
                 pattern_wrapper = pattern_fn
+                pattern_mod = trace_module(
+                    pattern_wrapper,
+                    recursive=True,
+                    flatten=True,
+                    leaf_modules=["ModulePattern"],
+                )
             else:
-                # FIXME: Find a safer way to do it
-                sig = inspect.signature(pattern_fn)
-                param_str = ", ".join(sig.parameters.keys())
-                func_name = pattern_fn.__name__
-                src_code = inspect.getsource(pattern_fn).splitlines()
-                closure_vars = inspect.getclosurevars(pattern_fn)
-                closure_code = ""
-                for key, value in closure_vars.nonlocals.items():
-                    if not callable(value):
-                        closure_code += f"{key} = {value}\n"
-                formatted_code = ""
-                indent = ""
-                for line in src_code:
-                    line = line.strip()
-                    if "def" in line:
-                        front, back = line.split("(")
-                        line = f"{indent}{front}(self, {back}\n"
-                        indent = 8 * " "
-                    else:
-                        line = f"{indent}{line}\n"
-                    formatted_code += line
-                if ".call_module" in formatted_code:
-                    raise RuntimeError(
-                        "Please directly `from slapo.pattern import call_module`"
-                    )
-                wrapper_code = f"""
-{closure_code}
-class SubgraphWrapper(nn.Module):
-    def __init__(self):
-        super().__init__()
-
-    def forward(self, {param_str}):
-        return self.{func_name}({param_str})
-
-    {formatted_code}
-"""
-                exec(wrapper_code, globals())
-                # pylint: disable=undefined-variable
-                pattern_wrapper = SubgraphWrapper()
-            pattern_mod = trace_module(
-                pattern_wrapper,
-                recursive=True,
-                flatten=True,
-                leaf_modules=["ModulePattern"],
-            )
+                # Workaround for fx wrap functions:
+                # https://github.com/pytorch/pytorch/issues/53534
+                exec("torch.fx.wrap('call_module')", pattern_fn.__globals__)
+                pattern_wrapper = pattern_fn
+                pattern_mod = fx.symbolic_trace(pattern_wrapper)
         assert isinstance(pattern_mod, fx.GraphModule)
 
         first_op = None

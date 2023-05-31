@@ -275,10 +275,13 @@ class Schedule:
             pattern_fn, (FunctionType, Pattern)
         ) and not is_lambda_function(pattern_fn)
 
-        def find_match_subgraphs(curr, target, subgraphs):
+        def find_match_subgraph(curr, target, subgraph):
             if target.op == "output":
                 # "output" always matches.
                 return True
+            if (parent_name, curr) in all_nodes:
+                # Already matched.
+                return False
             if not (
                 (curr.op == target.op and curr.target == target.target)  # exactly match
                 or (  # nn.Module and nn.functional are viewed as the same
@@ -313,9 +316,9 @@ class Schedule:
             ):
                 # Not matched.
                 return False
-            if (parent_name, curr) not in subgraphs:
+            if (parent_name, curr) not in subgraph:
                 # New matched.
-                subgraphs.append((parent_name, curr))
+                subgraph.append((parent_name, curr))
             ptr = curr.next
             found = False
             # This loop is supposed to tackle the following case that the
@@ -341,7 +344,7 @@ class Schedule:
             # The successor of the last operation of the fx graph is binded to the root node,
             # so when ptr.op == "root", it means it reaches the end of the graph.
             while ptr.op != "root":
-                if find_match_subgraphs(ptr, target.next, subgraphs):
+                if find_match_subgraph(ptr, target.next, subgraph):
                     found = True
                     break
                 ptr = ptr.next
@@ -361,7 +364,10 @@ class Schedule:
             else:
                 # Workaround for fx wrap functions:
                 # https://github.com/pytorch/pytorch/issues/53534
-                exec("import torch.fx; torch.fx.wrap('call_module')", pattern_fn.__globals__)
+                exec(
+                    "import torch.fx; torch.fx.wrap('call_module')",
+                    pattern_fn.__globals__,
+                )
                 pattern_wrapper = pattern_fn
                 pattern_mod = fx.symbolic_trace(pattern_wrapper)
         assert isinstance(pattern_mod, fx.GraphModule)
@@ -377,6 +383,7 @@ class Schedule:
             raise RuntimeError("Cannot find the first non-placeholder operator")
 
         res = []
+        all_nodes = []
         for parent_name, submod in self.mod.named_modules():
             if not isinstance(submod, fx.GraphModule):
                 continue
@@ -386,7 +393,8 @@ class Schedule:
                 subgraph = []
                 target_node = first_op
                 curr_node = node
-                if find_match_subgraphs(curr_node, target_node, subgraph):
+                if find_match_subgraph(curr_node, target_node, subgraph):
+                    all_nodes.extend(subgraph)
                     res.append(subgraph.copy())
         return res
 

@@ -118,7 +118,8 @@ def vertical_fusion(
         except ValueError:
             sig = None
     subgraph_args, new_kwargs = get_required_args(sig, ops, concrete_args)
-    with target_mod.graph.inserting_before(first_node):
+    last_node = ops[-1]
+    with target_mod.graph.inserting_after(last_node):
         if is_module:
             new_node = target_mod.graph.call_module(
                 name, tuple(subgraph_args), new_kwargs
@@ -127,7 +128,6 @@ def vertical_fusion(
             new_node = target_mod.graph.call_function(
                 new_mod_or_func, tuple(subgraph_args), new_kwargs
             )
-    last_node = ops[-1]
     last_node.replace_all_uses_with(new_node)
     for node in reversed(ops):
         target_mod.graph.erase_node(node)
@@ -163,7 +163,8 @@ def horizontal_fusion(
     # TODO: Need to handle the case where the replaced module
     # has different numbers of arguments with the original module.
     # Also need more tests.
-    with target_mod.graph.inserting_before(node):
+    _, last_node = subgraphs[-1][-1]
+    with target_mod.graph.inserting_after(last_node):
         if is_module:
             new_node = target_mod.graph.call_module(name, node.args, node.kwargs)
         else:

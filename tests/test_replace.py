@@ -340,6 +340,34 @@ def test_replace_function():
     assert cnt == 1
 
 
+def test_insertion_point():
+    class Model(nn.Module):
+        def forward(self, a, b, c):
+            x = a + b
+            y = c * 2
+            z = x + y
+            return z
+
+    model = Model()
+    sch = slapo.create_schedule(model)
+
+    def pattern(a1, b1, y1):
+        x1 = a1 + b1
+        z1 = x1 + y1
+        return z1
+
+    subgraph = sch.find(pattern)
+
+    def new_func(a, b, y):
+        return a * b * y
+
+    # The new_func should be inserted *after* the mul node.
+    sch.replace(new_func, subgraph)
+    names = ["a", "b", "c", "mul", "new_func", "output"]
+    for i, node in enumerate(sch.mod.graph.nodes):
+        assert node.name == names[i]
+
+
 def test_transfer_hook():
     """Test whether the hooks are transferred to the new replaced module."""
 

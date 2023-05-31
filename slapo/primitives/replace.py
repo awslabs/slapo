@@ -102,7 +102,7 @@ def vertical_fusion(
     ):
         is_module = False
     ops = subgraphs[0]
-    path, first_node = ops[0]
+    path, _ = ops[0]
     ops = [op[1] for op in ops]
     if path:
         assert hasattr(target_mod, path), f"{path} is not an attribute of {target_mod}"
@@ -152,7 +152,6 @@ def horizontal_fusion(
     if concrete_args is not None:
         raise ValueError("concrete_args is not supported for horizontal fusion")
     path, node = subgraphs[0][0]
-    target_mod = target_mod
     if path:
         assert hasattr(target_mod, path), f"{path} is not an attribute of {target_mod}"
         target_mod = getattr(target_mod, path)

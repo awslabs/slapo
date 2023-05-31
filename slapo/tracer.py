@@ -425,7 +425,6 @@ def trace(model: nn.Module, **kwargs: dict[str, Any]):
                 "concrete_args" in kwargs
             ), "Please provide concrete_args for HF tracer"
             concrete_args = kwargs.pop("concrete_args")
-            assert "config" in kwargs, "Please provide config for HF tracer"
 
             class TracerWrapper(HFTracer):
                 def __init__(self, **config: dict[str, Any]) -> None:

@@ -271,9 +271,7 @@ class Schedule:
         """
 
         named_modules = dict(self.mod.named_modules())
-        assert isinstance(
-            pattern_fn, (FunctionType, Pattern)
-        ) and not is_lambda_function(pattern_fn)
+        assert isinstance(pattern_fn, (FunctionType, Pattern))
 
         def find_match_subgraph(curr, target, subgraph):
             if target.op == "output":

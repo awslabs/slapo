@@ -368,6 +368,22 @@ def test_insertion_point():
         assert node.name == names[i]
 
 
+def test_lambda():
+    class Model(nn.Module):
+        def forward(self, a, b):
+            x = a + b
+            y = a - x
+            return y
+
+    model = Model()
+    sch = slapo.create_schedule(model)
+    subgraph = sch.find(lambda a, b: a + b)
+    sch.replace(lambda a, b: a * b, subgraph)
+    subgraph = sch.find(lambda a, b: a - b)
+    sch.replace(lambda a, b: b // a, subgraph)
+    assert sch.mod(4, 10) == 10
+
+
 def test_transfer_hook():
     """Test whether the hooks are transferred to the new replaced module."""
 

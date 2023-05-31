@@ -60,11 +60,72 @@ def _replace_function(sch, func, target_op):
         The string in the tuple is the name of the parent module that
         the node belongs to.
     """
-    _, node = target_op
-    with sch.mod.graph.inserting_after(node):
-        new_node = sch.mod.graph.call_function(func, node.args, node.kwargs)
+    if isinstance(target_op, list):
+        try:
+            sig = inspect.signature(func)
+        except ValueError:
+            sig = None
+        target_op = target_op[0]
+        _, first_node = target_op[0]
+        target_op = [op[1] for op in target_op]
+        subgraph_args, new_kwargs = get_required_args(sig, target_op)
+        with sch.mod.graph.inserting_before(first_node):
+            new_node = sch.mod.graph.call_function(
+                func, tuple(subgraph_args), new_kwargs
+            )
+        last_node = target_op[-1]
+        last_node.replace_all_uses_with(new_node)
+        for node in reversed(target_op):
+            sch.mod.graph.erase_node(node)
+    else:
+        _, node = target_op
+        with sch.mod.graph.inserting_after(node):
+            new_node = sch.mod.graph.call_function(func, node.args, node.kwargs)
         node.replace_all_uses_with(new_node)
-    sch.mod.graph.erase_node(node)
+        sch.mod.graph.erase_node(node)
+
+
+def get_required_args(sig, ops, concrete_args=None):
+    first_node = ops[0]
+    if sig is None:
+        mod_args_need_inputs = []
+        default_args = {}
+    else:
+        mod_args_need_inputs = [
+            k
+            for k, v in sig.parameters.items()
+            if v.default is inspect.Parameter.empty
+            and v.kind is not inspect.Parameter.VAR_POSITIONAL
+        ]
+        default_args = {
+            k: v.default
+            for k, v in sig.parameters.items()
+            if v.default is not inspect.Parameter.empty
+        }
+    new_kwargs = {}
+    for key, value in default_args:
+        if key in first_node.kwargs:
+            new_kwargs[key] = value
+    if concrete_args is not None:
+        new_kwargs.update(concrete_args)
+    else:
+        concrete_args = {}
+    subgraph_args = []
+    for node in ops:
+        for arg in node.args:
+            if isinstance(arg, fx.Node) and arg not in ops and arg not in subgraph_args:
+                subgraph_args.append(arg)
+    if sig is not None and len(subgraph_args) + len(concrete_args) != len(
+        mod_args_need_inputs
+    ):
+        raise ValueError(
+            "The number of arguments (w/o default values) of the "
+            f"new module ({len(mod_args_need_inputs)}) does not match "
+            "the number of arguments of the original subgraph "
+            f"({len(subgraph_args)}). Please use `concrete_args` to "
+            "specify the arguments."
+        )
+    return subgraph_args, new_kwargs
 
 
 def _replace_module(self_sch, new_mod, subgraphs=None, name=None, concrete_args=None):
@@ -168,44 +229,9 @@ def _replace_module(self_sch, new_mod, subgraphs=None, name=None, concrete_args=
                 target_mod = getattr(self_sch.mod, path)
 
             target_mod.add_module(name, new_mod)
+            sig = inspect.signature(new_mod.forward)
+            subgraph_args, new_kwargs = get_required_args(sig, ops, concrete_args)
             with target_mod.graph.inserting_before(first_node):
-                sig = inspect.signature(new_mod.forward)
-                mod_args_need_inputs = [
-                    k
-                    for k, v in sig.parameters.items()
-                    if v.default is inspect.Parameter.empty
-                    and v.kind is not inspect.Parameter.VAR_POSITIONAL
-                ]
-                default_args = {
-                    k: v.default
-                    for k, v in sig.parameters.items()
-                    if v.default is not inspect.Parameter.empty
-                }
-                new_kwargs = {}
-                for key, value in default_args:
-                    if key in first_node.kwargs:
-                        new_kwargs[key] = value
-                if concrete_args is not None:
-                    new_kwargs.update(concrete_args)
-                else:
-                    concrete_args = {}
-                subgraph_args = []
-                for node in ops:
-                    for arg in node.args:
-                        if (
-                            isinstance(arg, fx.Node)
-                            and arg not in ops
-                            and arg not in subgraph_args
-                        ):
-                            subgraph_args.append(arg)
-                if len(subgraph_args) + len(concrete_args) != len(mod_args_need_inputs):
-                    raise ValueError(
-                        "The number of arguments (w/o default values) of the "
-                        f"new module ({len(mod_args_need_inputs)}) does not match "
-                        "the number of arguments of the original subgraph "
-                        f"({len(subgraph_args)}). Please use `concrete_args` to "
-                        "specify the arguments."
-                    )
                 new_node = target_mod.graph.call_module(
                     name, tuple(subgraph_args), new_kwargs
                 )
@@ -244,11 +270,10 @@ class ReplacePrimitive(Primitive):
 
     @staticmethod
     def apply(sch, new_mod_or_func, target_ops=None, name=None, concrete_args=None):
-        if isinstance(new_mod_or_func, FunctionType):
-            if isinstance(target_ops, list):
-                raise ValueError(
-                    "Cannot replace multiple nodes in forward with one function"
-                )
+        if (
+            isinstance(new_mod_or_func, FunctionType)
+            or type(new_mod_or_func).__name__ == "builtin_function_or_method"
+        ):
             _replace_function(sch, new_mod_or_func, target_ops)
         else:
             _replace_module(sch, new_mod_or_func, target_ops, name, concrete_args)

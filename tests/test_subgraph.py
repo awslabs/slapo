@@ -309,7 +309,7 @@ def test_qkv():
     subsch, _ = get_traced_bert()
 
     def pattern(x):
-        x = call_module(r"self\.(query|key|value)", x)
+        x = call_module(r"(query|key|value)", x)
         new_shape = x.size()[:-1] + (16, -1)
         x = x.view(new_shape)
         return x.permute(0, 2, 1, 3)
@@ -318,9 +318,9 @@ def test_qkv():
     assert len(qkv_subgraphs) == 3
     for subgraph in qkv_subgraphs:
         assert len(subgraph) == 6
-    assert qkv_subgraphs[0][0][1].target == "self.query"
-    assert qkv_subgraphs[1][0][1].target == "self.key"
-    assert qkv_subgraphs[2][0][1].target == "self.value"
+    assert qkv_subgraphs[0][0][1].target == "query"
+    assert qkv_subgraphs[1][0][1].target == "key"
+    assert qkv_subgraphs[2][0][1].target == "value"
 
 
 def test_diamond():

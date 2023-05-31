@@ -3,6 +3,7 @@
 """Test operator fusion."""
 
 # pylint: disable=comparison-with-callable
+import math
 import operator
 import pytest
 import torch
@@ -281,17 +282,18 @@ def test_pattern_call_module_class():
         assert isinstance(sch.get_module(subgraph[i][1][1].target), nn.ReLU)
 
 
-def test_qkv():
+def get_traced_bert():
     from transformers import BertLMHeadModel, AutoConfig
     import inspect
     from torch import fx
 
     config = AutoConfig.from_pretrained("bert-large-uncased")
-    model = BertLMHeadModel(config)
+    with slapo.init_empty_weights():
+        model = BertLMHeadModel(config)
 
     sch = slapo.create_schedule(model)
     input_names = ["hidden_states"]
-    subsch = sch["bert.encoder.layer.0.attention"]
+    subsch = sch["bert.encoder.layer.0.attention.self"]
     sig = inspect.signature(subsch.mod.forward)
     concrete_args = {
         p.name: p.default for p in sig.parameters.values() if p.name not in input_names
@@ -300,6 +302,11 @@ def test_qkv():
         recursive=False, flatten=True, tracer="pytorch", concrete_args=concrete_args
     )
     assert isinstance(subsch.mod, fx.GraphModule)
+    return subsch, config
+
+
+def test_qkv():
+    subsch, _ = get_traced_bert()
 
     def pattern(x):
         x = call_module(r"self\.(query|key|value)", x)
@@ -355,6 +362,45 @@ def test_diamond():
     assert subgraph[1][1].target == operator.mul
     assert subgraph[2][1].target == operator.mul
     assert subgraph[3][1].target == operator.add
+
+
+def test_efficient_attn():
+    subsch, config = get_traced_bert()
+
+    # https://pytorch.org/docs/master/generated/torch.nn.functional.scaled_dot_product_attention.html
+    def scaled_dot_product(query_layer, key_layer, value_layer):
+        attention_scores = torch.matmul(query_layer, key_layer.transpose(-1, -2))
+        attention_scores = attention_scores / math.sqrt(
+            config.hidden_size // config.num_attention_heads
+        )
+        attention_probs = F.softmax(attention_scores, dim=-1)
+        attention_probs = F.dropout(attention_probs)
+        context_layer = torch.matmul(attention_probs, value_layer)
+        return context_layer
+
+    subgraphs = subsch.find(scaled_dot_product)
+    assert len(subgraphs[0]) == 6
+    inp = torch.randn(1, 512, 1024)
+    # Test replacing with a function
+    # query, key, value argument orders are different
+    # should be able to replace, but the results are incorrect
+    with pytest.raises(AssertionError):
+        with slapo.Verify(subsch, [inp]):
+            subsch.replace(F.scaled_dot_product_attention, subgraphs)
+
+    subsch_1, _ = get_traced_bert()
+    subgraphs_1 = subsch_1.find(scaled_dot_product)
+    assert len(subgraphs_1[0]) == 6
+
+    class EfficientAttention(torch.nn.Module):
+        def forward(self, key_layer, query_layer, value_layer):
+            return torch.nn.functional.scaled_dot_product_attention(
+                query_layer, key_layer, value_layer
+            )
+
+    # Test replacing with a module
+    with slapo.Verify(subsch_1, [inp]):
+        subsch_1.replace(EfficientAttention(), subgraphs_1)
 
 
 if __name__ == "__main__":

@@ -354,9 +354,8 @@ class Schedule:
 
         if pattern_fn is not None:
             if isinstance(pattern_fn, Pattern):
-                pattern_wrapper = pattern_fn
                 pattern_mod = trace_module(
-                    pattern_wrapper,
+                    pattern_fn,
                     recursive=True,
                     flatten=True,
                     leaf_modules=["ModulePattern"],
@@ -368,8 +367,7 @@ class Schedule:
                     "import torch.fx; torch.fx.wrap('call_module')",
                     pattern_fn.__globals__,
                 )
-                pattern_wrapper = pattern_fn
-                pattern_mod = fx.symbolic_trace(pattern_wrapper)
+                pattern_mod = fx.symbolic_trace(pattern_fn)
         assert isinstance(pattern_mod, fx.GraphModule)
 
         first_op = None

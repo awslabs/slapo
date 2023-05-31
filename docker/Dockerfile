@@ -262,7 +262,7 @@ RUN cd $HOME/xformers && \
     CUDA_VISIBLE_DEVICES=0 pip3 install -e ".[dev]"
 
 # Install flash_attn
-RUN pip install flash-attn
+RUN pip install flash-attn==1.0.7 --no-build-isolation
 
 # Install transformers
 RUN pip install transformers==4.28.1 --no-deps

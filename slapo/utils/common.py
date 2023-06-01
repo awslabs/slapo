@@ -5,6 +5,8 @@ import importlib
 from functools import lru_cache
 from types import FunctionType
 
+from torch import nn
+from torch import fx
 
 HOOK_TYPE_TO_ATTR = {
     "fwd_pre": "_forward_pre_hooks",
@@ -127,6 +129,38 @@ def transfor_param_tags(sch, param, new_param):
 
 def is_lambda_function(obj):
     return isinstance(obj, FunctionType) and obj.__name__ == "<lambda>"
+
+
+def is_module_list(module, name="", parent=None):
+    """A module list will become nn.Module or fx.GraphModule after tracing,
+    but we still want to treat it as a module list in the schedule.
+    """
+    if isinstance(module, nn.Sequential):
+        return False
+    if isinstance(module, nn.ModuleList):
+        return True
+    if (
+        isinstance(module, fx.GraphModule)
+        and parent is not None
+        and isinstance(parent.mod, fx.GraphModule)
+    ):
+        # If the module and its parent are both traced, we can check
+        # the caller in the parent. If there is a caller that directly
+        # calls this module, then this is not a module list.
+        for node in parent.mod.graph.nodes:
+            if node.op == "call_module" and node.target == name:
+                return False
+
+    # If all above cannot work, we could only chacke if its children are indexed by
+    # sequential integers, and treat it as a module list if so.
+    child_names = [name for name, _ in module.named_children()]
+    if not child_names:
+        return False
+    try:
+        child_names = [int(n) for n in child_names]
+        return child_names == list(range(len(child_names)))
+    except ValueError:
+        return False
 
 
 @lru_cache()

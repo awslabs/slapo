@@ -11,7 +11,7 @@ from types import FunctionType
 from torch import fx
 
 from ..logger import get_logger
-from ..utils.common import transfer_hooks, transfer_hooks_for_fusion
+from ..utils.common import transfer_hooks, transfer_hooks_for_fusion, is_module_list
 from ..schedule import create_schedule
 from .base import Primitive, register_primitive
 
@@ -261,7 +261,15 @@ class ReplacePrimitive(Primitive):
             sch.mod.recompile()
 
             # Remove OOD child.
-            named_children = [name for name, _ in sch.mod.named_children()]
+            named_children = []
+            for child_name, submod in sch.mod.named_children():
+                if is_module_list(submod):
+                    named_children += [
+                        f"{child_name}.{name_idx}"
+                        for name_idx, _ in submod.named_children()
+                    ]
+                else:
+                    named_children.append(child_name)
             to_be_removed = []
             for child_name in sch.child:
                 if child_name not in named_children:
@@ -273,13 +281,23 @@ class ReplacePrimitive(Primitive):
             # Add new child.
             for child_name, submod in sch.mod.named_children():
                 if child_name not in sch.child:
-                    sch.child[child_name] = create_schedule(
-                        submod,
-                        child_name,
-                        f"{sch.path}.{child_name}",
-                        sch,
-                        sch.group,
-                    )
+                    for name_idx, layer in submod.named_children():
+                        if is_module_list(submod):
+                            sch.child[f"{child_name}.{name_idx}"] = create_schedule(
+                                layer,
+                                f"{child_name}.{name_idx}",
+                                f"{child_name}.{name_idx}",
+                                sch,
+                                sch.group,
+                            )
+                        else:
+                            sch.child[child_name] = create_schedule(
+                                submod,
+                                child_name,
+                                f"{sch.path}.{child_name}",
+                                sch,
+                                sch.group,
+                            )
 
 
 @register_primitive()

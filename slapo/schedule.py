@@ -23,7 +23,7 @@ from .primitives import PRIMITIVES
 from .pipeline import analyze_tie_weights
 
 from .tracer import trace as trace_module
-from .utils.common import is_lambda_function
+from .utils.common import is_lambda_function, is_module_list
 from .utils.mapping import MAPPING_FROM_FUNCTIONAL_TO_MODULE
 from .pattern import Pattern, ModulePattern, call_module
 
@@ -582,37 +582,6 @@ def create_schedule(
             or module.__module__.startswith("torch.ao.nn")
         ) and not isinstance(module, torch.nn.Sequential)
 
-    def is_module_list(module):
-        """A module list will become nn.Module or fx.GraphModule after tracing,
-        but we still want to treat it as a module list in the schedule.
-        """
-        if isinstance(module, nn.Sequential):
-            return False
-        if isinstance(module, nn.ModuleList):
-            return True
-        if (
-            isinstance(module, fx.GraphModule)
-            and parent is not None
-            and isinstance(parent.mod, fx.GraphModule)
-        ):
-            # If the module and its parent are both traced, we can check
-            # the caller in the parent. If there is a caller that directly
-            # calls this module, then this is not a module list.
-            for node in parent.mod.graph.nodes:
-                if node.op == "call_module" and node.target == name:
-                    return False
-
-        # If all above cannot work, we could only chacke if its children are indexed by
-        # sequential integers, and treat it as a module list if so.
-        child_names = [name for name, _ in module.named_children()]
-        if not child_names:
-            return False
-        try:
-            child_names = [int(n) for n in child_names]
-            return child_names == list(range(len(child_names)))
-        except ValueError:
-            return False
-
     root_sch = Schedule(root, name, path, parent, group, **kwargs)
     if is_leaf(root):
         return root_sch
@@ -620,7 +589,7 @@ def create_schedule(
     child_schedules = {}
     for child_name, submod in root.named_children():
         next_path = f"{path}.{child_name}" if path else child_name
-        if is_module_list(submod):
+        if is_module_list(submod, name=name, parent=parent):
             # We assume ModuleList will be iteratively traversed in forward function.
             # For example:
             # In __init__: self.layers = nn.ModuleList([nn.Linear(10, 10) for _ in range(3)])

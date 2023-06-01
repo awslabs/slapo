@@ -111,9 +111,11 @@ def generate_hf_tracer_inputs(
             root.forward if isinstance(root, torch.nn.Module) else root
         )
         assert "concrete_args" in kwargs
-        assert "config" in kwargs
-        root.device = next(root.named_parameters())[1].device
-        root.config = kwargs["config"]
+        if not hasattr(root, "device"):
+            root.device = next(root.named_parameters())[1].device
+        if not hasattr(root, "config"):
+            assert "config" in kwargs, "Please provide `config` for HF tracer"
+            root.config = kwargs["config"]
         concrete_args = kwargs["concrete_args"]  # those are args having None value
         input_names = sig.parameters.keys() - concrete_args.keys()
         inputs = {}
@@ -423,7 +425,6 @@ def trace(model: nn.Module, **kwargs: dict[str, Any]):
                 "concrete_args" in kwargs
             ), "Please provide concrete_args for HF tracer"
             concrete_args = kwargs.pop("concrete_args")
-            assert "config" in kwargs, "Please provide config for HF tracer"
 
             class TracerWrapper(HFTracer):
                 def __init__(self, **config: dict[str, Any]) -> None:

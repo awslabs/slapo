@@ -33,7 +33,8 @@ def parse_log(impl, log_file):
     ("bert-large-uncased", "slapo-megatron", "2", "10", "512", "0"),
     ("bert-large-uncased", "slapo-deepspeed", "2", "12", "512", "0"),
     ("EleutherAI/gpt-neo-125M", "slapo-megatron", "2", "1", "512", "1.0"),
-    ("t5-base", "slapo-megatron", "4", "8", "1024", "0.67"),
+    # Remove this test case for now, since it requires epoi package.
+    # ("t5-base", "slapo-megatron", "4", "8", "1024", "0.67"),
 ])
 # fmt: on
 def test_end2end(model, impl, n_gpu, batch_size, seq_len, ckpt_ratio):

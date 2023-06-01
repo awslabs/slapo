@@ -209,7 +209,7 @@ RUN pip3 install -U pytest-cov setuptools py-cpuinfo
 # PyTorch
 ##############################################################################
 
-RUN pip3 install torch==2.0.1 \
+RUN pip3 install torch==2.0.1+cu117 torchvision==0.15.2+cu117 \
     -f https://download.pytorch.org/whl/cu117/torch_stable.html
 RUN pip3 install --no-deps pytorch-ignite 
 
@@ -231,7 +231,7 @@ RUN cd ${STAGE_DIR} && git clone https://github.com/NVIDIA/apex && \
 ##############################################################################
 # DeepSpeed from dmlc repo
 ##############################################################################
-RUN git clone https://github.com/dmlc/DeepSpeed.git ${STAGE_DIR}/DeepSpeed
+RUN git clone -b pipe https://github.com/dmlc/DeepSpeed.git ${STAGE_DIR}/DeepSpeed
 RUN sudo apt-get install -y libaio-dev
 RUN cd ${STAGE_DIR}/DeepSpeed && \
    CUDACXX=/usr/local/cuda/bin/nvcc \
@@ -262,7 +262,10 @@ RUN cd $HOME/xformers && \
     CUDA_VISIBLE_DEVICES=0 pip3 install -e ".[dev]"
 
 # Install flash_attn
-RUN pip install flash-attn==1.0.7 --no-build-isolation
+RUN git clone https://github.com/jfc4050/flash-attention.git $HOME/flash-attention && \
+    cd $HOME/flash-attention/ && git checkout 7b46e1
+RUN cd $HOME/flash-attention/ && \
+    pip3 install -e ".[dev]"
 
 # Install transformers
 RUN pip install transformers==4.28.1 --no-deps

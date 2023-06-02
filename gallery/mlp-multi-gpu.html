@@ -538,7 +538,7 @@ as the backend compiler.</p>
 <span class="nb">print</span><span class="p">(</span><span class="n">sch</span><span class="o">.</span><span class="n">mod</span><span class="p">)</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>/usr/local/lib/python3.8/site-packages/torch/jit/_check.py:181: UserWarning: The TorchScript type system doesn&#39;t support instance-level annotations on empty non-base types in `__init__`. Instead, either 1) use a type annotation in the class body, or 2) wrap the type in `torch.jit.Attribute`.
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>/usr/local/lib/python3.8/site-packages/torch/jit/_check.py:172: UserWarning: The TorchScript type system doesn&#39;t support instance-level annotations on empty non-base types in `__init__`. Instead, either 1) use a type annotation in the class body, or 2) wrap the type in `torch.jit.Attribute`.
   warnings.warn(&quot;The TorchScript type system doesn&#39;t support &quot;
 GraphModule(
   (linear1): Module()
@@ -572,7 +572,7 @@ corresponding dataflow graph.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">opt_model</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">slapo</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="n">sch</span><span class="p">,</span> <span class="n">init_weights</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 </pre></div>
 </div>
-<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> ( 0 minutes  0.082 seconds)</p>
+<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> ( 0 minutes  0.078 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-gallery-mlp-multi-gpu-py">
 <div class="sphx-glr-download sphx-glr-download-python docutils container">
 <p><a class="reference download internal" download="" href="../_downloads/3f543fc069f615fa6b9b1314f0b64121/mlp-multi-gpu.py"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Python</span> <span class="pre">source</span> <span class="pre">code:</span> <span class="pre">mlp-multi-gpu.py</span></code></a></p>

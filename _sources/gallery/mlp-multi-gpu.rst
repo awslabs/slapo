@@ -359,7 +359,7 @@ as the backend compiler.
 
  .. code-block:: none
 
-    /usr/local/lib/python3.8/site-packages/torch/jit/_check.py:181: UserWarning: The TorchScript type system doesn't support instance-level annotations on empty non-base types in `__init__`. Instead, either 1) use a type annotation in the class body, or 2) wrap the type in `torch.jit.Attribute`.
+    /usr/local/lib/python3.8/site-packages/torch/jit/_check.py:172: UserWarning: The TorchScript type system doesn't support instance-level annotations on empty non-base types in `__init__`. Instead, either 1) use a type annotation in the class body, or 2) wrap the type in `torch.jit.Attribute`.
       warnings.warn("The TorchScript type system doesn't support "
     GraphModule(
       (linear1): Module()
@@ -412,7 +412,7 @@ Finally, we can build the optimized model by calling ``.build()``.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** ( 0 minutes  0.082 seconds)
+   **Total running time of the script:** ( 0 minutes  0.078 seconds)
 
 
 .. _sphx_glr_download_gallery_mlp-multi-gpu.py:

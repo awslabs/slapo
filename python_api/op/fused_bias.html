@@ -376,7 +376,7 @@ document.write(`
 </colgroup>
 <tbody>
 <tr class="row-odd"><td><p><a class="reference internal" href="#slapo.op.fused_bias.BiasGeLUFunction.forward" title="slapo.op.fused_bias.BiasGeLUFunction.forward"><code class="xref py py-obj docutils literal notranslate"><span class="pre">forward</span></code></a>(ctx, inp, bias)</p></td>
-<td><p>Performs the operation.</p></td>
+<td><p>This function is to be overridden by all subclasses.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#slapo.op.fused_bias.BiasGeLUFunction.backward" title="slapo.op.fused_bias.BiasGeLUFunction.backward"><code class="xref py py-obj docutils literal notranslate"><span class="pre">backward</span></code></a>(ctx, grad_output)</p></td>
 <td><p>Defines a formula for differentiating the operation with backward mode automatic differentiation (alias to the vjp function).</p></td>
@@ -386,10 +386,37 @@ document.write(`
 <dl class="py method">
 <dt class="sig sig-object py" id="slapo.op.fused_bias.BiasGeLUFunction.forward">
 <em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ctx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bias</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/slapo/op/fused_bias.html#BiasGeLUFunction.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.op.fused_bias.BiasGeLUFunction.forward" title="Permalink to this definition"><span>¶</span></a></dt>
-<dd><p>Performs the operation.</p>
-<p>This function is to be overridden by all subclasses.</p>
-<p>It must accept a context ctx as the first argument, followed by any
-number of arguments (tensors or other types).</p>
+<dd><p>This function is to be overridden by all subclasses. There are two ways
+to define forward:</p>
+<p>Usage 1 (Combined forward and ctx):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nd">@staticmethod</span>
+<span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">ctx</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+    <span class="k">pass</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>It must accept a context ctx as the first argument, followed by any
+number of arguments (tensors or other types).</p></li>
+<li><p>See <a class="reference external" href="https://pytorch.org/docs/stable/notes/extending.html#combining-forward-context" title="(in PyTorch v2.0)"><span>Combined or separate forward() and setup_context()</span></a> for more details</p></li>
+</ul>
+<p>Usage 2 (Separate forward and ctx):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nd">@staticmethod</span>
+<span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+    <span class="k">pass</span>
+
+<span class="nd">@staticmethod</span>
+<span class="k">def</span> <span class="nf">setup_context</span><span class="p">(</span><span class="n">ctx</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">inputs</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">output</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">pass</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>The forward no longer accepts a ctx argument.</p></li>
+<li><p>Instead, you must also override the <code class="xref py py-meth docutils literal notranslate"><span class="pre">torch.autograd.Function.setup_context()</span></code>
+staticmethod to handle setting up the <code class="docutils literal notranslate"><span class="pre">ctx</span></code> object.
+<code class="docutils literal notranslate"><span class="pre">output</span></code> is the output of the forward, <code class="docutils literal notranslate"><span class="pre">inputs</span></code> are a Tuple of inputs
+to the forward.</p></li>
+<li><p>See <a class="reference external" href="https://pytorch.org/docs/stable/notes/extending.html#extending-autograd" title="(in PyTorch v2.0)"><span>Extending torch.autograd</span></a> for more details</p></li>
+</ul>
 <p>The context can be used to store arbitrary data that can be then
 retrieved during the backward pass. Tensors should not be stored
 directly on <cite>ctx</cite> (though this is not currently enforced for

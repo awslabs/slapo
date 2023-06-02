@@ -19,6 +19,17 @@ git apply xformers_patch
 git --no-pager diff
 popd
 
+# Remove this path when megatron fixes the compatibility issue with numpy.
+echo "Applying Megatron path..."
+MEGATRON_PATH=`python3 -c "import megatron, pathlib; print(pathlib.Path(megatron.__path__[0]).parent)"`
+cp scripts/megatron_patch $MEGATRON_PATH
+pushd $MEGATRON_PATH
+git config --global --add safe.directory $MEGATRON_PATH
+git reset --hard
+git apply megatron_patch
+git --no-pager diff
+popd
+
 echo "Running unit tests..."
 # torchrun:
 #   -r: redirect the output of local rank 1 to None so that

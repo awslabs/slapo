@@ -81,7 +81,7 @@ cp scripts/megatron_patch $MEGATRON_PATH
 pushd $MEGATRON_PATH
 git config --global --add safe.directory $MEGATRON_PATH
 git reset --hard
-git apply scripts/megatron_patch
+git apply megatron_patch
 git --no-pager diff
 popd
 ```

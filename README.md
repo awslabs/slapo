@@ -41,7 +41,7 @@ cd slapo
 pip3 install -e ".[dev]"
 ```
 
-In addition, you can optionally install [HuggingFace Transformers](https://github.com/huggingface/transformers) (>= v4.25.1) to retrieve models.
+In addition, you can optionally install [HuggingFace Transformers](https://github.com/huggingface/transformers) (>= v4.28.1) to retrieve models.
 Also, Slapo currently supports the following frameworks, so you can run the scheduled models on these frameworks if needed.
 * [Megatron-LM](https://github.com/NVIDIA/Megatron-LM) >= 3.0.2
 * [DeepSpeed](https://github.com/microsoft/DeepSpeed) >= 0.7.7

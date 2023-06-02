@@ -1,6 +1,6 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
-FROM nvidia/cuda:11.7.1-cudnn8-devel-ubuntu18.04
+FROM nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
 
 ##############################################################################
 # Temporary Installation Directory
@@ -155,7 +155,7 @@ RUN pip3 install psutil \
                  scikit-learn \
                  nvidia-ml-py3 \
                  mpi4py \ 
-                 cupy-cuda110 \
+                 cupy-cuda117 \
                  supervisor awscli
 
 
@@ -168,10 +168,9 @@ RUN rm -rf /usr/lib/python3/dist-packages/yaml && \
     rm -rf /usr/lib/python3/dist-packages/PyYAML-*
 
 ##############################################################################
-# NCCL 2.10.3 Upgrade
+# NCCL 2.14.3 Upgrade
 ##############################################################################
-# RUN apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub && add-apt-repository "deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/ /" && apt update && apt install -y --allow-change-held-packages libnccl2=2.10.3-1+cuda11.0 libnccl-dev=2.10.3-1+cuda11.0
-ENV NCCL_VERSION=2.12.12
+ENV NCCL_VERSION=2.14.3
 RUN sudo apt install unzip
 RUN cd ${STAGE_DIR} && \
     wget https://github.com/NVIDIA/nccl/archive/refs/tags/v${NCCL_VERSION}-1.zip && \
@@ -210,14 +209,14 @@ RUN pip3 install -U pytest-cov setuptools py-cpuinfo
 # PyTorch
 ##############################################################################
 
-RUN pip3 install --force-reinstall torch==1.13.0+cu117 torchvision==0.14.0+cu117 \
+RUN pip3 install torch==2.0.1+cu117 torchvision==0.15.2+cu117 \
     -f https://download.pytorch.org/whl/cu117/torch_stable.html
 RUN pip3 install --no-deps pytorch-ignite 
 
 
-##############################################################################
-## Install custom Apex
-##############################################################################
+#############################################################################
+# Install custom Apex
+#############################################################################
 # for unknown reason the apex installation require USER deepspeed
 USER deepspeed
 RUN cd ${STAGE_DIR} && git clone https://github.com/NVIDIA/apex && \
@@ -230,27 +229,17 @@ RUN cd ${STAGE_DIR} && git clone https://github.com/NVIDIA/apex && \
 
 
 ##############################################################################
-# DeepSpeed ZeRO2D code base
+# DeepSpeed from dmlc repo
 ##############################################################################
-
-#USER root
-#ADD repo-key /
-#RUN chmod 600 /repo-key && \
-#    echo "IdentityFile /repo-key" >> /etc/ssh/ssh_config && \
-#    echo "StrictHostKeyChecking no" >> /etc/ssh/ssh_config && \
-#    echo "change code base: setting partition type from config" && \
-#    git clone -b ms/debug git@github.com:zarzen/ZeRO-2D.git ${STAGE_DIR}/DeepSpeed && \
-#    cd ${STAGE_DIR}/DeepSpeed \
-#    && git submodule sync && git submodule update --init --recursive
-#
-#USER deepspeed
-#RUN sudo chown $USER:$USER -R ${STAGE_DIR}/DeepSpeed
-#RUN sudo apt-get install -y libaio-dev
-#RUN cd ${STAGE_DIR}/DeepSpeed && \
-#    sudo CUDACXX=/usr/local/cuda/bin/nvcc \
-#    CUDA_HOME=/usr/local/cuda \
-#    DS_BUILD_SPARSE_ATTN=0 \
-#    DS_BUILD_OPS=1 TORCH_CUDA_ARCH_LIST="7.0 7.5 8.0" pip3 install -v ./
+USER root
+RUN git clone -b pipe https://github.com/dmlc/DeepSpeed.git ${STAGE_DIR}/DeepSpeed
+RUN sudo apt-get install -y libaio-dev
+RUN cd ${STAGE_DIR}/DeepSpeed && \
+   CUDACXX=/usr/local/cuda/bin/nvcc \
+   CUDA_HOME=/usr/local/cuda \
+   DS_BUILD_SPARSE_ATTN=0 \
+   DS_BUILD_OPS=1 TORCH_CUDA_ARCH_LIST="7.0 7.5 8.0" pip3 install -v ./
+USER deepspeed
 
 # install nccl-tests
 RUN git clone https://github.com/NVIDIA/nccl-tests.git $HOME/nccl-tests
@@ -263,6 +252,8 @@ RUN git clone https://github.com/NVIDIA/Megatron-LM.git $HOME/Megatron-LM
 RUN cd $HOME/Megatron-LM && git checkout 0bb597b
 ENV PYTHONPATH "${PYTHONPATH}:$HOME/Megatron-LM"
 
+RUN pip3 install --no-deps triton==2.0.0.dev20221202 
+
 # Install xformers
 RUN git clone https://github.com/facebookresearch/xformers.git $HOME/xformers && \
     cd $HOME/xformers && git checkout 48a77cc && \
@@ -274,25 +265,12 @@ RUN cd $HOME/xformers && \
 
 # Install flash_attn
 RUN git clone https://github.com/jfc4050/flash-attention.git $HOME/flash-attention && \
-    cd $HOME/flash-attention/ && git checkout 3676bd2
+    cd $HOME/flash-attention/ && git checkout 7b46e1
 RUN cd $HOME/flash-attention/ && \
     pip3 install -e ".[dev]"
 
-# Install epoi
-RUN git clone https://github.com/comaniac/epoi --recursive $HOME/epoi
-RUN cd $HOME/epoi && git fetch && git checkout fa90fa7 && pip3 install -e ".[dev]"
-
 # Install transformers
-RUN git clone https://github.com/huggingface/transformers.git $HOME/transformers
-RUN cd $HOME/transformers && git checkout 2bdd9fa && pip3 install -e ".[dev]" --no-deps
-
-# FIXME Install official DeepSpeed
-USER root
-RUN pip3 install deepspeed==0.6.5
-USER deepspeed
-
-# Fix dependencies
-RUN pip3 install huggingface-hub tokenizers numpy==1.23.4 datasets
+RUN pip install transformers==4.28.1 --no-deps
 
 COPY container_entrypoint.sh /etc/
 RUN sudo chown $USER:$USER /etc/container_entrypoint.sh

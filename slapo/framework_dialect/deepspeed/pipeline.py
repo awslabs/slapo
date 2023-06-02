@@ -366,12 +366,6 @@ def deepspeed_pipe_engine(
 
     if "loss_fn" not in kwargs:
         raise ValueError("Must provide loss_fn for deepspeed pipeline")
-    if "fp16" in kwargs["config"] and kwargs["config"]["fp16"]["enabled"]:
-        param_dtype = torch.float16
-    elif "bf16" in kwargs["config"] and kwargs["config"]["bf16"]["enabled"]:
-        param_dtype = torch.bfloat16
-    else:
-        param_dtype = torch.float
 
     # Tag all sharded parameters with model parallel attribute for grad clipping.
     cnt_shard = 0
@@ -391,7 +385,6 @@ def deepspeed_pipe_engine(
         topology=topology,
         partition_method="uniform",
         loss_fn=kwargs.get("loss_fn", None),
-        param_dtype=param_dtype,
     )
 
     tie_weights = list(sch_metadata.tie_weights.values())

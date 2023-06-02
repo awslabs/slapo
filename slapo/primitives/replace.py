@@ -262,8 +262,8 @@ class ReplacePrimitive(Primitive):
 
             # Remove OOD child.
             named_children = []
-            for child_name, submod in sch.mod.named_children():
-                if is_module_list(submod):
+            for child_name, submod in sch.mod.named_children():  # immediate children
+                if is_module_list(submod, child_name, sch):
                     named_children += [
                         f"{child_name}.{name_idx}"
                         for name_idx, _ in submod.named_children()
@@ -282,7 +282,7 @@ class ReplacePrimitive(Primitive):
             for child_name, submod in sch.mod.named_children():
                 if child_name not in sch.child:
                     for name_idx, layer in submod.named_children():
-                        if is_module_list(submod):
+                        if is_module_list(submod, child_name, sch):
                             sch.child[f"{child_name}.{name_idx}"] = create_schedule(
                                 layer,
                                 f"{child_name}.{name_idx}",

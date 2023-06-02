@@ -280,13 +280,15 @@ class ReplacePrimitive(Primitive):
 
             # Add new child.
             for child_name, submod in sch.mod.named_children():
+                path = sch.path
+                next_path = f"{path}.{child_name}" if path else child_name
                 if child_name not in sch.child:
                     for name_idx, layer in submod.named_children():
                         if is_module_list(submod, child_name, sch):
                             sch.child[f"{child_name}.{name_idx}"] = create_schedule(
                                 layer,
                                 f"{child_name}.{name_idx}",
-                                f"{child_name}.{name_idx}",
+                                f"{next_path}.{name_idx}",
                                 sch,
                                 sch.group,
                             )
@@ -294,7 +296,7 @@ class ReplacePrimitive(Primitive):
                             sch.child[child_name] = create_schedule(
                                 submod,
                                 child_name,
-                                f"{sch.path}.{child_name}",
+                                next_path,
                                 sch,
                                 sch.group,
                             )

@@ -12,69 +12,104 @@ from torch import fx
 import slapo
 
 
-def test_trace_until():
-    class Pre(nn.Module):
-        def __init__(self):
-            super().__init__()
-            self.linear = nn.Linear(10, 10)
+class Pre(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.linear = nn.Linear(10, 10)
 
-        def forward(self, x):
-            # delibarately add control flow to avoid tracing
-            if x.size() > 0:
-                return self.linear(x)
-            else:
-                return x
-
-    class Post(nn.Module):
-        def __init__(self):
-            super().__init__()
-            self.linear = nn.Linear(10, 10)
-
-        def forward(self, x):
+    def forward(self, x):
+        # delibarately add control flow to avoid tracing
+        if x.size() > 0:
             return self.linear(x)
+        else:
+            return x
 
-    class Inner(nn.Module):
-        def __init__(self):
-            super().__init__()
-            self.linear = nn.Linear(10, 10)
 
-        def forward(self, x):
-            return self.linear(x)
+class Post(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.linear = nn.Linear(10, 10)
 
-    class Model(nn.Module):
-        def __init__(self):
-            super().__init__()
-            self.pre = Pre()
-            self.layers = nn.Sequential(
-                Inner(),
-                Inner(),
-            )
-            self.post = Post()
+    def forward(self, x):
+        return self.linear(x)
 
-        def forward(self, x):
-            return self.post(self.layers(self.pre(x)))
 
-    model = Model()
-    sch = slapo.create_schedule(model)
-    sch.trace_until("layers", tracer="pytorch")
-    assert isinstance(sch.mod, fx.GraphModule)
-    assert isinstance(sch["pre"].mod, nn.Module)
-    assert isinstance(sch["layers"].mod, fx.GraphModule)
-    assert isinstance(sch["layers.0"].mod, nn.Module)
-    assert isinstance(sch["layers.1"].mod, nn.Module)
-    assert isinstance(sch["post"].mod, fx.GraphModule)
+class Inner(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.linear = nn.Linear(10, 10)
 
-    sch["layers.0"].cut_pipeline_stage()
-    from slapo.pipeline import generate_pipeline_partition
+    def forward(self, x):
+        return self.linear(x)
 
-    sch = generate_pipeline_partition(sch)
-    # The traced pipeline module should include the pre and post modules.
-    assert isinstance(sch["submod_0.pre"].mod, Pre)
-    assert isinstance(sch["submod_0.submod_0"].mod, fx.GraphModule)
-    assert isinstance(sch["submod_0.submod_0.0"].mod, Inner)
-    assert isinstance(sch["submod_1.submod_1.1"].mod, Inner)
-    assert isinstance(sch["submod_1.submod_1"].mod, fx.GraphModule)
-    assert isinstance(sch["submod_1.post"].mod, fx.GraphModule)
+
+class SeqModel(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.pre = Pre()
+        self.layers = nn.Sequential(
+            Inner(),
+            Inner(),
+        )
+        self.post = Post()
+
+    def forward(self, x):
+        return self.post(self.layers(self.pre(x)))
+
+
+class ModListModel(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.pre = Pre()
+        self.layers = nn.ModuleList([Inner(), Inner()])
+        self.post = Post()
+
+    def forward(self, x):
+        x = self.pre(x)
+        for layer in self.layers:
+            x = layer(x)
+        x = self.post(x)
+        return x
+
+
+def test_pipeline_partition():
+    def test_model(model, is_module_list=False):
+        sch = slapo.create_schedule(model)
+        if not is_module_list:
+            sch.trace_until("layers", tracer="pytorch")
+        else:
+            sch.trace_until("", tracer="pytorch")
+        assert isinstance(sch.mod, fx.GraphModule)
+        assert isinstance(sch["pre"].mod, nn.Module)
+        if not is_module_list:
+            assert isinstance(sch["layers"].mod, fx.GraphModule)
+        assert isinstance(sch["layers.0"].mod, nn.Module)
+        assert isinstance(sch["layers.1"].mod, nn.Module)
+        if not is_module_list:
+            assert isinstance(sch["post"].mod, fx.GraphModule)
+
+        sch["layers.0"].cut_pipeline_stage()
+        from slapo.pipeline import generate_pipeline_partition
+
+        sch = generate_pipeline_partition(sch)
+        # The traced pipeline module should include the pre and post modules.
+        if not is_module_list:
+            assert isinstance(sch["submod_0.pre"].mod, Pre)
+            assert isinstance(sch["submod_0.submod_0"].mod, fx.GraphModule)
+            assert isinstance(sch["submod_0.submod_0.0"].mod, Inner)
+            assert isinstance(sch["submod_1.submod_1.1"].mod, Inner)
+            assert isinstance(sch["submod_1.submod_1"].mod, fx.GraphModule)
+            assert isinstance(sch["submod_1.post"].mod, fx.GraphModule)
+        else:
+            assert isinstance(sch["submod_0"].mod, fx.GraphModule)
+            assert isinstance(sch["submod_0.pre"].mod, Pre)
+            assert isinstance(sch["submod_0.layers_0"].mod, Inner)
+            assert isinstance(sch["submod_1.layers_1"].mod, Inner)
+            assert isinstance(sch["submod_1.post"].mod, Post)
+            assert isinstance(sch["submod_1"].mod, fx.GraphModule)
+
+    test_model(SeqModel(), is_module_list=False)
+    test_model(ModListModel(), is_module_list=True)
 
 
 def test_analyze_tie_weights():
@@ -196,4 +231,5 @@ def test_deepspeed_analyze_tie_ranks():
 
 
 if __name__ == "__main__":
-    pytest.main([__file__])
+    # pytest.main([__file__])
+    test_pipeline_partition()

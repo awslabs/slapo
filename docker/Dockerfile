@@ -231,6 +231,7 @@ RUN cd ${STAGE_DIR} && git clone https://github.com/NVIDIA/apex && \
 ##############################################################################
 # DeepSpeed from dmlc repo
 ##############################################################################
+USER root
 RUN git clone -b pipe https://github.com/dmlc/DeepSpeed.git ${STAGE_DIR}/DeepSpeed
 RUN sudo apt-get install -y libaio-dev
 RUN cd ${STAGE_DIR}/DeepSpeed && \
@@ -238,6 +239,7 @@ RUN cd ${STAGE_DIR}/DeepSpeed && \
    CUDA_HOME=/usr/local/cuda \
    DS_BUILD_SPARSE_ATTN=0 \
    DS_BUILD_OPS=1 TORCH_CUDA_ARCH_LIST="7.0 7.5 8.0" pip3 install -v ./
+USER deepspeed
 
 # install nccl-tests
 RUN git clone https://github.com/NVIDIA/nccl-tests.git $HOME/nccl-tests

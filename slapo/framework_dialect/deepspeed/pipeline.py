@@ -240,6 +240,19 @@ class DeepSpeedPipeStageWrapper(nn.Module):
         # Unpack inputs
         unordered_args = []
         if self.stage_id == 0:
+            # The order of input arguments may also be changed by fx tracer.
+            # stage -1: (a, b=None, c, d, e=None), where a, c, d are the given tensor inputs.
+            # stage 0: (a, d, c), where the order of the arguments is changed.
+            input_arg_names = []
+            for arg in self.stage_id_2_arg_names[-1]:
+                if arg in self.stage_id_2_arg_names[0]:
+                    input_arg_names.append(arg)
+            logger.info(
+                "[%s] Argument order: %s (input) -> %s (stage 0)",
+                self.name,
+                input_arg_names,
+                self.stage_id_2_arg_names[0],
+            )
             # The first stage takes the original inputs.
             for arg in args:
                 assert not isinstance(arg, dict)
@@ -273,13 +286,16 @@ class DeepSpeedPipeStageWrapper(nn.Module):
                 f"{list(name_2_live_tensor.keys())}",
             )
 
-        # Make forward argiments from live tensors to align the submodule arguments.
+        # Make forward arguments from live tensors to align the submodule arguments.
         ordered_args = []
         for arg_name in self.stage_id_2_arg_names[self.stage_id]:
-            assert (
-                arg_name in liveness
-            ), f"[{self.name}] Arg {arg_name} not found in liveness list: {liveness}"
-            idx = liveness.index(arg_name)
+            if self.stage_id == 0:
+                idx = input_arg_names.index(arg_name)
+            else:
+                assert (
+                    arg_name in liveness
+                ), f"[{self.name}] Arg {arg_name} not found in liveness list: {liveness}"
+                idx = liveness.index(arg_name)
             ordered_args.append(unordered_args[idx])
 
         for value in kwargs.values():

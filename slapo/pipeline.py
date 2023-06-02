@@ -209,7 +209,7 @@ def analyze_pipeline_module(top_mod):
     curr_stage_id = 0
     tensor_2_id = {}
     liveness = {-1: []}
-    stage_id_2_arg_names = {}
+    stage_id_2_arg_names = {-1: []}
 
     # 1st pass (forward): Construct ID-tensor mapping and a part of the liveness.
     # After this pass, liveness of each submod should include all live tensors
@@ -220,6 +220,7 @@ def analyze_pipeline_module(top_mod):
         if node.op == "placeholder":
             # Liveness -1 indicates the primary inputs in order.
             liveness[-1].append(itemized_name)
+            stage_id_2_arg_names[-1].append(itemized_name)
         elif node.op == "call_module" and node.target.startswith("submod_"):
             liveness[curr_stage_id] = []
             stage_id_2_arg_names[curr_stage_id] = []
@@ -256,14 +257,13 @@ def analyze_pipeline_module(top_mod):
             liveness[curr_stage_id].extend(diff)
 
     # Override the liveness of the first stage to match the input order.
-    if set(liveness[0]) != set(liveness[-1]):
+    if list(liveness[0]) != list(liveness[-1]):
         logger.warning(
             "Inputs between first submodule and top module are mismatched"
             " (first submodule: %s, top module: %s). "
-            "Possibly because some arguments in top modules are specified to None "
+            "Possibly because (1) some arguments in top modules are specified to None "
             "when tracing, and they are not removed by the PyTorch tracer. "
-            "This should not be an issue if the None arguments are really 'None' "
-            "in the training process.",
+            "(2) FX tracer changes the order of the arguments in the function calls.",
             liveness[0],
             liveness[-1],
         )

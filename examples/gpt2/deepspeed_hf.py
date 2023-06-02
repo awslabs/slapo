@@ -229,6 +229,9 @@ def train(args):
             # insert None in second and fourth position
             ret.insert(1, None)  # past_key_values
             ret.insert(3, None)  # token_type_ids
+        else:
+            # DeepSpeed pipeline does not accept None as input.
+            pass
 
         # group first inputs
         return [ret[:-1], ret[-1]]

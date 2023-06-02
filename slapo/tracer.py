@@ -594,6 +594,7 @@ def trace(model: nn.Module, **kwargs: dict[str, Any]):
                         self.orig_fns.add(orig)
 
                     try:
+                        # pylint: disable=bad-super-call
                         self.graph = super(HFTracer, self).trace(
                             root, concrete_args=concrete_args
                         )

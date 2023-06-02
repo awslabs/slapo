@@ -7,7 +7,74 @@ import pytest
 from mock import MagicMock
 
 from torch import nn
+from torch import fx
+
 import slapo
+
+
+def test_trace_until():
+    class Pre(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.linear = nn.Linear(10, 10)
+
+        def forward(self, x):
+            # delibarately add control flow to avoid tracing
+            if x.size() > 0:
+                return self.linear(x)
+            else:
+                return x
+
+    class Post(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.linear = nn.Linear(10, 10)
+
+        def forward(self, x):
+            return self.linear(x)
+
+    class Inner(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.linear = nn.Linear(10, 10)
+
+        def forward(self, x):
+            return self.linear(x)
+
+    class Model(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.pre = Pre()
+            self.layers = nn.Sequential(
+                Inner(),
+                Inner(),
+            )
+            self.post = Post()
+
+        def forward(self, x):
+            return self.post(self.layers(self.pre(x)))
+
+    model = Model()
+    sch = slapo.create_schedule(model)
+    sch.trace_until("layers", tracer="pytorch")
+    assert isinstance(sch.mod, fx.GraphModule)
+    assert isinstance(sch["pre"].mod, nn.Module)
+    assert isinstance(sch["layers"].mod, fx.GraphModule)
+    assert isinstance(sch["layers.0"].mod, nn.Module)
+    assert isinstance(sch["layers.1"].mod, nn.Module)
+    assert isinstance(sch["post"].mod, fx.GraphModule)
+
+    sch["layers.0"].cut_pipeline_stage()
+    from slapo.pipeline import generate_pipeline_partition
+
+    sch = generate_pipeline_partition(sch)
+    # The traced pipeline module should include the pre and post modules.
+    assert isinstance(sch["submod_0.pre"].mod, Pre)
+    assert isinstance(sch["submod_0.submod_0"].mod, fx.GraphModule)
+    assert isinstance(sch["submod_0.submod_0.0"].mod, Inner)
+    assert isinstance(sch["submod_1.submod_1.1"].mod, Inner)
+    assert isinstance(sch["submod_1.submod_1"].mod, fx.GraphModule)
+    assert isinstance(sch["submod_1.post"].mod, fx.GraphModule)
 
 
 def test_analyze_tie_weights():

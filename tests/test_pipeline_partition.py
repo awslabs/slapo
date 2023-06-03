@@ -10,6 +10,7 @@ from torch import nn
 from torch import fx
 
 import slapo
+from slapo.pipeline import generate_pipeline_partition
 
 
 class Pre(nn.Module):
@@ -89,7 +90,6 @@ def test_pipeline_partition():
             assert isinstance(sch["post"].mod, fx.GraphModule)
 
         sch["layers.0"].cut_pipeline_stage()
-        from slapo.pipeline import generate_pipeline_partition
 
         sch = generate_pipeline_partition(sch)
         # The traced pipeline module should include the pre and post modules.
@@ -231,5 +231,4 @@ def test_deepspeed_analyze_tie_ranks():
 
 
 if __name__ == "__main__":
-    # pytest.main([__file__])
-    test_pipeline_partition()
+    pytest.main([__file__])

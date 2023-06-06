@@ -3,6 +3,7 @@
 
 """Test pipeline partition related logic."""
 # pylint: disable=duplicate-code
+import inspect
 import pytest
 from mock import MagicMock
 
@@ -227,6 +228,109 @@ def test_deepspeed_analyze_tie_ranks():
     assert len(tie_stages[0]) == 2
     assert tie_stages[tie_ranks.index([[0, 6], [1, 7]])] == [0, 3]
     assert tie_stages[tie_ranks.index([[2, 4], [3, 5]])] == [1, 2]
+
+
+def get_traced_gpt_neo_model():
+    from transformers import GPTNeoModel, AutoConfig
+
+    config = AutoConfig.from_pretrained("EleutherAI/gpt-neo-1.3B")
+    config.use_cache = False
+    with slapo.init_empty_weights():
+        model = GPTNeoModel(config)
+    sch = slapo.create_schedule(model)
+    input_names = ["input_ids", "attention_mask", "position_ids"]
+    sig = inspect.signature(sch.mod.forward)
+    concrete_args = {
+        p.name: p.default for p in sig.parameters.values() if p.name not in input_names
+    }
+    sch.trace_until("", tracer="huggingface", concrete_args=concrete_args)
+    return sch
+
+
+def get_all_placeholders(gm):
+    for node in gm.graph.nodes:
+        if node.op == "placeholder":
+            yield node.name
+
+
+def test_gpt_neo_two_stages():
+    """
+    Expected output:
+
+    def forward(self, input_ids : torch.Tensor, attention_mask : torch.Tensor, position_ids : torch.Tensor):
+        # Input: (input_ids, position_ids, attention_mask)
+        #        Notice the order of attention_mask and position_ids is swapped.
+        #        Also, position_ids is only used in the first stage.
+        #        https://github.com/huggingface/transformers/blob/v4.28.1/src/transformers/models/gpt_neo/modeling_gpt_neo.py#L579
+        submod_0 = self.submod_0(input_ids, position_ids, attention_mask);  input_ids = position_ids = attention_mask = None
+        getitem = submod_0[0]
+        getitem_1 = submod_0[1]
+        getitem_2 = submod_0[2];  submod_0 = None
+
+        # Input: (h_11, mul, add_1)
+        #        (hidden_states, attention_mask, output_shape)
+        # output_shape defined here: (before calling the Modulelist)
+        #     https://github.com/huggingface/transformers/blob/v4.28.1/src/transformers/models/gpt_neo/modeling_gpt_neo.py#L588
+        #     and used here: (in the last stage)
+        #     https://github.com/huggingface/transformers/blob/v4.28.1/src/transformers/models/gpt_neo/modeling_gpt_neo.py#L639
+        submod_1 = self.submod_1(getitem, getitem_1, getitem_2);  getitem = getitem_1 = getitem_2 = None
+        return {'last_hidden_state': submod_1}
+    """
+    sch = get_traced_gpt_neo_model()
+    sch["h.11"].cut_pipeline_stage()
+    sch = generate_pipeline_partition(sch)
+    assert list(get_all_placeholders(sch.mod.submod_0)) == [
+        "input_ids",
+        "position_ids",
+        "attention_mask",
+    ]
+    assert list(get_all_placeholders(sch.mod.submod_1)) == ["h_11", "mul", "add_1"]
+
+
+def test_gpt_neo_four_stages():
+    """
+    Expected output:
+
+    def forward(self, input_ids : torch.Tensor, attention_mask : torch.Tensor, position_ids : torch.Tensor):
+        # Input: (input_ids, position_ids, attention_mask)
+        #        Notice the order of attention_mask and position_ids is swapped.
+        #        Also, position_ids is only used in the first stage.
+        #        https://github.com/huggingface/transformers/blob/v4.28.1/src/transformers/models/gpt_neo/modeling_gpt_neo.py#L579
+        submod_0 = self.submod_0(input_ids, position_ids, attention_mask);  input_ids = position_ids = attention_mask = None
+        getitem = submod_0[0]
+        getitem_1 = submod_0[1]
+        getitem_2 = submod_0[2];  submod_0 = None
+
+        # Input: (h_5, mul)
+        #        (hidden_states, attention_mask)
+        submod_1 = self.submod_1(getitem, getitem_1);  getitem = None
+
+        # Input: (h_11, mul)
+        #        (hidden_states, attention_mask)
+        submod_2 = self.submod_2(submod_1, getitem_1);  submod_1 = None
+
+        # Input: (h_17, mul, add_1)
+        #        (hidden_states, attention_mask, output_shape)
+        # output_shape defined here: (before calling the Modulelist)
+        #     https://github.com/huggingface/transformers/blob/v4.28.1/src/transformers/models/gpt_neo/modeling_gpt_neo.py#L588
+        #     and used here: (in the last stage)
+        #     https://github.com/huggingface/transformers/blob/v4.28.1/src/transformers/models/gpt_neo/modeling_gpt_neo.py#L639
+        submod_3 = self.submod_3(submod_2, getitem_1, getitem_2);  submod_2 = getitem_1 = getitem_2 = None
+        return {'last_hidden_state': submod_1}
+    """
+    sch = get_traced_gpt_neo_model()
+    sch["h.5"].cut_pipeline_stage()
+    sch["h.11"].cut_pipeline_stage()
+    sch["h.17"].cut_pipeline_stage()
+    sch = generate_pipeline_partition(sch)
+    assert list(get_all_placeholders(sch.mod.submod_0)) == [
+        "input_ids",
+        "position_ids",
+        "attention_mask",
+    ]
+    assert list(get_all_placeholders(sch.mod.submod_1)) == ["h_5", "mul"]
+    assert list(get_all_placeholders(sch.mod.submod_2)) == ["h_11", "mul"]
+    assert list(get_all_placeholders(sch.mod.submod_3)) == ["h_17", "mul", "add_1"]
 
 
 if __name__ == "__main__":

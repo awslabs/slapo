@@ -288,7 +288,7 @@ class DeepSpeedPipeStageWrapper(nn.Module):
 
         # Make forward arguments from live tensors to align the submodule arguments.
         ordered_args = []
-        for arg_name in self.stage_id_2_arg_names[self.stage_id]:
+        for i, arg_name in enumerate(self.stage_id_2_arg_names[self.stage_id]):
             if self.stage_id == 0:
                 idx = input_arg_names.index(arg_name)
             else:
@@ -297,7 +297,13 @@ class DeepSpeedPipeStageWrapper(nn.Module):
                 ), f"[{self.name}] Arg {arg_name} not found in liveness list: {liveness}"
                 idx = liveness.index(arg_name)
             ordered_args.append(unordered_args[idx])
+            if i > 0:
+                assert (
+                    torch.is_tensor(unordered_args[idx])
+                    and unordered_args[idx].requires_grad is False
+                ), f"[{self.name}] The {i}-th argument {arg_name} is not a tensor or requires grad: {unordered_args[idx]}, which is not supported by DeepSpeed pipeline engine."
 
+        # FIXME: untested path
         for value in kwargs.values():
             ordered_args += [value]
 

@@ -401,6 +401,11 @@ document.write(`
             <span class="n">root</span><span class="o">.</span><span class="n">forward</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">)</span> <span class="k">else</span> <span class="n">root</span>
         <span class="p">)</span>
         <span class="k">assert</span> <span class="s2">&quot;concrete_args&quot;</span> <span class="ow">in</span> <span class="n">kwargs</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="s2">&quot;device&quot;</span><span class="p">):</span>
+            <span class="n">root</span><span class="o">.</span><span class="n">device</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">root</span><span class="o">.</span><span class="n">named_parameters</span><span class="p">())[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">device</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="s2">&quot;config&quot;</span><span class="p">):</span>
+            <span class="k">assert</span> <span class="s2">&quot;config&quot;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">,</span> <span class="s2">&quot;Please provide `config` for HF tracer&quot;</span>
+            <span class="n">root</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">]</span>
         <span class="n">concrete_args</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;concrete_args&quot;</span><span class="p">]</span>  <span class="c1"># those are args having None value</span>
         <span class="n">input_names</span> <span class="o">=</span> <span class="n">sig</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="o">-</span> <span class="n">concrete_args</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
         <span class="n">inputs</span> <span class="o">=</span> <span class="p">{}</span>
@@ -561,6 +566,137 @@ document.write(`
     <span class="sd">&quot;&quot;&quot;Traces a model to a GraphModule.&quot;&quot;&quot;</span>
     <span class="n">tracer_cls_name</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;tracer&quot;</span><span class="p">,</span> <span class="s2">&quot;pytorch&quot;</span><span class="p">)</span>
     <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Tracer: </span><span class="si">%s</span><span class="s2"> Model: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">tracer_cls_name</span><span class="p">,</span> <span class="n">model</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">create_args_for_root</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">root_fn</span><span class="p">,</span> <span class="n">is_module</span><span class="p">,</span> <span class="n">concrete_args</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Override this method to make sure the argument names are the same</span>
+<span class="sd">        as the original module, so that the traced module can be injected.</span>
+<span class="sd">        FIXME: Implement a fx pass that fixes the argument names, so that we</span>
+<span class="sd">        don&#39;t need to override this method.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># In some cases, a function or method has been decorated with</span>
+        <span class="c1"># a wrapper defined via ``functools.wraps``. In this case,</span>
+        <span class="c1"># the outer code object will likely not contain the actual</span>
+        <span class="c1"># parameters we care about, so unwrap the function to get to</span>
+        <span class="c1"># the innermost callable.</span>
+        <span class="n">fn_for_analysis</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">unwrap</span><span class="p">(</span><span class="n">root_fn</span><span class="p">)</span>
+        <span class="n">co</span> <span class="o">=</span> <span class="n">fn_for_analysis</span><span class="o">.</span><span class="vm">__code__</span>
+        <span class="n">total_args</span> <span class="o">=</span> <span class="n">co</span><span class="o">.</span><span class="n">co_argcount</span> <span class="o">+</span> <span class="n">co</span><span class="o">.</span><span class="n">co_kwonlyargcount</span>
+        <span class="n">orig_args</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">co</span><span class="o">.</span><span class="n">co_varnames</span><span class="p">)</span>
+        <span class="n">names_iter</span> <span class="o">=</span> <span class="nb">iter</span><span class="p">(</span><span class="n">co</span><span class="o">.</span><span class="n">co_varnames</span><span class="p">)</span>
+        <span class="n">args</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">skip_arg_idx</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">if</span> <span class="n">is_module</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">total_args</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                    <span class="s2">&quot;``cls`` argument cannot be part of *args expansion!&quot;</span>
+                <span class="p">)</span>
+            <span class="n">skip_arg_idx</span> <span class="o">=</span> <span class="mi">1</span>
+            <span class="nb">next</span><span class="p">(</span><span class="n">names_iter</span><span class="p">)</span>  <span class="c1"># skip cls</span>
+            <span class="n">args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">root</span><span class="p">)</span>
+
+        <span class="n">sig</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">signature</span><span class="p">(</span><span class="n">fn_for_analysis</span><span class="p">)</span>
+
+        <span class="k">def</span> <span class="nf">proxy_placeholder</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">concrete_args</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">concrete_args</span><span class="p">:</span>
+                <span class="n">cnt</span> <span class="o">=</span> <span class="mi">0</span>
+
+                <span class="k">def</span> <span class="nf">replace_ph</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+                    <span class="k">nonlocal</span> <span class="n">cnt</span>
+                    <span class="n">cnt</span> <span class="o">+=</span> <span class="mi">1</span>
+                    <span class="n">param</span> <span class="o">=</span> <span class="n">sig</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+                    <span class="n">default</span> <span class="o">=</span> <span class="p">(</span>
+                        <span class="p">()</span>
+                        <span class="k">if</span> <span class="n">param</span><span class="o">.</span><span class="n">default</span> <span class="ow">is</span> <span class="n">inspect</span><span class="o">.</span><span class="n">Parameter</span><span class="o">.</span><span class="n">empty</span>
+                        <span class="k">else</span> <span class="p">(</span><span class="n">param</span><span class="o">.</span><span class="n">default</span><span class="p">,)</span>
+                    <span class="p">)</span>
+                    <span class="n">proxy_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">cnt</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="n">cnt</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">name</span>
+                    <span class="n">out</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">create_proxy</span><span class="p">(</span><span class="s2">&quot;placeholder&quot;</span><span class="p">,</span> <span class="n">proxy_name</span><span class="p">,</span> <span class="n">default</span><span class="p">,</span> <span class="p">{})</span>
+                    <span class="k">if</span> <span class="n">x</span> <span class="o">==</span> <span class="n">PH</span><span class="p">:</span>
+                        <span class="k">return</span> <span class="n">out</span>
+                    <span class="c1"># Union[int, bool] == bool in Python &lt;= 3.6</span>
+                    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="p">(</span><span class="nb">bool</span><span class="p">,</span> <span class="n">base_types</span><span class="p">))</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span>
+                        <span class="n">x</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
+                    <span class="p">):</span>
+                        <span class="n">torch</span><span class="o">.</span><span class="n">_assert</span><span class="p">(</span>
+                            <span class="n">out</span> <span class="o">==</span> <span class="n">x</span><span class="p">,</span>
+                            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> has been specialized to have value &quot;</span>
+                            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">x</span><span class="si">}</span><span class="s2"> but got another value&quot;</span><span class="p">,</span>
+                        <span class="p">)</span>
+                    <span class="k">elif</span> <span class="n">x</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="n">args</span> <span class="o">=</span> <span class="p">(</span>
+                            <span class="n">out</span><span class="p">,</span>
+                            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> has been specialized to have value &quot;</span>
+                            <span class="s2">&quot;None but got another value&quot;</span><span class="p">,</span>
+                        <span class="p">)</span>
+                        <span class="bp">cls</span><span class="o">.</span><span class="n">create_proxy</span><span class="p">(</span><span class="s2">&quot;call_function&quot;</span><span class="p">,</span> <span class="n">_assert_is_none</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="p">{})</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                            <span class="s2">&quot;Was not able to add assertion to guarantee &quot;</span>
+                            <span class="s2">&quot;correct input </span><span class="si">%s</span><span class="s2"> to &quot;</span>
+                            <span class="s2">&quot;specialized function. It is up to the user &quot;</span>
+                            <span class="s2">&quot;to make sure that your inputs match the &quot;</span>
+                            <span class="s2">&quot;inputs you specialized the function with.&quot;</span><span class="p">,</span>
+                            <span class="n">name</span><span class="p">,</span>
+                        <span class="p">)</span>
+
+                    <span class="k">return</span> <span class="n">x</span>
+
+                <span class="k">return</span> <span class="n">pytree</span><span class="o">.</span><span class="n">tree_map</span><span class="p">(</span><span class="n">replace_ph</span><span class="p">,</span> <span class="n">concrete_args</span><span class="p">[</span><span class="n">name</span><span class="p">])</span>
+            <span class="k">if</span> <span class="n">name</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;*&quot;</span><span class="p">:</span>
+                <span class="n">default</span> <span class="o">=</span> <span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">param</span> <span class="o">=</span> <span class="n">sig</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+                <span class="n">default</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="p">()</span> <span class="k">if</span> <span class="n">param</span><span class="o">.</span><span class="n">default</span> <span class="ow">is</span> <span class="n">inspect</span><span class="o">.</span><span class="n">Parameter</span><span class="o">.</span><span class="n">empty</span> <span class="k">else</span> <span class="p">(</span><span class="n">param</span><span class="o">.</span><span class="n">default</span><span class="p">,)</span>
+                <span class="p">)</span>
+            <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">create_proxy</span><span class="p">(</span>
+                <span class="s2">&quot;placeholder&quot;</span><span class="p">,</span>
+                <span class="n">name</span><span class="p">,</span>
+                <span class="n">default</span><span class="p">,</span>
+                <span class="p">{},</span>
+                <span class="n">type_expr</span><span class="o">=</span><span class="n">fn_for_analysis</span><span class="o">.</span><span class="vm">__annotations__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+            <span class="p">)</span>
+
+        <span class="n">arg_names</span> <span class="o">=</span> <span class="p">[</span><span class="nb">next</span><span class="p">(</span><span class="n">names_iter</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">skip_arg_idx</span><span class="p">,</span> <span class="n">total_args</span><span class="p">)]</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">concrete_args</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">arg_names</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">concrete_args</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Tracing expected </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">arg_names</span><span class="p">)</span><span class="si">}</span><span class="s2"> arguments but &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">concrete_args</span><span class="p">)</span><span class="si">}</span><span class="s2"> concrete arguments&quot;</span>
+                <span class="p">)</span>
+            <span class="n">concrete_args</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">arg_names</span><span class="p">,</span> <span class="n">concrete_args</span><span class="p">))</span>
+        <span class="n">args</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">proxy_placeholder</span><span class="p">(</span><span class="n">names</span><span class="p">)</span> <span class="k">for</span> <span class="n">names</span> <span class="ow">in</span> <span class="n">arg_names</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">co</span><span class="o">.</span><span class="n">co_kwonlyargcount</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">co</span><span class="o">.</span><span class="n">co_flags</span> <span class="o">&amp;</span> <span class="n">HAS_VARSTUFF</span><span class="p">:</span>
+            <span class="c1"># TODO: type annotations for *args and **kwargs</span>
+            <span class="k">if</span> <span class="n">co</span><span class="o">.</span><span class="n">co_flags</span> <span class="o">&amp;</span> <span class="n">inspect</span><span class="o">.</span><span class="n">CO_VARARGS</span><span class="p">:</span>
+                <span class="n">args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">proxy_placeholder</span><span class="p">(</span><span class="s2">&quot;*&quot;</span> <span class="o">+</span> <span class="nb">next</span><span class="p">(</span><span class="n">names_iter</span><span class="p">)))</span>
+            <span class="k">if</span> <span class="n">co</span><span class="o">.</span><span class="n">co_flags</span> <span class="o">&amp;</span> <span class="n">inspect</span><span class="o">.</span><span class="n">CO_VARKEYWORDS</span><span class="p">:</span>
+                <span class="n">args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">proxy_placeholder</span><span class="p">(</span><span class="s2">&quot;**&quot;</span> <span class="o">+</span> <span class="nb">next</span><span class="p">(</span><span class="n">names_iter</span><span class="p">)))</span>
+            <span class="n">root_fn</span> <span class="o">=</span> <span class="n">_patch_function</span><span class="p">(</span><span class="n">root_fn</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">))</span>
+
+        <span class="n">flat_args</span><span class="p">,</span> <span class="n">in_spec</span> <span class="o">=</span> <span class="n">pytree</span><span class="o">.</span><span class="n">tree_flatten</span><span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="n">args</span><span class="p">))</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">pytree</span><span class="o">.</span><span class="n">LeafSpec</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">in_spec</span><span class="o">.</span><span class="n">children_specs</span><span class="p">):</span>
+            <span class="c1"># In the case that we have pytree-flattened inputs in</span>
+            <span class="c1"># `concrete_args`, generate a flattening wrapper around the</span>
+            <span class="c1"># original root function and return that.</span>
+            <span class="bp">cls</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">_codegen</span> <span class="o">=</span> <span class="n">_PyTreeCodeGen</span><span class="p">(</span>
+                <span class="n">_PyTreeInfo</span><span class="p">(</span><span class="n">orig_args</span><span class="p">[:</span><span class="n">total_args</span><span class="p">],</span> <span class="n">in_spec</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="p">)</span>
+
+            <span class="k">def</span> <span class="nf">flatten_fn</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">):</span>
+                <span class="n">tree_args</span> <span class="o">=</span> <span class="n">pytree</span><span class="o">.</span><span class="n">tree_unflatten</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">args</span><span class="p">),</span> <span class="n">in_spec</span><span class="p">)</span>
+                <span class="n">tree_out</span> <span class="o">=</span> <span class="n">root_fn</span><span class="p">(</span><span class="o">*</span><span class="n">tree_args</span><span class="p">)</span>
+                <span class="n">out_args</span><span class="p">,</span> <span class="n">out_spec</span> <span class="o">=</span> <span class="n">pytree</span><span class="o">.</span><span class="n">tree_flatten</span><span class="p">(</span><span class="n">tree_out</span><span class="p">)</span>
+                <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">_codegen</span><span class="p">,</span> <span class="n">_PyTreeCodeGen</span><span class="p">)</span>
+                <span class="bp">cls</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">_codegen</span><span class="o">.</span><span class="n">pytree_info</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="bp">cls</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">_codegen</span><span class="o">.</span><span class="n">pytree_info</span><span class="o">.</span><span class="n">_replace</span><span class="p">(</span><span class="n">out_spec</span><span class="o">=</span><span class="n">out_spec</span><span class="p">)</span>
+                <span class="p">)</span>
+                <span class="k">return</span> <span class="n">out_args</span>
+
+            <span class="k">return</span> <span class="n">flatten_fn</span><span class="p">,</span> <span class="n">flat_args</span>
+        <span class="k">return</span> <span class="n">root_fn</span><span class="p">,</span> <span class="n">args</span>
+
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tracer_cls_name</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">tracer_cls_name</span> <span class="o">==</span> <span class="s2">&quot;huggingface&quot;</span><span class="p">:</span>
             <span class="kn">from</span> <span class="nn">transformers.utils.fx</span> <span class="kn">import</span> <span class="p">(</span>
@@ -569,6 +705,10 @@ document.write(`
                 <span class="n">_MANUAL_META_OVERRIDES</span><span class="p">,</span>
                 <span class="n">Proxy</span><span class="p">,</span>
                 <span class="n">_proxies_to_metas</span><span class="p">,</span>
+                <span class="n">_generate_random_int</span><span class="p">,</span>
+                <span class="n">get_values</span><span class="p">,</span>
+                <span class="n">MODEL_FOR_MULTIPLE_CHOICE_MAPPING_NAMES</span><span class="p">,</span>
+                <span class="n">_gen_constructor_wrapper</span><span class="p">,</span>
             <span class="p">)</span>
 
             <span class="k">assert</span> <span class="p">(</span>
@@ -669,6 +809,94 @@ document.write(`
                         <span class="k">return</span> <span class="kc">True</span>
                     <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">is_leaf_module</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">module_qualified_name</span><span class="p">)</span>
 
+                <span class="k">def</span> <span class="nf">trace</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="p">,</span>
+                    <span class="n">root</span><span class="p">,</span>
+                    <span class="n">concrete_args</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                    <span class="n">dummy_inputs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                    <span class="n">complete_concrete_args_with_inputs_not_in_dummy_inputs</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="p">):</span>
+                    <span class="n">sig</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">signature</span><span class="p">(</span>
+                        <span class="n">root</span><span class="o">.</span><span class="n">forward</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">)</span> <span class="k">else</span> <span class="n">root</span>
+                    <span class="p">)</span>
+
+                    <span class="k">if</span> <span class="n">concrete_args</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="n">concrete_args</span> <span class="o">=</span> <span class="p">{}</span>
+
+                    <span class="k">if</span> <span class="p">(</span>
+                        <span class="n">dummy_inputs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+                        <span class="ow">and</span> <span class="n">complete_concrete_args_with_inputs_not_in_dummy_inputs</span>
+                    <span class="p">):</span>
+                        <span class="k">for</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">sig</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+                            <span class="k">if</span> <span class="n">param</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">dummy_inputs</span><span class="p">:</span>
+                                <span class="k">continue</span>
+                            <span class="k">if</span> <span class="n">param</span><span class="o">.</span><span class="n">default</span> <span class="ow">is</span> <span class="n">inspect</span><span class="o">.</span><span class="n">Parameter</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+                                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                                    <span class="sa">f</span><span class="s2">&quot;You need to specify a default value for the parameter </span><span class="si">{</span><span class="n">param</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">.&quot;</span>
+                                <span class="p">)</span>
+                        <span class="n">concrete_args</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+                            <span class="p">{</span>
+                                <span class="n">p</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">p</span><span class="o">.</span><span class="n">default</span>
+                                <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">sig</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
+                                <span class="k">if</span> <span class="p">(</span>
+                                    <span class="n">p</span><span class="o">.</span><span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">dummy_inputs</span>
+                                    <span class="ow">and</span> <span class="n">p</span><span class="o">.</span><span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">concrete_args</span>
+                                <span class="p">)</span>
+                            <span class="p">}</span>
+                        <span class="p">)</span>
+
+                    <span class="n">input_names</span> <span class="o">=</span> <span class="n">sig</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="o">-</span> <span class="n">concrete_args</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+
+                    <span class="c1"># Creating a random input shape to generate dummy inputs.</span>
+                    <span class="n">batch_size</span> <span class="o">=</span> <span class="n">_generate_random_int</span><span class="p">()</span>
+                    <span class="n">sequence_length</span> <span class="o">=</span> <span class="n">_generate_random_int</span><span class="p">()</span>
+                    <span class="n">shape</span> <span class="o">=</span> <span class="p">[</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">sequence_length</span><span class="p">]</span>
+
+                    <span class="k">if</span> <span class="n">root</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span> <span class="ow">in</span> <span class="n">get_values</span><span class="p">(</span>
+                        <span class="n">MODEL_FOR_MULTIPLE_CHOICE_MAPPING_NAMES</span>
+                    <span class="p">):</span>
+                        <span class="n">num_choices</span> <span class="o">=</span> <span class="n">_generate_random_int</span><span class="p">(</span><span class="n">low</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">high</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+                        <span class="n">shape</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">num_choices</span><span class="p">)</span>
+
+                    <span class="n">inputs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">dummy_inputs</span><span class="p">)</span> <span class="k">if</span> <span class="n">dummy_inputs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">{}</span>
+
+                    <span class="n">concrete_metas</span> <span class="o">=</span> <span class="p">{</span>
+                        <span class="n">input_name</span><span class="p">:</span> <span class="n">input_</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="s2">&quot;meta&quot;</span><span class="p">)</span>
+                        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">input_</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span>
+                        <span class="k">else</span> <span class="n">input_</span>
+                        <span class="k">for</span> <span class="n">input_name</span><span class="p">,</span> <span class="n">input_</span> <span class="ow">in</span> <span class="n">inputs</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                    <span class="p">}</span>
+                    <span class="k">for</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">sig</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+                        <span class="k">if</span> <span class="p">(</span>
+                            <span class="n">param</span><span class="o">.</span><span class="n">kind</span> <span class="o">==</span> <span class="n">inspect</span><span class="o">.</span><span class="n">Parameter</span><span class="o">.</span><span class="n">VAR_KEYWORD</span>
+                            <span class="ow">and</span> <span class="n">param</span><span class="o">.</span><span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">input_names</span>
+                        <span class="p">):</span>
+                            <span class="n">concrete_metas</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;**</span><span class="si">{</span><span class="n">param</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">meta_args</span> <span class="o">=</span> <span class="n">concrete_metas</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">patched_torch_methods</span> <span class="o">=</span> <span class="p">{</span>
+                        <span class="n">target</span><span class="p">:</span> <span class="n">_gen_constructor_wrapper</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">torch</span><span class="p">,</span> <span class="n">target</span><span class="p">))</span>
+                        <span class="k">for</span> <span class="n">target</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_TORCH_METHODS_TO_PATCH</span>
+                    <span class="p">}</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">orig_fns</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+
+                    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="p">(</span><span class="n">wrapper</span><span class="p">,</span> <span class="n">orig</span><span class="p">)</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">patched_torch_methods</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                        <span class="nb">setattr</span><span class="p">(</span><span class="n">torch</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">wrapper</span><span class="p">)</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">orig_fns</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">orig</span><span class="p">)</span>
+
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="c1"># pylint: disable=bad-super-call</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">graph</span> <span class="o">=</span> <span class="nb">super</span><span class="p">(</span><span class="n">HFTracer</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">trace</span><span class="p">(</span>
+                            <span class="n">root</span><span class="p">,</span> <span class="n">concrete_args</span><span class="o">=</span><span class="n">concrete_args</span>
+                        <span class="p">)</span>
+                    <span class="k">finally</span><span class="p">:</span>
+                        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="p">(</span><span class="n">_</span><span class="p">,</span> <span class="n">orig</span><span class="p">)</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">patched_torch_methods</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                            <span class="nb">setattr</span><span class="p">(</span><span class="n">torch</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">orig</span><span class="p">)</span>
+
+                    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">graph</span>
+
+                <span class="k">def</span> <span class="nf">create_args_for_root</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">root_fn</span><span class="p">,</span> <span class="n">is_module</span><span class="p">,</span> <span class="n">concrete_args</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+                    <span class="k">return</span> <span class="n">create_args_for_root</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">root_fn</span><span class="p">,</span> <span class="n">is_module</span><span class="p">,</span> <span class="n">concrete_args</span><span class="p">)</span>
+
             <span class="n">top_gm</span> <span class="o">=</span> <span class="n">trace_submodule</span><span class="p">(</span>
                 <span class="n">model</span><span class="p">,</span>
                 <span class="n">TracerWrapper</span><span class="p">,</span>
@@ -697,147 +925,7 @@ document.write(`
                     <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">is_leaf_module</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">module_qualified_name</span><span class="p">)</span>
 
                 <span class="k">def</span> <span class="nf">create_args_for_root</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">root_fn</span><span class="p">,</span> <span class="n">is_module</span><span class="p">,</span> <span class="n">concrete_args</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-                    <span class="sd">&quot;&quot;&quot;Override this method to make sure the argument names are the same</span>
-<span class="sd">                    as the original module, so that the traced module can be injected.</span>
-<span class="sd">                    FIXME: Implement a fx pass that fixes the argument names, so that we</span>
-<span class="sd">                    don&#39;t need to override this method.</span>
-<span class="sd">                    &quot;&quot;&quot;</span>
-                    <span class="c1"># In some cases, a function or method has been decorated with</span>
-                    <span class="c1"># a wrapper defined via ``functools.wraps``. In this case,</span>
-                    <span class="c1"># the outer code object will likely not contain the actual</span>
-                    <span class="c1"># parameters we care about, so unwrap the function to get to</span>
-                    <span class="c1"># the innermost callable.</span>
-                    <span class="n">fn_for_analysis</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">unwrap</span><span class="p">(</span><span class="n">root_fn</span><span class="p">)</span>
-                    <span class="n">co</span> <span class="o">=</span> <span class="n">fn_for_analysis</span><span class="o">.</span><span class="vm">__code__</span>
-                    <span class="n">total_args</span> <span class="o">=</span> <span class="n">co</span><span class="o">.</span><span class="n">co_argcount</span> <span class="o">+</span> <span class="n">co</span><span class="o">.</span><span class="n">co_kwonlyargcount</span>
-                    <span class="n">orig_args</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">co</span><span class="o">.</span><span class="n">co_varnames</span><span class="p">)</span>
-                    <span class="n">names_iter</span> <span class="o">=</span> <span class="nb">iter</span><span class="p">(</span><span class="n">co</span><span class="o">.</span><span class="n">co_varnames</span><span class="p">)</span>
-                    <span class="n">args</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
-                    <span class="n">skip_arg_idx</span> <span class="o">=</span> <span class="mi">0</span>
-                    <span class="k">if</span> <span class="n">is_module</span><span class="p">:</span>
-                        <span class="k">if</span> <span class="n">total_args</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-                            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
-                                <span class="s2">&quot;``self`` argument cannot be part of *args expansion!&quot;</span>
-                            <span class="p">)</span>
-                        <span class="n">skip_arg_idx</span> <span class="o">=</span> <span class="mi">1</span>
-                        <span class="nb">next</span><span class="p">(</span><span class="n">names_iter</span><span class="p">)</span>  <span class="c1"># skip self</span>
-                        <span class="n">args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="p">)</span>
-
-                    <span class="n">sig</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">signature</span><span class="p">(</span><span class="n">fn_for_analysis</span><span class="p">)</span>
-
-                    <span class="k">def</span> <span class="nf">proxy_placeholder</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
-                        <span class="k">if</span> <span class="n">concrete_args</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">concrete_args</span><span class="p">:</span>
-                            <span class="n">cnt</span> <span class="o">=</span> <span class="mi">0</span>
-
-                            <span class="k">def</span> <span class="nf">replace_ph</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
-                                <span class="k">nonlocal</span> <span class="n">cnt</span>
-                                <span class="n">cnt</span> <span class="o">+=</span> <span class="mi">1</span>
-                                <span class="n">param</span> <span class="o">=</span> <span class="n">sig</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
-                                <span class="n">default</span> <span class="o">=</span> <span class="p">(</span>
-                                    <span class="p">()</span>
-                                    <span class="k">if</span> <span class="n">param</span><span class="o">.</span><span class="n">default</span> <span class="ow">is</span> <span class="n">inspect</span><span class="o">.</span><span class="n">Parameter</span><span class="o">.</span><span class="n">empty</span>
-                                    <span class="k">else</span> <span class="p">(</span><span class="n">param</span><span class="o">.</span><span class="n">default</span><span class="p">,)</span>
-                                <span class="p">)</span>
-                                <span class="n">proxy_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">cnt</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="n">cnt</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">name</span>
-                                <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_proxy</span><span class="p">(</span>
-                                    <span class="s2">&quot;placeholder&quot;</span><span class="p">,</span> <span class="n">proxy_name</span><span class="p">,</span> <span class="n">default</span><span class="p">,</span> <span class="p">{}</span>
-                                <span class="p">)</span>
-                                <span class="k">if</span> <span class="n">x</span> <span class="o">==</span> <span class="n">PH</span><span class="p">:</span>
-                                    <span class="k">return</span> <span class="n">out</span>
-                                <span class="c1"># Union[int, bool] == bool in Python &lt;= 3.6</span>
-                                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="p">(</span><span class="nb">bool</span><span class="p">,</span> <span class="n">base_types</span><span class="p">))</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span>
-                                    <span class="n">x</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
-                                <span class="p">):</span>
-                                    <span class="n">torch</span><span class="o">.</span><span class="n">_assert</span><span class="p">(</span>
-                                        <span class="n">out</span> <span class="o">==</span> <span class="n">x</span><span class="p">,</span>
-                                        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> has been specialized to have value &quot;</span>
-                                        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">x</span><span class="si">}</span><span class="s2"> but got another value&quot;</span><span class="p">,</span>
-                                    <span class="p">)</span>
-                                <span class="k">elif</span> <span class="n">x</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                                    <span class="n">args</span> <span class="o">=</span> <span class="p">(</span>
-                                        <span class="n">out</span><span class="p">,</span>
-                                        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> has been specialized to have value &quot;</span>
-                                        <span class="s2">&quot;None but got another value&quot;</span><span class="p">,</span>
-                                    <span class="p">)</span>
-                                    <span class="bp">self</span><span class="o">.</span><span class="n">create_proxy</span><span class="p">(</span>
-                                        <span class="s2">&quot;call_function&quot;</span><span class="p">,</span> <span class="n">_assert_is_none</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="p">{}</span>
-                                    <span class="p">)</span>
-                                <span class="k">else</span><span class="p">:</span>
-                                    <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                                        <span class="s2">&quot;Was not able to add assertion to guarantee &quot;</span>
-                                        <span class="s2">&quot;correct input </span><span class="si">%s</span><span class="s2"> to &quot;</span>
-                                        <span class="s2">&quot;specialized function. It is up to the user &quot;</span>
-                                        <span class="s2">&quot;to make sure that your inputs match the &quot;</span>
-                                        <span class="s2">&quot;inputs you specialized the function with.&quot;</span><span class="p">,</span>
-                                        <span class="n">name</span><span class="p">,</span>
-                                    <span class="p">)</span>
-
-                                <span class="k">return</span> <span class="n">x</span>
-
-                            <span class="k">return</span> <span class="n">pytree</span><span class="o">.</span><span class="n">tree_map</span><span class="p">(</span><span class="n">replace_ph</span><span class="p">,</span> <span class="n">concrete_args</span><span class="p">[</span><span class="n">name</span><span class="p">])</span>
-                        <span class="k">if</span> <span class="n">name</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;*&quot;</span><span class="p">:</span>
-                            <span class="n">default</span> <span class="o">=</span> <span class="p">()</span>
-                        <span class="k">else</span><span class="p">:</span>
-                            <span class="n">param</span> <span class="o">=</span> <span class="n">sig</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
-                            <span class="n">default</span> <span class="o">=</span> <span class="p">(</span>
-                                <span class="p">()</span>
-                                <span class="k">if</span> <span class="n">param</span><span class="o">.</span><span class="n">default</span> <span class="ow">is</span> <span class="n">inspect</span><span class="o">.</span><span class="n">Parameter</span><span class="o">.</span><span class="n">empty</span>
-                                <span class="k">else</span> <span class="p">(</span><span class="n">param</span><span class="o">.</span><span class="n">default</span><span class="p">,)</span>
-                            <span class="p">)</span>
-                        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_proxy</span><span class="p">(</span>
-                            <span class="s2">&quot;placeholder&quot;</span><span class="p">,</span>
-                            <span class="n">name</span><span class="p">,</span>
-                            <span class="n">default</span><span class="p">,</span>
-                            <span class="p">{},</span>
-                            <span class="n">type_expr</span><span class="o">=</span><span class="n">fn_for_analysis</span><span class="o">.</span><span class="vm">__annotations__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
-                        <span class="p">)</span>
-
-                    <span class="n">arg_names</span> <span class="o">=</span> <span class="p">[</span>
-                        <span class="nb">next</span><span class="p">(</span><span class="n">names_iter</span><span class="p">)</span> <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">skip_arg_idx</span><span class="p">,</span> <span class="n">total_args</span><span class="p">)</span>
-                    <span class="p">]</span>
-                    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">concrete_args</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
-                        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">arg_names</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">concrete_args</span><span class="p">):</span>
-                            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
-                                <span class="sa">f</span><span class="s2">&quot;Tracing expected </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">arg_names</span><span class="p">)</span><span class="si">}</span><span class="s2"> arguments but &quot;</span>
-                                <span class="sa">f</span><span class="s2">&quot;got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">concrete_args</span><span class="p">)</span><span class="si">}</span><span class="s2"> concrete arguments&quot;</span>
-                            <span class="p">)</span>
-                        <span class="n">concrete_args</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">arg_names</span><span class="p">,</span> <span class="n">concrete_args</span><span class="p">))</span>
-                    <span class="n">args</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">proxy_placeholder</span><span class="p">(</span><span class="n">names</span><span class="p">)</span> <span class="k">for</span> <span class="n">names</span> <span class="ow">in</span> <span class="n">arg_names</span><span class="p">)</span>
-
-                    <span class="k">if</span> <span class="n">co</span><span class="o">.</span><span class="n">co_kwonlyargcount</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">co</span><span class="o">.</span><span class="n">co_flags</span> <span class="o">&amp;</span> <span class="n">HAS_VARSTUFF</span><span class="p">:</span>
-                        <span class="c1"># TODO: type annotations for *args and **kwargs</span>
-                        <span class="k">if</span> <span class="n">co</span><span class="o">.</span><span class="n">co_flags</span> <span class="o">&amp;</span> <span class="n">inspect</span><span class="o">.</span><span class="n">CO_VARARGS</span><span class="p">:</span>
-                            <span class="n">args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">proxy_placeholder</span><span class="p">(</span><span class="s2">&quot;*&quot;</span> <span class="o">+</span> <span class="nb">next</span><span class="p">(</span><span class="n">names_iter</span><span class="p">)))</span>
-                        <span class="k">if</span> <span class="n">co</span><span class="o">.</span><span class="n">co_flags</span> <span class="o">&amp;</span> <span class="n">inspect</span><span class="o">.</span><span class="n">CO_VARKEYWORDS</span><span class="p">:</span>
-                            <span class="n">args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">proxy_placeholder</span><span class="p">(</span><span class="s2">&quot;**&quot;</span> <span class="o">+</span> <span class="nb">next</span><span class="p">(</span><span class="n">names_iter</span><span class="p">)))</span>
-                        <span class="n">root_fn</span> <span class="o">=</span> <span class="n">_patch_function</span><span class="p">(</span><span class="n">root_fn</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">))</span>
-
-                    <span class="n">flat_args</span><span class="p">,</span> <span class="n">in_spec</span> <span class="o">=</span> <span class="n">pytree</span><span class="o">.</span><span class="n">tree_flatten</span><span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="n">args</span><span class="p">))</span>
-                    <span class="k">if</span> <span class="nb">any</span><span class="p">(</span>
-                        <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">pytree</span><span class="o">.</span><span class="n">LeafSpec</span><span class="p">)</span>
-                        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">in_spec</span><span class="o">.</span><span class="n">children_specs</span>
-                    <span class="p">):</span>
-                        <span class="c1"># In the case that we have pytree-flattened inputs in</span>
-                        <span class="c1"># `concrete_args`, generate a flattening wrapper around the</span>
-                        <span class="c1"># original root function and return that.</span>
-                        <span class="bp">self</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">_codegen</span> <span class="o">=</span> <span class="n">_PyTreeCodeGen</span><span class="p">(</span>
-                            <span class="n">_PyTreeInfo</span><span class="p">(</span><span class="n">orig_args</span><span class="p">[:</span><span class="n">total_args</span><span class="p">],</span> <span class="n">in_spec</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-                        <span class="p">)</span>
-
-                        <span class="k">def</span> <span class="nf">flatten_fn</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">):</span>
-                            <span class="n">tree_args</span> <span class="o">=</span> <span class="n">pytree</span><span class="o">.</span><span class="n">tree_unflatten</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">args</span><span class="p">),</span> <span class="n">in_spec</span><span class="p">)</span>
-                            <span class="n">tree_out</span> <span class="o">=</span> <span class="n">root_fn</span><span class="p">(</span><span class="o">*</span><span class="n">tree_args</span><span class="p">)</span>
-                            <span class="n">out_args</span><span class="p">,</span> <span class="n">out_spec</span> <span class="o">=</span> <span class="n">pytree</span><span class="o">.</span><span class="n">tree_flatten</span><span class="p">(</span><span class="n">tree_out</span><span class="p">)</span>
-                            <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">_codegen</span><span class="p">,</span> <span class="n">_PyTreeCodeGen</span><span class="p">)</span>
-                            <span class="bp">self</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">_codegen</span><span class="o">.</span><span class="n">pytree_info</span> <span class="o">=</span> <span class="p">(</span>
-                                <span class="bp">self</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">_codegen</span><span class="o">.</span><span class="n">pytree_info</span><span class="o">.</span><span class="n">_replace</span><span class="p">(</span>
-                                    <span class="n">out_spec</span><span class="o">=</span><span class="n">out_spec</span>
-                                <span class="p">)</span>
-                            <span class="p">)</span>
-                            <span class="k">return</span> <span class="n">out_args</span>
-
-                        <span class="k">return</span> <span class="n">flatten_fn</span><span class="p">,</span> <span class="n">flat_args</span>
-                    <span class="k">return</span> <span class="n">root_fn</span><span class="p">,</span> <span class="n">args</span>
+                    <span class="k">return</span> <span class="n">create_args_for_root</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">root_fn</span><span class="p">,</span> <span class="n">is_module</span><span class="p">,</span> <span class="n">concrete_args</span><span class="p">)</span>
 
             <span class="n">top_gm</span> <span class="o">=</span> <span class="n">trace_submodule</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">TracerWrapper</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 

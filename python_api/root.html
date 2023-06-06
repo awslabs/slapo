@@ -421,19 +421,22 @@ document.write(`
 <tr class="row-even"><td><p><a class="reference internal" href="#slapo.init_target_engine" title="slapo.init_target_engine"><code class="xref py py-obj docutils literal notranslate"><span class="pre">init_target_engine</span></code></a>(sch, target, **kwargs)</p></td>
 <td><p>Initialize the runtime engine for a specific target framework.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.list_primitives" title="slapo.list_primitives"><code class="xref py py-obj docutils literal notranslate"><span class="pre">list_primitives</span></code></a>([name_only])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.is_module_list" title="slapo.is_module_list"><code class="xref py py-obj docutils literal notranslate"><span class="pre">is_module_list</span></code></a>(module[, name, parent])</p></td>
+<td><p>A module list will become nn.Module or fx.GraphModule after tracing, but we still want to treat it as a module list in the schedule.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.list_primitives" title="slapo.list_primitives"><code class="xref py py-obj docutils literal notranslate"><span class="pre">list_primitives</span></code></a>([name_only])</p></td>
 <td><p>List all available schedule primitives.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#slapo.trace" title="slapo.trace"><code class="xref py py-obj docutils literal notranslate"><span class="pre">trace</span></code></a>(model, **kwargs)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.trace" title="slapo.trace"><code class="xref py py-obj docutils literal notranslate"><span class="pre">trace</span></code></a>(model, **kwargs)</p></td>
 <td><p>Traces a model to a GraphModule.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.trace_module" title="slapo.trace_module"><code class="xref py py-obj docutils literal notranslate"><span class="pre">trace_module</span></code></a>(model, **kwargs)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.trace_module" title="slapo.trace_module"><code class="xref py py-obj docutils literal notranslate"><span class="pre">trace_module</span></code></a>(model, **kwargs)</p></td>
 <td><p>Traces a model to a GraphModule.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#slapo.is_random_seed_set" title="slapo.is_random_seed_set"><code class="xref py py-obj docutils literal notranslate"><span class="pre">is_random_seed_set</span></code></a>()</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.is_random_seed_set" title="slapo.is_random_seed_set"><code class="xref py py-obj docutils literal notranslate"><span class="pre">is_random_seed_set</span></code></a>()</p></td>
 <td><p>Check if random seed is set.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.checkpoint" title="slapo.checkpoint"><code class="xref py py-obj docutils literal notranslate"><span class="pre">checkpoint</span></code></a>(function, *args[, use_reentrant])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#slapo.checkpoint" title="slapo.checkpoint"><code class="xref py py-obj docutils literal notranslate"><span class="pre">checkpoint</span></code></a>(function, *args[, use_reentrant])</p></td>
 <td><p>Checkpoint a model or part of the model.</p></td>
 </tr>
 </tbody>
@@ -975,6 +978,13 @@ mapping which is stored but not otherwise examined by dataclass.</p>
 <dt class="sig sig-object py" id="slapo.init_target_engine">
 <span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">init_target_engine</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sch</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/build.html#init_target_engine"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.init_target_engine" title="Permalink to this definition"><span>¶</span></a></dt>
 <dd><p>Initialize the runtime engine for a specific target framework.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="slapo.is_module_list">
+<span class="sig-prename descclassname"><span class="pre">slapo.</span></span><span class="sig-name descname"><span class="pre">is_module_list</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">module</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parent</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/slapo/utils/common.html#is_module_list"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#slapo.is_module_list" title="Permalink to this definition"><span>¶</span></a></dt>
+<dd><p>A module list will become nn.Module or fx.GraphModule after tracing,
+but we still want to treat it as a module list in the schedule.</p>
 </dd></dl>
 
 <dl class="py function">

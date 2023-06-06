@@ -313,7 +313,7 @@ document.write(`
 <span class="kn">from</span> <span class="nn">.pipeline</span> <span class="kn">import</span> <span class="n">analyze_tie_weights</span>
 
 <span class="kn">from</span> <span class="nn">.tracer</span> <span class="kn">import</span> <span class="n">trace</span> <span class="k">as</span> <span class="n">trace_module</span>
-<span class="kn">from</span> <span class="nn">.utils.common</span> <span class="kn">import</span> <span class="n">is_lambda_function</span>
+<span class="kn">from</span> <span class="nn">.utils.common</span> <span class="kn">import</span> <span class="n">is_lambda_function</span><span class="p">,</span> <span class="n">is_module_list</span>
 <span class="kn">from</span> <span class="nn">.utils.mapping</span> <span class="kn">import</span> <span class="n">MAPPING_FROM_FUNCTIONAL_TO_MODULE</span>
 <span class="kn">from</span> <span class="nn">.pattern</span> <span class="kn">import</span> <span class="n">Pattern</span><span class="p">,</span> <span class="n">ModulePattern</span><span class="p">,</span> <span class="n">call_module</span>
 
@@ -872,37 +872,6 @@ document.write(`
             <span class="ow">or</span> <span class="n">module</span><span class="o">.</span><span class="vm">__module__</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;torch.ao.nn&quot;</span><span class="p">)</span>
         <span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">is_module_list</span><span class="p">(</span><span class="n">module</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;A module list will become nn.Module or fx.GraphModule after tracing,</span>
-<span class="sd">        but we still want to treat it as a module list in the schedule.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">):</span>
-            <span class="k">return</span> <span class="kc">False</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">):</span>
-            <span class="k">return</span> <span class="kc">True</span>
-        <span class="k">if</span> <span class="p">(</span>
-            <span class="nb">isinstance</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">fx</span><span class="o">.</span><span class="n">GraphModule</span><span class="p">)</span>
-            <span class="ow">and</span> <span class="n">parent</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-            <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">parent</span><span class="o">.</span><span class="n">mod</span><span class="p">,</span> <span class="n">fx</span><span class="o">.</span><span class="n">GraphModule</span><span class="p">)</span>
-        <span class="p">):</span>
-            <span class="c1"># If the module and its parent are both traced, we can check</span>
-            <span class="c1"># the caller in the parent. If there is a caller that directly</span>
-            <span class="c1"># calls this module, then this is not a module list.</span>
-            <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">parent</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">nodes</span><span class="p">:</span>
-                <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">op</span> <span class="o">==</span> <span class="s2">&quot;call_module&quot;</span> <span class="ow">and</span> <span class="n">node</span><span class="o">.</span><span class="n">target</span> <span class="o">==</span> <span class="n">name</span><span class="p">:</span>
-                    <span class="k">return</span> <span class="kc">False</span>
-
-        <span class="c1"># If all above cannot work, we could only chacke if its children are indexed by</span>
-        <span class="c1"># sequential integers, and treat it as a module list if so.</span>
-        <span class="n">child_names</span> <span class="o">=</span> <span class="p">[</span><span class="n">name</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">module</span><span class="o">.</span><span class="n">named_children</span><span class="p">()]</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">child_names</span><span class="p">:</span>
-            <span class="k">return</span> <span class="kc">False</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="n">child_names</span> <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">n</span><span class="p">)</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">child_names</span><span class="p">]</span>
-            <span class="k">return</span> <span class="n">child_names</span> <span class="o">==</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">child_names</span><span class="p">)))</span>
-        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
-            <span class="k">return</span> <span class="kc">False</span>
-
     <span class="n">root_sch</span> <span class="o">=</span> <span class="n">Schedule</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">parent</span><span class="p">,</span> <span class="n">group</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">is_leaf</span><span class="p">(</span><span class="n">root</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">root_sch</span>
@@ -910,7 +879,7 @@ document.write(`
     <span class="n">child_schedules</span> <span class="o">=</span> <span class="p">{}</span>
     <span class="k">for</span> <span class="n">child_name</span><span class="p">,</span> <span class="n">submod</span> <span class="ow">in</span> <span class="n">root</span><span class="o">.</span><span class="n">named_children</span><span class="p">():</span>
         <span class="n">next_path</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">child_name</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="n">path</span> <span class="k">else</span> <span class="n">child_name</span>
-        <span class="k">if</span> <span class="n">is_module_list</span><span class="p">(</span><span class="n">submod</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">is_module_list</span><span class="p">(</span><span class="n">submod</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span> <span class="n">parent</span><span class="o">=</span><span class="n">parent</span><span class="p">):</span>
             <span class="c1"># We assume ModuleList will be iteratively traversed in forward function.</span>
             <span class="c1"># For example:</span>
             <span class="c1"># In __init__: self.layers = nn.ModuleList([nn.Linear(10, 10) for _ in range(3)])</span>

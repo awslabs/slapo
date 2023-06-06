@@ -499,7 +499,7 @@ document.write(`
     <span class="n">curr_stage_id</span> <span class="o">=</span> <span class="mi">0</span>
     <span class="n">tensor_2_id</span> <span class="o">=</span> <span class="p">{}</span>
     <span class="n">liveness</span> <span class="o">=</span> <span class="p">{</span><span class="o">-</span><span class="mi">1</span><span class="p">:</span> <span class="p">[]}</span>
-    <span class="n">stage_id_2_arg_names</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">stage_id_2_arg_names</span> <span class="o">=</span> <span class="p">{</span><span class="o">-</span><span class="mi">1</span><span class="p">:</span> <span class="p">[]}</span>
 
     <span class="c1"># 1st pass (forward): Construct ID-tensor mapping and a part of the liveness.</span>
     <span class="c1"># After this pass, liveness of each submod should include all live tensors</span>
@@ -510,6 +510,7 @@ document.write(`
         <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">op</span> <span class="o">==</span> <span class="s2">&quot;placeholder&quot;</span><span class="p">:</span>
             <span class="c1"># Liveness -1 indicates the primary inputs in order.</span>
             <span class="n">liveness</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">itemized_name</span><span class="p">)</span>
+            <span class="n">stage_id_2_arg_names</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">itemized_name</span><span class="p">)</span>
         <span class="k">elif</span> <span class="n">node</span><span class="o">.</span><span class="n">op</span> <span class="o">==</span> <span class="s2">&quot;call_module&quot;</span> <span class="ow">and</span> <span class="n">node</span><span class="o">.</span><span class="n">target</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;submod_&quot;</span><span class="p">):</span>
             <span class="n">liveness</span><span class="p">[</span><span class="n">curr_stage_id</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
             <span class="n">stage_id_2_arg_names</span><span class="p">[</span><span class="n">curr_stage_id</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
@@ -546,14 +547,13 @@ document.write(`
             <span class="n">liveness</span><span class="p">[</span><span class="n">curr_stage_id</span><span class="p">]</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">diff</span><span class="p">)</span>
 
     <span class="c1"># Override the liveness of the first stage to match the input order.</span>
-    <span class="k">if</span> <span class="nb">set</span><span class="p">(</span><span class="n">liveness</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">!=</span> <span class="nb">set</span><span class="p">(</span><span class="n">liveness</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]):</span>
+    <span class="k">if</span> <span class="nb">list</span><span class="p">(</span><span class="n">liveness</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">!=</span> <span class="nb">list</span><span class="p">(</span><span class="n">liveness</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]):</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
             <span class="s2">&quot;Inputs between first submodule and top module are mismatched&quot;</span>
             <span class="s2">&quot; (first submodule: </span><span class="si">%s</span><span class="s2">, top module: </span><span class="si">%s</span><span class="s2">). &quot;</span>
-            <span class="s2">&quot;Possibly because some arguments in top modules are specified to None &quot;</span>
+            <span class="s2">&quot;Possibly because (1) some arguments in top modules are specified to None &quot;</span>
             <span class="s2">&quot;when tracing, and they are not removed by the PyTorch tracer. &quot;</span>
-            <span class="s2">&quot;This should not be an issue if the None arguments are really &#39;None&#39; &quot;</span>
-            <span class="s2">&quot;in the training process.&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;(2) FX tracer changes the order of the arguments in the function calls.&quot;</span><span class="p">,</span>
             <span class="n">liveness</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
             <span class="n">liveness</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span>
         <span class="p">)</span>

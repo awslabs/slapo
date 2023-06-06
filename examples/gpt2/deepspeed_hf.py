@@ -213,15 +213,18 @@ def train(args):
             entry["input_ids"],
             entry["attention_mask"],
             # position_ids
-            torch.arange(len(entry["input_ids"])),
+            torch.arange(len(entry["input_ids"]), requires_grad=False),
             entry["labels"],
         ]
         return ret
 
     def collate_fn(batch, enable_pipeline=True):
         input_ids = torch.tensor([x[0] for x in batch], dtype=torch.long)
-        attention_mask = torch.tensor([x[1] for x in batch], dtype=torch.float16)
+        attention_mask = torch.tensor(
+            [x[1] for x in batch], dtype=torch.float16, requires_grad=False
+        )
         position_ids = torch.stack([x[2] for x in batch])
+        position_ids.requires_grad = False
         labels = torch.tensor([x[3] for x in batch], dtype=torch.long)
 
         ret = [input_ids, attention_mask, position_ids, labels]
@@ -229,6 +232,9 @@ def train(args):
             # insert None in second and fourth position
             ret.insert(1, None)  # past_key_values
             ret.insert(3, None)  # token_type_ids
+        else:
+            # DeepSpeed pipeline does not accept None as input.
+            pass
 
         # group first inputs
         return [ret[:-1], ret[-1]]

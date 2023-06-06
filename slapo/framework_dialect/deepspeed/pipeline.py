@@ -240,6 +240,19 @@ class DeepSpeedPipeStageWrapper(nn.Module):
         # Unpack inputs
         unordered_args = []
         if self.stage_id == 0:
+            # The order of input arguments may also be changed by fx tracer.
+            # stage -1: (a, b=None, c, d, e=None), where a, c, d are the given tensor inputs.
+            # stage 0: (a, d, c), where the order of the arguments is changed.
+            input_arg_names = []
+            for arg in self.stage_id_2_arg_names[-1]:
+                if arg in self.stage_id_2_arg_names[0]:
+                    input_arg_names.append(arg)
+            logger.info(
+                "[%s] Argument order: %s (input) -> %s (stage 0)",
+                self.name,
+                input_arg_names,
+                self.stage_id_2_arg_names[0],
+            )
             # The first stage takes the original inputs.
             for arg in args:
                 assert not isinstance(arg, dict)
@@ -273,15 +286,25 @@ class DeepSpeedPipeStageWrapper(nn.Module):
                 f"{list(name_2_live_tensor.keys())}",
             )
 
-        # Make forward argiments from live tensors to align the submodule arguments.
+        # Make forward arguments from live tensors to align the submodule arguments.
         ordered_args = []
-        for arg_name in self.stage_id_2_arg_names[self.stage_id]:
-            assert (
-                arg_name in liveness
-            ), f"[{self.name}] Arg {arg_name} not found in liveness list: {liveness}"
-            idx = liveness.index(arg_name)
+        for i, arg_name in enumerate(self.stage_id_2_arg_names[self.stage_id]):
+            if self.stage_id == 0:
+                idx = input_arg_names.index(arg_name)
+            else:
+                assert (
+                    arg_name in liveness
+                ), f"[{self.name}] Arg {arg_name} not found in liveness list: {liveness}"
+                idx = liveness.index(arg_name)
             ordered_args.append(unordered_args[idx])
+            if i > 0:
+                # https://github.com/microsoft/DeepSpeed/blob/v0.9.2/deepspeed/runtime/pipe/engine.py#L639
+                assert (
+                    torch.is_tensor(unordered_args[idx])
+                    and unordered_args[idx].requires_grad is False
+                ), f"[{self.name}] The {i}-th argument {arg_name} is not a tensor or requires grad: {unordered_args[idx]}, which is not supported by DeepSpeed pipeline engine."
 
+        # FIXME: untested path
         for value in kwargs.values():
             ordered_args += [value]
 
@@ -366,12 +389,6 @@ def deepspeed_pipe_engine(
 
     if "loss_fn" not in kwargs:
         raise ValueError("Must provide loss_fn for deepspeed pipeline")
-    if "fp16" in kwargs["config"] and kwargs["config"]["fp16"]["enabled"]:
-        param_dtype = torch.float16
-    elif "bf16" in kwargs["config"] and kwargs["config"]["bf16"]["enabled"]:
-        param_dtype = torch.bfloat16
-    else:
-        param_dtype = torch.float
 
     # Tag all sharded parameters with model parallel attribute for grad clipping.
     cnt_shard = 0
@@ -385,13 +402,11 @@ def deepspeed_pipe_engine(
         cnt_shard,
     )
 
-    # pylint: disable=unexpected-keyword-arg
     model = pipe.PipelineModule(
         stage_modules,
         topology=topology,
         partition_method="uniform",
         loss_fn=kwargs.get("loss_fn", None),
-        param_dtype=param_dtype,
     )
 
     tie_weights = list(sch_metadata.tie_weights.values())

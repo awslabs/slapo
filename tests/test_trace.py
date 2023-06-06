@@ -171,5 +171,29 @@ def test_two_level_flattened_hf_bert():
     assert not find_module_in_graph(sub_sch.mod.graph, "attention.self.query")
 
 
+def test_hf_tracer_gpt_attn():
+    from transformers import GPTNeoModel, AutoConfig
+
+    config = AutoConfig.from_pretrained("EleutherAI/gpt-neo-1.3B")
+    config.use_cache = False
+    with slapo.init_empty_weights():
+        model = GPTNeoModel(config)
+    sch = slapo.create_schedule(model)
+    subsch = sch["h.0.attn.attention"]
+    input_names = ["hidden_states"]
+    sig = inspect.signature(subsch.mod.forward)
+    concrete_args = {
+        p.name: p.default for p in sig.parameters.values() if p.name not in input_names
+    }
+    subsch.trace(
+        recursive=False,
+        flatten=True,
+        tracer="huggingface",
+        concrete_args=concrete_args,
+        config=config,
+    )
+    assert isinstance(subsch.mod, fx.GraphModule)
+
+
 if __name__ == "__main__":
     pytest.main([__file__])

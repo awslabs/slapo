@@ -395,7 +395,6 @@ def deepspeed_pipe_engine(
         cnt_shard,
     )
 
-    # pylint: disable=unexpected-keyword-arg
     model = pipe.PipelineModule(
         stage_modules,
         topology=topology,

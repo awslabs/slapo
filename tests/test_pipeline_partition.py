@@ -22,8 +22,7 @@ class Pre(nn.Module):
         # delibarately add control flow to avoid tracing
         if x.size() > 0:
             return self.linear(x)
-        else:
-            return x
+        return x
 
 
 class Post(nn.Module):

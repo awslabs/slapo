@@ -298,6 +298,7 @@ class DeepSpeedPipeStageWrapper(nn.Module):
                 idx = liveness.index(arg_name)
             ordered_args.append(unordered_args[idx])
             if i > 0:
+                # https://github.com/microsoft/DeepSpeed/blob/v0.9.2/deepspeed/runtime/pipe/engine.py#L639
                 assert (
                     torch.is_tensor(unordered_args[idx])
                     and unordered_args[idx].requires_grad is False

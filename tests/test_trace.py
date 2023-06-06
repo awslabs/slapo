@@ -205,7 +205,8 @@ def test_dynamo():
     sch = slapo.create_schedule(model)
     subsch = sch[f"bert.encoder.layer.{0}.attention.self"]
 
-    bs, seq_length = 8, 512
+    # avoid testing environment OOM
+    bs, seq_length, hidden_size = 1, 512, 1024
     concrete_args = {"hidden_states": torch.randn(bs, seq_length, config.hidden_size)}
     sig = inspect.signature(subsch.mod.forward)
     concrete_args.update(
@@ -225,10 +226,12 @@ def test_dynamo():
 
     qkv_subgraphs = subsch.find(pattern)
     assert len(qkv_subgraphs) == 3
-    mod, _ = slapo.build(sch, init_weights=model._init_weights)
+    mod, _ = slapo.build(subsch, init_weights=model._init_weights)
     mod = mod.cuda()
-    inp = torch.ones(bs, seq_length, dtype=torch.long, device="cuda")
-    mod(inp)
+    inp = torch.randn((bs, seq_length, hidden_size), dtype=torch.float32, device="cuda")
+    # TorchDynamo strictly requires all the inputs to be provided
+    mod(inp, None, None, None, None, None, None)
+    del mod
 
 
 if __name__ == "__main__":

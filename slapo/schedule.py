@@ -363,10 +363,11 @@ class Schedule:
             else:
                 # Workaround for fx wrap functions:
                 # https://github.com/pytorch/pytorch/issues/53534
-                exec(
-                    "import torch.fx; torch.fx.wrap('call_module')",
-                    pattern_fn.__globals__,
-                )
+                if "call_module" in pattern_fn.__globals__:
+                    exec(
+                        "import torch.fx; torch.fx.wrap('call_module')",
+                        pattern_fn.__globals__,
+                    )
                 pattern_mod = fx.symbolic_trace(pattern_fn)
         assert isinstance(pattern_mod, fx.GraphModule)
 

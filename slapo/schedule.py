@@ -21,7 +21,7 @@ from .primitives import PRIMITIVES
 from .pipeline import analyze_tie_weights
 
 from .tracer import trace as trace_module
-from .utils.common import is_lambda_function, is_module_list
+from .utils.common import is_module_list
 from .utils.mapping import MAPPING_FROM_FUNCTIONAL_TO_MODULE
 from .pattern import Pattern, ModulePattern
 

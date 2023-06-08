@@ -37,4 +37,9 @@ def init_ds_engine(model, **kwargs):
         model_parameters=[p for p in model.parameters() if p.requires_grad],
         mpu=mpu,
     )
+    # hack the DS pipeline runtime
+    if model.is_pipe_parallel:
+        model.is_pipe_partitioned = False
+        model.is_grad_partitioned = False
+
     return model, optimizer

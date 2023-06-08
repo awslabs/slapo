@@ -247,7 +247,7 @@ class DeepSpeedPipeStageWrapper(nn.Module):
             for arg in self.stage_id_2_arg_names[-1]:
                 if arg in self.stage_id_2_arg_names[0]:
                     input_arg_names.append(arg)
-            logger.info(
+            logger.debug(
                 "[%s] Argument order: %s (input) -> %s (stage 0)",
                 self.name,
                 input_arg_names,

@@ -37,7 +37,11 @@ def init_ds_engine(model, **kwargs):
         model_parameters=[p for p in model.parameters() if p.requires_grad],
         mpu=mpu,
     )
-    # hack the DS pipeline runtime
+
+    # `is_pipe_partitioned=True` is the default value due to TP
+    # but slapo has internally handled the partitioned inputs and outputs 
+    # having `is_pipe_partitioned=True` leads to incorrect send receive buffer sizes
+    # which causing hanging
     if model.is_pipe_parallel:
         model.is_pipe_partitioned = False
         model.is_grad_partitioned = False

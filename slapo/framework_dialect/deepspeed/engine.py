@@ -42,7 +42,7 @@ def init_ds_engine(model, **kwargs):
     # but slapo has internally handled the partitioned inputs and outputs
     # having `is_pipe_partitioned=True` leads to incorrect send receive buffer sizes
     # which causing hanging
-    if model.is_pipe_parallel:
+    if hasattr(model, "is_pipe_parallel") and model.is_pipe_parallel:
         model.is_pipe_partitioned = False
         model.is_grad_partitioned = False
 

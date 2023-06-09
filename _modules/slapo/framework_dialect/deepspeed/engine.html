@@ -327,6 +327,15 @@ document.write(`
         <span class="n">model_parameters</span><span class="o">=</span><span class="p">[</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">parameters</span><span class="p">()</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">requires_grad</span><span class="p">],</span>
         <span class="n">mpu</span><span class="o">=</span><span class="n">mpu</span><span class="p">,</span>
     <span class="p">)</span>
+
+    <span class="c1"># `is_pipe_partitioned=True` is the default value due to TP</span>
+    <span class="c1"># but slapo has internally handled the partitioned inputs and outputs</span>
+    <span class="c1"># having `is_pipe_partitioned=True` leads to incorrect send receive buffer sizes</span>
+    <span class="c1"># which causes hanging</span>
+    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="s2">&quot;is_pipe_parallel&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">model</span><span class="o">.</span><span class="n">is_pipe_parallel</span><span class="p">:</span>
+        <span class="n">model</span><span class="o">.</span><span class="n">is_pipe_partitioned</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="n">model</span><span class="o">.</span><span class="n">is_grad_partitioned</span> <span class="o">=</span> <span class="kc">False</span>
+
     <span class="k">return</span> <span class="n">model</span><span class="p">,</span> <span class="n">optimizer</span></div>
 </pre></div>
 

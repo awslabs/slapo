@@ -46,6 +46,7 @@ def test_pipeline():
         micro_batch_size_per_gpu=bs,
         fp16=False,
     )
+    set_random_seed(2013)
     inp = torch.randn(bs, 10, device=dist.get_rank())
     label = torch.randint(0, 10, (bs,), dtype=torch.long, device=dist.get_rank())
     with slapo.Verify(

@@ -36,7 +36,9 @@ class Verify(ContextDecorator):
         self.device = device
         self.example_inputs = [x.to(self.device) for x in example_inputs]
         self.example_outputs = (
-            example_outputs.to(self.device) if example_outputs else None
+            example_outputs.to(self.device)
+            if isinstance(example_outputs, torch.Tensor)
+            else None
         )
         self.loss_fn = loss_fn
         self.original_trace = None
@@ -73,6 +75,10 @@ class Verify(ContextDecorator):
     def __exit__(self, *exc):
         """Verify the correctness of the schedule.
         TODO: Support backward verification
+
+        TP: Takes the same model and same inputs, and expects the same outputs across devices.
+        DP: Takes the same model and different inputs, and expects the same outputs on the same device.
+        PP: Only need to verify the correctness in the last stage.
         """
         if not self.enable:
             return
@@ -101,13 +107,17 @@ class Verify(ContextDecorator):
         original_mod, _ = build(self.original_sch, init_weights=not is_initialized)
         #    make sure all the buffers are on the right device
         original_mod = original_mod.to(self.device)
-        # 2. Get the example inputs
+        # 2. Get the example inputs and outputs
         #    Broadcast the example inputs from rank 0 to other ranks
         group_src_rank = (
             dist.get_global_rank(self.sch.group, 0) if self.sch.group is not None else 0
         )
         for inp in self.example_inputs:
             dist.broadcast(inp, src=group_src_rank, group=self.sch.group)
+        if self.example_outputs is not None:
+            dist.broadcast(
+                self.example_outputs, src=group_src_rank, group=self.sch.group
+            )
         # 3. Run the original model
         #    make sure the random seeds are the same, which may affect the output of dropout
         if self.eval_mode:

@@ -148,9 +148,9 @@ class Verify(ContextDecorator):
         if is_pipeline:
             # average the loss across all the DP devices
             for ranks in self.topology.get_axis_comm_lists("data"):
+                dp_group = dist.new_group(ranks=ranks)
+                dist.all_reduce(original_output, group=dp_group)
                 if dist.get_rank() in ranks:
-                    dp_group = dist.new_group(ranks=ranks)
-                    dist.all_reduce(original_output, group=dp_group)
                     original_output /= len(ranks)
         # 4. Broadcast the original model from rank 0 to other ranks
         #    Since for verification, each device holds an entire copy of the original

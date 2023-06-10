@@ -81,7 +81,7 @@ class Verify(ContextDecorator):
                 import deepspeed
             except ImportError:
                 raise ImportError(
-                    "deepspeed is required when pipeline parallelism is used"
+                    "DeepSpeed is required when pipeline parallelism is used"
                 )
             assert (
                 self.example_outputs is not None
@@ -146,13 +146,14 @@ class Verify(ContextDecorator):
 
         def init_weights(mod, path):
             for name, _ in mod.named_parameters(recurse=False):
-                # TODO: fix submod name
                 if self.sch.metadata.primitives["cut_pipeline_stage"]:
-                    original_name = (
-                        ".".join(path.split(".")[1:]).replace("_", ".") + "." + name
-                    )
-                else:
-                    original_name = f"{path}.{name}"
+                    path = path.split(".")
+                    for idx, subpath in enumerate(path):
+                        if "submod_" not in subpath:
+                            break
+                    # Fix ModuleList name
+                    path = ".".join(path[idx:]).replace("_", ".")
+                original_name = f"{path}.{name}"
                 setattr(
                     mod,
                     name,

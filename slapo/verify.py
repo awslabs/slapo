@@ -84,11 +84,12 @@ class Verify(ContextDecorator):
             return
         if self.sch.metadata.primitives["cut_pipeline_stage"]:
             try:
+                # pylint: disable=unused-import
                 import deepspeed
-            except ImportError:
+            except ImportError as exc:
                 raise ImportError(
                     "DeepSpeed is required when pipeline parallelism is used"
-                )
+                ) from exc
             assert (
                 self.example_outputs is not None
             ), "example_outputs must be provided when pipeline parallelism is used"
@@ -189,8 +190,10 @@ class Verify(ContextDecorator):
             for name, _ in mod.named_parameters(recurse=False):
                 if is_pipeline:
                     path = path.split(".")
-                    for idx, subpath in enumerate(path):
+                    idx = 0
+                    for i, subpath in enumerate(path):
                         if "submod_" not in subpath:
+                            idx = i
                             break
                     # Fix ModuleList name
                     path = ".".join(path[idx:]).replace("_", ".")

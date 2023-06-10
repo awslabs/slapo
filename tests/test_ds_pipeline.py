@@ -2,11 +2,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Test DeepSpeed Pipeline."""
+import os
 import pytest
 
-import os
 import torch
 from torch import nn
+import torch.distributed as dist
+import torch.nn.functional as F
 import deepspeed
 
 import slapo
@@ -14,8 +16,6 @@ from slapo.framework_dialect.deepspeed.pipeline import (
     get_ds_config,
     create_dist_group_for_pipeline,
 )
-import torch.distributed as dist
-import torch.nn.functional as F
 
 
 class LinearReLU(nn.Module):

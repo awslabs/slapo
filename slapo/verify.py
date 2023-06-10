@@ -155,7 +155,17 @@ class Verify(ContextDecorator):
         del original_mod
         # 6. Get the transformed model from the schedule
         #    Copy it and build a new schedule to prevent the original schedule from being modified
-        copied_mod = copy.deepcopy(self.sch.mod)
+        try:
+            copied_mod = copy.deepcopy(self.sch.mod)
+            is_copy_failed = False
+        except TypeError:
+            # One example is ProcessGroup cannot be copied:
+            # https://github.com/pytorch/pytorch/issues/73825
+            is_copy_failed = True
+            logger.warning(
+                "Failed to copy the model, using the original model to verify"
+            )
+            copied_mod = self.sch.mod
         # copy original attributes
         # TODO: find a better way to copy attributes
         for param_name, param in self.sch.mod.named_parameters():
@@ -212,5 +222,6 @@ class Verify(ContextDecorator):
         # 9. Compare the outputs
         torch.testing.assert_close(original_output, new_output)
         logger.info("Passed verification!")
-        del new_mod
+        if not is_copy_failed:
+            del new_mod
         sys.settrace(self.original_trace)

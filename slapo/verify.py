@@ -101,6 +101,9 @@ class Verify(ContextDecorator):
             assert (
                 "config" in self.kwargs
             ), "config must be provided when pipeline parallelism is used"
+            is_pipeline = True
+        else:
+            is_pipeline = False
         # 1. Build the original model with random weights
         named_params = self.original_sch.mod.named_parameters()
         is_initialized = named_params.__next__()[1].device != torch.device("meta")
@@ -108,16 +111,29 @@ class Verify(ContextDecorator):
         #    make sure all the buffers are on the right device
         original_mod = original_mod.to(self.device)
         # 2. Get the example inputs and outputs
-        #    Broadcast the example inputs from rank 0 to other ranks
-        group_src_rank = (
-            dist.get_global_rank(self.sch.group, 0) if self.sch.group is not None else 0
-        )
-        for inp in self.example_inputs:
-            dist.broadcast(inp, src=group_src_rank, group=self.sch.group)
-        if self.example_outputs is not None:
-            dist.broadcast(
-                self.example_outputs, src=group_src_rank, group=self.sch.group
-            )
+        #    Broadcast the example inputs from rank 0 in each TP/PP group
+        #    to other ranks in the same group.
+        #    Only the first stage of PP needs the example inputs & outputs,
+        #    but for verification, each device holds an entire copy of the original model,
+        #    so we need to broadcast the example inputs & outputs to all the TP&PP devices.
+        #    Notice for each device in the DP group, they should take different inputs.
+        if is_pipeline:
+            for i in range(self.topology.get_dim("data")):
+                tp_pp_group = dist.new_group(ranks=self.topology.filter_match(data=i))
+                group_src_rank = dist.get_global_rank(tp_pp_group, 0)
+                for inp in self.example_inputs:
+                    dist.broadcast(inp, src=group_src_rank, group=tp_pp_group)
+                dist.broadcast(
+                    self.example_outputs, src=group_src_rank, group=tp_pp_group
+                )
+        else:
+            group_src_rank = 0
+            for inp in self.example_inputs:
+                dist.broadcast(inp, src=group_src_rank, group=self.sch.group)
+            if self.example_outputs is not None:
+                dist.broadcast(
+                    self.example_outputs, src=group_src_rank, group=self.sch.group
+                )
         # 3. Run the original model
         #    make sure the random seeds are the same, which may affect the output of dropout
         if self.eval_mode:
@@ -130,13 +146,11 @@ class Verify(ContextDecorator):
             ), "loss_fn must be provided when example_outputs is provided"
             original_output = self.loss_fn(original_output, self.example_outputs)
         # 4. Broadcast the original model from rank 0 to other ranks
+        #    Since for verification, each device holds an entire copy of the original
+        #    model, here we directly broadcast the model to all the devices.
         original_state_dict = original_mod.state_dict()
         for param_name in original_state_dict:
-            dist.broadcast(
-                original_state_dict[param_name],
-                src=group_src_rank,
-                group=self.sch.group,
-            )
+            dist.broadcast(original_state_dict[param_name], src=0)
         # 5. Delete the original model to avoid excessive memory usage
         del original_mod
         # 6. Get the transformed model from the schedule
@@ -156,7 +170,7 @@ class Verify(ContextDecorator):
 
         def init_weights(mod, path):
             for name, _ in mod.named_parameters(recurse=False):
-                if self.sch.metadata.primitives["cut_pipeline_stage"]:
+                if is_pipeline:
                     path = path.split(".")
                     for idx, subpath in enumerate(path):
                         if "submod_" not in subpath:
@@ -172,7 +186,7 @@ class Verify(ContextDecorator):
                     ),
                 )
 
-        if self.sch.metadata.primitives["cut_pipeline_stage"]:
+        if is_pipeline:
             new_mod, _ = build(
                 new_sch,
                 init_weights=init_weights,
@@ -190,7 +204,7 @@ class Verify(ContextDecorator):
             new_mod.eval()
         #    make sure the random seeds are the same, which may affect the output of dropout
         set_random_seed(2023)
-        if self.sch.metadata.primitives["cut_pipeline_stage"]:
+        if is_pipeline:
             train_iter = iter([tuple(self.example_inputs + [self.example_outputs])])
             new_output = new_mod.train_batch(train_iter)
         else:

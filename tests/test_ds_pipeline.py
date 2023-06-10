@@ -14,7 +14,6 @@ from slapo.framework_dialect.deepspeed.pipeline import (
     get_ds_config,
     create_dist_group_for_pipeline,
 )
-from slapo.random import set_random_seed
 import torch.distributed as dist
 import torch.nn.functional as F
 
@@ -46,7 +45,6 @@ def test_pipeline():
         micro_batch_size_per_gpu=bs,
         fp16=False,
     )
-    set_random_seed(2013)
     inp = torch.randn(bs, 10, device=dist.get_rank())
     label = torch.randint(0, 10, (bs,), dtype=torch.long, device=dist.get_rank())
     with slapo.Verify(

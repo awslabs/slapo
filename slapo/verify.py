@@ -145,6 +145,13 @@ class Verify(ContextDecorator):
                 self.loss_fn is not None
             ), "loss_fn must be provided when example_outputs is provided"
             original_output = self.loss_fn(original_output, self.example_outputs)
+        if is_pipeline:
+            # average the loss across all the DP devices
+            for ranks in self.topology.get_axis_comm_lists("data"):
+                if dist.get_rank() in ranks:
+                    dp_group = dist.new_group(ranks=ranks)
+                    dist.all_reduce(original_output, group=dp_group)
+                    original_output /= len(ranks)
         # 4. Broadcast the original model from rank 0 to other ranks
         #    Since for verification, each device holds an entire copy of the original
         #    model, here we directly broadcast the model to all the devices.
@@ -216,6 +223,7 @@ class Verify(ContextDecorator):
         set_random_seed(2023)
         if is_pipeline:
             train_iter = iter([tuple(self.example_inputs + [self.example_outputs])])
+            # DeepSpeed will automatically broadcast the output to each device
             new_output = new_mod.train_batch(train_iter)
         else:
             new_output = new_mod(*self.example_inputs)

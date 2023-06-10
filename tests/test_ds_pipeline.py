@@ -116,6 +116,7 @@ def test_pipeline_2stages_pp_tp():
         topology=topology,
         config=ds_config_dict,
     ):
+        # TODO: Fix layers.0/1 sharding bug
         sch["layers.0.linear"].shard("weight", axis=0)
         sch["layers.0.linear"].shard("bias", axis=0)
         sch["layers.1.linear"].shard("weight", axis=1)
@@ -159,4 +160,4 @@ def test_pipeline_4stages_pp():
 
 if __name__ == "__main__":
     # pytest.main([__file__])
-    test_pipeline_2stages_pp_tp()
+    test_pipeline_2stages_pp_dp()

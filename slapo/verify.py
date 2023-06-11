@@ -30,6 +30,7 @@ class Verify(ContextDecorator):
         topology=None,
         eval_mode=True,
         enable=True,
+        init_weights=False,
         **kwargs,
     ):
         if not isinstance(example_inputs, list):
@@ -48,6 +49,7 @@ class Verify(ContextDecorator):
         self.topology = topology
         self.enable = enable
         self.eval_mode = eval_mode
+        self.init_weights = init_weights
         self.kwargs = kwargs
 
     def __enter__(self):
@@ -106,7 +108,12 @@ class Verify(ContextDecorator):
         # 1. Build the original model with random weights
         named_params = self.original_sch.mod.named_parameters()
         is_initialized = named_params.__next__()[1].device != torch.device("meta")
-        original_mod, _ = build(self.original_sch, init_weights=not is_initialized)
+        original_mod, _ = build(
+            self.original_sch,
+            init_weights=self.init_weights
+            if self.init_weights
+            else (not is_initialized),
+        )
         #    make sure all the buffers are on the right device
         original_mod = original_mod.to(self.device)
         # 2. Get the example inputs and outputs

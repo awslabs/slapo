@@ -212,6 +212,7 @@ def test_bert_2stages_pp():
     from transformers import BertLMHeadModel, AutoConfig
 
     config = AutoConfig.from_pretrained("bert-large-uncased")
+    # config.tie_word_embeddings = False
     with slapo.init_empty_weights():
         model = BertLMHeadModel(config)
 
@@ -225,9 +226,8 @@ def test_bert_2stages_pp():
     concrete_args = {
         p.name: p.default for p in sig.parameters.values() if p.name not in input_names
     }
-    sch.trace_until(f"bert.encoder", tracer="huggingface", concrete_args=concrete_args)
 
-    loss_fct = ParallelCrossEntropy(group=group)
+    loss_fct = nn.CrossEntropyLoss()
 
     def loss_fn(outputs, labels):
         # (bs, seq, vocab)
@@ -236,11 +236,11 @@ def test_bert_2stages_pp():
             prediction_scores = outputs
         else:
             prediction_scores = outputs["logits"]
-        shifted_prediction_scores = prediction_scores[..., :-1, :].contiguous()
-        shifted_prediction_scores = shifted_prediction_scores
-        labels = labels[..., 1:].contiguous()
-        lm_loss = loss_fct(shifted_prediction_scores, labels)
-        lm_loss = lm_loss.contiguous().mean()
+        shifted_prediction_scores = prediction_scores[:, :-1, :].contiguous()
+        labels = labels[:, 1:].contiguous()
+        lm_loss = loss_fct(
+            shifted_prediction_scores.view(-1, config.vocab_size), labels.view(-1)
+        )
         return lm_loss
 
     bs = 2
@@ -270,6 +270,9 @@ def test_bert_2stages_pp():
         topology=topology,
         config=ds_config_dict,
     ):
+        sch.trace_until(
+            f"bert.encoder", tracer="huggingface", concrete_args=concrete_args
+        )
         sch[f"bert.encoder.layer.11"].cut_pipeline_stage()
 
 
@@ -278,4 +281,4 @@ if __name__ == "__main__":
     test_pipeline_2stages_pp_tp()
     test_pipeline_4stages_pp()
     test_pipeline_2stages_pp_tp_dp()
-    # test_bert_2stages_pp()
+    test_bert_2stages_pp()

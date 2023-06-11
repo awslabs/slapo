@@ -249,15 +249,25 @@ def build(
     if sch.metadata.primitives["cut_pipeline_stage"]:
         # pipeline stages will be wrapped into PipeStageWrapper
         sch = generate_pipeline_partition(sch)
-        # Re-analyzie tie weights before consolidation.
-        sch.metadata.tie_weights = analyze_tie_weights(
-            sch.mod, is_pipeline_partitioned=True
-        )
+        is_pipeline = True
+    else:
+        is_pipeline = False
+    # Re-analyzie tie weights before consolidation.
+    sch.metadata.tie_weights = analyze_tie_weights(
+        sch.mod, is_pipeline_partitioned=is_pipeline
+    )
 
     # delay initialization
     if init_weights:
         init_weight_fn = init_weights if isinstance(init_weights, Callable) else None
         sch = consolidate_model(sch, target, init_weight_fn, **kwargs)
+        tie_weights = list(sch.metadata.tie_weights.values())
+        if tie_weights and not is_pipeline:
+            if not hasattr(sch.mod, "tie_weights"):
+                raise RuntimeError(
+                    "Model needs to tie weights but does not have `tie_weights` method. Probably because the model has been traced."
+                )
+            sch.mod.tie_weights()
 
     if sch.metadata.primitives["cut_pipeline_stage"] and target is not None:
         # Generate pipeline modules for a particular target.

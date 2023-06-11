@@ -224,7 +224,11 @@ def test_bert_2stages_pp():
 
     def loss_fn(outputs, labels):
         # (bs, seq, vocab)
-        prediction_scores = outputs["logits"]
+        if isinstance(outputs, torch.Tensor):
+            # DS PP output has already removed the data structure
+            prediction_scores = outputs
+        else:
+            prediction_scores = outputs["logits"]
         shifted_prediction_scores = prediction_scores[..., :-1, :].contiguous()
         shifted_prediction_scores = shifted_prediction_scores
         labels = labels[..., 1:].contiguous()
@@ -234,18 +238,23 @@ def test_bert_2stages_pp():
 
     bs = 2
     seq_len = 512
+    micro_bs = bs // num_dp
     ds_config_dict = get_ds_config(
         batch_size=bs,
-        micro_batch_size_per_gpu=bs // num_dp,
+        micro_batch_size_per_gpu=micro_bs,
         fp16=False,
     )
     device = "cuda"
-    input_ids = torch.ones(bs, seq_len, dtype=torch.long, device=device)
-    attention_mask = torch.ones(bs, seq_len, dtype=torch.float32, device=device)
-    token_type_ids = torch.ones(
-        bs, seq_len, dtype=torch.long, requires_grad=False, device=device
+    input_ids = torch.ones(micro_bs, seq_len, dtype=torch.long, device=device)
+    attention_mask = torch.ones(
+        micro_bs, seq_len, dtype=torch.float32, requires_grad=False, device=device
     )
-    labels = torch.randint(0, 10, (bs, seq_len), dtype=torch.long, device=sch.rank)
+    token_type_ids = torch.ones(
+        micro_bs, seq_len, dtype=torch.long, requires_grad=False, device=device
+    )
+    labels = torch.randint(
+        0, 10, (micro_bs, seq_len), dtype=torch.long, device=sch.rank
+    )
     with slapo.Verify(
         sch,
         example_inputs=[input_ids, attention_mask, token_type_ids],

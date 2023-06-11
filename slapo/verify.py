@@ -240,7 +240,19 @@ class Verify(ContextDecorator):
         #    make sure the random seeds are the same, which may affect the output of dropout
         set_random_seed(2023)
         if is_pipeline:
-            train_iter = iter([tuple(self.example_inputs + [self.example_outputs])])
+            from deepspeed.utils import RepeatingLoader
+
+            train_iter = RepeatingLoader(
+                [
+                    # First batch: (inputs, labels)
+                    (
+                        tuple(self.example_inputs),  # inputs
+                        self.example_outputs,  # labels
+                    ),
+                    # Rest of the batches
+                    # ...
+                ]
+            )
             # DeepSpeed will automatically broadcast the output to each device
             new_output = new_mod.train_batch(train_iter)
         else:

@@ -94,9 +94,6 @@ class Verify(ContextDecorator):
                 self.example_outputs is not None
             ), "example_outputs must be provided when pipeline parallelism is used"
             assert (
-                self.loss_fn is not None
-            ), "loss_fn must be provided when pipeline parallelism is used"
-            assert (
                 self.topology is not None
             ), "topology must be provided when pipeline parallelism is used"
             assert (
@@ -124,14 +121,15 @@ class Verify(ContextDecorator):
                 group_src_rank = dist.get_global_rank(tp_pp_group, 0)
                 for inp in self.example_inputs:
                     dist.broadcast(inp, src=group_src_rank, group=tp_pp_group)
-                dist.broadcast(
-                    self.example_outputs, src=group_src_rank, group=tp_pp_group
-                )
+                if isinstance(self.example_outputs, torch.Tensor):
+                    dist.broadcast(
+                        self.example_outputs, src=group_src_rank, group=tp_pp_group
+                    )
         else:
             group_src_rank = 0
             for inp in self.example_inputs:
                 dist.broadcast(inp, src=group_src_rank, group=self.sch.group)
-            if self.example_outputs is not None:
+            if isinstance(self.example_outputs, torch.Tensor):
                 dist.broadcast(
                     self.example_outputs, src=group_src_rank, group=self.sch.group
                 )
@@ -141,18 +139,19 @@ class Verify(ContextDecorator):
             original_mod.eval()
         set_random_seed(2023)
         original_output = original_mod(*self.example_inputs)
-        if self.example_outputs is not None:
-            assert (
-                self.loss_fn is not None
-            ), "loss_fn must be provided when example_outputs is provided"
+        if self.loss_fn is not None:
+            assert isinstance(
+                self.example_outputs, torch.Tensor
+            ), "example_outputs must be provided when loss_fn is provided"
             original_output = self.loss_fn(original_output, self.example_outputs)
         if is_pipeline:
             # average the loss across all the DP devices
-            for ranks in self.topology.get_axis_comm_lists("data"):
-                dp_group = dist.new_group(ranks=ranks)
-                dist.all_reduce(original_output, group=dp_group)
-                if dist.get_rank() in ranks:
-                    original_output /= len(ranks)
+            if self.topology.get_dim("data") > 1:
+                for ranks in self.topology.get_axis_comm_lists("data"):
+                    dp_group = dist.new_group(ranks=ranks)
+                    dist.all_reduce(original_output, group=dp_group)
+                    if dist.get_rank() in ranks:
+                        original_output /= len(ranks)
         # 4. Broadcast the original model from rank 0 to other ranks
         #    Since for verification, each device holds an entire copy of the original
         #    model, here we directly broadcast the model to all the devices.
@@ -167,7 +166,7 @@ class Verify(ContextDecorator):
             copied_mod = copy.deepcopy(self.sch.mod)
             is_copy_failed = False
         except TypeError:
-            # One example is ProcessGroup cannot be copied:
+            # One example is ProcessGroup that cannot be copied:
             # https://github.com/pytorch/pytorch/issues/73825
             is_copy_failed = True
             logger.warning(
@@ -243,7 +242,7 @@ class Verify(ContextDecorator):
         if is_pipeline:
             from deepspeed.utils import RepeatingLoader
 
-            train_iter = RepeatingLoader(
+            data_iter = RepeatingLoader(
                 [
                     # First batch: (inputs, labels)
                     (
@@ -255,11 +254,22 @@ class Verify(ContextDecorator):
                 ]
             )
             # DeepSpeed will automatically broadcast the output to each device
-            new_output = new_mod.train_batch(train_iter)
+            if self.eval_mode:
+                new_output = new_mod.eval_batch(
+                    data_iter, compute_loss=True if self.loss_fn else False
+                )
+            else:
+                new_output = new_mod.train_batch(data_iter)
         else:
             new_output = new_mod(*self.example_inputs)
         # 9. Compare the outputs
-        torch.testing.assert_close(original_output, new_output)
+        if is_pipeline:
+            if isinstance(original_output, dict):
+                original_output = original_output["logits"]
+        if new_output is not None:
+            if self.loss_fn is not None and new_output.shape != original_output.shape:
+                new_output = new_output.view(original_output.shape)
+            torch.testing.assert_close(original_output, new_output)
         logger.info("Passed verification!")
         if not is_copy_failed:
             del new_mod

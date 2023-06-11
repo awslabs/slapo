@@ -4,6 +4,7 @@
 """Test DeepSpeed Pipeline."""
 import os
 import pytest
+import inspect
 
 import torch
 from torch import nn
@@ -16,6 +17,7 @@ from slapo.framework_dialect.deepspeed.pipeline import (
     get_ds_config,
     create_dist_group_for_pipeline,
 )
+from slapo.op.cross_entropy import ParallelCrossEntropy
 
 
 class LinearReLU(nn.Module):
@@ -164,7 +166,6 @@ def test_pipeline_2stages_pp_tp_dp():
     num_pp = 2
     num_mp = 2
     num_dp = dist.get_world_size() // (num_pp * num_mp)
-    print("num_dp:", num_dp, "num_pp:", num_pp, "num_mp:", num_mp)
     topology, group = create_dist_group_for_pipeline(num_pp=num_pp, num_mp=num_mp)
     sch = slapo.create_schedule(model, group=group)
     sch.trace_until("")
@@ -194,8 +195,71 @@ def test_pipeline_2stages_pp_tp_dp():
         sch["layers.0"].cut_pipeline_stage()
 
 
+def test_bert_2stages_pp():
+    deepspeed.init_distributed(dist_backend="nccl")
+    if dist.get_world_size() != 2:
+        pytest.skip("This test requires 2 GPUs.")
+    local_rank = int(os.environ["LOCAL_RANK"])
+    torch.cuda.set_device(local_rank)
+
+    from transformers import BertLMHeadModel, AutoConfig
+
+    config = AutoConfig.from_pretrained("bert-large-uncased")
+    with slapo.init_empty_weights():
+        model = BertLMHeadModel(config)
+
+    num_pp = 2
+    num_mp = 1
+    num_dp = dist.get_world_size() // (num_pp * num_mp)
+    topology, group = create_dist_group_for_pipeline(num_pp=num_pp, num_mp=num_mp)
+    sch = slapo.create_schedule(model, group=group)
+    input_names = ["input_ids", "attention_mask", "token_type_ids"]
+    sig = inspect.signature(sch.mod.forward)
+    concrete_args = {
+        p.name: p.default for p in sig.parameters.values() if p.name not in input_names
+    }
+    sch.trace_until(f"bert.encoder", tracer="huggingface", concrete_args=concrete_args)
+
+    loss_fct = ParallelCrossEntropy(group=group)
+
+    def loss_fn(outputs, labels):
+        # (bs, seq, vocab)
+        prediction_scores = outputs["logits"]
+        shifted_prediction_scores = prediction_scores[..., :-1, :].contiguous()
+        shifted_prediction_scores = shifted_prediction_scores
+        labels = labels[..., 1:].contiguous()
+        lm_loss = loss_fct(shifted_prediction_scores, labels)
+        lm_loss = lm_loss.contiguous().mean()
+        return lm_loss
+
+    bs = 2
+    seq_len = 512
+    ds_config_dict = get_ds_config(
+        batch_size=bs,
+        micro_batch_size_per_gpu=bs // num_dp,
+        fp16=False,
+    )
+    device = "cuda"
+    input_ids = torch.ones(bs, seq_len, dtype=torch.long, device=device)
+    attention_mask = torch.ones(bs, seq_len, dtype=torch.float32, device=device)
+    token_type_ids = torch.ones(
+        bs, seq_len, dtype=torch.long, requires_grad=False, device=device
+    )
+    labels = torch.randint(0, 10, (bs, seq_len), dtype=torch.long, device=sch.rank)
+    with slapo.Verify(
+        sch,
+        example_inputs=[input_ids, attention_mask, token_type_ids],
+        example_outputs=labels,
+        loss_fn=loss_fn,
+        topology=topology,
+        config=ds_config_dict,
+    ):
+        sch[f"bert.encoder.layer.11"].cut_pipeline_stage()
+
+
 if __name__ == "__main__":
-    test_pipeline_2stages_pp_dp()
-    test_pipeline_2stages_pp_tp()
-    test_pipeline_4stages_pp()
-    test_pipeline_2stages_pp_tp_dp()
+    # test_pipeline_2stages_pp_dp()
+    # test_pipeline_2stages_pp_tp()
+    # test_pipeline_4stages_pp()
+    # test_pipeline_2stages_pp_tp_dp()
+    test_bert_2stages_pp()

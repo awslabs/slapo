@@ -16,7 +16,6 @@ from slapo.framework_dialect.deepspeed.pipeline import (
     get_ds_config,
     create_dist_group_for_pipeline,
 )
-from slapo.op.cross_entropy import ParallelCrossEntropy
 from slapo.logger import get_logger
 
 logger = get_logger()
@@ -271,9 +270,9 @@ def test_bert_2stages_pp():
         config=ds_config_dict,
     ):
         sch.trace_until(
-            f"bert.encoder", tracer="huggingface", concrete_args=concrete_args
+            "bert.encoder", tracer="huggingface", concrete_args=concrete_args
         )
-        sch[f"bert.encoder.layer.11"].cut_pipeline_stage()
+        sch["bert.encoder.layer.11"].cut_pipeline_stage()
 
 
 if __name__ == "__main__":

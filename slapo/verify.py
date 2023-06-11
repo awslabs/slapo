@@ -1,5 +1,6 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
+# pylint: disable=too-many-branches
 
 import sys
 import copy
@@ -256,7 +257,7 @@ class Verify(ContextDecorator):
             # DeepSpeed will automatically broadcast the output to each device
             if self.eval_mode:
                 new_output = new_mod.eval_batch(
-                    data_iter, compute_loss=True if self.loss_fn else False
+                    data_iter, compute_loss=bool(self.loss_fn)
                 )
             else:
                 new_output = new_mod.train_batch(data_iter)
@@ -264,6 +265,8 @@ class Verify(ContextDecorator):
             new_output = new_mod(*self.example_inputs)
         # 9. Compare the outputs
         if is_pipeline:
+            # DS only outputs a single tensor, while the original
+            # HF model may output a dictionary
             if isinstance(original_output, dict):
                 original_output = original_output["logits"]
         if new_output is not None:

@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # pylint: disable=too-many-branches
 
+import re
 import sys
 import copy
 from contextlib import ContextDecorator
@@ -36,7 +37,16 @@ class Verify(ContextDecorator):
         if not isinstance(example_inputs, list):
             example_inputs = [example_inputs]
         self.device = device
-        self.example_inputs = [x.to(self.device) for x in example_inputs]
+        self.original_inputs = []
+        self.example_inputs = []
+        for x in example_inputs:
+            if isinstance(x, torch.Tensor):
+                x = x.to(self.device)
+                self.example_inputs.append(x)
+                self.original_inputs.append(x)
+            else:
+                # DS pipeline does not accept non-tensor inputs
+                self.original_inputs.append(x)
         self.example_outputs = (
             example_outputs.to(self.device)
             if isinstance(example_outputs, torch.Tensor)
@@ -135,8 +145,9 @@ class Verify(ContextDecorator):
                     )
         else:
             group_src_rank = 0
-            for inp in self.example_inputs:
-                dist.broadcast(inp, src=group_src_rank, group=self.sch.group)
+            for inp in self.original_inputs:
+                if isinstance(inp, torch.Tensor):
+                    dist.broadcast(inp, src=group_src_rank, group=self.sch.group)
             if isinstance(self.example_outputs, torch.Tensor):
                 dist.broadcast(
                     self.example_outputs, src=group_src_rank, group=self.sch.group
@@ -146,7 +157,7 @@ class Verify(ContextDecorator):
         if self.eval_mode:
             original_mod.eval()
         set_random_seed(2023)
-        original_output = original_mod(*self.example_inputs)
+        original_output = original_mod(*self.original_inputs)
         if self.loss_fn is not None:
             assert isinstance(
                 self.example_outputs, torch.Tensor
@@ -197,9 +208,6 @@ class Verify(ContextDecorator):
         def init_weights(mod, path):
             for name, _ in mod.named_parameters(recurse=False):
                 full_name = f"{path}.{name}"
-                # FIXME: this is a workaround for ModuleList
-                full_name = full_name.replace("layer_", "layer.")
-                full_name = full_name.replace("layers_", "layers.")
                 if full_name not in original_param_names:
                     # Remove all the leading submod_ in the full_name
                     subpaths = full_name.split(".")
@@ -207,6 +215,9 @@ class Verify(ContextDecorator):
                     for subpath in subpaths:
                         if "submod_" not in subpath:
                             new_subpaths.append(subpath)
+                    # FIXME: this is a workaround for ModuleList
+                    if re.match(r".*_[0-9]+", new_subpaths[0]):
+                        new_subpaths[0] = new_subpaths[0].replace("_", ".")
                     full_name = ".".join(new_subpaths)
                     # We only match the last part of the full_name
                     # e.g., submod_1.submod_1.submod_1.layer.12.attention.self.query.weight

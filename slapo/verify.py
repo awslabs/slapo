@@ -192,6 +192,7 @@ class Verify(ContextDecorator):
                 full_name = f"{path}.{name}"
                 # FIXME: this is a workaround for ModuleList
                 full_name = full_name.replace("layer_", "layer.")
+                full_name = full_name.replace("layers_", "layers.")
                 if full_name not in original_param_names:
                     # Remove all the leading submod_ in the full_name
                     subpaths = full_name.split(".")

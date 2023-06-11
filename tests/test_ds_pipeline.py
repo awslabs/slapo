@@ -3,7 +3,6 @@
 
 """Test DeepSpeed Pipeline."""
 import os
-import pytest
 import inspect
 
 import torch
@@ -18,6 +17,9 @@ from slapo.framework_dialect.deepspeed.pipeline import (
     create_dist_group_for_pipeline,
 )
 from slapo.op.cross_entropy import ParallelCrossEntropy
+from slapo.logger import get_logger
+
+logger = get_logger()
 
 
 class LinearReLU(nn.Module):
@@ -48,7 +50,8 @@ class Model(nn.Module):
 def test_pipeline_2stages_pp_dp():
     deepspeed.init_distributed(dist_backend="nccl")
     if dist.get_world_size() != 4:
-        pytest.skip("This test requires 4 GPUs.")
+        logger.info("This test requires 4 GPUs.")
+        return
     local_rank = int(os.environ["LOCAL_RANK"])
     torch.cuda.set_device(local_rank)
     with slapo.init_empty_weights():
@@ -83,7 +86,8 @@ def test_pipeline_2stages_pp_dp():
 def test_pipeline_2stages_pp_tp():
     deepspeed.init_distributed(dist_backend="nccl")
     if dist.get_world_size() != 4:
-        pytest.skip("This test requires 4 GPUs.")
+        logger.info("This test requires 4 GPUs.")
+        return
     local_rank = int(os.environ["LOCAL_RANK"])
     torch.cuda.set_device(local_rank)
 
@@ -124,7 +128,8 @@ def test_pipeline_2stages_pp_tp():
 def test_pipeline_4stages_pp():
     deepspeed.init_distributed(dist_backend="nccl")
     if dist.get_world_size() != 4:
-        pytest.skip("This test requires 4 GPUs.")
+        logger.info("This test requires 4 GPUs.")
+        return
     local_rank = int(os.environ["LOCAL_RANK"])
     torch.cuda.set_device(local_rank)
     with slapo.init_empty_weights():
@@ -157,7 +162,8 @@ def test_pipeline_4stages_pp():
 def test_pipeline_2stages_pp_tp_dp():
     deepspeed.init_distributed(dist_backend="nccl")
     if dist.get_world_size() != 8:
-        pytest.skip("This test requires 8 GPUs.")
+        logger.info("This test requires 8 GPUs.")
+        return
     local_rank = int(os.environ["LOCAL_RANK"])
     torch.cuda.set_device(local_rank)
 
@@ -198,7 +204,8 @@ def test_pipeline_2stages_pp_tp_dp():
 def test_bert_2stages_pp():
     deepspeed.init_distributed(dist_backend="nccl")
     if dist.get_world_size() != 2:
-        pytest.skip("This test requires 2 GPUs.")
+        logger.info("This test requires 2 GPUs.")
+        return
     local_rank = int(os.environ["LOCAL_RANK"])
     torch.cuda.set_device(local_rank)
 
@@ -267,8 +274,8 @@ def test_bert_2stages_pp():
 
 
 if __name__ == "__main__":
-    # test_pipeline_2stages_pp_dp()
-    # test_pipeline_2stages_pp_tp()
-    # test_pipeline_4stages_pp()
-    # test_pipeline_2stages_pp_tp_dp()
-    test_bert_2stages_pp()
+    test_pipeline_2stages_pp_dp()
+    test_pipeline_2stages_pp_tp()
+    test_pipeline_4stages_pp()
+    test_pipeline_2stages_pp_tp_dp()
+    # test_bert_2stages_pp()

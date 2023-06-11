@@ -185,19 +185,34 @@ class Verify(ContextDecorator):
         # 7. Use original weights to initialize the new model
         #    Notice init_weights is called before actual sharding, so we only need to
         #    assign the original weights to the corresponding modules
+        original_param_names = original_state_dict.keys()
 
         def init_weights(mod, path):
             for name, _ in mod.named_parameters(recurse=False):
-                if is_pipeline:
-                    path = path.split(".")
-                    idx = 0
-                    for i, subpath in enumerate(path):
+                full_name = f"{path}.{name}"
+                # FIXME: this is a workaround for ModuleList
+                full_name = full_name.replace("layer_", "layer.")
+                if full_name not in original_param_names:
+                    # Remove all the leading submod_ in the full_name
+                    subpaths = full_name.split(".")
+                    new_subpaths = []
+                    for subpath in subpaths:
                         if "submod_" not in subpath:
-                            idx = i
+                            new_subpaths.append(subpath)
+                    full_name = ".".join(new_subpaths)
+                    # We only match the last part of the full_name
+                    # e.g., submod_1.submod_1.submod_1.layer.12.attention.self.query.weight
+                    # should match bert.encoder.layer.12.attention.self.query.weight
+                    for param_name in original_param_names:
+                        if param_name.endswith(full_name):
+                            original_name = param_name
                             break
-                    # Fix ModuleList name
-                    path = ".".join(path[idx:]).replace("_", ".")
-                original_name = f"{path}.{name}"
+                    else:
+                        raise RuntimeError(
+                            f"Cannot find the original parameter for {full_name}"
+                        )
+                else:
+                    original_name = full_name
                 setattr(
                     mod,
                     name,

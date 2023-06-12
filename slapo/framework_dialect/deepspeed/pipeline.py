@@ -364,7 +364,7 @@ class DeepSpeedPipeStageWrapper(nn.Module):
                 ), f"[{self.name}] Arg {arg_name} not found in liveness list: {liveness}"
                 idx = liveness.index(arg_name)
             ordered_args.append(unordered_args[idx])
-            if i > 0:
+            if i > 0 and not self.last:
                 # https://github.com/microsoft/DeepSpeed/blob/v0.9.2/deepspeed/runtime/pipe/engine.py#L639
                 assert (
                     torch.is_tensor(unordered_args[idx])

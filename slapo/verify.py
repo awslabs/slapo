@@ -1,6 +1,6 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
-# pylint: disable=too-many-branches
+# pylint: disable=too-many-branches, too-many-instance-attributes
 
 import re
 import sys

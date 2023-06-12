@@ -349,9 +349,6 @@ document.write(`
 <tr class="row-odd"><td><p><a class="reference internal" href="#slapo.schedule.ScheduleMetadata" title="slapo.schedule.ScheduleMetadata"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ScheduleMetadata</span></code></a>([tie_weights, param_tags, ...])</p></td>
 <td><p>The metadata of a schedule.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#slapo.schedule.SubgraphWrapper" title="slapo.schedule.SubgraphWrapper"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SubgraphWrapper</span></code></a>()</p></td>
-<td><p></p></td>
-</tr>
 </tbody>
 </table>
 <p><strong>Functions:</strong></p>
@@ -434,37 +431,6 @@ primitive class.</p>
 <dd class="field-odd"><p><a class="reference internal" href="#slapo.schedule.Schedule" title="slapo.schedule.Schedule">Schedule</a></p>
 </dd>
 </dl>
-</dd></dl>
-
-<dl class="py class">
-<dt class="sig sig-object py" id="slapo.schedule.SubgraphWrapper">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">slapo.schedule.</span></span><span class="sig-name descname"><span class="pre">SubgraphWrapper</span></span><a class="headerlink" href="#slapo.schedule.SubgraphWrapper" title="Permalink to this definition"><span>¶</span></a></dt>
-<dd><p><strong>Methods:</strong></p>
-<table class="autosummary longtable table autosummary">
-<colgroup>
-<col style="width: 10%" />
-<col style="width: 90%" />
-</colgroup>
-<tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="#slapo.schedule.SubgraphWrapper.forward" title="slapo.schedule.SubgraphWrapper.forward"><code class="xref py py-obj docutils literal notranslate"><span class="pre">forward</span></code></a>(x, bias, residual)</p></td>
-<td><p>Defines the computation performed at every call.</p></td>
-</tr>
-</tbody>
-</table>
-<dl class="py method">
-<dt class="sig sig-object py" id="slapo.schedule.SubgraphWrapper.forward">
-<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bias</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">residual</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#slapo.schedule.SubgraphWrapper.forward" title="Permalink to this definition"><span>¶</span></a></dt>
-<dd><p>Defines the computation performed at every call.</p>
-<p>Should be overridden by all subclasses.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Although the recipe for forward pass needs to be defined within
-this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
-instead of this since the former takes care of running the
-registered hooks while the latter silently ignores them.</p>
-</div>
-</dd></dl>
-
 </dd></dl>
 
 <dl class="py class">

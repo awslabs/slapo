@@ -290,9 +290,10 @@ document.write(`
   <h1>Source code for slapo.schedule</h1><div class="highlight"><pre>
 <span></span><span class="c1"># Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.</span>
 <span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
+
+<span class="c1"># pylint: disable=exec-used</span>
 <span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">import</span> <span class="nn">inspect</span>
 <span class="kn">import</span> <span class="nn">re</span>
 <span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">OrderedDict</span>
 <span class="kn">from</span> <span class="nn">collections.abc</span> <span class="kn">import</span> <span class="n">Callable</span>
@@ -305,26 +306,16 @@ document.write(`
 <span class="kn">import</span> <span class="nn">torch.distributed</span> <span class="k">as</span> <span class="nn">dist</span>
 <span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">fx</span><span class="p">,</span> <span class="n">nn</span>
 
-<span class="c1"># pylint: disable=unused-import</span>
-<span class="kn">import</span> <span class="nn">torch.nn.functional</span> <span class="k">as</span> <span class="nn">F</span>
-
 <span class="kn">from</span> <span class="nn">.logger</span> <span class="kn">import</span> <span class="n">get_logger</span>
 <span class="kn">from</span> <span class="nn">.primitives</span> <span class="kn">import</span> <span class="n">PRIMITIVES</span>
 <span class="kn">from</span> <span class="nn">.pipeline</span> <span class="kn">import</span> <span class="n">analyze_tie_weights</span>
 
 <span class="kn">from</span> <span class="nn">.tracer</span> <span class="kn">import</span> <span class="n">trace</span> <span class="k">as</span> <span class="n">trace_module</span>
-<span class="kn">from</span> <span class="nn">.utils.common</span> <span class="kn">import</span> <span class="n">is_lambda_function</span><span class="p">,</span> <span class="n">is_module_list</span>
+<span class="kn">from</span> <span class="nn">.utils.common</span> <span class="kn">import</span> <span class="n">is_module_list</span>
 <span class="kn">from</span> <span class="nn">.utils.mapping</span> <span class="kn">import</span> <span class="n">MAPPING_FROM_FUNCTIONAL_TO_MODULE</span>
-<span class="kn">from</span> <span class="nn">.pattern</span> <span class="kn">import</span> <span class="n">Pattern</span><span class="p">,</span> <span class="n">ModulePattern</span><span class="p">,</span> <span class="n">call_module</span>
+<span class="kn">from</span> <span class="nn">.pattern</span> <span class="kn">import</span> <span class="n">Pattern</span><span class="p">,</span> <span class="n">ModulePattern</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">()</span>
-
-<span class="c1"># Wrap call_module as a leaf.</span>
-<span class="c1"># This is a limitation of torch.fx</span>
-<span class="c1"># Currently the leaf function wrapper can only be registered in the same module</span>
-<span class="c1"># Otherwise, the wrapper cannot work properly.</span>
-<span class="c1"># See https://github.com/pytorch/pytorch/blob/v1.13.1/torch/fx/_symbolic_trace.py#L1011-L1012</span>
-<span class="n">fx</span><span class="o">.</span><span class="n">wrap</span><span class="p">(</span><span class="n">call_module</span><span class="p">)</span>
 
 
 <div class="viewcode-block" id="ScheduleMetadata"><a class="viewcode-back" href="../../python_api/schedule.html#slapo.ScheduleMetadata">[docs]</a><span class="nd">@dataclass</span>
@@ -572,14 +563,15 @@ document.write(`
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="n">named_modules</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">named_modules</span><span class="p">())</span>
-        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span>
-            <span class="n">pattern_fn</span><span class="p">,</span> <span class="p">(</span><span class="n">FunctionType</span><span class="p">,</span> <span class="n">Pattern</span><span class="p">)</span>
-        <span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">is_lambda_function</span><span class="p">(</span><span class="n">pattern_fn</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">pattern_fn</span><span class="p">,</span> <span class="p">(</span><span class="n">FunctionType</span><span class="p">,</span> <span class="n">Pattern</span><span class="p">))</span>
 
-        <span class="k">def</span> <span class="nf">find_match_subgraphs</span><span class="p">(</span><span class="n">curr</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">subgraphs</span><span class="p">):</span>
+        <span class="k">def</span> <span class="nf">find_match_subgraph</span><span class="p">(</span><span class="n">curr</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">subgraph</span><span class="p">):</span>
             <span class="k">if</span> <span class="n">target</span><span class="o">.</span><span class="n">op</span> <span class="o">==</span> <span class="s2">&quot;output&quot;</span><span class="p">:</span>
                 <span class="c1"># &quot;output&quot; always matches.</span>
                 <span class="k">return</span> <span class="kc">True</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">parent_name</span><span class="p">,</span> <span class="n">curr</span><span class="p">)</span> <span class="ow">in</span> <span class="n">all_nodes</span><span class="p">:</span>
+                <span class="c1"># Already matched.</span>
+                <span class="k">return</span> <span class="kc">False</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span>
                 <span class="p">(</span><span class="n">curr</span><span class="o">.</span><span class="n">op</span> <span class="o">==</span> <span class="n">target</span><span class="o">.</span><span class="n">op</span> <span class="ow">and</span> <span class="n">curr</span><span class="o">.</span><span class="n">target</span> <span class="o">==</span> <span class="n">target</span><span class="o">.</span><span class="n">target</span><span class="p">)</span>  <span class="c1"># exactly match</span>
                 <span class="ow">or</span> <span class="p">(</span>  <span class="c1"># nn.Module and nn.functional are viewed as the same</span>
@@ -591,7 +583,7 @@ document.write(`
                 <span class="ow">or</span> <span class="p">(</span>  <span class="c1"># use pattern language to match</span>
                     <span class="n">curr</span><span class="o">.</span><span class="n">op</span> <span class="o">==</span> <span class="s2">&quot;call_module&quot;</span>
                     <span class="ow">and</span> <span class="n">target</span><span class="o">.</span><span class="n">op</span> <span class="o">==</span> <span class="s2">&quot;call_function&quot;</span>
-                    <span class="ow">and</span> <span class="n">target</span><span class="o">.</span><span class="n">target</span> <span class="o">==</span> <span class="n">call_module</span>
+                    <span class="ow">and</span> <span class="n">target</span><span class="o">.</span><span class="n">target</span><span class="o">.</span><span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;call_module&quot;</span>
                     <span class="ow">and</span> <span class="n">re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">target</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">curr</span><span class="o">.</span><span class="n">target</span><span class="p">)</span>
                 <span class="p">)</span>
                 <span class="ow">or</span> <span class="p">(</span>  <span class="c1"># use pattern class for matching</span>
@@ -614,9 +606,9 @@ document.write(`
             <span class="p">):</span>
                 <span class="c1"># Not matched.</span>
                 <span class="k">return</span> <span class="kc">False</span>
-            <span class="k">if</span> <span class="p">(</span><span class="n">parent_name</span><span class="p">,</span> <span class="n">curr</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">subgraphs</span><span class="p">:</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">parent_name</span><span class="p">,</span> <span class="n">curr</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">subgraph</span><span class="p">:</span>
                 <span class="c1"># New matched.</span>
-                <span class="n">subgraphs</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">parent_name</span><span class="p">,</span> <span class="n">curr</span><span class="p">))</span>
+                <span class="n">subgraph</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">parent_name</span><span class="p">,</span> <span class="n">curr</span><span class="p">))</span>
             <span class="n">ptr</span> <span class="o">=</span> <span class="n">curr</span><span class="o">.</span><span class="n">next</span>
             <span class="n">found</span> <span class="o">=</span> <span class="kc">False</span>
             <span class="c1"># This loop is supposed to tackle the following case that the</span>
@@ -642,7 +634,7 @@ document.write(`
             <span class="c1"># The successor of the last operation of the fx graph is binded to the root node,</span>
             <span class="c1"># so when ptr.op == &quot;root&quot;, it means it reaches the end of the graph.</span>
             <span class="k">while</span> <span class="n">ptr</span><span class="o">.</span><span class="n">op</span> <span class="o">!=</span> <span class="s2">&quot;root&quot;</span><span class="p">:</span>
-                <span class="k">if</span> <span class="n">find_match_subgraphs</span><span class="p">(</span><span class="n">ptr</span><span class="p">,</span> <span class="n">target</span><span class="o">.</span><span class="n">next</span><span class="p">,</span> <span class="n">subgraphs</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">find_match_subgraph</span><span class="p">(</span><span class="n">ptr</span><span class="p">,</span> <span class="n">target</span><span class="o">.</span><span class="n">next</span><span class="p">,</span> <span class="n">subgraph</span><span class="p">):</span>
                     <span class="n">found</span> <span class="o">=</span> <span class="kc">True</span>
                     <span class="k">break</span>
                 <span class="n">ptr</span> <span class="o">=</span> <span class="n">ptr</span><span class="o">.</span><span class="n">next</span>
@@ -651,55 +643,22 @@ document.write(`
         <span class="bp">self</span><span class="o">.</span><span class="n">trace</span><span class="p">()</span>
 
         <span class="k">if</span> <span class="n">pattern_fn</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="c1"># pylint: disable=exec-used</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">pattern_fn</span><span class="p">,</span> <span class="n">Pattern</span><span class="p">):</span>
-                <span class="n">pattern_wrapper</span> <span class="o">=</span> <span class="n">pattern_fn</span>
+                <span class="n">pattern_mod</span> <span class="o">=</span> <span class="n">trace_module</span><span class="p">(</span>
+                    <span class="n">pattern_fn</span><span class="p">,</span>
+                    <span class="n">recursive</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                    <span class="n">flatten</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                    <span class="n">leaf_modules</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;ModulePattern&quot;</span><span class="p">],</span>
+                <span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="c1"># FIXME: Find a safer way to do it</span>
-                <span class="n">sig</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">signature</span><span class="p">(</span><span class="n">pattern_fn</span><span class="p">)</span>
-                <span class="n">param_str</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">sig</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
-                <span class="n">func_name</span> <span class="o">=</span> <span class="n">pattern_fn</span><span class="o">.</span><span class="vm">__name__</span>
-                <span class="n">src_code</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">pattern_fn</span><span class="p">)</span><span class="o">.</span><span class="n">splitlines</span><span class="p">()</span>
-                <span class="n">closure_vars</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">getclosurevars</span><span class="p">(</span><span class="n">pattern_fn</span><span class="p">)</span>
-                <span class="n">closure_code</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
-                <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">closure_vars</span><span class="o">.</span><span class="n">nonlocals</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-                    <span class="k">if</span> <span class="ow">not</span> <span class="n">callable</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
-                        <span class="n">closure_code</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2"> = </span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
-                <span class="n">formatted_code</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
-                <span class="n">indent</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
-                <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">src_code</span><span class="p">:</span>
-                    <span class="n">line</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
-                    <span class="k">if</span> <span class="s2">&quot;def&quot;</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
-                        <span class="n">front</span><span class="p">,</span> <span class="n">back</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;(&quot;</span><span class="p">)</span>
-                        <span class="n">line</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">indent</span><span class="si">}{</span><span class="n">front</span><span class="si">}</span><span class="s2">(self, </span><span class="si">{</span><span class="n">back</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
-                        <span class="n">indent</span> <span class="o">=</span> <span class="mi">8</span> <span class="o">*</span> <span class="s2">&quot; &quot;</span>
-                    <span class="k">else</span><span class="p">:</span>
-                        <span class="n">line</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">indent</span><span class="si">}{</span><span class="n">line</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
-                    <span class="n">formatted_code</span> <span class="o">+=</span> <span class="n">line</span>
-                <span class="k">if</span> <span class="s2">&quot;.call_module&quot;</span> <span class="ow">in</span> <span class="n">formatted_code</span><span class="p">:</span>
-                    <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
-                        <span class="s2">&quot;Please directly `from slapo.pattern import call_module`&quot;</span>
+                <span class="c1"># Workaround for fx wrap functions:</span>
+                <span class="c1"># https://github.com/pytorch/pytorch/issues/53534</span>
+                <span class="k">if</span> <span class="s2">&quot;call_module&quot;</span> <span class="ow">in</span> <span class="n">pattern_fn</span><span class="o">.</span><span class="vm">__globals__</span><span class="p">:</span>
+                    <span class="n">exec</span><span class="p">(</span>
+                        <span class="s2">&quot;import torch.fx; torch.fx.wrap(&#39;call_module&#39;)&quot;</span><span class="p">,</span>
+                        <span class="n">pattern_fn</span><span class="o">.</span><span class="vm">__globals__</span><span class="p">,</span>
                     <span class="p">)</span>
-                <span class="n">wrapper_code</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;&quot;&quot;</span>
-<span class="si">{</span><span class="n">closure_code</span><span class="si">}</span><span class="s2"></span>
-<span class="s2">class SubgraphWrapper(nn.Module):</span>
-<span class="s2">    def __init__(self):</span>
-<span class="s2">        super().__init__()</span>
-
-<span class="s2">    def forward(self, </span><span class="si">{</span><span class="n">param_str</span><span class="si">}</span><span class="s2">):</span>
-<span class="s2">        return self.</span><span class="si">{</span><span class="n">func_name</span><span class="si">}</span><span class="s2">(</span><span class="si">{</span><span class="n">param_str</span><span class="si">}</span><span class="s2">)</span>
-
-<span class="s2">    </span><span class="si">{</span><span class="n">formatted_code</span><span class="si">}</span><span class="s2"></span>
-<span class="s2">&quot;&quot;&quot;</span>
-                <span class="n">exec</span><span class="p">(</span><span class="n">wrapper_code</span><span class="p">,</span> <span class="nb">globals</span><span class="p">())</span>
-                <span class="c1"># pylint: disable=undefined-variable</span>
-                <span class="n">pattern_wrapper</span> <span class="o">=</span> <span class="n">SubgraphWrapper</span><span class="p">()</span>
-            <span class="n">pattern_mod</span> <span class="o">=</span> <span class="n">trace_module</span><span class="p">(</span>
-                <span class="n">pattern_wrapper</span><span class="p">,</span>
-                <span class="n">recursive</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-                <span class="n">flatten</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-                <span class="n">leaf_modules</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;ModulePattern&quot;</span><span class="p">],</span>
-            <span class="p">)</span>
+                <span class="n">pattern_mod</span> <span class="o">=</span> <span class="n">fx</span><span class="o">.</span><span class="n">symbolic_trace</span><span class="p">(</span><span class="n">pattern_fn</span><span class="p">)</span>
         <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">pattern_mod</span><span class="p">,</span> <span class="n">fx</span><span class="o">.</span><span class="n">GraphModule</span><span class="p">)</span>
 
         <span class="n">first_op</span> <span class="o">=</span> <span class="kc">None</span>
@@ -713,6 +672,7 @@ document.write(`
             <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Cannot find the first non-placeholder operator&quot;</span><span class="p">)</span>
 
         <span class="n">res</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">all_nodes</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">parent_name</span><span class="p">,</span> <span class="n">submod</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mod</span><span class="o">.</span><span class="n">named_modules</span><span class="p">():</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">submod</span><span class="p">,</span> <span class="n">fx</span><span class="o">.</span><span class="n">GraphModule</span><span class="p">):</span>
                 <span class="k">continue</span>
@@ -722,7 +682,8 @@ document.write(`
                 <span class="n">subgraph</span> <span class="o">=</span> <span class="p">[]</span>
                 <span class="n">target_node</span> <span class="o">=</span> <span class="n">first_op</span>
                 <span class="n">curr_node</span> <span class="o">=</span> <span class="n">node</span>
-                <span class="k">if</span> <span class="n">find_match_subgraphs</span><span class="p">(</span><span class="n">curr_node</span><span class="p">,</span> <span class="n">target_node</span><span class="p">,</span> <span class="n">subgraph</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">find_match_subgraph</span><span class="p">(</span><span class="n">curr_node</span><span class="p">,</span> <span class="n">target_node</span><span class="p">,</span> <span class="n">subgraph</span><span class="p">):</span>
+                    <span class="n">all_nodes</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">subgraph</span><span class="p">)</span>
                     <span class="n">res</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">subgraph</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span>
         <span class="k">return</span> <span class="n">res</span></div>
 

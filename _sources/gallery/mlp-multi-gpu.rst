@@ -412,7 +412,7 @@ Finally, we can build the optimized model by calling ``.build()``.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** ( 0 minutes  0.097 seconds)
+   **Total running time of the script:** ( 0 minutes  0.077 seconds)
 
 
 .. _sphx_glr_download_gallery_mlp-multi-gpu.py:

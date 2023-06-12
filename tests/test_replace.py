@@ -3,9 +3,11 @@
 """Test replace primitives."""
 # pylint: disable=comparison-with-callable, unused-argument
 
+import math
 import operator
 import pytest
 
+import torch
 from torch import nn
 import torch.nn.functional as F
 
@@ -338,6 +340,50 @@ def test_replace_function():
     assert cnt == 1
 
 
+def test_insertion_point():
+    class Model(nn.Module):
+        def forward(self, a, b, c):
+            x = a + b
+            y = c * 2
+            z = x + y
+            return z
+
+    model = Model()
+    sch = slapo.create_schedule(model)
+
+    def pattern(a1, b1, y1):
+        x1 = a1 + b1
+        z1 = x1 + y1
+        return z1
+
+    subgraph = sch.find(pattern)
+
+    def new_func(a, b, y):
+        return a * b * y
+
+    # The new_func should be inserted *after* the mul node.
+    sch.replace(new_func, subgraph)
+    names = ["a", "b", "c", "mul", "new_func", "output"]
+    for i, node in enumerate(sch.mod.graph.nodes):
+        assert node.name == names[i]
+
+
+def test_lambda():
+    class Model(nn.Module):
+        def forward(self, a, b):
+            x = a + b
+            y = a - x
+            return y
+
+    model = Model()
+    sch = slapo.create_schedule(model)
+    subgraph = sch.find(lambda a, b: a + b)
+    sch.replace(lambda a, b: a * b, subgraph)
+    subgraph = sch.find(lambda a, b: a - b)
+    sch.replace(lambda a, b: b // a, subgraph)
+    assert sch.mod(4, 10) == 10
+
+
 def test_transfer_hook():
     """Test whether the hooks are transferred to the new replaced module."""
 
@@ -378,6 +424,112 @@ def test_transfer_hook():
     assert len(all_hooks["fwd_pre"]) == 1
     assert len(all_hooks["fwd_post"]) == 1
     assert len(all_hooks["bwd_post"]) == 1
+
+
+def get_traced_bert():
+    from transformers import BertLMHeadModel, AutoConfig
+    import inspect
+    from torch import fx
+
+    config = AutoConfig.from_pretrained("bert-large-uncased")
+    with slapo.init_empty_weights():
+        model = BertLMHeadModel(config)
+
+    sch = slapo.create_schedule(model)
+    input_names = ["hidden_states"]
+    subsch = sch["bert.encoder.layer.0.attention.self"]
+    sig = inspect.signature(subsch.mod.forward)
+    concrete_args = {
+        p.name: p.default for p in sig.parameters.values() if p.name not in input_names
+    }
+    subsch.trace(
+        recursive=False, flatten=True, tracer="pytorch", concrete_args=concrete_args
+    )
+    assert isinstance(subsch.mod, fx.GraphModule)
+    return subsch, config
+
+
+def test_qkv():
+    subsch, _ = get_traced_bert()
+
+    def pattern(x):
+        x = call_module(r"(query|key|value)", x)
+        new_shape = x.size()[:-1] + (16, -1)
+        x = x.view(new_shape)
+        return x.permute(0, 2, 1, 3)
+
+    qkv_subgraphs = subsch.find(pattern)
+    assert len(qkv_subgraphs) == 3
+    for subgraph in qkv_subgraphs:
+        assert len(subgraph) == 6
+    # make sure matching different nodes
+    assert qkv_subgraphs[0][0][1].target == "query"
+    assert qkv_subgraphs[0][1][1].name == "size"
+    assert qkv_subgraphs[1][0][1].target == "key"
+    assert qkv_subgraphs[1][1][1].name == "size_1"
+    assert qkv_subgraphs[2][0][1].target == "value"
+    assert qkv_subgraphs[2][1][1].name == "size_2"
+
+    def qkv(x):
+        return (x, x, x)
+
+    subsch.replace(qkv, qkv_subgraphs)
+    cnt = 0
+    for node in subsch.mod.graph.nodes:
+        if node.target == operator.getitem and node.args[0].target == qkv:
+            cnt += 1
+    assert cnt == 3
+
+    subsch_1, _ = get_traced_bert()
+    qkv_subgraphs_1 = subsch_1.find(pattern)
+
+    class Identity(nn.Module):
+        def forward(self, x):
+            return (x, x, x)
+
+    subsch_1.replace(Identity(), qkv_subgraphs_1)
+    cnt = 0
+    for node in subsch_1.mod.graph.nodes:
+        if node.target == operator.getitem and node.args[0].target == "Identity_0":
+            cnt += 1
+    assert cnt == 3
+
+
+def test_efficient_attn():
+    subsch, config = get_traced_bert()
+
+    # https://pytorch.org/docs/master/generated/torch.nn.functional.scaled_dot_product_attention.html
+    def scaled_dot_product(query_layer, key_layer, value_layer):
+        attention_scores = torch.matmul(query_layer, key_layer.transpose(-1, -2))
+        attention_scores = attention_scores / math.sqrt(
+            config.hidden_size // config.num_attention_heads
+        )
+        attention_probs = F.softmax(attention_scores, dim=-1)
+        attention_probs = F.dropout(attention_probs)
+        context_layer = torch.matmul(attention_probs, value_layer)
+        return context_layer
+
+    subgraphs = subsch.find(scaled_dot_product)
+    assert len(subgraphs[0]) == 6
+    inp = torch.randn(1, 512, 1024)
+    # Test replacing with a function
+    # query, key, value argument orders are different
+    # should be able to replace, but the results are incorrect
+    with pytest.raises(AssertionError):
+        with slapo.Verify(subsch, [inp]):
+            subsch.replace(F.scaled_dot_product_attention, subgraphs)
+
+    subsch_1, _ = get_traced_bert()
+    subgraphs_1 = subsch_1.find(scaled_dot_product)
+    assert len(subgraphs_1[0]) == 6
+
+    class EfficientAttention(torch.nn.Module):
+        def forward(self, key_layer, query_layer, value_layer):
+            return F.scaled_dot_product_attention(query_layer, key_layer, value_layer)
+
+    # Test replacing with a module
+    with slapo.Verify(subsch_1, [inp]):
+        subsch_1.replace(EfficientAttention(), subgraphs_1)
 
 
 if __name__ == "__main__":

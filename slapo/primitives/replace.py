@@ -45,6 +45,141 @@ def _get_unique_module_name(gm_or_modules, name):
     return new_name
 
 
+def get_required_args(sig, ops, concrete_args=None):
+    first_node = ops[0]
+    if sig is None:
+        mod_args_need_inputs = []
+        default_args = {}
+    else:
+        mod_args_need_inputs = [
+            k
+            for k, v in sig.parameters.items()
+            if v.default is inspect.Parameter.empty
+            and v.kind is not inspect.Parameter.VAR_POSITIONAL
+        ]
+        default_args = {
+            k: v.default
+            for k, v in sig.parameters.items()
+            if v.default is not inspect.Parameter.empty
+        }
+    new_kwargs = {}
+    for key, value in default_args:
+        if key in first_node.kwargs:
+            new_kwargs[key] = value
+    if concrete_args is not None:
+        new_kwargs.update(concrete_args)
+    else:
+        concrete_args = {}
+    subgraph_args = []
+    for node in ops:
+        for arg in node.args:
+            if isinstance(arg, fx.Node) and arg not in ops and arg not in subgraph_args:
+                subgraph_args.append(arg)
+    if sig is not None and len(subgraph_args) + len(concrete_args) != len(
+        mod_args_need_inputs
+    ):
+        raise ValueError(
+            "The number of arguments (w/o default values) of the "
+            f"new module ({len(mod_args_need_inputs)}) does not match "
+            "the number of arguments of the original subgraph "
+            f"({len(subgraph_args)}). Please use `concrete_args` to "
+            "specify the arguments."
+        )
+    return subgraph_args, new_kwargs
+
+
+def vertical_fusion(
+    target_mod, subgraphs, new_mod_or_func, name=None, concrete_args=None
+):
+    """Vertical fusion.
+    e.g., s0->v0->s1->v1->s2->v2
+    [[s0, v0, s1, v1, s2, v2]]
+    """
+    is_module = True
+    if (
+        isinstance(new_mod_or_func, FunctionType)
+        or type(new_mod_or_func).__name__ == "builtin_function_or_method"
+    ):
+        is_module = False
+    ops = subgraphs[0]
+    path, _ = ops[0]
+    ops = [op[1] for op in ops]
+    if path:
+        assert hasattr(target_mod, path), f"{path} is not an attribute of {target_mod}"
+        target_mod = getattr(target_mod, path)
+
+    if is_module:
+        assert name is not None, "Please specify the name of the new module"
+        target_mod.add_module(name, new_mod_or_func)
+        sig = inspect.signature(new_mod_or_func.forward)
+    else:
+        try:
+            sig = inspect.signature(new_mod_or_func)
+        except ValueError:
+            sig = None
+    subgraph_args, new_kwargs = get_required_args(sig, ops, concrete_args)
+    last_node = ops[-1]
+    with target_mod.graph.inserting_after(last_node):
+        if is_module:
+            new_node = target_mod.graph.call_module(
+                name, tuple(subgraph_args), new_kwargs
+            )
+        else:
+            new_node = target_mod.graph.call_function(
+                new_mod_or_func, tuple(subgraph_args), new_kwargs
+            )
+    last_node.replace_all_uses_with(new_node)
+    for node in reversed(ops):
+        target_mod.graph.erase_node(node)
+
+
+def horizontal_fusion(
+    target_mod, subgraphs, new_mod_or_func, name=None, concrete_args=None
+):
+    """Horizontal fusion.
+        x
+      / | \
+    s0 s1 s2
+    v0 v1 v2
+    [[s0, v0], [s1, v1], [s2, v2]]
+    """
+    is_module = True
+    if (
+        isinstance(new_mod_or_func, FunctionType)
+        or type(new_mod_or_func).__name__ == "builtin_function_or_method"
+    ):
+        is_module = False
+    if concrete_args is not None:
+        raise ValueError("concrete_args is not supported for horizontal fusion")
+    path, node = subgraphs[0][0]
+    if path:
+        assert hasattr(target_mod, path), f"{path} is not an attribute of {target_mod}"
+        target_mod = getattr(target_mod, path)
+
+    if is_module:
+        assert name is not None, "Please specify the name of the new module"
+        target_mod.add_module(name, new_mod_or_func)
+    # TODO: Need to handle the case where the replaced module
+    # has different numbers of arguments with the original module.
+    # Also need more tests.
+    _, last_node = subgraphs[-1][-1]
+    with target_mod.graph.inserting_after(last_node):
+        if is_module:
+            new_node = target_mod.graph.call_module(name, node.args, node.kwargs)
+        else:
+            new_node = target_mod.graph.call_function(
+                new_mod_or_func, node.args, node.kwargs
+            )
+    with target_mod.graph.inserting_after(new_node):
+        for i, sublst in enumerate(subgraphs):
+            getitem = target_mod.graph.call_function(operator.getitem, (new_node, i))
+            sublst = [sublst] if not isinstance(sublst, list) else sublst
+            for _, node in reversed(sublst):
+                if node.users not in sublst:
+                    node.replace_all_uses_with(getitem)
+                target_mod.graph.erase_node(node)
+
+
 def _replace_function(sch, func, target_op):
     """Replace a function, in terms of a call_function node in fx graph.
     Do NOT directly call this function, use `.replace()` instead
@@ -60,11 +195,19 @@ def _replace_function(sch, func, target_op):
         The string in the tuple is the name of the parent module that
         the node belongs to.
     """
-    _, node = target_op
-    with sch.mod.graph.inserting_after(node):
-        new_node = sch.mod.graph.call_function(func, node.args, node.kwargs)
+    if isinstance(target_op, list):
+        sch.trace()
+        assert len(target_op) > 0, "Should have at least one operator to replace"
+        if len(target_op) > 1:
+            horizontal_fusion(sch.mod, target_op, func)
+        else:
+            vertical_fusion(sch.mod, target_op, func)
+    else:
+        _, node = target_op
+        with sch.mod.graph.inserting_after(node):
+            new_node = sch.mod.graph.call_function(func, node.args, node.kwargs)
         node.replace_all_uses_with(new_node)
-    sch.mod.graph.erase_node(node)
+        sch.mod.graph.erase_node(node)
 
 
 def _replace_module(self_sch, new_mod, subgraphs=None, name=None, concrete_args=None):
@@ -122,97 +265,14 @@ def _replace_module(self_sch, new_mod, subgraphs=None, name=None, concrete_args=
         self_sch.trace()
         assert len(subgraphs) > 0, "Should have at least one operator to replace"
         if len(subgraphs) > 1:
-            # horizontal fusion, e.g.,
-            #     x
-            #   / | \
-            #  s0 s1 s2
-            #  v0 v1 v2
-            #  [[s0, v0], [s1, v1], [s2, v2]]
-            path, node = subgraphs[0][0]
-            target_mod = self_sch.mod
-            if path:
-                assert hasattr(
-                    self_sch.mod, path
-                ), f"{path} is not an attribute of {self_sch.mod}"
-                target_mod = getattr(self_sch.mod, path)
-
-            target_mod.add_module(name, new_mod)
-            # TODO: Need to handle the case where the replaced module
-            # has different numbers of arguments with the original module.
-            # Also need more tests.
-            with target_mod.graph.inserting_before(node):
-                new_node = target_mod.graph.call_module(name, node.args, node.kwargs)
-            with target_mod.graph.inserting_after(new_node):
-                for i, sublst in enumerate(subgraphs):
-                    getitem = target_mod.graph.call_function(
-                        operator.getitem, (new_node, i)
-                    )
-                    sublst = [sublst] if not isinstance(sublst, list) else sublst
-                    for _, node in reversed(sublst):
-                        if node.users not in sublst:
-                            node.replace_all_uses_with(getitem)
-                        target_mod.graph.erase_node(node)
+            horizontal_fusion(
+                self_sch.mod, subgraphs, new_mod, name=name, concrete_args=concrete_args
+            )
             transfer_hooks_for_fusion(self_sch, subgraphs, new_mod)
         else:
-            # vertical fusion, e.g.,
-            # s0->v0
-            # [[s0, v0]]
-            ops = subgraphs[0]
-            path, first_node = ops[0]
-            ops = [op[1] for op in ops]
-            target_mod = self_sch.mod
-            if path:
-                assert hasattr(
-                    self_sch.mod, path
-                ), f"{path} is not an attribute of {self_sch.mod}"
-                target_mod = getattr(self_sch.mod, path)
-
-            target_mod.add_module(name, new_mod)
-            with target_mod.graph.inserting_before(first_node):
-                sig = inspect.signature(new_mod.forward)
-                mod_args_need_inputs = [
-                    k
-                    for k, v in sig.parameters.items()
-                    if v.default is inspect.Parameter.empty
-                    and v.kind is not inspect.Parameter.VAR_POSITIONAL
-                ]
-                default_args = {
-                    k: v.default
-                    for k, v in sig.parameters.items()
-                    if v.default is not inspect.Parameter.empty
-                }
-                new_kwargs = {}
-                for key, value in default_args:
-                    if key in first_node.kwargs:
-                        new_kwargs[key] = value
-                if concrete_args is not None:
-                    new_kwargs.update(concrete_args)
-                else:
-                    concrete_args = {}
-                subgraph_args = []
-                for node in ops:
-                    for arg in node.args:
-                        if (
-                            isinstance(arg, fx.Node)
-                            and arg not in ops
-                            and arg not in subgraph_args
-                        ):
-                            subgraph_args.append(arg)
-                if len(subgraph_args) + len(concrete_args) != len(mod_args_need_inputs):
-                    raise ValueError(
-                        "The number of arguments (w/o default values) of the "
-                        f"new module ({len(mod_args_need_inputs)}) does not match "
-                        "the number of arguments of the original subgraph "
-                        f"({len(subgraph_args)}). Please use `concrete_args` to "
-                        "specify the arguments."
-                    )
-                new_node = target_mod.graph.call_module(
-                    name, tuple(subgraph_args), new_kwargs
-                )
-            last_node = ops[-1]
-            last_node.replace_all_uses_with(new_node)
-            for node in reversed(ops):
-                target_mod.graph.erase_node(node)
+            vertical_fusion(
+                self_sch.mod, subgraphs, new_mod, name=name, concrete_args=concrete_args
+            )
             transfer_hooks_for_fusion(self_sch, subgraphs, new_mod)
         # Update schedules
         self_sch.child[name] = new_sch
@@ -244,11 +304,10 @@ class ReplacePrimitive(Primitive):
 
     @staticmethod
     def apply(sch, new_mod_or_func, target_ops=None, name=None, concrete_args=None):
-        if isinstance(new_mod_or_func, FunctionType):
-            if isinstance(target_ops, list):
-                raise ValueError(
-                    "Cannot replace multiple nodes in forward with one function"
-                )
+        if (
+            isinstance(new_mod_or_func, FunctionType)
+            or type(new_mod_or_func).__name__ == "builtin_function_or_method"
+        ):
             _replace_function(sch, new_mod_or_func, target_ops)
         else:
             _replace_module(sch, new_mod_or_func, target_ops, name, concrete_args)

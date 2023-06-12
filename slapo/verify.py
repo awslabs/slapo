@@ -288,6 +288,8 @@ class Verify(ContextDecorator):
             if isinstance(original_output, dict):
                 original_output = original_output["logits"]
         if new_output is not None:
+            # DS sometimes output shape-1 tensors, while the original
+            # HF model may output shape-0 tensors for loss
             if self.loss_fn is not None and new_output.shape != original_output.shape:
                 new_output = new_output.view(original_output.shape)
             torch.testing.assert_close(original_output, new_output)

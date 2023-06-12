@@ -295,7 +295,7 @@ def test_gpt2_2stages_pp():
     num_dp = dist.get_world_size() // (num_pp * num_mp)
     topology, group = create_dist_group_for_pipeline(num_pp=num_pp, num_mp=num_mp)
     sch = slapo.create_schedule(model, group=group)
-    input_names = ["input_ids", "attention_mask", "token_type_ids"]
+    input_names = ["input_ids", "attention_mask", "position_ids"]
     sig = inspect.signature(sch.mod.forward)
     concrete_args = {
         p.name: p.default for p in sig.parameters.values() if p.name not in input_names
@@ -317,6 +317,7 @@ def test_gpt2_2stages_pp():
         )
         return lm_loss
 
+    # avoid OOM
     bs = 2
     seq_len = 512
     micro_bs = bs // num_dp

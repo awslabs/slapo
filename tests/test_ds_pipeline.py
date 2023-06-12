@@ -324,12 +324,12 @@ def test_gpt2_2stages_pp():
     ds_config_dict = get_ds_config(
         batch_size=bs,
         micro_batch_size_per_gpu=micro_bs,
-        fp16=False,
+        fp16=True,
     )
     device = "cuda"
     input_ids = torch.ones(micro_bs, seq_len, dtype=torch.long, device=device)
     attention_mask = torch.ones(
-        micro_bs, seq_len, dtype=torch.float32, requires_grad=False, device=device
+        micro_bs, seq_len, dtype=torch.float16, requires_grad=False, device=device
     )
     position_ids = torch.ones(
         micro_bs, seq_len, dtype=torch.long, requires_grad=False, device=device
@@ -346,6 +346,7 @@ def test_gpt2_2stages_pp():
         topology=topology,
         config=ds_config_dict,
         init_weights=model._init_weights,
+        dtype=torch.float16,
     ):
         sch.trace_until(
             "transformer", tracer="huggingface", concrete_args=concrete_args
@@ -414,12 +415,12 @@ def test_gpt2_4stages_pp():
     ds_config_dict = get_ds_config(
         batch_size=bs,
         micro_batch_size_per_gpu=micro_bs,
-        fp16=False,
+        fp16=True,
     )
     device = "cuda"
     input_ids = torch.ones(micro_bs, seq_len, dtype=torch.long, device=device)
     attention_mask = torch.ones(
-        micro_bs, seq_len, dtype=torch.float32, requires_grad=False, device=device
+        micro_bs, seq_len, dtype=torch.float16, requires_grad=False, device=device
     )
     position_ids = torch.ones(
         micro_bs, seq_len, dtype=torch.long, requires_grad=False, device=device
@@ -436,6 +437,7 @@ def test_gpt2_4stages_pp():
         topology=topology,
         config=ds_config_dict,
         init_weights=model._init_weights,
+        dtype=torch.float16,
     ):
         sch.trace_until(
             "transformer", tracer="huggingface", concrete_args=concrete_args

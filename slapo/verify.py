@@ -115,6 +115,8 @@ class Verify(ContextDecorator):
             is_pipeline = True
         else:
             is_pipeline = False
+        if "dtype" in self.kwargs:
+            logger.info("Using %s data type", self.kwargs["dtype"], ranks=0)
         # 1. Build the original model with random weights
         named_params = self.original_sch.mod.named_parameters()
         is_initialized = named_params.__next__()[1].device != torch.device("meta")
@@ -126,6 +128,8 @@ class Verify(ContextDecorator):
         )
         #    make sure all the buffers are on the right device
         original_mod = original_mod.to(self.device)
+        #    with the correct data type
+        original_mod = original_mod.to(self.kwargs.get("dtype", torch.float32))
         # 2. Get the example inputs and outputs
         #    Broadcast the example inputs from rank 0 in each TP/PP group
         #    to other ranks in the same group.
@@ -253,7 +257,9 @@ class Verify(ContextDecorator):
             new_mod, _ = build(new_sch, init_weights=init_weights)
         # 8. Run the new model
         #    make sure all the buffers are on the right device
-        new_mod.to(self.device)
+        new_mod = new_mod.to(self.device)
+        #    with the correct data type
+        new_mod = new_mod.to(self.kwargs.get("dtype", torch.float32))
         if self.eval_mode:
             new_mod.eval()
         #    make sure the random seeds are the same, which may affect the output of dropout
@@ -292,6 +298,7 @@ class Verify(ContextDecorator):
             # HF model may output shape-0 tensors for loss
             if self.loss_fn is not None and new_output.shape != original_output.shape:
                 new_output = new_output.view(original_output.shape)
+            new_output = new_output.to(original_output.dtype)
             torch.testing.assert_close(original_output, new_output)
         logger.info("Passed verification!")
         if not is_copy_failed:

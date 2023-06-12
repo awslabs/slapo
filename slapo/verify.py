@@ -288,11 +288,11 @@ class Verify(ContextDecorator):
         else:
             new_output = new_mod(*self.example_inputs)
         # 9. Compare the outputs
-        if is_pipeline:
-            # DS only outputs a single tensor, while the original
-            # HF model may output a dictionary
-            if isinstance(original_output, dict):
-                original_output = original_output["logits"]
+        # Original HF model may output a dictionary
+        if isinstance(original_output, dict):
+            original_output = original_output["logits"]
+        if isinstance(new_output, dict):
+            new_output = new_output["logits"]
         if new_output is not None:
             # DS sometimes output shape-1 tensors, while the original
             # HF model may output shape-0 tensors for loss

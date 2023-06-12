@@ -267,6 +267,7 @@ def build(
                 raise RuntimeError(
                     "Model needs to tie weights but does not have `tie_weights` method. Probably because the model has been traced."
                 )
+            # https://github.com/huggingface/transformers/blob/v4.28.1/src/transformers/modeling_utils.py#L1274-L1277
             sch.mod.tie_weights()
 
     if sch.metadata.primitives["cut_pipeline_stage"] and target is not None:

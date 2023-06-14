@@ -155,7 +155,7 @@ def flat_and_name_tensor_list(data, name, suffix):
     values = data.values() if isinstance(data, dict) else data
 
     if isinstance(values, (list, tuple)) and any(
-        isinstance(t, torch.Tensor) for t in values
+        isinstance(t, (torch.Tensor, torch.Size)) for t in values
     ):
         for idx, tensor in enumerate(values):
             name_n_value.extend(

@@ -81,13 +81,6 @@ def preprocessing_datasets(datasets, tokenizer, model_name, max_seq_length=1024)
     column_names = datasets["train"].column_names
     text_column_name = "text" if "text" in column_names else column_names[0]
 
-    if tokenizer.model_max_length < max_seq_length:
-        raise ValueError(
-            f"The tokenizer ({tokenizer.__class__.__name__}) has a maximum sequence "
-            f"length of {tokenizer.model_max_length}, which cannot support "
-            f"`max_seq_length={max_seq_length}`"
-        )
-
     # we tokenize every text, then concatenate them together before splitting them in smaller parts.
     # We use `return_special_tokens_mask=True` because DataCollatorForLanguageModeling (see below) is more
     # efficient when it receives the `special_tokens_mask`.

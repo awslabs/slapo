@@ -9,6 +9,7 @@ from slapo.logger import get_logger
 
 logger = get_logger("Data_Utils")
 
+
 class LossTestDataset(Dataset):
     def __init__(self, dataset, fn) -> None:
         super().__init__()
@@ -89,6 +90,7 @@ def preprocessing_datasets(datasets, tokenizer, model_name, max_seq_length=1024)
             f"length of {tokenizer.model_max_length}, which may not support "
             f"`max_seq_length={max_seq_length}`"
         )
+
     # we tokenize every text, then concatenate them together before splitting them in smaller parts.
     # We use `return_special_tokens_mask=True` because DataCollatorForLanguageModeling (see below) is more
     # efficient when it receives the `special_tokens_mask`.

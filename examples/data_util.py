@@ -5,6 +5,9 @@ from transformers import AutoTokenizer
 from torch.utils.data import Dataset, DataLoader
 from torch.utils.data.distributed import DistributedSampler
 from functools import partial
+from slapo.logger import get_logger
+
+logger = get_logger("Data_Utils")
 
 
 class LossTestDataset(Dataset):
@@ -82,9 +85,9 @@ def preprocessing_datasets(datasets, tokenizer, model_name, max_seq_length=1024)
     text_column_name = "text" if "text" in column_names else column_names[0]
 
     if tokenizer.model_max_length < max_seq_length:
-        raise ValueError(
+        logger.warn(
             f"The tokenizer ({tokenizer.__class__.__name__}) has a maximum sequence "
-            f"length of {tokenizer.model_max_length}, which cannot support "
+            f"length of {tokenizer.model_max_length}, which may not support "
             f"`max_seq_length={max_seq_length}`"
         )
 

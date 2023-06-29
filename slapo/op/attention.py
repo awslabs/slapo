@@ -23,6 +23,7 @@ from torch import nn
 
 from ..logger import get_logger
 from ..utils.common import importlib_or_none
+from .flash_attention_triton import flash_attn_triton
 
 logger = get_logger()
 
@@ -281,10 +282,7 @@ class FlashAttentionOp(nn.Module):
         elif attn_op_name == "triton":
             self.pkg = "flash_attn"
             validate_sm_version("flash_attn_triton", (8, 0))
-            flash_attn_triton = importlib_or_none("flash_attn.flash_attn_triton")
-            if flash_attn_triton is None:
-                raise RuntimeError("flash_attn is not installed")
-            self.attn_fn = flash_attn_triton.flash_attn_func
+            self.attn_fn = flash_attn_triton
         elif attn_op_name == "cuda":
             self.pkg = "flash_attn"
             validate_sm_version("flash_attn_unpadded_func", (8, 0))

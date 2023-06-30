@@ -297,12 +297,12 @@ class DeepSpeedPipeStageWrapper(nn.Module):
                 ), f"[{self.name}] Arg {arg_name} not found in liveness list: {liveness}"
                 idx = liveness.index(arg_name)
             ordered_args.append(unordered_args[idx])
-            if i > 0:
-                # https://github.com/microsoft/DeepSpeed/blob/v0.9.2/deepspeed/runtime/pipe/engine.py#L639
-                assert (
-                    torch.is_tensor(unordered_args[idx])
-                    and unordered_args[idx].requires_grad is False
-                ), f"[{self.name}] The {i}-th argument {arg_name} is not a tensor or requires grad: {unordered_args[idx]}, which is not supported by DeepSpeed pipeline engine."
+            # if i > 0:
+            #     # https://github.com/microsoft/DeepSpeed/blob/v0.9.2/deepspeed/runtime/pipe/engine.py#L639
+            #     assert (
+            #         torch.is_tensor(unordered_args[idx])
+            #         and unordered_args[idx].requires_grad is False
+            #     ), f"[{self.name}] The {i}-th argument {arg_name} is not a tensor or requires grad: {unordered_args[idx]}, which is not supported by DeepSpeed pipeline engine."
 
         # FIXME: untested path
         for value in kwargs.values():

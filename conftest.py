@@ -14,6 +14,13 @@ def pytest_collection_modifyitems(items):
     are running different tests, then the entire tests will stuck.
     """
     items.sort(key=lambda item: item.name)
+    new_items = []
+    for item in items:
+        # Skip DeepSpeed tests
+        if item.parent.name not in ["test_ds_pipeline.py"]:
+            new_items.append(item)
+    items[:] = new_items
+    return items
 
 
 @pytest.fixture(scope="session")

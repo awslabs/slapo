@@ -331,8 +331,14 @@ class FlashAttentionOp(nn.Module):
             else:
                 attn_bias = attention_mask
 
-            ret = self.attn_fn(query_layer, key_layer, value_layer, 
-                               attn_bias, dropout_p=p, is_causal=self.apply_causal_mask)
+            ret = self.attn_fn(
+                query_layer,
+                key_layer,
+                value_layer,
+                attn_bias,
+                dropout_p=p,
+                is_causal=self.apply_causal_mask,
+            )
             ret = ret.view((N, S, -1, E))
         else:
             assert self.pkg == "flash_attn"

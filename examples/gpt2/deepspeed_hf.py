@@ -241,7 +241,7 @@ def train(args):
 
     train_loader, _ = get_dataloader(
         args.model_name,
-        "wikitext-103-v1",
+        "wikitext-2-v1",
         micro_batch_size,
         enable_pipeline,
         collate_fn=collate_fn,

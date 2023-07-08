@@ -290,6 +290,9 @@ class FlashAttentionOp(nn.Module):
             if flash_attn_interface is None:
                 raise RuntimeError("flash_attn is not installed")
             self.attn_fn = flash_attn_interface.flash_attn_unpadded_func
+        elif attn_op_name == "torch_sdp":
+            self.pkg = "torch_sdp"
+            self.attn_fn = torch.nn.functional.scaled_dot_product_attention
         else:
             self.pkg = "xformers"
             # When op=None, the xformers attention op will be automatically selected.
@@ -311,6 +314,26 @@ class FlashAttentionOp(nn.Module):
                 attn_bias = attention_mask
 
             ret = self.attn_fn(query_layer, key_layer, value_layer, attn_bias, p=p)
+        elif self.pkg == "torch_sdp":
+            # reshape
+            N, S, nH, E = query_layer.shape
+            query_layer = query_layer.view((N, nH, S, E))
+            key_layer = key_layer.view((N, nH, S, E))
+            value_layer = value_layer.view((N, nH, S, E))
+
+            if self.apply_causal_mask:
+                warning_once(
+                    "WARNING: torch.nn.functional.scaled_dot_product_attention "
+                    "does not accept mask when casue_mask is enabled. "
+                    "The given mask will be ignored"
+                )
+                attn_bias = None
+            else:
+                attn_bias = attention_mask
+
+            ret = self.attn_fn(query_layer, key_layer, value_layer, 
+                               attn_bias, dropout_p=p, is_causal=self.apply_causal_mask)
+            ret = ret.view((N, S, -1, E))
         else:
             assert self.pkg == "flash_attn"
             if self.attn_op_name != "native_flash_attn" and attention_mask is not None:

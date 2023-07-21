@@ -128,6 +128,8 @@ def setup():
         long_description_content_type="text/markdown",
         setup_requires=[],
         install_requires=[
+            "z3-solver",
+            "tabulate",
             "packaging",
             "psutil",
         ],

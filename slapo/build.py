@@ -257,7 +257,16 @@ def build(
     # delay initialization
     if init_weights:
         init_weight_fn = init_weights if isinstance(init_weights, Callable) else None
-        sch = consolidate_model(sch, target, init_weight_fn, **kwargs)
+        # print(f'schedule : {sch.metadata.primitives["shard"]}')
+        if sch.world_size == 1:
+            import deepspeed
+            context_manager = deepspeed.zero.Init(dtype=sch.mod.dtype)
+        else:
+            from contextlib import nullcontext
+            context_manager = nullcontext()
+
+        with context_manager:
+            sch = consolidate_model(sch, target, init_weight_fn, **kwargs)
 
     if sch.metadata.primitives["cut_pipeline_stage"] and target is not None:
         # Generate pipeline modules for a particular target.

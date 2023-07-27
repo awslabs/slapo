@@ -98,7 +98,7 @@ def train(args):
     logger.info(config, ranks=[0])
 
     report_memory(msg="Before creating model")
-    with slapo.init_empty_weights(enable=enable_pipeline):
+    with slapo.init_empty_weights():
         model = GPT2LMHeadModel(config)
     report_memory(msg="After creating model")
 

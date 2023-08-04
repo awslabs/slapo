@@ -38,4 +38,11 @@ def init_ds_engine(model, **kwargs):
         mpu=mpu,
     )
 
+    config = kwargs.get("config", None)
+    if config.get('pipeline', None) and \
+        config.get('pipeline').get('sequence_parallel', None):
+        logger.info(f'enabling sequence parallelism, disable pipe and grad partitioning')
+        model.is_pipe_partitioned = False
+        model.is_grad_partitioned = False
+
     return model, optimizer

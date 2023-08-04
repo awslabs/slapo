@@ -430,6 +430,7 @@ def shard_parameters(
                 axis=1,
                 tensor_parallel_output_grad=False,
             )
+            log_list.append("Shard input embedding with sequence parallelism")
 
         # Shard output embedding.
         if head_sch is not None:

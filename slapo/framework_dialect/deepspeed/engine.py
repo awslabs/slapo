@@ -38,11 +38,10 @@ def init_ds_engine(model, **kwargs):
         mpu=mpu,
     )
 
-    # `is_pipe_partitioned=True` is the default value due to TP
-    # but slapo has internally handled the partitioned inputs and outputs
-    # having `is_pipe_partitioned=True` leads to incorrect send receive buffer sizes
-    # which causes hanging
-    if hasattr(model, "is_pipe_parallel") and model.is_pipe_parallel:
+    config = kwargs.get("config", None)
+    if config.get('pipeline', None) and \
+        config.get('pipeline').get('sequence_parallel', None):
+        logger.info(f'enabling sequence parallelism, disable pipe and grad partitioning')
         model.is_pipe_partitioned = False
         model.is_grad_partitioned = False
 

@@ -130,7 +130,15 @@ Please refer to [benchmark](benchmark/README.md) for more details.
 
 
 ## Publication
-If you use Slapo in your project, please consult authors for citation.
+If you use Slapo in your project, please kindly cite our [paper](https://arxiv.org/abs/2302.08005):
+```bibtex
+@inproceedings{chen2024slapo,
+    title = {Slapo: A Schedule Language for Progressive Optimization of Large Deep Learning Model Training},
+    author = {Hongzheng Chen and Cody Hao Yu and Shuai Zheng and Zhen Zhang and Zhiru Zhang and Yida Wang},
+    booktitle = {Proceedings of the 29th ACM International Conference on Architectural Support for Programming Languages and Operating Systems, Volume 2 (ASPLOS ’24)},
+    year = {2024}
+}
+```
 
 
 ## License

@@ -61,7 +61,7 @@ bert = BertLMHeadModel(config)
 sch = slapo.create_schedule(bert)
 
 # Apply primitives to optimize the model
-# Please refer to examples/bert/schedule.py for details
+# Please refer to slapo/model_schedule/bert.py for details
 sch["bert.encoder.layer.0"].primitve(...)
 
 # Build an optimized model

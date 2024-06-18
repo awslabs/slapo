@@ -26,6 +26,73 @@ class WrappedTypeCode(Enum):
     TUPLE = 4
 
 
+def get_ds_config(
+    batch_size,
+    micro_batch_size_per_gpu,
+    fp16=True,
+    zero_stage=0,
+    desc="",
+    bf16=False,
+    sequence_parallel=False,
+):
+    # https://github.com/microsoft/DeepSpeed/blob/ff42743/tests/unit/model_parallelism/test_configurable_parallel_pp.py#L20
+    logger.info(f"fp16={fp16}, bf16={bf16}")
+    config_dict = {
+        "help": desc,
+        "steps_per_print": 10,
+        "optimizer": {"type": "AdamW", "params": {"lr": 0.0001}},
+        "fp16": {"enabled": fp16, "initial_scale_power": 12},
+        "bf16": {"enabled": bf16},
+        "gradient_clipping": 1.0,
+        "train_batch_size": batch_size,
+        "train_micro_batch_size_per_gpu": micro_batch_size_per_gpu,
+        "pipeline": {
+            "sequence_parallel": sequence_parallel,
+        },
+        "wall_clock_breakdown": False,
+    }
+
+    if zero_stage > 0:
+        zero_config_dict = {
+            "zero_optimization": {
+                "stage": zero_stage,
+                "overlap_comm": True,
+                "reduce_scatter": True,
+                "contiguous_gradients": False,
+                "prefetch_bucket_size": 5e8,
+            },
+            "zero_allow_untested_optimizer": True,
+        }
+        config_dict.update(zero_config_dict)
+
+    return config_dict
+
+
+_groups = []
+
+
+def create_dist_group_for_pipeline(num_pp, num_mp):
+    from deepspeed.runtime.pipe.topology import PipeModelDataParallelTopology
+
+    world_size = dist.get_world_size()
+    num_dp = world_size // (num_pp * num_mp)
+    topology = PipeModelDataParallelTopology(
+        num_pp=num_pp, num_mp=num_mp, num_dp=num_dp
+    )
+    model_groups = topology.get_axis_comm_lists("model")
+
+    global_rank = dist.get_rank()
+    group = None
+
+    for g in model_groups:
+        proc_group = dist.new_group(ranks=g)
+        _groups.append(proc_group)
+        if global_rank in g:
+            group = proc_group
+
+    return topology, group
+
+
 def get_simple_nested_list_str(data):
     """A helper function that prints a nested structure without printing
     tensor values.
@@ -88,7 +155,7 @@ def flat_and_name_tensor_list(data, name, suffix):
     values = data.values() if isinstance(data, dict) else data
 
     if isinstance(values, (list, tuple)) and any(
-        isinstance(t, torch.Tensor) for t in values
+        isinstance(t, (torch.Tensor, torch.Size)) for t in values
     ):
         for idx, tensor in enumerate(values):
             name_n_value.extend(
@@ -297,7 +364,7 @@ class DeepSpeedPipeStageWrapper(nn.Module):
                 ), f"[{self.name}] Arg {arg_name} not found in liveness list: {liveness}"
                 idx = liveness.index(arg_name)
             ordered_args.append(unordered_args[idx])
-            if i > 0:
+            if i > 0 and not self.last:
                 # https://github.com/microsoft/DeepSpeed/blob/v0.9.2/deepspeed/runtime/pipe/engine.py#L639
                 assert (
                     torch.is_tensor(unordered_args[idx])

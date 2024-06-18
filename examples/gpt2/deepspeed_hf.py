@@ -65,7 +65,7 @@ def train(args):
     topology, group = None, None
     if not SINGLE_DEVICE_FOR_DEBUG:
         deepspeed.init_distributed(dist_backend="nccl")
-        logger.info("Use deepspeed to initialize", ranks=0)
+        logger.info("Use deepspeed to initialize")
         if enable_pipeline:
             # num_pp, num_mp = 4, 2 # For single node testing.
             num_pp = args.pmp
@@ -82,10 +82,9 @@ def train(args):
         # We use the following broadcast as the first call for workaround,
         # and it will be removed once we implement the features to synchonrize
         # the model parameters during initialization.
-        x = torch.tensor(0, device=torch.cuda.current_device())
-        dist.broadcast(x, src=0)
+        dist.barrier()
 
-    logger.info(f"TMP {num_mp}, PMP {num_pp}", ranks=[0])
+    logger.info(f"TMP {num_mp}, PMP {num_pp}")
     # https://huggingface.co/EleutherAI/gpt-neo-2.7B/blob/main/config.json
     config = AutoConfig.from_pretrained(args.model_name)
     # FIXME: This model has vocab size 50257 that cannot be sharded by 2,
@@ -99,7 +98,7 @@ def train(args):
     logger.info(config, ranks=[0])
 
     report_memory(msg="Before creating model")
-    with slapo.init_empty_weights(enable=enable_pipeline):
+    with slapo.init_empty_weights():
         model = GPT2LMHeadModel(config)
     report_memory(msg="After creating model")
 
@@ -241,7 +240,7 @@ def train(args):
 
     train_loader, _ = get_dataloader(
         args.model_name,
-        "wikitext-103-v1",
+        "wikitext-2-v1",
         micro_batch_size,
         enable_pipeline,
         collate_fn=collate_fn,

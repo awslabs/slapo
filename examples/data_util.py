@@ -64,7 +64,7 @@ def get_dataloader(
         sampler=DistributedSampler(train_dataset, num_replicas=num_replicas, rank=rank),
         collate_fn=partial(collate_fn, enable_pipeline=enable_pipeline),
         drop_last=True,
-        num_workers=2,
+        num_workers=0,
         pin_memory=True,
     )
 
@@ -74,7 +74,7 @@ def get_dataloader(
         sampler=DistributedSampler(val_dataset, num_replicas=num_replicas, rank=rank),
         collate_fn=partial(collate_fn, enable_pipeline=enable_pipeline),
         drop_last=True,
-        num_workers=2,
+        num_workers=0,
         pin_memory=True,
     )
     return train_loader, val_loader
@@ -132,7 +132,7 @@ def preprocessing_datasets(datasets, tokenizer, model_name, max_seq_length=1024)
     lm_datasets = tokenized_datasets.map(
         group_texts,
         batched=True,
-        num_proc=4,
+        num_proc=1,
         load_from_cache_file=True,
     )
 

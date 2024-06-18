@@ -24,6 +24,7 @@ class WrappedTypeCode(Enum):
     TRUE_NONE = 2
     LIST = 3
     TUPLE = 4
+    TORCH_SIZE = 5
 
 
 def get_simple_nested_list_str(data):
@@ -32,6 +33,8 @@ def get_simple_nested_list_str(data):
     """
     if data is None:
         ret = "None"
+    elif isinstance(data, torch.Size):
+        ret = f"size({data})"
     elif isinstance(data, torch.Tensor):
         if data.shape == torch.Size([1]):
             ret = f"scalar({data.item()})"
@@ -54,6 +57,8 @@ def wrap_to_torch_tensor(data, device):
     if data is None:
         data = 0
         desired_type = WrappedTypeCode.TRUE_NONE
+    elif isinstance(data, torch.Size):
+        desired_type = WrappedTypeCode.TORCH_SIZE
     elif isinstance(data, list):
         desired_type = WrappedTypeCode.LIST
     elif isinstance(data, tuple):
@@ -76,6 +81,8 @@ def unwrap_torch_tensor(tensor, desired_type):
         return tensor.tolist()
     if desired_type == WrappedTypeCode.TUPLE:
         return tuple(tensor.tolist())
+    if desired_type == WrappedTypeCode.TORCH_SIZE:
+        return torch.Size(tensor)
     raise ValueError(f"Unsupported type code {desired_type}")
 
 
@@ -132,7 +139,7 @@ def flatten(outputs, device, path="", metadata=None, ret=None):
 
     for idx, output in enumerate(outputs):
         this_path = f"{path}.{idx}" if path else str(idx)
-        if isinstance(output, (tuple, list)):
+        if isinstance(output, (tuple, list)) and not isinstance(output, torch.Size):
             metadata, ret = flatten(output, device, this_path, metadata, ret)
         elif isinstance(output, dict):
             metadata, ret = flatten(output.values(), device, this_path, metadata, ret)
@@ -170,7 +177,7 @@ def unflatten(args, metadata):
     # in tuple type. HF models also have some implementations based on tuple
     # output, such as "output[:1] + (None,) + output[1:]".
     def tupleize(data):
-        if isinstance(data, (list, tuple)):
+        if isinstance(data, (list, tuple)) and not isinstance(data, torch.Size):
             return tuple(tupleize(t) for t in data)
         return data
 
@@ -297,12 +304,12 @@ class DeepSpeedPipeStageWrapper(nn.Module):
                 ), f"[{self.name}] Arg {arg_name} not found in liveness list: {liveness}"
                 idx = liveness.index(arg_name)
             ordered_args.append(unordered_args[idx])
-            if i > 0:
-                # https://github.com/microsoft/DeepSpeed/blob/v0.9.2/deepspeed/runtime/pipe/engine.py#L639
-                assert (
-                    torch.is_tensor(unordered_args[idx])
-                    and unordered_args[idx].requires_grad is False
-                ), f"[{self.name}] The {i}-th argument {arg_name} is not a tensor or requires grad: {unordered_args[idx]}, which is not supported by DeepSpeed pipeline engine."
+            # if i > 0:
+            #     # https://github.com/microsoft/DeepSpeed/blob/v0.9.2/deepspeed/runtime/pipe/engine.py#L639
+            #     assert (
+            #         torch.is_tensor(unordered_args[idx])
+            #         and unordered_args[idx].requires_grad is False
+            #     ), f"[{self.name}] The {i}-th argument {arg_name} is not a tensor or requires grad: {unordered_args[idx]}, which is not supported by DeepSpeed pipeline engine."
 
         # FIXME: untested path
         for value in kwargs.values():

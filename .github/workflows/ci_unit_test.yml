@@ -64,8 +64,11 @@ jobs:
         id: gen_tag
         # This tag is PR-unique so it can be used to connect jobs for the same PR.
         # For example, we use it to share ccache caches and cancel previous runs.
+        env:
+          REPO: ${{ steps.job_info.outputs.repo }}
+          PR: ${{ steps.pr_job_info.outputs.pr }}
         run: |
-          tag=${{ steps.job_info.outputs.repo }}/${{ steps.pr_job_info.outputs.pr }}
+          tag=${REPO}/${PR}
           echo "tag=${tag}" >> $GITHUB_OUTPUT
       - name: Whether linting was failed
         if: ${{ github.event.workflow_run.conclusion != 'success' }}
@@ -77,13 +80,20 @@ jobs:
     steps:
       - uses: haya14busa/action-workflow_run-status@v1
       - name: List environments
+        env:
+          JOB_TAG: ${{ needs.check_status.outputs.job_tag }}
+          SKIP_CI: ${{ needs.check_status.outputs.skip_ci }}
+          REF: ${{ needs.check_status.outputs.ref }}
+          REPO: ${{ needs.check_status.outputs.repo }}
+          PR: ${{ needs.check_status.outputs.pr }}
+          SHA: ${{ needs.check_status.outputs.sha }}
         run: |
-          echo "Job tag: ${{ needs.check_status.outputs.job_tag }}"
-          echo "Skip CI? ${{ needs.check_status.outputs.skip_ci }}"
-          echo "REF: ${{ needs.check_status.outputs.ref }}"
-          echo "REPO: ${{ needs.check_status.outputs.repo }}"
-          echo "PR: ${{ needs.check_status.outputs.pr }}"
-          echo "SHA: ${{ needs.check_status.outputs.sha }}"
+          echo "Job tag: ${JOB_TAG}"
+          echo "Skip CI? ${SKIP_CI}"
+          echo "REF: ${REF}"
+          echo "REPO: ${REPO}"
+          echo "PR: ${PR}"
+          echo "SHA: ${SHA}"
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
@@ -94,9 +104,15 @@ jobs:
         # No need to checkout submodules because we only need the script.
         uses: actions/checkout@v2
       - name: Test
+        env:
+          SKIP_CI: ${{ needs.check_status.outputs.skip_ci }}
+          DOCKER_IMAGE: ${{ needs.check_status.outputs.docker_image }}
+          JOB_TAG: ${{ needs.check_status.outputs.job_tag }}
+          REF: ${{ needs.check_status.outputs.ref }}
+          REPO: ${{ needs.check_status.outputs.repo }}
         run: |
           # env vars are unavailable in job.if so we have to implement it here.
-          if [ "${{ needs.check_status.outputs.skip_ci }}" == "1" ]; then
+          if [ "${SKIP_CI}" == "1" ]; then
             echo "Skip tests"
             exit 0
           fi
@@ -104,13 +120,13 @@ jobs:
           python3 -m pip install argparse boto3
           python3 ./ci/submit_job.py \
             --platform multi-GPU \
-            --image ${{ needs.check_status.outputs.docker_image }} \
-            --name ci-gpu-${{ needs.check_status.outputs.job_tag }} \
+            --image ${DOCKER_IMAGE} \
+            --name ci-gpu-${JOB_TAG} \
             --job-queue ci-gpu-queue \
             --job-def-cfg ./ci/job_def_cfg.json \
             --entry-script /batch/entry.sh \
-            --source-ref ${{ needs.check_status.outputs.ref }} \
-            --repo ${{ needs.check_status.outputs.repo }} \
+            --source-ref ${REF} \
+            --repo ${REPO} \
             --wait \
             --command "bash ./ci/install_test_pkgs.sh; bash ./ci/task_unit_test.sh"
   update_ci_badge:
@@ -137,15 +153,18 @@ jobs:
           echo "pr=${pr}" >> $GITHUB_OUTPUT
       - name: Generate CI badge
         id: badge
+        env:
+          PR: ${{ steps.pr_job_info.outputs.pr }}
+          UNIT_TEST_RESULT: ${{ needs.unit_test.result }}
         run: |
           # env vars are unavailable in job.if so we have to implement it here.
-          if [ "${{ steps.pr_job_info.outputs.pr }}" != "" ]; then
+          if [ "${PR}" != "" ]; then
             echo "No need to update badge for PR CI. Skip."
             exit 0
           fi
           echo "gist_id=4b5f48daff54fb5d1a862c1649632648" >> $GITHUB_OUTPUT
           head_commit=$(git rev-parse --short HEAD)
-          if [[ "${{ needs.unit_test.result }}" == "success" ]]; then
+          if [[ "${UNIT_TEST_RESULT}" == "success" ]]; then
             echo "message=passing (${head_commit})" >> $GITHUB_OUTPUT
             echo "color=success" >> $GITHUB_OUTPUT
           else

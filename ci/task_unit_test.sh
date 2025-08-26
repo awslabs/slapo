@@ -39,6 +39,9 @@ echo "Running unit tests..."
 #   -p "no:randomly": disable randomly plugin for sharding tests.
 torchrun --nproc_per_node 2 -r 1:1 -m pytest -rxXs -p "no:randomly" tests
 
+echo "Running DeepSpeed unit tests..."
+deepspeed --num_gpus 4 tests/test_ds_pipeline.py
+
 echo "Downloading test data..."
 bash benchmark/download_benchmark_dataset.sh
 

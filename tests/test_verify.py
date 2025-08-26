@@ -175,7 +175,9 @@ def test_bert(init_dist):
     bs = 2
     seq = 512
     input_ids = torch.ones(bs, seq, dtype=torch.long, device=sch.rank)
-    with slapo.Verify(sch, [input_ids], eval_mode=True):
+    with slapo.Verify(
+        sch, [input_ids], eval_mode=True, init_weights=model._init_weights
+    ):
         for i in range(config.num_hidden_layers):
             # shard attention
             subsch = sch[f"bert.encoder.layer.{i}.attention.self"]
